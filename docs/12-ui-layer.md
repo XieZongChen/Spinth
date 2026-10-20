@@ -113,7 +113,8 @@ ActionBar / MindAddButtons：纯算术定位
 ## 6. 启动链路
 
 1. index.html 静态首帧（品牌标 + 背景色，无 JS）。
-2. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”。
+2. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”，品牌丝带做
+   3D 翻转 + 横向摆动 + 下落循环（`prefers-reduced-motion` 时静止）。
 3. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导。
 4. 初始化失败 → 错误卡 + 重试按钮（IndexedDB 禁用/配额满等），不永久卡 loading。
 

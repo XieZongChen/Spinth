@@ -117,27 +117,57 @@
   animation: flyout-in 0.14s ease-out;
 }
 
-/* 火花脉动（加载态品牌时刻） */
-@keyframes spark-pulse {
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
+/* 丝带飘落（加载态品牌时刻）：3D 翻转 + 横向摆动 + 下落，循环一次完整落幅 */
+@keyframes ribbon-fall {
+  0% {
+    transform: translate3d(-9px, -34px, 0) rotateY(0deg) rotateZ(-24deg) scale(0.86);
+    opacity: 0;
+  }
+  12% {
     opacity: 1;
   }
-  50% {
-    transform: scale(1.12) rotate(8deg);
-    opacity: 0.75;
+  32% {
+    transform: translate3d(10px, -12px, 18px) rotateY(170deg) rotateZ(16deg) scale(1);
+  }
+  58% {
+    transform: translate3d(-7px, 12px, 0) rotateY(350deg) rotateZ(-12deg) scale(1.04);
+  }
+  84% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(8px, 34px, -12px) rotateY(520deg) rotateZ(22deg) scale(0.9);
+    opacity: 0;
   }
 }
 
-.spark-pulse {
-  animation: spark-pulse 1.6s ease-in-out infinite;
+.ribbon-stage {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  perspective: 240px;
+}
+
+.ribbon-stage img {
+  width: auto;
+  height: 40px;
+  transform-origin: 50% 50%;
+  backface-visibility: visible;
+  filter: drop-shadow(0 7px 10px rgb(124 92 252 / 24%));
+  will-change: transform, opacity;
+  animation: ribbon-fall 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dock-in,
   .flyout-in,
-  .spark-pulse {
+  .ribbon-stage img {
     animation: none;
+  }
+
+  .ribbon-stage img {
+    opacity: 1;
+    transform: none;
   }
 }
