@@ -1,6 +1,20 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'fs';
 import { unzipSync, zipSync } from 'fflate';
+import {
+  anyImageSprite,
+  cleanupDoc,
+  dragWidget,
+  exportViaMenu,
+  importViaInput,
+  modelCount,
+  pastePng,
+  persisted,
+  placeText,
+  ready,
+  uniquePngBytes,
+  waitForImportedNav,
+} from './helpers/projectFileE2e';
 
 /**
  * 项目文件（.spinth.zip）E2E（docs/20 §13.3）：
@@ -8,148 +22,6 @@ import { unzipSync, zipSync } from 'fflate';
  * 导航前落盘、只读态、390px、零外部网络。
  * fflate 仅供测试构造/检视包（app devDependency，不进运行时 bundle）。
  */
-
-/** 1×1 PNG（image.spec 同款） */
-const PNG_B64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-
-type Debug = {
-  modelCount: number;
-  vmStates: Array<Record<string, unknown>>;
-};
-
-async function ready(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const w = window as unknown as { __spinth?: { docState$: { getValue(): string } } };
-      return !!w.__spinth && w.__spinth.docState$.getValue() === 'synced';
-    },
-    undefined,
-    { timeout: 20_000 },
-  );
-}
-
-/** 页面调试快照；导航间隙（__spinth 未挂/换页中）返回 null——poll 兜底重试 */
-async function debug(page: Page): Promise<Debug | null> {
-  return page.evaluate(() => {
-    const w = window as unknown as { __spinth?: { __debug: Debug } };
-    if (!w.__spinth) return null;
-    return {
-      modelCount: w.__spinth.__debug.modelCount,
-      vmStates: w.__spinth.__debug.vmStates,
-    };
-  });
-}
-
-/** modelCount 轮询值（null → -1，让 expect.poll 继续重试直到新页面就绪） */
-async function modelCount(page: Page): Promise<number> {
-  return (await debug(page))?.modelCount ?? -1;
-}
-
-async function persisted(page: Page): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() =>
-          (
-            window as unknown as {
-              __spinth: { engine: { persistState$: { getValue(): string } } };
-            }
-          ).__spinth.engine.persistState$.getValue(),
-        ),
-      { timeout: 5_000 },
-    )
-    .toBe('saved');
-}
-
-/** 尾部加盐的唯一 PNG bytes（防跨 doc 内容寻址共享） */
-async function uniquePngBytes(page: Page): Promise<Buffer> {
-  const b64 = await page.evaluate((base) => {
-    const bin = atob(base);
-    const bytes = new Uint8Array(bin.length + 4);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    new DataView(bytes.buffer).setUint32(bin.length, Date.now() % 0xffffffff);
-    let s = '';
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-  }, PNG_B64);
-  return Buffer.from(b64, 'base64');
-}
-
-/** 页面内粘贴 PNG（image.spec 同款合成 ClipboardEvent） */
-async function pastePng(page: Page, bytes: Buffer): Promise<void> {
-  await page.evaluate((u8) => {
-    const dt = new DataTransfer();
-    dt.items.add(new File([u8], 'x.png', { type: 'image/png' }));
-    document.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
-    );
-  }, new Uint8Array(bytes));
-}
-
-/** 画布中央拖出一个控件（快捷键 + 鼠标拖拽；页坐标 +44 顶栏） */
-async function dragWidget(page: Page, key: string, dx = 120): Promise<void> {
-  await page.keyboard.press(key);
-  await page.mouse.move(200, 300);
-  await page.mouse.down();
-  await page.mouse.move(200 + dx, 300 + 90, { steps: 4 });
-  await page.mouse.up();
-  await page.waitForTimeout(80);
-}
-
-/** 放置一个带内容的 TEXT（t + 单击进编辑 + 输入 + Esc 落库，textEdit.spec 同款） */
-async function placeText(page: Page, content: string): Promise<void> {
-  await page.keyboard.press('t');
-  await page
-    .locator('canvas')
-    .first()
-    .click({ position: { x: 400, y: 260 } });
-  await page.keyboard.type(content);
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(80);
-}
-
-/** 菜单导出：返回下载与保存路径 */
-async function exportViaMenu(page: Page): Promise<{ fileName: string; path: string }> {
-  await page.getByRole('button', { name: '项目' }).click();
-  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
-  const dlPromise = page.waitForEvent('download', { timeout: 15_000 });
-  await page.getByRole('menuitem', { name: /导出项目/ }).click();
-  const download = await dlPromise;
-  const fileName = download.suggestedFilename();
-  const path = `/tmp/${fileName}`;
-  await download.saveAs(path);
-  return { fileName, path };
-}
-
-async function importViaInput(page: Page, path: string): Promise<void> {
-  await page.setInputFiles('input[data-spinth-project-import]', path);
-}
-
-/**
- * 导入成功后的导航等待：必须先等 URL 真正切走（location.assign 提交），
- * 再等新页 synced——只等 synced 会在旧页上立刻通过，随后的 goto/断言与
- * 在途导航相撞（net::ERR_ABORTED，偶红源）。返回新 docId。
- */
-async function waitForImportedNav(page: Page, previousDocId: string): Promise<string> {
-  await page.waitForURL(
-    (url) => {
-      const doc = url.searchParams.get('doc');
-      return !!doc && doc !== previousDocId;
-    },
-    { timeout: 20_000 },
-  );
-  const docId = new URL(page.url()).searchParams.get('doc') ?? '';
-  expect(docId).not.toBe('');
-  await ready(page);
-  return docId;
-}
-
-async function cleanupDoc(page: Page, docId: string): Promise<void> {
-  await page.evaluate((id) => {
-    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
-  }, docId);
-}
 
 test('round-trip（含图片）：导出 → 新文档导入 → 内容/图片恢复 → reload 仍在', async ({ page }) => {
   const docId = `e2e-pf-rt-${Date.now()}`;
@@ -163,21 +35,13 @@ test('round-trip（含图片）：导出 → 新文档导入 → 内容/图片�
   const png = await uniquePngBytes(page);
   await pastePng(page, png);
   await expect.poll(async () => await modelCount(page)).toBe(4);
-  // 图片真渲染（hasSprite）
-  await expect
-    .poll(
-      async () =>
-        (await debug(page))?.vmStates.some((v) => v.type === 'IMAGE' && v.hasSprite === true) ??
-        false,
-    )
-    .toBe(true);
+  await expect.poll(async () => anyImageSprite(page)).toBe(true);
   await persisted(page);
 
   // 导出：文件名格式（D5）；包结构符合 §4（manifest 第一、document、assets）
   const { fileName, path } = await exportViaMenu(page);
   expect(fileName).toMatch(/^spinth-e2e-pf-rt-\d+-\d{8}-\d{6}\.spinth\.zip$/);
-  const zipBytes = new Uint8Array(readFileSync(path));
-  const entries = unzipSync(zipBytes);
+  const entries = unzipSync(new Uint8Array(readFileSync(path)));
   const entryNames = Object.keys(entries);
   expect(entryNames).toContain('manifest.json');
   expect(entryNames).toContain('document.yjs');
@@ -198,13 +62,7 @@ test('round-trip（含图片）：导出 → 新文档导入 → 内容/图片�
   await importViaInput(page, path);
   const importedDocId = await waitForImportedNav(page, importDocBase);
   await expect.poll(async () => await modelCount(page)).toBe(4);
-  await expect
-    .poll(
-      async () =>
-        (await debug(page))?.vmStates.some((v) => v.type === 'IMAGE' && v.hasSprite === true) ??
-        false,
-    )
-    .toBe(true);
+  await expect.poll(async () => anyImageSprite(page)).toBe(true);
 
   // reload 后仍完整（A12）
   await page.reload();
@@ -235,66 +93,7 @@ test('导入失败：坏 ZIP / 版本过新 / 缺资产 / 坏哈希——错误�
 
   // 先导出一份合法包作为篡改底
   const { path } = await exportViaMenu(page);
-  const good = unzipSync(new Uint8Array(readFileSync(path)));
-  const manifest = JSON.parse(new TextDecoder().decode(good['manifest.json']!)) as {
-    document: { bytes: number; sha256: string };
-    assets: Array<{ id: string; path: string; mime: string; size: number }>;
-  };
-  const writeZip = (
-    mutate: (m: Record<string, unknown>, e: Record<string, Uint8Array>) => void,
-  ) => {
-    const m = JSON.parse(new TextDecoder().decode(good['manifest.json']!)) as Record<
-      string,
-      unknown
-    >;
-    const entries: Record<string, Uint8Array> = {
-      'document.yjs': good['document.yjs']!,
-    };
-    for (const [name, bytes] of Object.entries(good)) {
-      if (name.startsWith('assets/')) entries[name] = bytes;
-    }
-    mutate(m, entries);
-    entries['manifest.json'] = new TextEncoder().encode(JSON.stringify(m, null, 2) + '\n');
-    const buf = zipSync(entries);
-    const p = `/tmp/e2e-pf-tampered-${Date.now()}.spinth.zip`;
-    writeFileSync(p, buf);
-    return p;
-  };
-
-  const badCases: Array<{ path: string; message: RegExp }> = [];
-
-  // 坏 ZIP：随机字节
-  const garbage = `/tmp/e2e-pf-garbage-${Date.now()}.zip`;
-  writeFileSync(garbage, Buffer.from('this is not a zip file'));
-  badCases.push({ path: garbage, message: /已损坏或不是 spinth 项目/ });
-
-  // 版本过新
-  badCases.push({
-    path: writeZip((m) => {
-      m.version = 2;
-    }),
-    message: /版本过新/,
-  });
-
-  // 缺资产（manifest 声明、包内删除）
-  badCases.push({
-    path: writeZip((m, e) => {
-      for (const a of manifest.assets) delete e[a.path];
-      void m;
-    }),
-    message: /缺少图片资产/,
-  });
-
-  // 坏哈希（资产字节翻转）
-  badCases.push({
-    path: writeZip((m, e) => {
-      const a = manifest.assets[0]!;
-      const bytes = e[a.path]!;
-      bytes[0] = bytes[0]! ^ 0xff;
-      void m;
-    }),
-    message: /图片校验失败/,
-  });
+  const badZipPaths = buildTamperedZips(path);
 
   const dbsBefore = await page.evaluate(() =>
     indexedDB
@@ -304,7 +103,7 @@ test('导入失败：坏 ZIP / 版本过新 / 缺资产 / 坏哈希——错误�
   );
   const urlBefore = page.url();
 
-  for (const bad of badCases) {
+  for (const bad of badZipPaths) {
     // 打开菜单使错误提示可见（导入失败菜单保持打开，§9.2）
     await page.getByRole('button', { name: '项目' }).click();
     await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
@@ -327,6 +126,57 @@ test('导入失败：坏 ZIP / 版本过新 / 缺资产 / 坏哈希——错误�
   expect(dbsAfter.filter((n) => n.startsWith('spinth-doc:') && !dbsBefore.includes(n))).toEqual([]);
   await cleanupDoc(page, docId);
 });
+
+/** 以合法导出包为底构造四类篡改件（坏 ZIP / 版本过新 / 缺资产 / 坏哈希） */
+function buildTamperedZips(goodPath: string): Array<{ path: string; message: RegExp }> {
+  const good = unzipSync(new Uint8Array(readFileSync(goodPath)));
+  const manifest = JSON.parse(new TextDecoder().decode(good['manifest.json']!)) as {
+    assets: Array<{ path: string }>;
+  };
+  const writeZip = (
+    mutate: (m: Record<string, unknown>, e: Record<string, Uint8Array>) => void,
+  ): string => {
+    const m = JSON.parse(new TextDecoder().decode(good['manifest.json']!)) as Record<
+      string,
+      unknown
+    >;
+    const entries: Record<string, Uint8Array> = { 'document.yjs': good['document.yjs']! };
+    for (const [name, bytes] of Object.entries(good)) {
+      if (name.startsWith('assets/')) entries[name] = bytes;
+    }
+    mutate(m, entries);
+    entries['manifest.json'] = new TextEncoder().encode(JSON.stringify(m, null, 2) + '\n');
+    const p = `/tmp/e2e-pf-tampered-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.spinth.zip`;
+    writeFileSync(p, zipSync(entries));
+    return p;
+  };
+
+  const cases: Array<{ path: string; message: RegExp }> = [];
+  const garbage = `/tmp/e2e-pf-garbage-${Date.now()}.zip`;
+  writeFileSync(garbage, Buffer.from('this is not a zip file'));
+  cases.push({ path: garbage, message: /已损坏或不是 spinth 项目/ });
+  cases.push({
+    path: writeZip((m) => {
+      m.version = 2;
+    }),
+    message: /版本过新/,
+  });
+  cases.push({
+    path: writeZip((_m, e) => {
+      for (const a of manifest.assets) delete e[a.path];
+    }),
+    message: /缺少图片资产/,
+  });
+  cases.push({
+    path: writeZip((_m, e) => {
+      const a = manifest.assets[0]!;
+      const bytes = e[a.path]!;
+      bytes[0] = bytes[0]! ^ 0xff;
+    }),
+    message: /图片校验失败/,
+  });
+  return cases;
+}
 
 test('当前文档落盘：编辑后立即导入 → 回原文档，编辑仍在（A11）', async ({ page }) => {
   const docId = `e2e-pf-flush-${Date.now()}`;
@@ -373,8 +223,7 @@ test('390px：菜单面板在视口内、顶栏不换行（A9）', async ({ page
   await page.goto(`/?doc=${docId}`);
   await ready(page);
 
-  const header = page.locator('header');
-  const headerBox = await header.boundingBox();
+  const headerBox = await page.locator('header').boundingBox();
   expect(headerBox?.height).toBe(44); // 不换行
 
   await page.getByRole('button', { name: '项目' }).click();
