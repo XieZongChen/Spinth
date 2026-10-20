@@ -179,9 +179,7 @@ export function App() {
         ) : (
           loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-canvas">
-              <div className="ribbon-stage" aria-hidden="true">
-                <BrandMark className="ribbon-mark" />
-              </div>
+              <BrandMark className="spark-pulse h-10 w-10" />
               <p className="text-[13px] font-semibold text-ink-3">正在恢复画布…</p>
             </div>
           )
