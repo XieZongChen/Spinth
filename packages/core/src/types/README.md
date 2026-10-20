@@ -2,9 +2,11 @@
 
 所有 Service / Vm / Model 的 TS 接口与 zod schema 在此声明，实现类只 import 类型。
 
-- `widget.ts`：IWidgetData 判别联合 + 各控件 zod schema（z.infer 出类型）
-- `services.ts`：各 I*Service 接口
-- `vms.ts`：各 I*Vm 接口、IOnStateChangedInfo = { diff, local }
-- `events.ts`：全局事件流契约
+- `widget.ts`：IWidgetData 判别联合 + 各控件 zod schema + 能力位注册表
+  （WIDGET_REGISTRY / WIDGET_TOKENS / WIDGET_FACTORIES 的 schema 单源）。
+- `services.ts`：各 I*Service 接口。
+- `base.ts`：IBaseModel / IBaseWidgetVm / IWidgetCapabilities / IOnStateChangedInfo。
+- `widgetFactories.ts`：控件 Model/Vm 工厂表。
+- `index.ts`：统一导出。
 
-约定：改实现前先改这里的契约；契约变更必须同步 docs 对应篇目。
+约定：改实现前先改这里的契约；契约变更必须同步 docs 对应篇目（docs/02、docs/04）。

@@ -44,14 +44,25 @@ docs/            规格与设计文档
 
 ## 文档
 
+完整索引与任务路由见 [docs/README.md](docs/README.md)。
+
 - [总览](docs/00-overview.md)
 - [工程约定](docs/01-conventions.md)
 - [数据引擎](docs/02-data-engine.md)
 - [渲染引擎](docs/03-render-engine.md)
 - [控件体系](docs/04-widget-system.md)
-- [UI 层](docs/05-ui-layer.md)
-- [本地资产](docs/06-assets.md)
-- [测试](docs/07-testing.md)
-- [性能](docs/08-performance.md)
-- [路线图](docs/09-roadmap.md)
-- [未来协同设计边界](docs/10-collaboration.md)
+- [选中与拖拽](docs/05-selection-drag.md)
+- [参考线](docs/06-refline.md)
+- [富文本](docs/07-text.md)
+- [连线](docs/08-line.md)
+- [剪贴板与快捷键](docs/09-clipboard-shortcuts.md)
+- [未来协同边界](docs/10-collaboration.md)
+- [脑图](docs/11-mindmap.md)
+- [UI 层](docs/12-ui-layer.md)
+- [路线图](docs/13-roadmap.md)
+- [渲染同步原则](docs/14-render-sync-principles.md)
+- [测试](docs/15-testing.md)
+- [性能](docs/16-performance.md)
+- [统一编辑会话](docs/17-editing-service.md)
+- [编组](docs/18-group.md)
+- [本地资产](docs/19-assets.md)

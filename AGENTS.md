@@ -64,23 +64,35 @@ Node >= 24，pnpm 11.28.5。
 
 ## docs 索引
 
-| 篇目             | 主题                             |
-| ---------------- | -------------------------------- |
-| 00-overview      | 产品定位、架构、不变量           |
-| 01-conventions   | 包边界、命名、命令               |
-| 02-data-engine   | Yjs、IndexedDB、undo、持久化     |
-| 03-render-engine | PIXI、视口、分层、按需渲染       |
-| 04-widget-system | Model/Vm/Service、注册表、能力位 |
-| 05-ui-layer      | zustand 桥、DOM UI、顶栏、移动端 |
-| 06-assets        | 本地资产、GC、失败回退           |
-| 07-testing       | 单测/E2E/视觉基线                |
-| 08-performance   | 性能策略与债务                   |
-| 09-roadmap       | 单机阶段计划                     |
-| 10-collaboration | 未来协同边界（当前不实现）       |
+完整阅读路径与任务路由见 [docs/README.md](docs/README.md)；代码注释中的 `docs/NN §M`
+必须能在对应篇目中找到。
+
+| 篇目                      | 主题                                 |
+| ------------------------- | ------------------------------------ |
+| 00-overview               | 产品定位、架构铁律、包边界           |
+| 01-conventions            | 仓库约定、技术栈、ADR、AI 工作流     |
+| 02-data-engine            | Yjs、IndexedDB、undo、replay、持久化 |
+| 03-render-engine          | PIXI、视口、分层、按需渲染、导出     |
+| 04-widget-system          | Model/Vm/Service、注册表、能力位     |
+| 05-selection-drag         | 选中、拖拽、缩放、旋转、对齐/分布    |
+| 06-refline                | 参考线吸附、等间距                   |
+| 07-text                   | 三态文本、测量引擎、两级渲染         |
+| 08-line                   | 连线、路由、锚定、线上文字           |
+| 09-clipboard-shortcuts    | 剪贴板、快捷键、闸门                 |
+| 10-collaboration          | 未来协同边界（当前不启用）           |
+| 11-mindmap                | 脑图数据、布局、拖拽、导航           |
+| 12-ui-layer               | zustand 桥、DOM UI、主题、启动链路   |
+| 13-roadmap                | 路线图、优先级、决策台账             |
+| 14-render-sync-principles | 拖拽/缩放六条同步规则                |
+| 15-testing                | 单测/编排/E2E/视觉基线               |
+| 16-performance            | 空间索引、culling、性能债            |
+| 17-editing-service        | 统一编辑会话、双内核、profile        |
+| 18-group                  | 编组数据模型、命令、选择集成         |
+| 19-assets                 | 本地资产、GC、失败回退               |
 
 ## AI 工作流
 
-1. 读 `docs/09-roadmap.md` 确认当前阶段。
+1. 读 `docs/13-roadmap.md` 确认当前阶段。
 2. 读相关 docs + `packages/core/src/types/` 现有契约。
 3. 不确定的设计点先提问，不猜。
 4. 顺序：types → 纯逻辑（带单测）→ PIXI 视图 → Service 接线 → 手动验证 → 同步 docs。
@@ -91,4 +103,8 @@ Node >= 24，pnpm 11.28.5。
 
 单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/旋转/
 参考线、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单。
-下一阶段重点是项目导出/导入、存储持久化状态、多标签策略、性能与公共 API 收口。
+当前实测基线：`pnpm verify` 通过；709 单测（core 700 + react 9）；视觉 4/4；
+图片/资产专项 6/6。
+
+下一阶段重点是项目导出/导入、多标签策略、存储持久化/配额状态、资产/图片生命周期、
+移动端/只读态与公共 API 收口。
