@@ -13,6 +13,7 @@ import {
 } from '@spinth/react';
 import { spinthCommands } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
+import { ProjectMenu } from './ProjectMenu';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
  *  mark 已裁掉原图透明留白；favicon 用同源 32/180 派生图（index.html） */
@@ -124,6 +125,7 @@ export function App() {
           >
             <Icon name="add" size={16} strokeWidth={2} />
           </button>
+          <ProjectMenu />
           <button
             type="button"
             title={theme === 'light' ? '切换到深色' : '切换到浅色'}

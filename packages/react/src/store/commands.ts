@@ -1,4 +1,13 @@
-import type { AlignMode, BoardSDK, CursorMode, DistributeAxis } from '@spinth/core';
+import type {
+  AlignMode,
+  BoardSDK,
+  CursorMode,
+  DistributeAxis,
+  IProjectExportOptions,
+  IProjectExportResult,
+  IProjectImportOptions,
+  IProjectImportResult,
+} from '@spinth/core';
 
 /**
  * 命令模块（docs/12 §2）：纯转发 BoardSDK 方法，不产生本地状态、不进 store。
@@ -78,6 +87,18 @@ export const spinthCommands = {
   /** 导出 PNG（docs/03 §8）：selection = 选中集，canvas = 整画布 */
   exportPNG(mode: 'selection' | 'canvas'): void {
     board?.exportPNG(mode);
+  },
+  // ---- 项目文件（docs/20 §5.3——薄转发；board 未绑定返回 null 沿用空操作语义） ----
+  /** 导出当前画布为 .spinth.zip（纯读） */
+  async exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult | null> {
+    return (await board?.exportProject(opts)) ?? null;
+  },
+  /** 导入项目文件为新画布（校验全通过才写库） */
+  async importProject(
+    file: Blob,
+    opts?: IProjectImportOptions,
+  ): Promise<IProjectImportResult | null> {
+    return (await board?.importProject(file, opts)) ?? null;
   },
   /** 分布两向（等距化相邻间隙，两端不动；≥3 参与者） */
   distributeSelection(axis: DistributeAxis): void {

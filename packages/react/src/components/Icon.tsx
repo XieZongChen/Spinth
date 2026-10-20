@@ -2,10 +2,13 @@ import {
   AlignCenter,
   Triangle,
   Database,
+  Download,
   File,
   Folder,
   Hexagon,
   ImageDown,
+  MoreHorizontal,
+  Upload,
   AlignCenterHorizontal,
   AlignCenterVertical,
   AlignEndHorizontal,
@@ -148,6 +151,10 @@ export type IconName =
   | 'group'
   | 'ungroup'
   | 'link'
+  // 项目菜单（docs/20 §9.1——lucide Download/Upload/MoreHorizontal）
+  | 'download'
+  | 'upload'
+  | 'more'
   | 'chevron-down';
 
 /** 自绘 SVG 图标组件（与 LucideIcon 同 props 面，aria/focusable 内部固定） */
@@ -303,6 +310,9 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   'obj-dist-v': AlignVerticalDistributeCenter,
   group: Group,
   link: LinkIcon,
+  download: Download,
+  upload: Upload,
+  more: MoreHorizontal,
   ungroup: Ungroup,
 };
 

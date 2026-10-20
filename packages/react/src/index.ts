@@ -6,6 +6,16 @@
 export { useSpinthStore, type SpinthUiState } from './store/spinthStore';
 export { spinthCommands, bindBoard, unbindBoard } from './store/commands';
 export { connectBoard } from './store/bridge';
+// 项目文件公共面（docs/20 §5.1——app 壳只消费 @spinth/react，经此转发 core 契约）
+export {
+  ProjectFileError,
+  type ProjectFileErrorCode,
+  type IProjectExportOptions,
+  type IProjectExportResult,
+  type IProjectImportOptions,
+  type IProjectImportResult,
+  type IProjectWarning,
+} from '@spinth/core';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';
