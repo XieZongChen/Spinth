@@ -172,3 +172,36 @@ test('1.23 空态引导与文档操作：空画布提示现身/建件即隐 + �
   await expect(page.getByText('空画布')).toBeVisible();
   expect(page.url()).not.toContain(docId);
 });
+
+test('单机启动：wsState=off、无 wsProvider、无外部网络请求', async ({ page }) => {
+  const external: string[] = [];
+  page.on('request', (req) => {
+    const url = new URL(req.url());
+    if (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.hostname !== 'localhost' &&
+      url.hostname !== '127.0.0.1'
+    ) {
+      external.push(req.url());
+    }
+  });
+
+  await page.goto(`/?doc=e2e-offline-start-${Date.now()}`);
+  await waitBoardReady(page);
+
+  const state = await page.evaluate(() => {
+    const w = window as unknown as {
+      __spinth: {
+        wsState$: { getValue(): string };
+        engine: { wsProvider: unknown };
+      };
+    };
+    return {
+      wsState: w.__spinth.wsState$.getValue(),
+      wsProvider: w.__spinth.engine.wsProvider,
+    };
+  });
+  expect(state.wsState).toBe('off');
+  expect(state.wsProvider).toBeNull();
+  expect(external).toEqual([]);
+});

@@ -28,12 +28,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['packages/core/src/**', 'packages/react/src/**'],
-      exclude: ['**/__tests__/**', '**/*.test.*', '**/index.ts'],
-      // Batch 2 · 回退门禁（2026-10-18）：基线 2026-10-17 实测（Stmts 62.94/
-      // Branch 53.19/Lines 64.8/Funcs 53.97）下浮 1.5% 防抖——只降不升即红。
-      // 只在 coverage 启用时生效（pnpm test:coverage）；CI 未跑 coverage，
-      // 挂账接入后即为硬门禁
+      // 只统计 TS/TSX：先前的 'src/**' 会把 README.md 当源码解析，coverage 输出
+      // 里出现 PARSE_ERROR 噪声（2026-10-20 修复）。
+      include: [
+        'packages/core/src/**/*.ts',
+        'packages/react/src/**/*.ts',
+        'packages/react/src/**/*.tsx',
+      ],
+      exclude: ['**/__tests__/**', '**/*.test.*', '**/index.ts', '**/*.md'],
+      // 回退门禁：2026-10-20 实测 Stmts 62.95 / Branch 52.21 / Funcs 54.39 /
+      // Lines 64.81，阈值在基线下方留余量——只降不升即红。
+      // 只在 coverage 启用时生效；CI 也跑 pnpm test:coverage（.github/workflows/ci.yml）。
       thresholds: {
         statements: 61,
         branches: 51,
