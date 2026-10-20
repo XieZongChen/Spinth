@@ -102,13 +102,21 @@ export async function runAssetGc(opts: {
   return { docs, assets: assetIds.length, orphans, removed, skipped: false };
 }
 
-/** 单写者锁（Web Locks，第三轮审查）：多标签同时启动维护链时只有一个执行
- *  GC——其他标签的未落盘引用对本标签不可见，双跑扩大误删窗口。锁不可用
- *  （老浏览器/jsdom）降级直跑（单标签场景无竞争）。返回是否真正执行 */
+/** 单写者锁（Web Locks）：多标签同时启动维护链时只有一个执行 GC——其他标签的
+ *  未落盘引用对本标签不可见，双跑扩大误删窗口。ifAvailable 在锁被占用时仍会调用
+ *  callback，但传入 null；必须显式判空，否则锁形同虚设（2026-10-20 修复）。
+ *  Web Locks API 不可用（老浏览器/jsdom）降级直跑（单标签场景无竞争）。
+ *  返回是否真正执行。 */
 export async function withAssetGcLock(fn: () => Promise<void>): Promise<boolean> {
   const locks = (
     navigator as unknown as {
-      locks?: { request(name: string, opts: unknown, cb: () => Promise<void>): Promise<unknown> };
+      locks?: {
+        request(
+          name: string,
+          opts: unknown,
+          cb: (lock: unknown | null) => Promise<void>,
+        ): Promise<unknown>;
+      };
     }
   ).locks;
   if (!locks || typeof locks.request !== 'function') {
@@ -117,7 +125,8 @@ export async function withAssetGcLock(fn: () => Promise<void>): Promise<boolean>
   }
   let ran = false;
   try {
-    await locks.request('spinth-asset-gc', { ifAvailable: true }, async () => {
+    await locks.request('spinth-asset-gc', { ifAvailable: true }, async (lock) => {
+      if (!lock) return; // 其他标签持有锁——本轮跳过（ifAvailable 的 null 语义）
       ran = true;
       await fn();
     });
