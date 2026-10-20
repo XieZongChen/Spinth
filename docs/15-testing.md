@@ -90,7 +90,9 @@
 
 - 资产 GC Web Locks 单写者：已修复 + 4 例回归（`assetGcLock.test.ts`）。
 - `navigator.storage.persist/estimate`：存储状态专项为 0。
-- 项目导出/导入：未实现；规格见 [20-project-file](20-project-file.md)（已评审），M1 补 round-trip。
+- 项目导出/导入：已实现——单测 8 文件 62 用例（manifest/archive/assetRefs/export/import/service/dbProvider 快照/round-trip）
+  - E2E `projectFile.spec.ts` 6 用例（round-trip 含图片、失败注入、flush、只读、390px、零外部网络）；
+    规格见 [20-project-file](20-project-file.md)。
 - 多标签：0（双页面只读/接管/GC 并发）。
 - 默认启动无外部网络：无显式 E2E 断言。
 - coverage include 已收窄到 TS/TSX，README 解析噪声已消除。

@@ -17,12 +17,11 @@
 
 ### P1 项目导出/导入
 
-设计已评审通过（2026-10-21）：[20-project-file](20-project-file.md)。格式与导入语义以该文为准；实施按该文 §16 的 PR1→PR3 拆分。
-
-- 导出：Yjs 文档快照 + 图片资产 blob + manifest。
-- 导入：校验版本/哈希/限额，恢复文档与资产，新建画布，失败回退。
-- 文件格式已定稿：`.spinth.zip` = manifest.json + document.yjs + assets/<sha256>（docs/20 §4）。
-- 必须 round-trip 测试（含一张图片）；不能把 base64 写回 Yjs。
+- [x] **已实现**（2026-10-21，规格与验收：[20-project-file](20-project-file.md)；PR1–PR4）。
+- [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
+- [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
+- [x] round-trip 测试（含图片资产、Yjs 无 base64）：62 单测 + 6 E2E。
+- 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
 
 ### P1 多标签策略
 
@@ -66,7 +65,7 @@
 ## 3. 首个里程碑验收
 
 - [ ] `pnpm verify` 全绿
-- [ ] 项目导出/导入 round-trip 通过（含图片资产）
+- [x] 项目导出/导入 round-trip 通过（含图片资产）
 - [x] Web Locks 单写者 bug 修复并有测试
 - [ ] 多标签策略明确（双标签只读/接管/GC 并发）
 - [ ] 存储持久化/配额状态可见
@@ -82,4 +81,4 @@
 - 边缘自动滚屏：规格保留，未实现。
 - 纹理共享、图片重试、GC 分片：挂账。
 - 多标签实时同步：策略待拍板；首期建议单写者 + 只读跟随。
-- 项目文件格式、导入语义、ZIP 依赖：已冻结（docs/20）——`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning。
+- 项目文件格式、导入语义、ZIP 依赖：已冻结并实现（docs/20）——`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning。

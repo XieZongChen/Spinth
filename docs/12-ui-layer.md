@@ -88,7 +88,8 @@ ActionBar / MindAddButtons：纯算术定位
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                             |
 
 顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊；右侧只读徽标 /
-本地保存状态（已保存 / 保存中 / 保存失败·点击重试）/ 复制链接 / 新建 / 主题切换。
+本地保存状态（已保存 / 保存中 / 保存失败·点击重试）/ 复制链接 / 新建 / 项目菜单
+（导出/导入 `.spinth.zip`，docs/20 §9；`ProjectMenu.tsx`）/ 主题切换。
 单机版不显示“已同步”或任何远端连接状态。
 
 移动端：390px 下 docId 截断，工具坞横向滚动，二级菜单 portal + fixed + 视口 clamp；
@@ -130,5 +131,5 @@ ActionBar / MindAddButtons：纯算术定位
 - [x] 明暗主题一键切换，DOM/画布/默认文字色同步。
 - [x] 390px 工具二级菜单可用。
 - [x] 只读态写工具/undo/delete 禁用，选择/复制保留。
-- [ ] 390px 顶栏 docId/保存状态不换行。
+- [x] 390px 顶栏 docId/保存状态不换行（项目菜单加入后仍有 E2E 护栏：header 44px）。
 - [ ] 存储持久化/配额状态入口（下一阶段）。

@@ -54,6 +54,8 @@ src = "spinth-asset:<sha256>"
 - 项目级导出必须同时打包 Yjs 快照与图片 blob，不能只导出文档而丢失图片。
 - 导入时资产按内容寻址写回，文档仍只存 `spinth-asset:` 引用，不把 base64 写回 Yjs。
 - 导出/导入格式、失败回滚与验收见 [20-project-file](20-project-file.md)。
+- 已实现（2026-10-21）：导出打包被引用资产原始字节（导出前重算哈希校验）；
+  导入只写被引用资产、按内容寻址去重；外链/dataURL 图片保留在 Yjs 并给 warning。
 
 ## 7. 测试与验收
 
@@ -62,4 +64,4 @@ src = "spinth-asset:<sha256>"
 - [x] 孤儿 GC、宽限期、undo 跳过、删前重采、持活跳过。
 - [x] 双标签 GC 单写者锁有回归测试（锁被占用时本轮不执行）。
 - [ ] 纹理共享（同图多实例共用纹理）未实现。
-- [ ] 项目导出/导入 round-trip（M1）。
+- [x] 项目导出/导入 round-trip（含图片字节一致；`projectRoundTrip.test.ts` + E2E）。
