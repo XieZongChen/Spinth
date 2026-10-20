@@ -108,6 +108,7 @@ export type BoardPublicApi = Omit<
   | 'stickyService'
   | 'imageService'
   | 'assetStore'
+  | 'projectFile'
   | 'mindService'
   | 'contextMenu'
   | 'keyboard'

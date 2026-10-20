@@ -502,3 +502,75 @@ export async function scanDocAssetRefs(docId: string): Promise<Set<string>> {
     db.close();
   }
 }
+
+/** `createDocFromSnapshot` 的「库已存在」专用错误（导入层据此换 id 重试，docs/20 §5.4） */
+export class DocExistsError extends Error {
+  constructor(docId: string) {
+    super(`文档库已存在：${DOC_DB_PREFIX}${docId}`);
+    this.name = 'DocExistsError';
+  }
+}
+
+/**
+ * 一次性从全量快照创建新文档库（项目文件导入的写入面，docs/20 §5.4）。
+ * 与 `DbProvider.attach` 的区别：不建实例、不挂监听、不触发 compaction——导入
+ * 是「原子创建新文档」，需要最小、可回滚的写入面：
+ * 1. docId 校验 `[A-Za-z0-9_-]{1,128}`；
+ * 2. open version 1，onupgradeneeded 标记新建；已存在（未触发 upgrade）→ 关库
+ *    抛 `DocExistsError`；
+ * 3. 单事务写 updates（一条全量）+ allupdates（一条审计 `{u, t}`）；
+ * 4. 事务完成才 resolve 并关库；失败且本次新建 → best-effort deleteDatabase。
+ */
+export async function createDocFromSnapshot(
+  docId: string,
+  update: Uint8Array,
+  opts?: { now?: number },
+): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(docId)) {
+    throw new Error(`非法 docId：${docId}`);
+  }
+  let db: IDBDatabase | null = null;
+  let created = false;
+  try {
+    db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DOC_DB_PREFIX + docId, 1);
+      req.onupgradeneeded = (): void => {
+        created = true;
+        for (const s of [STORE_UPDATES, STORE_ALL]) {
+          if (!req.result.objectStoreNames.contains(s))
+            req.result.createObjectStore(s, { autoIncrement: true });
+        }
+      };
+      req.onsuccess = (): void => resolve(req.result);
+      req.onerror = (): void => reject(req.error);
+    });
+    if (!created) {
+      throw new DocExistsError(docId);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db!.transaction([STORE_UPDATES, STORE_ALL], 'readwrite');
+      tx.objectStore(STORE_UPDATES).add(update);
+      tx.objectStore(STORE_ALL).add({
+        u: update,
+        t: opts?.now ?? Date.now(),
+      } satisfies IAuditEntry);
+      tx.oncomplete = (): void => resolve();
+      tx.onerror = (): void => reject(tx.error);
+      tx.onabort = (): void => reject(tx.error ?? new Error('事务中止'));
+    });
+  } catch (err) {
+    if (created && !(err instanceof DocExistsError)) {
+      // 本次新建的库写入失败——清理半成品，不留空库（下次导入误判 DOC_EXISTS）。
+      //  finally 随后关库，阻塞中的 deleteDatabase 解除并完成（异步 best-effort）
+      try {
+        indexedDB.deleteDatabase(DOC_DB_PREFIX + docId);
+      } catch {
+        // best-effort：删除失败留空库，只影响该 id 复用，不损其他数据
+      }
+    }
+    throw err;
+  } finally {
+    // 任何路径（含事务拒绝跳过 await 后续语句）都关库——否则 deleteDatabase 永久阻塞
+    db?.close();
+  }
+}

@@ -25,6 +25,14 @@ import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { StickyService } from './widgets/sticky/stickyService';
 import { ImageService } from './widgets/image/imageService';
 import { AssetStore } from './platform/dataEngine/assetStore';
+import { ProjectFileService } from './platform/projectFile/projectFileService';
+import { ProjectFileError } from './platform/projectFile/projectFileError';
+import type {
+  IProjectExportOptions,
+  IProjectExportResult,
+  IProjectImportOptions,
+  IProjectImportResult,
+} from './types/projectFile';
 import { MindService } from './widgets/mind/mindService';
 import { BRANCH_COLORS } from './widgets/mind/mindMapModel';
 import {
@@ -210,6 +218,8 @@ export class BoardSDK {
   awarenessVm: AwarenessVm | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   network: NetworkService | null = null;
+  /** @internal 项目文件（docs/20 §5.2）：组合根构造注入，门面方法见 exportProject/importProject */
+  projectFile: ProjectFileService | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   initialized = false;
 
@@ -871,6 +881,24 @@ export class BoardSDK {
     return this.commands.exportPNG(mode);
   }
 
+  /** 导出当前画布为 .spinth.zip（docs/20 §5.3：门面仅委托） */
+  async exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult> {
+    return this.expectProjectFile().exportProject(opts);
+  }
+
+  /** 导入项目文件为新的本地画布（docs/20 §7：校验全通过才写库，不触碰当前画布） */
+  async importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult> {
+    return this.expectProjectFile().importProject(file, opts);
+  }
+
+  /** 组装前/释放后调用项目文件门面 → 统一 NOT_READY（与 getDoc 判空同源） */
+  private expectProjectFile(): ProjectFileService {
+    if (!this.projectFile) {
+      throw new ProjectFileError('PROJECT_NOT_READY', '画布未初始化或已释放');
+    }
+    return this.projectFile;
+  }
+
   distributeSelection(axis: DistributeAxis): void {
     return this.commands.distributeSelection(axis);
   }
@@ -918,6 +946,7 @@ export class BoardSDK {
     this.disposed = true;
     // 编辑会话先收口（flush 尾字——先于服务拆序，避免 detach 依赖已拆组件）
     this.editingService?.exitActive();
+    this.projectFile?.dispose();
     this.assetStore?.close();
     this.keyboard?.dispose();
     this.clipboard?.dispose();

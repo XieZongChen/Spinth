@@ -33,10 +33,13 @@ import { MindService } from './widgets/mind/mindService';
 import { SpatialIndex } from './platform/spatial/spatialIndex';
 import { CullingService } from './platform/spatial/cullingService';
 import { AssetStore, assetIdOf } from './platform/dataEngine/assetStore';
+import { createDocFromSnapshot } from './platform/dataEngine/dbProvider';
 import {
   ASSET_MAINTENANCE_DELAY_MS,
   runAssetMaintenance,
 } from './platform/dataEngine/assetMigration';
+import { ProjectFileService } from './platform/projectFile/projectFileService';
+import { SPINTH_VERSION } from './version';
 import type { BoardSDK } from './app';
 
 /**
@@ -126,6 +129,26 @@ export async function composeBoard(
     userName: config.userName,
   });
   throwIfAborted();
+
+  // 项目文件门面（docs/20 §5.2）：组合根构造注入（禁全局单例）。getDoc 闭包按
+  // docState 判就绪；flushCurrentDoc 包装 persistState 检查——flush 后仍 failed
+  // 即 reject，导入层记 CURRENT_DOC_FLUSH_FAILED warning（§5.5）
+  sdk.projectFile = new ProjectFileService({
+    getDoc: () => {
+      const engine = sdk.engine;
+      if (!engine || engine.docState$.value !== 'synced') return null;
+      return { yDoc: engine.yDoc, yWidgets: engine.yWidgets, docId: config.docId };
+    },
+    assetStore: sdk.assetStore!,
+    appVersion: SPINTH_VERSION,
+    createDoc: createDocFromSnapshot,
+    flushCurrentDoc: async () => {
+      await sdk.engine!.flushLocalWrites();
+      if (sdk.engine!.persistState$.value === 'failed') {
+        throw new Error('当前文档落盘失败（persistState=failed）');
+      }
+    },
+  });
 
   // 3. 渲染就绪（widgetLayer 此时可能已有恢复的控件，首帧即完整）
   await sdk.viewport.initialize(root, { editable: config.editable ?? true });

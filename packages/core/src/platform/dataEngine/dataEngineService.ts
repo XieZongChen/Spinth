@@ -52,6 +52,12 @@ export class DataEngineService extends Disposable implements IDataEngineService 
     void this.db.flushPendingWrites();
   }
 
+  /** 导航前收口（docs/20 §5.5）：显式等待当前文档写缓冲落盘。项目导入在
+   *  创建新文档成功后调用——把当前画布的未落盘窗口压到最小（best-effort）。 */
+  flushLocalWrites(): Promise<void> {
+    return this.db.flushPendingWrites();
+  }
+
   private ws: WebsocketProvider | null = null;
 
   private _yWidgets!: Y.Array<unknown>;
