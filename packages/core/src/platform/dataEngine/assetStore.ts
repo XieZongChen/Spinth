@@ -45,7 +45,8 @@ function openAssetDb(): Promise<IDBDatabase> {
   });
 }
 
-async function sha256Hex(buf: ArrayBuffer): Promise<string> {
+/** SHA-256 十六进制（内容寻址与项目文件哈希共用；§11.3 由 crypto.subtle 提供） */
+export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))

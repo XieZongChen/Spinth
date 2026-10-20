@@ -36,6 +36,31 @@ export type {
   IMindAddButtonsState,
 } from './types';
 
+// 项目文件契约（docs/20 §5.1——app 壳消费结果/错误类型，schema/常量供测试）
+export {
+  PROJECT_FORMAT,
+  PROJECT_FORMAT_VERSION,
+  ProjectManifestSchema,
+  DEFAULT_PROJECT_FILE_LIMITS,
+} from './types';
+export type {
+  ProjectAssetEntry,
+  ProjectManifest,
+  ProjectWarningCode,
+  IProjectWarning,
+  IProjectStats,
+  IProjectExportResult,
+  IProjectImportResult,
+  IProjectExportOptions,
+  IProjectImportOptions,
+  ProjectFileLimits,
+} from './types';
+export { ProjectFileError } from './platform/projectFile/projectFileError';
+export type {
+  ProjectFileErrorCode,
+  IProjectFileErrorDetails,
+} from './platform/projectFile/projectFileError';
+
 // 形状工具默认创建型（docs/04 §2 形状默认型小节——工具坞二级菜单与 ActionBar 同源）
 export { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）
@@ -110,9 +135,6 @@ export type BoardPublicApi = Omit<
   | '__debug'
 >;
 
-export const SPINTH_NAME = 'spinth';
-/** Batch 2 · 版本对齐（2026-10-18 审查 2.2-6）：Phase 0-4 已完成（AGENTS 自述）
- *  ——此前 0.2.0/Phase1 是项目早期快照从未更新 */
-export const SPINTH_VERSION = '0.3.0';
-export type Phase = 0 | 1 | 2 | 3 | 4;
-export const CURRENT_PHASE: Phase = 4;
+// 产品身份常量单一源在 version.ts（docs/20 §5.3：项目文件模块需要版本号，
+// 从 index.ts import 会成环）——此处仅 re-export，公共面不变
+export { SPINTH_NAME, SPINTH_VERSION, CURRENT_PHASE, type Phase } from './version';

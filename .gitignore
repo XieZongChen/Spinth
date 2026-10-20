@@ -9,3 +9,5 @@ playwright-report/
 .vscode/
 .idea/
 *.log
+.zcode/
+.v2c/

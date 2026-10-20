@@ -46,3 +46,22 @@ export type {
   ActionBarItemKind,
   IMindAddButtonsState,
 } from './widget';
+export {
+  PROJECT_FORMAT,
+  PROJECT_FORMAT_VERSION,
+  ProjectAssetEntrySchema,
+  ProjectManifestSchema,
+  DEFAULT_PROJECT_FILE_LIMITS,
+} from './projectFile';
+export type {
+  ProjectAssetEntry,
+  ProjectManifest,
+  ProjectWarningCode,
+  IProjectWarning,
+  IProjectStats,
+  IProjectExportResult,
+  IProjectImportResult,
+  IProjectExportOptions,
+  IProjectImportOptions,
+  ProjectFileLimits,
+} from './projectFile';
