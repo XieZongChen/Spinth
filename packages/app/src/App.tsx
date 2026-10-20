@@ -14,12 +14,12 @@ import {
 import { spinthCommands } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
 
-/** 品牌图标（packages/app/public/spinth-logo.png）——顶栏/加载态共用；
- *  favicon 用同源 32/180 派生图（index.html） */
+/** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
+ *  mark 已裁掉原图透明留白；favicon 用同源 32/180 派生图（index.html） */
 function BrandMark({ className }: { className?: string }) {
   return (
     <img
-      src="/spinth-logo.png"
+      src="/spinth-mark.png"
       alt=""
       aria-hidden="true"
       draggable={false}
@@ -65,7 +65,7 @@ export function App() {
     <div className="flex h-dvh w-screen flex-col bg-canvas text-ink">
       <header className="z-20 flex h-11 shrink-0 items-center justify-between border-b border-edge bg-surface px-4">
         <div className="flex items-center gap-2.5">
-          <BrandMark className="h-7 w-7" />
+          <BrandMark className="h-7 w-auto" />
           <span className="text-[15px] font-extrabold tracking-tight">spinth</span>
           <span className="ml-1 rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3">
             {docId}

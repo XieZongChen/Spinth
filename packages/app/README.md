@@ -5,5 +5,6 @@
 
 只消费 @spinth/react。开发：仓库根 `pnpm dev`（:5173）；E2E：仓库根 `pnpm test:e2e`。
 
-品牌资产在 `public/`：`spinth-logo.png` 顶栏/加载态使用；`favicon-32.png`、
-`apple-touch-icon.png` 由同源 logo 派生，分别供浏览器标签页和 iOS 主屏使用。
+品牌资产在 `public/`：`spinth-logo.png` 是原图；`spinth-mark.png` 裁掉透明留白，
+供顶栏/加载态使用；`favicon-32.png`、`apple-touch-icon.png` 由 mark 派生，分别供
+浏览器标签页和 iOS 主屏使用。
