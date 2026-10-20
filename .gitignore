@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.pnpm-store/
+*.local
+.DS_Store
+.vscode/
+.idea/
+*.log

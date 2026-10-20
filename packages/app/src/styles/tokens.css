@@ -1,0 +1,104 @@
+/**
+ * spinth 语义设计令牌（换肤架构的唯一色源，docs/12 §5）。
+ *
+ * 规则：
+ * - 组件只允许消费语义令牌（经 index.css 的 @theme inline 映射为 Tailwind 工具类），
+ *   禁止出现裸 hex / Tailwind 原生色板（neutral-* 等）。
+ * - 主题 = data-theme 属性整体切换 :root 级变量，组件零改动即可换肤。
+ * - 画布底色（--spinth-canvas）由 theme.ts 读取后同步进 PIXI（core 不解析 CSS）。
+ *
+ * 概念：燧石擦出火花 = 想法被点亮。
+ * 铬件（chrome）保持安静的白与墨色；唯一的品牌强调是「火花紫」；
+ * 鲜艳色属于工具（记号笔托盘隐喻）——选中哪个工具，就点亮哪种颜色。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 画布与表面 */
+  --spinth-canvas: #f8f9fa; /* 页面/画布底（与 core PIXI 默认底色一致） */
+  --spinth-grid: #ccd0d6; /* 点阵背景（钉板点阵：1px 细点需比底色深两档才可辨） */
+  --spinth-surface: #ffffff; /* 悬浮面板 */
+  --spinth-surface-hover: #f3f3f7;
+  --spinth-surface-active: #ebebf2;
+  --spinth-border: #e8e8ef;
+  --spinth-border-strong: #d8d8e2;
+
+  /* 墨色文本梯度 */
+  --spinth-text-1: #1d1d24;
+  --spinth-text-2: #5d5d6b;
+  --spinth-text-3: #6f6f7f; /* 1.22：白底 4.6:1（原 #9b9ba7 2.7:1 不达 WCAG AA） */
+
+  /* 火花紫（品牌强调，铬件中唯一的彩色） */
+  --spinth-accent: #7c5cfc;
+  --spinth-accent-strong: #6a47f2;
+  --spinth-accent-soft: #f0edff;
+  --spinth-on-accent: #ffffff;
+
+  /* 危险 */
+  --spinth-danger: #e5484d;
+  --spinth-danger-soft: #fdecec;
+
+  /* 工具色（记号笔托盘：激活态点亮） */
+  --spinth-tool-hand: #e8843c;
+  --spinth-tool-hand-soft: #fdf1e7;
+  --spinth-tool-shape: #3e8bff;
+  --spinth-tool-shape-soft: #e9f2ff;
+  --spinth-tool-text: #7c5cfc;
+  --spinth-tool-text-soft: #f0edff;
+  --spinth-tool-line: #0fb5a6;
+  --spinth-tool-line-soft: #e4f7f5;
+  --spinth-tool-pen: #2fa96e;
+  --spinth-tool-pen-soft: #e7f6ee;
+  --spinth-tool-sticky: #efa424;
+  --spinth-tool-sticky-soft: #fdf3e0;
+  --spinth-tool-mind: #e0559c;
+  --spinth-tool-mind-soft: #fdeaf4;
+
+  /* 悬浮投影（铬件浮在画布上的凭据） */
+  --spinth-shadow-dock: 0 6px 24px rgba(24, 22, 44, 0.1), 0 1px 3px rgba(24, 22, 44, 0.06);
+  --spinth-shadow-pop: 0 12px 32px rgba(24, 22, 44, 0.14), 0 2px 6px rgba(24, 22, 44, 0.08);
+}
+
+/* 暗色主题：同一组语义槽位，画布如深夜工作台，火花更亮 */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --spinth-canvas: #1b1b22;
+  --spinth-grid: #40404c; /* 点阵背景（暗色 1px 细点：比画布底浅两档） */
+  --spinth-surface: #26262f;
+  --spinth-surface-hover: #2f2f3a;
+  --spinth-surface-active: #41414f;
+  --spinth-border: #363642;
+  --spinth-border-strong: #45454f;
+
+  --spinth-text-1: #ededf2;
+  --spinth-text-2: #a6a6b3;
+  --spinth-text-3: #8b8b98; /* 1.22：#1b1b22 底 ≈4.6:1（原 #6e6e7b ≈3:1） */
+
+  --spinth-accent: #9d87ff;
+  --spinth-accent-strong: #b3a1ff;
+  --spinth-accent-soft: #2c2650;
+  --spinth-on-accent: #17171e;
+
+  --spinth-danger: #ff6369;
+  --spinth-danger-soft: #3a2226;
+
+  --spinth-tool-hand: #f09a5a;
+  --spinth-tool-hand-soft: #3a2c22;
+  --spinth-tool-shape: #6fa8ff;
+  --spinth-tool-shape-soft: #1f2c44;
+  --spinth-tool-text: #9d87ff;
+  --spinth-tool-text-soft: #2c2650;
+  --spinth-tool-line: #2cc8b8;
+  --spinth-tool-line-soft: #1b3634;
+  --spinth-tool-pen: #4bc585;
+  --spinth-tool-pen-soft: #1c3629;
+  --spinth-tool-sticky: #f5b13d;
+  --spinth-tool-sticky-soft: #3a2f1c;
+  --spinth-tool-mind: #e879b4;
+  --spinth-tool-mind-soft: #3a2230;
+
+  --spinth-shadow-dock: 0 6px 24px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --spinth-shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}

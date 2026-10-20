@@ -1,0 +1,147 @@
+name: ci
+
+# 质量门禁三层（2026-10-17 prompt §2.2，docs/15 同步）：
+# - gate：push/PR 跑 static+unit+build+fast E2E（--grep-invert 排 @timing/@bench/@visual）
+# - timing：nightly/手动，--workers=1 跑 @timing/@bench（flake 记录，连续绿后可升 gate）
+# - visual：nightly/手动，bundled Chromium 固定环境跑 @visual（{platform} 分基线；
+#   linux 基线待容器生成——试运行收集 diff，continue-on-error 挂账中）
+# 另有 static-node22 轻量 matrix（engines 下限覆盖）。
+# 缘起：2026-09-27 外部审查揪出「全绿声明漏跑 lint」——门禁必须机器化。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 19 * * *' # UTC 19:00（本地凌晨）nightly：timing/visual
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # 显式版本（2026-10-17 prompt §2.1）：packageManager 已锚 pnpm@11.28.5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 版本日志
+        run: node --version && pnpm --version
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: lint
+        run: pnpm lint
+
+      # Prettier 门禁（Batch 2 基线纳管）：格式漂移即红
+      - name: format check
+        run: pnpm exec prettier --check .
+
+      - name: typecheck
+        run: pnpm typecheck
+
+      - name: 单测（core / react）
+        run: pnpm -r test
+
+      # coverage 回退门禁（Batch 2）：阈值 61/51/52/63（vitest.config，基线实测
+      # 下浮 1.5% 防抖）——低于即红，防覆盖率回退
+      - name: coverage 门禁
+        run: pnpm test:coverage
+
+      # 生产构建门禁（2026-10-17 外部审查 7.2）：tsc 之外的打包链错误
+      - name: build
+        run: pnpm build
+
+      - name: 安装 Chrome（E2E 用系统 Chrome）
+        run: npx playwright install chrome
+
+      # fast 层：排除时敏/视觉/性能（nightly 承接，workers=2）
+      - name: E2E（fast：--grep-invert "@timing|@bench|@visual"）
+        run: npx playwright test --grep-invert "@timing|@bench|@visual"
+
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-failure
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  timing:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npx playwright install chrome
+      # 单 worker：时敏用例不与百例抢 CPU；flake 观察层（连续绿后评估升 gate）
+      - name: E2E（timing/bench，workers=1）
+        run: npx playwright test --workers=1 --grep "@timing|@bench"
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timing-failure
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  visual:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # 挂账（prompt §2.3.4）：linux 基线需固定容器生成后提交——本 job 先试运行
+    # 收集 diff artifact，基线就位后撤 continue-on-error 升门禁
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 固定浏览器：自带 Chromium（版本随 @playwright/test pin），不用系统 Chrome
+      - run: npx playwright install --with-deps chromium
+      - name: E2E（visual，bundled Chromium）
+        run: npx playwright test --grep "@visual"
+        env:
+          E2E_VISUAL_CHANNEL: bundled
+      - name: 上传 diff 现场（expected/actual/diff）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

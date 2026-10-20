@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { RefLineService } from '../platform/refLine/refLineService';
+import type { IBaseModel, IBaseWidgetVm } from '../types';
+
+/**
+ * 参照物类型矩阵回归（2026-09 用户实测揪出）：
+ * 拖拽元素不限类型，但候选参照物曾只放行 SHAPE——便签吸得到形状、形状吸不到便签。
+ * 规格（docs/06 §2）：SHAPE/STICKY/TEXT/IMAGE 参与，LINE/PEN 不参与（斜线 bbox 幻影边）。
+ */
+
+interface StubVm {
+  id: string;
+  type: string;
+  rect: { x: number; y: number; width: number; height: number };
+}
+
+function createService(stubVms: StubVm[], selected: string[] = []) {
+  const vms = stubVms.map((s) => ({
+    id: s.id,
+    type: s.type,
+    getBounds: () => ({ ...s.rect }),
+    getRotation: () => 0,
+  })) as unknown as IBaseWidgetVm[];
+  const vpScale$ = new BehaviorSubject(1);
+  const vpBounds$ = new BehaviorSubject({ x: 0, y: 0, width: 2000, height: 2000 });
+  const viewport = {
+    optionLayer: { addChild: () => {}, removeChild: () => {} },
+    vpScale$,
+    vpBounds$,
+  };
+  const selector = { selected$: new BehaviorSubject<string[]>(selected) };
+  const engine = {
+    onModelCreated$: new Subject<IBaseModel>(),
+    onModelRemoved$: new Subject<string[]>(),
+    onModelUpdated$: new Subject<void>(),
+  };
+  const vmEngine = {
+    getAllVms: () => vms,
+    // 索引粗筛桩：直接按 bounds 相交过滤（与真实 getVmsInRect 语义一致）
+    getVmsInRect: (r: { x: number; y: number; width: number; height: number }) =>
+      vms.filter((vm) => {
+        const b = vm.getBounds();
+        return (
+          b.x + b.width >= r.x &&
+          b.x <= r.x + r.width &&
+          b.y + b.height >= r.y &&
+          b.y <= r.y + r.height
+        );
+      }),
+  };
+  const svc = new RefLineService(
+    viewport as never,
+    vmEngine as never,
+    () => selector as never,
+    engine as never,
+  );
+  svc.initialize();
+  return svc;
+}
+
+/** 参照物在 (100,100) 50×50；拖拽矩形从 (0,0) 50×50 位移 dx=96 → 左边 96 vs 参照左边 100，阈值内应吸附到 100 */
+function snappedDxFor(type: string): number | null {
+  const svc = createService([{ id: 'ref', type, rect: { x: 100, y: 100, width: 50, height: 50 } }]);
+  const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
+  svc.dispose();
+  return r.matchedV.length > 0 ? r.dx : null;
+}
+
+describe('refLineService 深缩放保护（A2，docs/06 §3）', () => {
+  it('zoom 8x（阈值 0.75 < 1 世界单位）跳过吸附', () => {
+    const svc = createService([
+      { id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+    ]);
+    // stub vpScale$ 初始 1 → 先切 8
+    (svc as unknown as { viewport: { vpScale$: BehaviorSubject<number> } }).viewport.vpScale$.next(
+      8,
+    );
+    const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
+    svc.dispose();
+    expect(r.dx).toBe(96); // 不修正
+    expect(r.matchedV).toHaveLength(0);
+  });
+});
+
+describe('refLineService 参照物类型矩阵', () => {
+  it.each(['SHAPE', 'STICKY', 'TEXT'])('%s 作为参照物参与吸附', (type) => {
+    // 位移 96 → 吸附修正为 100（左边对齐参照左边）
+    expect(snappedDxFor(type)).toBe(100);
+  });
+
+  it.each(['LINE', 'PEN'])('%s 不作为参照物（斜线 bbox 幻影边）', (type) => {
+    expect(snappedDxFor(type)).toBeNull();
+  });
+
+  it('选中集从参照物中剔除', () => {
+    const svc = createService(
+      [{ id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } }],
+      ['ref'],
+    );
+    const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
+    expect(r.matchedV).toHaveLength(0);
+    expect(r.dx).toBe(96);
+    svc.dispose();
+  });
+
+  it('视口外的参照物不参与', () => {
+    const svc = createService([
+      { id: 'far', type: 'STICKY', rect: { x: 5000, y: 5000, width: 50, height: 50 } },
+    ]);
+    const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
+    expect(r.matchedV).toHaveLength(0);
+    svc.dispose();
+  });
+});

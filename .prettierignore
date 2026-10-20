@@ -1,0 +1,8 @@
+# Prettier 全库基线（Batch 2，2026-10-18）：除生成物/产物外全纳管
+pnpm-lock.yaml
+dist/
+node_modules/
+test-results/
+playwright-report/
+coverage/
+.spinth/

@@ -1,0 +1,37 @@
+{
+  "name": "@spinth/core",
+  "version": "0.0.1",
+  "private": true,
+  "description": "spinth board SDK — framework-agnostic rendering / data / interaction core (PIXI 8 + Yjs)",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-color": "^3.31.3",
+    "@tiptap/extension-text-style": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "fractional-indexing": "^3.2.0",
+    "grapheme-splitter": "^1.0.4",
+    "hotkeys-js": "^3.13.2",
+    "linebreak": "^1.1.0",
+    "pixi-viewport": "^6.0.3",
+    "pixi.js": "^8.20.0",
+    "rxjs": "^7.8.2",
+    "y-protocols": "^1.0.6",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.0.1"
+  }
+}

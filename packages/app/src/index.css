@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind 4 自动源检测只覆盖 app 包自身；@spinth/react 以 TS 源码直引（不经
+ * node_modules），其组件类名必须显式纳入扫描——旧版 UI 半无样式的根因。
+ */
+@source '../../react/src';
+
+@import './styles/tokens.css';
+
+/*
+ * 语义令牌 → Tailwind 工具类映射（inline：工具类直接引用运行时变量，
+ * data-theme 切换 :root 值即整站换肤，无需重新生成样式）。
+ * 组件因此只写 bg-surface / text-ink / border-edge 这类语义类。
+ */
+@theme inline {
+  --color-canvas: var(--spinth-canvas);
+  --color-surface: var(--spinth-surface);
+  --color-surface-hover: var(--spinth-surface-hover);
+  --color-surface-active: var(--spinth-surface-active);
+  --color-edge: var(--spinth-border);
+  --color-edge-strong: var(--spinth-border-strong);
+
+  --color-ink: var(--spinth-text-1);
+  --color-ink-2: var(--spinth-text-2);
+  --color-ink-3: var(--spinth-text-3);
+
+  --color-accent: var(--spinth-accent);
+  --color-accent-strong: var(--spinth-accent-strong);
+  --color-accent-soft: var(--spinth-accent-soft);
+  --color-on-accent: var(--spinth-on-accent);
+
+  --color-danger: var(--spinth-danger);
+  --color-danger-soft: var(--spinth-danger-soft);
+
+  --color-tool-hand: var(--spinth-tool-hand);
+  --color-tool-hand-soft: var(--spinth-tool-hand-soft);
+  --color-tool-shape: var(--spinth-tool-shape);
+  --color-tool-shape-soft: var(--spinth-tool-shape-soft);
+  --color-tool-text: var(--spinth-tool-text);
+  --color-tool-text-soft: var(--spinth-tool-text-soft);
+  --color-tool-line: var(--spinth-tool-line);
+  --color-tool-line-soft: var(--spinth-tool-line-soft);
+  --color-tool-pen: var(--spinth-tool-pen);
+  --color-tool-pen-soft: var(--spinth-tool-pen-soft);
+  --color-tool-sticky: var(--spinth-tool-sticky);
+  --color-tool-sticky-soft: var(--spinth-tool-sticky-soft);
+  --color-tool-mind: var(--spinth-tool-mind);
+  --color-tool-mind-soft: var(--spinth-tool-mind-soft);
+
+  --shadow-dock: var(--spinth-shadow-dock);
+  --shadow-pop: var(--spinth-shadow-pop);
+
+  /* Nunito 圆润字身承载友好气质；CJK 回退系统字（中文无 webfont，体积考虑） */
+  --font-ui:
+    'Nunito Variable', 'Nunito', -apple-system, 'PingFang SC', 'HarmonyOS Sans SC',
+    'Microsoft YaHei', sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--spinth-canvas);
+    color: var(--spinth-text-1);
+  }
+
+  /* 键盘可达：焦点环用火花紫，全局统一 */
+  :focus-visible {
+    outline: 2px solid var(--spinth-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- 动效 ---------- */
+
+/*
+ * 全局唯一的编排动效：工具坞入场（逐个上浮点亮）。
+ * --i 由组件内联注入序号；prefers-reduced-motion 下整体关闭。
+ */
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dock-in {
+  animation: dock-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  animation-delay: calc(var(--i) * 28ms);
+}
+
+/*
+ * 工具坞常驻二级菜单入场（回应工具激活）：淡入 + 轻微上移 4px；
+ * 面板自带 -translate-x-1/2 居中，关键帧须保住该变换。
+ * prefers-reduced-motion 下关闭。
+ */
+@keyframes flyout-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.flyout-in {
+  animation: flyout-in 0.14s ease-out;
+}
+
+/* 火花脉动（加载态品牌时刻） */
+@keyframes spark-pulse {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12) rotate(8deg);
+    opacity: 0.75;
+  }
+}
+
+.spark-pulse {
+  animation: spark-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-in,
+  .flyout-in,
+  .spark-pulse {
+    animation: none;
+  }
+}

@@ -1,0 +1,281 @@
+import { Disposable } from '../../base/disposable';
+import { Subject } from 'rxjs';
+import { markRender } from '../../common/render';
+import type { IRect } from '../../common/geometry';
+import type {
+  IDataEngineService,
+  IHistoryService,
+  ISelectorService,
+  IViewportService,
+  IVmEngineService,
+} from '../../types';
+import { RectEditorVm } from './rectEditorVm';
+import { resizeRotatedRect, type HandleDir } from './resizeMath';
+import { inverseRotatePoint, pointerAngle, snapAngle } from './rotateMath';
+import type { RefLineService } from '../refLine/refLineService';
+
+interface ResizeState {
+  vmId: string;
+  dir: HandleDir;
+  start: IRect;
+  /** 最近一帧的目标矩形（缩放数学的输出）：松手落库用它，禁止从视觉反推 */
+  lastNext: IRect;
+  /** 手势起点的宿主旋转（docs/05 §8）：≠0 时指针逆旋转进局部做缩放数学、
+   *  吸附禁用（边开口轴对齐语义失真） */
+  startRotation: number;
+}
+
+interface RotateState {
+  vmId: string;
+  /** 手势起点的宿主角度 + 起点指针角（θ = θ0 + Δ指针角，绕视觉中心） */
+  startTheta: number;
+  startPointerAngle: number;
+  /** 旋转中心（世界坐标，视觉/预览感知——取自 getHostGeom） */
+  center: { x: number; y: number };
+  /** 最近一帧角度：松手落库用它 */
+  lastTheta: number;
+}
+
+/**
+ * 单选缩放编辑（docs/05 §2/§4）：拖手柄视觉缩放（root.scale），
+ * 松手 updateRect 落库。window 级监听保证拖出画布仍跟随。
+ */
+export class RectEditorService extends Disposable {
+  private vm!: RectEditorVm;
+  private targetId: string | null = null;
+  private resize: ResizeState | null = null;
+  private rotate: RotateState | null = null;
+
+  /** 缩放手势逐帧通知（视觉预览已就位后发射）：连接点等覆盖层跟随用，
+   *  与 selector.dragMove$ 同模式——缩放期 onStateChanged$ 不发射 */
+  readonly resizeMove$ = new Subject<void>();
+
+  /** 缩放松手落库后、stopCapturing 前的钩子（组合根接锚定线急切重路由——并入
+   *  同一撤销项，docs/05 §4.4；next = commitResize 落库的目标矩形，正是微任务相
+   *  reattach 将算出的 bounds——同源无换算）。与 selector.onDragCommitted 同模式 */
+  onResizeCommitted: ((vmId: string, next: IRect) => void) | null = null;
+
+  /** 旋转预览逐帧钩子（组合根接 lineService.previewFollow——锚定线实时跟随，
+   *  用户拍板 2026-10-15；与 resizeMove$ 同模式） */
+  onRotatePreview: (() => void) | null = null;
+
+  /** 旋转松手落库后、stopCapturing 前的钩子（组合根接锚定线急切重路由——
+   *  并入同一撤销项，onResizeCommitted 同模式；docs/05 §8 第四条通道） */
+  onRotateCommitted: ((vmId: string, theta: number) => void) | null = null;
+
+  constructor(
+    private viewport: IViewportService,
+    private vmEngine: IVmEngineService,
+    private selector: ISelectorService,
+    private engine: IDataEngineService,
+    private history: IHistoryService,
+    private refLine: RefLineService,
+  ) {
+    super();
+  }
+
+  initialize(): void {
+    this.vm = new RectEditorVm(this.viewport.optionLayer);
+    this.vm.onHandleDown = (dir, wx, wy) => this.startResize(dir, wx, wy);
+    this.vm.onRotateDown = (wx, wy) => this.startRotate(wx, wy);
+
+    this.addDisposable(
+      this.selector.selected$.subscribe((ids) => this.onSelectionChanged(ids)),
+      this.viewport.vpScale$.subscribe(() => this.reposition()),
+      this.viewport.vpBounds$.subscribe(() => this.reposition()),
+      // 拖拽移动中实时跟随（否则边框冻结在原地，形状移走后看似“另一个方块”）
+      this.selector.dragMove$.subscribe(() => {
+        if (!this.resize) this.reposition();
+      }),
+    );
+  }
+
+  /** dev 调试：编辑器框当前矩形 */
+  get __editorFrame(): IRect | null {
+    return this.vm.debugRect;
+  }
+
+  /** dev 调试：旋转柄世界坐标（E2E 定位用，docs/05 §8） */
+  get __rotateHandle(): { x: number; y: number } | null {
+    return this.vm.debugRotateHandle;
+  }
+
+  /** 缩放手势进行中（悬停指示器抑制用——docs/08 §10 批次 2） */
+  get isResizing(): boolean {
+    return this.resize !== null;
+  }
+
+  private onSelectionChanged(ids: string[]): void {
+    this.targetSub?.unsubscribe();
+    this.targetSub = null;
+    if (ids.length === 1) {
+      // 能力位闸门（docs/02 §5）：不可缩放的类型不出手柄。LINE/PEN 的交互几何
+      // 方法是空操作（docs/08 §3）、MIND_MAP 的 w/h 是布局派生占位——出了手柄
+      // 就是「看得到、拖不动」的假手柄（既有设计对线/脑图同样隐藏选框）
+      if (this.engine.getModelById(ids[0]!)?.capabilities.resizable === false) {
+        this.targetId = null;
+        this.vm.hide();
+        return;
+      }
+      this.targetId = ids[0]!;
+      this.reposition();
+      // 目标数据变化（拖动/远端）→ 跟随
+      const vm = this.vmEngine.getVmById(this.targetId);
+      if (vm) {
+        const sub = vm.onStateChanged$.subscribe(() => {
+          if (!this.resize) this.reposition();
+        });
+        this.targetSub = sub;
+      }
+    } else {
+      this.targetId = null;
+      this.vm.hide();
+    }
+  }
+
+  private targetSub: { unsubscribe(): void } | null = null;
+
+  private reposition(): void {
+    if (!this.targetId) return;
+    const vm = this.vmEngine.getVmById(this.targetId);
+    if (!vm) {
+      this.vm.hide();
+      return;
+    }
+    // 旋转框（docs/05 §8）：视觉局部矩形 + θ——getHostGeom 预览感知（拖拽中跟随）；
+    // 旋转柄走能力位闸门
+    const g = vm.getHostGeom();
+    const canRotate = this.engine.getModelById(this.targetId)?.capabilities.rotatable !== false;
+    this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation, canRotate);
+  }
+
+  private startResize(dir: HandleDir, worldX: number, worldY: number): void {
+    if (!this.targetId) return;
+    const vm = this.vmEngine.getVmById(this.targetId);
+    if (!vm) return;
+    void worldX;
+    void worldY;
+    const startBounds = vm.getLocalRect();
+    this.resize = {
+      vmId: this.targetId,
+      dir,
+      start: startBounds,
+      lastNext: startBounds,
+      startRotation: vm.getRotation(),
+    };
+    window.addEventListener('pointermove', this.onWindowMove);
+    window.addEventListener('pointerup', this.onWindowUp, { once: true });
+  }
+
+  private onWindowMove = (e: PointerEvent): void => {
+    if (!this.resize) return;
+    const vm = this.vmEngine.getVmById(this.resize.vmId);
+    if (!vm) return;
+    const worldRaw = this.viewport.clientToWorld(e.clientX, e.clientY);
+    // 旋转态（docs/05 §8）：指针逆旋转到控件局部系再做缩放数学——输出局部
+    // rect，渲染自动呈现「沿控件自身轴缩放」；吸附禁用（边开口语义失真）
+    const th = this.resize.startRotation;
+    const center = {
+      x: this.resize.start.x + this.resize.start.width / 2,
+      y: this.resize.start.y + this.resize.start.height / 2,
+    };
+    const world = th === 0 ? worldRaw : inverseRotatePoint(worldRaw, center, th);
+    // 无状态计算：一切以「拖拽起点矩形 + 当前光标」推导，禁止读取实时视觉状态
+    // （视觉状态每帧被本函数改写，作为基准会产生复合漂移）
+    // 1.6：旋转态走对侧锚定版（θ=0 内部退化为 resizeRect 等价输出）
+    let next = resizeRotatedRect(this.resize.start, this.resize.dir, world, th);
+    if (th === 0) {
+      // 参考线吸附：只有被拖动的边参与（docs/06 §3）；旋转态跳过
+      const snapped = this.refLine.snapForResize(next, this.resize.dir);
+      next = snapped.rect;
+    }
+    this.resize.lastNext = next;
+    // 视觉反馈：per-type 预览（rect 型 position+scale；points 世界坐标型
+    // 端点/采样点重映射重绘，避免拉伸线宽/箭头）
+    vm.applyResizePreview(this.resize.start, next);
+    this.vm.show(next, this.viewport.vpScale$.value, th);
+    // 选区框实时跟随被缩放的形状（否则框冻结在旧尺寸）
+    this.selector.updateSelectionFrame(next);
+    this.resizeMove$.next();
+    markRender();
+  };
+
+  private onWindowUp = (): void => {
+    window.removeEventListener('pointermove', this.onWindowMove);
+    this.refLine.hideMatches();
+    if (!this.resize) return;
+    const { vmId, start, lastNext } = this.resize;
+    const vm = this.vmEngine.getVmById(vmId);
+    if (vm) {
+      // 直接落库「最近一帧的目标矩形」对应的真实数据——它是缩放数学的唯一输出，
+      // 禁止从视觉（root/localBounds/scale）反推（getLocalBounds 在缩放中语义不可靠）
+      vm.commitResize(start, lastNext);
+      // 锚定线急切重路由（docs/05 §4.4）：必须夹在 commitResize（事务已闭、
+      // 观察者相 state 已刷新）与 stopCapturing（并入同一撤销项）之间——留给
+      // onStateChanged$ 微任务相会裂成第二个 undo 项（拖拽同款，2026-10-10）
+      this.onResizeCommitted?.(vmId, lastNext);
+    }
+    this.resize = null;
+    this.history.stopCapturing();
+    this.reposition();
+  };
+
+  // ---------- 旋转手势（docs/05 §8）：preview 直写 root.rotation（零落库），
+  // 锚定线经 onRotatePreview 实时跟随；松手 commitRotate 单事务 = 一步 undo ----------
+
+  private startRotate(worldX: number, worldY: number): void {
+    if (!this.targetId) return;
+    const vm = this.vmEngine.getVmById(this.targetId);
+    if (!vm) return;
+    const g = vm.getHostGeom(); // 视觉中心（拖拽/预览感知）
+    const center = { x: g.rect.x + g.rect.width / 2, y: g.rect.y + g.rect.height / 2 };
+    this.rotate = {
+      vmId: this.targetId,
+      startTheta: vm.getRotation(),
+      startPointerAngle: pointerAngle(center, { x: worldX, y: worldY }),
+      center,
+      lastTheta: vm.getRotation(),
+    };
+    window.addEventListener('pointermove', this.onRotateMove);
+    window.addEventListener('pointerup', this.onRotateUp, { once: true });
+  }
+
+  private onRotateMove = (e: PointerEvent): void => {
+    if (!this.rotate) return;
+    const vm = this.vmEngine.getVmById(this.rotate.vmId);
+    if (!vm) return;
+    const world = this.viewport.clientToWorld(e.clientX, e.clientY);
+    let theta =
+      this.rotate.startTheta +
+      (pointerAngle(this.rotate.center, world) - this.rotate.startPointerAngle);
+    if (e.shiftKey) theta = snapAngle(theta); // Shift 15° 步进（docs/05 §8）
+    this.rotate.lastTheta = theta;
+    vm.applyRotatePreview(theta);
+    // 编辑框/选区框跟随（旋转框）
+    const g = vm.getHostGeom();
+    this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation);
+    this.selector.updateSelectionFrame(g.rect);
+    // 锚定线实时跟随（用户拍板 2026-10-15）
+    this.onRotatePreview?.();
+    markRender();
+  };
+
+  private onRotateUp = (): void => {
+    window.removeEventListener('pointermove', this.onRotateMove);
+    if (!this.rotate) return;
+    const { vmId, lastTheta } = this.rotate;
+    const vm = this.vmEngine.getVmById(vmId);
+    if (vm) {
+      // rotation 落库 + 锚定线急切重路由**同事务**（= 一步 undo）——比
+      // 「两事务靠 captureTimeout 窗口合并」结构性更强：实测窗口合并在
+      // 页面环境对紧邻两事务不稳定（E2E 实锤裂项），显式 transact 免疫
+      this.engine.transact(() => {
+        vm.commitRotate(lastTheta);
+        this.onRotateCommitted?.(vmId, lastTheta);
+      });
+    }
+    this.rotate = null;
+    this.history.stopCapturing();
+    this.reposition();
+  };
+}
