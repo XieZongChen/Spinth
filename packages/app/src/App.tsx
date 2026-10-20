@@ -14,15 +14,17 @@ import {
 import { spinthCommands } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
 
-/** 品牌火花标（四芒星，CSS 可染色——logo 不进图标库注册表，属于品牌资产） */
-function Spark({ className }: { className?: string }) {
+/** 品牌图标（packages/app/public/spinth-logo.png）——顶栏/加载态共用；
+ *  favicon 用同源 32/180 派生图（index.html） */
+function BrandMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden focusable={false}>
-      <path
-        d="M12 1.8c.75 5.6 5 9.85 10.6 10.6-5.6.75-9.85 5-10.6 10.6-.75-5.6-5-9.85-10.6-10.6C7 11.65 11.25 7.4 12 1.8Z"
-        fill="currentColor"
-      />
-    </svg>
+    <img
+      src="/spinth-logo.png"
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      className={`select-none object-contain ${className ?? ''}`}
+    />
   );
 }
 
@@ -63,7 +65,7 @@ export function App() {
     <div className="flex h-dvh w-screen flex-col bg-canvas text-ink">
       <header className="z-20 flex h-11 shrink-0 items-center justify-between border-b border-edge bg-surface px-4">
         <div className="flex items-center gap-2.5">
-          <Spark className="h-[18px] w-[18px] text-accent" />
+          <BrandMark className="h-7 w-7" />
           <span className="text-[15px] font-extrabold tracking-tight">spinth</span>
           <span className="ml-1 rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3">
             {docId}
@@ -177,7 +179,7 @@ export function App() {
         ) : (
           loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-canvas">
-              <Spark className="spark-pulse h-10 w-10 text-accent" />
+              <BrandMark className="spark-pulse h-10 w-10" />
               <p className="text-[13px] font-semibold text-ink-3">正在恢复画布…</p>
             </div>
           )

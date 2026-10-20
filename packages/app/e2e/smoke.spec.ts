@@ -204,4 +204,9 @@ test('单机启动：wsState=off、无 wsProvider、无外部网络请求', asyn
   expect(state.wsState).toBe('off');
   expect(state.wsProvider).toBeNull();
   expect(external).toEqual([]);
+
+  // 品牌图标来自 public/，顶栏实际加载成功（不是 404 占位）
+  const logo = page.locator('header img[src="/spinth-logo.png"]');
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(500);
 });
