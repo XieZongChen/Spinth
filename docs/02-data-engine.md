@@ -150,4 +150,4 @@ abstract class BaseModel<D extends IWidgetData> {
 - [x] 刷新后 IndexedDB 恢复全部数据。
 - [x] compaction 在 Worker 与同步兜底路径均通过测试。
 - [ ] 跨标签页实时同步（当前未实现；多标签策略见 docs/13 与后续计划）。
-- [ ] 项目级导出/导入（docs/13 的下一阶段优先级）。
+- [ ] 项目级导出/导入（规格：docs/20，已评审；导入写新文档库，不改当前文档）。

@@ -17,20 +17,22 @@
 
 ### P1 项目导出/导入
 
+设计已评审通过（2026-10-21）：[20-project-file](20-project-file.md)。格式与导入语义以该文为准；实施按该文 §16 的 PR1→PR3 拆分。
+
 - 导出：Yjs 文档快照 + 图片资产 blob + manifest。
-- 导入：校验版本、恢复文档、恢复资产、失败可回退。
-- 文件格式写入 docs（建议 `.spinth.zip`：manifest.json + document.yjs + assets/<sha256>）。
+- 导入：校验版本/哈希/限额，恢复文档与资产，新建画布，失败回退。
+- 文件格式已定稿：`.spinth.zip` = manifest.json + document.yjs + assets/<sha256>（docs/20 §4）。
 - 必须 round-trip 测试（含一张图片）；不能把 base64 写回 Yjs。
 
 ### P1 多标签策略
 
-- 修复资产 GC 的 Web Locks 单写者 bug：锁被占用时跳过，不能继续执行 GC。
-- 明确策略：单写者 + 其他标签只读 + 原标签关闭后自动接管，或 BroadcastChannel 实时同步。
+- [x] 修复资产 GC 的 Web Locks 单写者 bug：锁被占用时跳过（896ddca + `assetGcLock.test.ts`）。
+- [ ] 明确策略：单写者 + 其他标签只读 + 原标签关闭后自动接管，或 BroadcastChannel 实时同步。
 - 补双标签并发 GC/只读/接管测试。
 
 ### P1 存储可靠性
 
-- 调用 `navigator.storage.persist()` 并暴露状态；`estimate()` 配额/用量可见。
+- `navigator.storage.persist()` 已在启动时调用；仍需暴露 persisted 状态，并让 `estimate()` 配额/用量可见。
 - 配额不足/写入失败的用户提示；导出/导入作为备份/恢复入口。
 - 存储面板不要挤压 390px 顶栏。
 
@@ -65,7 +67,8 @@
 
 - [ ] `pnpm verify` 全绿
 - [ ] 项目导出/导入 round-trip 通过（含图片资产）
-- [ ] 多标签策略明确，Web Locks 单写者 bug 修复并有测试
+- [x] Web Locks 单写者 bug 修复并有测试
+- [ ] 多标签策略明确（双标签只读/接管/GC 并发）
 - [ ] 存储持久化/配额状态可见
 - [ ] 默认启动无外部网络请求
 - [ ] 图片/空态/移动端 E2E 不回归
@@ -79,4 +82,4 @@
 - 边缘自动滚屏：规格保留，未实现。
 - 纹理共享、图片重试、GC 分片：挂账。
 - 多标签实时同步：策略待拍板；首期建议单写者 + 只读跟随。
-- 项目文件格式、导入语义、是否新增 ZIP 依赖：待确认后落地。
+- 项目文件格式、导入语义、ZIP 依赖：已冻结（docs/20）——`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning。

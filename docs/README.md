@@ -14,21 +14,22 @@
 
 ### 按任务查
 
-| 任务                    | 先读                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------- |
-| 数据/Yjs/IndexedDB/undo | [02-data-engine](02-data-engine.md)、[10-collaboration](10-collaboration.md)              |
-| 渲染/视口/导出          | [03-render-engine](03-render-engine.md)                                                   |
-| 新增或修改控件          | [04-widget-system](04-widget-system.md)                                                   |
-| 选中/拖拽/缩放/旋转     | [05-selection-drag](05-selection-drag.md)、[14-render-sync](14-render-sync-principles.md) |
-| 参考线/等间距           | [06-refline](06-refline.md)                                                               |
-| 文本/富文本/排版        | [07-text](07-text.md)、[17-editing-service](17-editing-service.md)                        |
-| 连线                    | [08-line](08-line.md)                                                                     |
-| 剪贴板/快捷键           | [09-clipboard-shortcuts](09-clipboard-shortcuts.md)                                       |
-| 脑图                    | [11-mindmap](11-mindmap.md)                                                               |
-| UI/zustand/主题/移动端  | [12-ui-layer](12-ui-layer.md)                                                             |
-| 测试/E2E/视觉基线       | [15-testing](15-testing.md)                                                               |
-| 性能/索引/culling       | [16-performance](16-performance.md)                                                       |
-| 图片资产/GC/失败回退    | [19-assets](19-assets.md)                                                                 |
+| 任务                    | 先读                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| 数据/Yjs/IndexedDB/undo | [02-data-engine](02-data-engine.md)、[10-collaboration](10-collaboration.md)                          |
+| 渲染/视口/导出          | [03-render-engine](03-render-engine.md)                                                               |
+| 新增或修改控件          | [04-widget-system](04-widget-system.md)                                                               |
+| 选中/拖拽/缩放/旋转     | [05-selection-drag](05-selection-drag.md)、[14-render-sync](14-render-sync-principles.md)             |
+| 参考线/等间距           | [06-refline](06-refline.md)                                                                           |
+| 文本/富文本/排版        | [07-text](07-text.md)、[17-editing-service](17-editing-service.md)                                    |
+| 连线                    | [08-line](08-line.md)                                                                                 |
+| 剪贴板/快捷键           | [09-clipboard-shortcuts](09-clipboard-shortcuts.md)                                                   |
+| 脑图                    | [11-mindmap](11-mindmap.md)                                                                           |
+| UI/zustand/主题/移动端  | [12-ui-layer](12-ui-layer.md)                                                                         |
+| 测试/E2E/视觉基线       | [15-testing](15-testing.md)                                                                           |
+| 性能/索引/culling       | [16-performance](16-performance.md)                                                                   |
+| 图片资产/GC/失败回退    | [19-assets](19-assets.md)                                                                             |
+| 项目导出/导入/备份      | [20-project-file](20-project-file.md)、[19-assets](19-assets.md)、[02-data-engine](02-data-engine.md) |
 
 ## 2. 篇目
 
@@ -54,10 +55,11 @@
 | 17   | [17-editing-service](17-editing-service.md)               | 统一编辑会话、双内核、profile       |
 | 18   | [18-group](18-group.md)                                   | 编组数据模型、命令、选择集成        |
 | 19   | [19-assets](19-assets.md)                                 | 本地资产、GC、失败回退、导出边界    |
+| 20   | [20-project-file](20-project-file.md)                     | 项目文件格式、导出/导入、验收       |
 
 ## 3. 文档纪律
 
-- **编号稳定**：不要复用/重排已有编号；新增主题追加到末尾（当前下一个是 20）。
+- **编号稳定**：不要复用/重排已有编号；新增主题追加到末尾（当前下一个是 21）。
 - **章节稳定**：代码引用 `§M` 时，修改标题/顺序必须同步改引用或保留锚点。
 - **接口先行**：类型/zod 契约在 `packages/core/src/types/`，文档与实现同步。
 - **不写来源对比**：文档只描述 spinth 当前实现与约束，不出现其他项目名称、来源路径、

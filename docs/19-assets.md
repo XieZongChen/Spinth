@@ -53,7 +53,7 @@ src = "spinth-asset:<sha256>"
 
 - 项目级导出必须同时打包 Yjs 快照与图片 blob，不能只导出文档而丢失图片。
 - 导入时资产按内容寻址写回，文档仍只存 `spinth-asset:` 引用，不把 base64 写回 Yjs。
-- 导出/导入格式与失败回滚见 docs/13 的下一阶段计划。
+- 导出/导入格式、失败回滚与验收见 [20-project-file](20-project-file.md)。
 
 ## 7. 测试与验收
 

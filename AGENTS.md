@@ -89,6 +89,7 @@ Node >= 24，pnpm 11.28.5。
 | 17-editing-service        | 统一编辑会话、双内核、profile        |
 | 18-group                  | 编组数据模型、命令、选择集成         |
 | 19-assets                 | 本地资产、GC、失败回退               |
+| 20-project-file           | 项目文件格式、导出/导入、验收        |
 
 ## AI 工作流
 
