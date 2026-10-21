@@ -19,7 +19,7 @@
 
 - [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
 - [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
-- [x] round-trip 测试（含图片资产、Yjs 无 base64）：62 单测 + 6 E2E。
+- [x] round-trip 测试（含图片资产、Yjs 无 base64）：68 单测 + 7 E2E（含外链 warning 到达用户）。
 - [ ] 验收复验：导出 ZIP 限额、warning 展示、A17/A18 证据。
 - 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
 - 规格：[20-project-file](20-project-file.md)。

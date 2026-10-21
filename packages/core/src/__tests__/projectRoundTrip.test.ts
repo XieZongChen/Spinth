@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
+import { writeFileSync } from 'node:fs';
 import { AssetStore } from '../platform/dataEngine/assetStore';
 import { DbProvider, createDocFromSnapshot } from '../platform/dataEngine/dbProvider';
 import { exportProject } from '../platform/projectFile/projectExport';
@@ -13,7 +14,22 @@ import { widgetMap } from './helpers/projectFileFixtures';
  * 全链路 round-trip（docs/20 §13.1 / 验收 A3/A4）：
  * 真实 Y.Doc + fake-indexeddb AssetStore —— 导出 → 导入 → attach 恢复，
  * widget 数据与资产字节一致；Yjs 内不出现 base64。
+ *
+ * 样例文件生成（验收 A18 可复现命令）：
+ *   SPINTH_SAMPLE_OUT=./sample.spinth.zip \
+ *     pnpm --filter @spinth/core exec vitest run src/__tests__/projectRoundTrip.test.ts
+ * 验证：unzip -l 与 manifest 哈希（详见 docs/20 §18 A18）。
  */
+
+/** 按需把导出产物落盘为验收样例（A18：环境变量驱动，日常测试零副作用） */
+function saveSampleIfAsked(blob: Blob, fileName: string): void {
+  const out = process.env.SPINTH_SAMPLE_OUT;
+  if (!out) return;
+  void blob.arrayBuffer().then((buf) => {
+    writeFileSync(out, new Uint8Array(buf));
+    console.info(`[project-sample] 已写入 ${out}（来自 ${fileName}）`);
+  });
+}
 
 describe('project round-trip', () => {
   it('SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP 文档：导出→导入→恢复，数据与资产一致', async () => {
@@ -49,6 +65,7 @@ describe('project round-trip', () => {
     expect(exported.stats.widgets).toBe(7);
     expect(exported.stats.assetCount).toBe(2);
     expect(exported.warnings).toEqual([]);
+    saveSampleIfAsked(exported.blob, exported.fileName);
 
     // 3. 导入为全新环境（干净资产库 + 新文档库）
     const importStore = new AssetStore();

@@ -163,7 +163,7 @@ describe('parseProjectManifest', () => {
     }
   });
 
-  it('assets.length 超上限 → PROJECT_MANIFEST_INVALID', async () => {
+  it('assets.length 超上限 → PROJECT_ASSET_LIMIT（评审 P2-6：超限而非清单损坏）', async () => {
     const manifest = parseProjectManifest(await validManifestText(), LIMITS);
     const raw = JSON.parse(JSON.stringify(manifest)) as ProjectManifest;
     raw.assets.push({ id: fakeId(9), path: `assets/${fakeId(9)}`, mime: 'image/png', size: 1 });
@@ -171,7 +171,7 @@ describe('parseProjectManifest', () => {
       parseProjectManifest(JSON.stringify(raw), { assetCount: 1 });
       expect.unreachable('应当抛错');
     } catch (err) {
-      expect((err as ProjectFileError).code).toBe('PROJECT_MANIFEST_INVALID');
+      expect((err as ProjectFileError).code).toBe('PROJECT_ASSET_LIMIT');
     }
   });
 });

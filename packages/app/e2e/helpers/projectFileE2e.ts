@@ -49,6 +49,35 @@ export async function anyImageSprite(page: Page): Promise<boolean> {
   );
 }
 
+/** 当前画布 widget 类型集合（排序后比对；导航间隙返回空表由 poll 重试） */
+export async function widgetTypes(page: Page): Promise<string[]> {
+  const d = await debug(page);
+  return (d?.vmStates.map((v) => String(v.type)) ?? []).sort();
+}
+
+/** TEXT 控件文本内容（textEdit.spec 同源探针；未就绪返回空串由 poll 重试） */
+export async function textContent(page: Page): Promise<string> {
+  const d = await debug(page);
+  return String(d?.vmStates.find((v) => v.type === 'TEXT')?.text ?? '');
+}
+
+/** 把首个 IMAGE 的 src 改为外链 URL（P1-2 外链 warning 用例的现场注入） */
+export async function setFirstImageExternal(page: Page, url: string): Promise<void> {
+  await page.evaluate((u) => {
+    const w = window as unknown as {
+      __spinth: {
+        engine: {
+          yWidgets: {
+            toArray(): Array<{ get(k: string): unknown; set(k: string, v: string): void }>;
+          };
+        };
+      };
+    };
+    const img = w.__spinth.engine.yWidgets.toArray().find((m) => m.get('type') === 'IMAGE');
+    img?.set('src', u);
+  }, url);
+}
+
 export async function persisted(page: Page): Promise<void> {
   await expect
     .poll(

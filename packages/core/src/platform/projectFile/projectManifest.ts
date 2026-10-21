@@ -125,7 +125,8 @@ export function parseProjectManifest(
     throw new ProjectFileError('PROJECT_MANIFEST_INVALID', 'createdAt 不是可解析的 ISO 时间');
   }
   if (manifest.assets.length > limits.assetCount) {
-    throw new ProjectFileError('PROJECT_MANIFEST_INVALID', 'manifest 资产条目数超上限', {
+    // 评审 P2-6：条目数超限是「图片超限」语义（§10 映射提示上限），不是清单损坏
+    throw new ProjectFileError('PROJECT_ASSET_LIMIT', 'manifest 资产条目数超上限', {
       phase: 'assets',
     });
   }

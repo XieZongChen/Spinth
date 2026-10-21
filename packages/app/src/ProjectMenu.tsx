@@ -6,12 +6,15 @@ import {
   ProjectFileError,
   type ProjectFileErrorCode,
   type IProjectImportResult,
+  type IProjectWarning,
 } from '@spinth/react';
 
 /**
  * 项目菜单（docs/20 §9）：顶栏「导出项目 / 导入项目」入口。
  * busy/error 是组件本地状态（§5.3：不新增 zustand 状态）；core 错误只消费
  * code 映射中文提示，不解析 message；详情 console.error 记录。
+ * warning 消费（评审 P1-2）：导出/导入结果的 warning 必须到达用户——导出有
+ * warning 时保持菜单打开展示；导入有 warning 时不自动导航，用户确认后再打开。
  */
 
 /** §10 错误码 → 用户提示（PROJECT_ABORTED 静默不展示） */
@@ -34,6 +37,25 @@ const ERROR_MESSAGES: Record<ProjectFileErrorCode, string> = {
 
 /** 导出侧的资产缺失/损坏专用文案（§10：与导入侧区分） */
 const EXPORT_ASSET_ERROR = '有图片资产缺失或损坏，无法完整导出；请删除坏图后重试';
+
+/** §5.1 warning → 用户文案（导出/导入共用，外链/dataURL 是 D3 的用户可见面） */
+function warningText(w: IProjectWarning): string {
+  const n = w.count ?? 1;
+  switch (w.code) {
+    case 'EXTERNAL_IMAGES_SKIPPED':
+      return `有 ${n} 张外链图片未打包进项目文件（仅保留原链接，导入后需联网加载）`;
+    case 'DATA_URL_IMAGES_INCLUDED':
+      return `有 ${n} 张内嵌（data URL）图片保留在文档内，未单独打包`;
+    case 'EMPTY_PROJECT':
+      return '空画布：项目文件不含任何控件';
+    case 'UNKNOWN_ARCHIVE_ENTRIES_IGNORED':
+      return `项目文件含 ${n} 个未知条目，已忽略`;
+    case 'UNREFERENCED_ASSETS_IGNORED':
+      return `${n} 个未被文档引用的资产未写入本地资产库`;
+    case 'CURRENT_DOC_FLUSH_FAILED':
+      return '当前画布保存未完成，请确认保存后再关闭页面';
+  }
+}
 
 function messageOf(err: unknown, phase: 'export' | 'import'): string | null {
   if (!(err instanceof ProjectFileError)) {
@@ -68,12 +90,21 @@ export function ProjectMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** 导入成功但当前画布 flush 未完成（§10：提示可见，暂缓自动导航） */
-  const [pendingOpenDocId, setPendingOpenDocId] = useState<string | null>(null);
+  /** 导出结果 warning（导出后留在菜单内展示，用户手动关闭） */
+  const [exportWarnings, setExportWarnings] = useState<IProjectWarning[]>([]);
+  /** 导入成功但需用户确认（任何 warning：外链/flush 等）——保留到导航或新导入 */
+  const [pendingImport, setPendingImport] = useState<{
+    docId: string;
+    warnings: IProjectWarning[];
+  } | null>(null);
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // §9.2：docState 未 synced / 初始化失败时禁用；忙碌中同样禁用
+  const ready = docState === 'synced';
+  const disabled = !ready || busy !== null;
 
   // 面板定位（§9.4）：fixed 右对齐锚点按钮、顶栏下方，钳制在视口内（390px 不溢出）
   useLayoutEffect(() => {
@@ -87,9 +118,6 @@ export function ProjectMenu() {
       width: 'min(320px, calc(100vw - 16px))',
     });
   }, [open]);
-
-  const ready = docState === 'synced';
-  const disabled = !ready || busy !== null;
 
   // Escape 关闭并把焦点还给按钮（§9.3；capture 相独占——不冒泡到全局清选区）
   useEffect(() => {
@@ -117,13 +145,13 @@ export function ProjectMenu() {
 
   const openMenu = (): void => {
     setError(null);
-    setPendingOpenDocId(null);
     setOpen(true);
   };
 
   const handleExport = async (): Promise<void> => {
     setBusy('export');
     setError(null);
+    setExportWarnings([]);
     try {
       const result = await spinthCommands.exportProject();
       if (!result) {
@@ -131,7 +159,15 @@ export function ProjectMenu() {
         return;
       }
       downloadBlob(result.blob, result.fileName);
-      setOpen(false); // 成功：触发下载即反馈，不写任何 store（§9.2）
+      // 有 warning 保持菜单打开展示（评审 P1-2：外链未打包等必须到达用户）；
+      //  无 warning 按设计 §9.2 关闭菜单，不写任何 store。setOpen(true) 兜底
+      //  「菜单已被外部关闭」的窗口（如文件对话框期间的焦点切换）
+      if (result.warnings.length > 0) {
+        setExportWarnings(result.warnings);
+        setOpen(true);
+        return;
+      }
+      setOpen(false);
     } catch (err) {
       setError(messageOf(err, 'export'));
     } finally {
@@ -143,23 +179,35 @@ export function ProjectMenu() {
     if (!file) return;
     setBusy('import');
     setError(null);
+    setPendingImport(null);
     try {
       const result: IProjectImportResult | null = await spinthCommands.importProject(file);
       if (!result) {
         setError(ERROR_MESSAGES.PROJECT_NOT_READY);
         return;
       }
-      if (result.warnings.some((w) => w.code === 'CURRENT_DOC_FLUSH_FAILED')) {
-        // 当前画布保存未完成：留在菜单内提示，由用户确认后再打开新画布
-        setPendingOpenDocId(result.docId);
+      if (result.warnings.length > 0) {
+        // 任何 warning（外链/未引用资产/空项目/flush 未完成）都先展示，
+        // 用户确认「打开新画布」后才导航（评审 P1-2/P2-5：pending 保留到确认）。
+        // setOpen(true)：import 由隐藏 input 触发，菜单可能未开——强制打开保证
+        // warning 面板必然渲染（用户永远看得到确认入口）
+        setPendingImport({ docId: result.docId, warnings: result.warnings });
+        setOpen(true);
         return;
       }
       window.location.assign(`/?doc=${encodeURIComponent(result.docId)}`);
     } catch (err) {
+      // 失败时菜单同样保持/打开（§9.2：菜单保持打开显示错误，允许重试）
       setError(messageOf(err, 'import'));
+      setOpen(true);
     } finally {
       setBusy(null);
     }
+  };
+
+  const openPendingDoc = (): void => {
+    if (!pendingImport) return;
+    window.location.assign(`/?doc=${encodeURIComponent(pendingImport.docId)}`);
   };
 
   const itemClass =
@@ -214,16 +262,32 @@ export function ProjectMenu() {
             </button>
           </div>
 
-          {pendingOpenDocId !== null && (
+          {exportWarnings.length > 0 && (
             <div role="status" className="mt-1.5 border-t border-edge px-2.5 py-2">
-              <p className="text-xs leading-5 text-ink-2">
-                项目已导入；当前画布保存未完成，请确认保存后再关闭页面。
-              </p>
+              <p className="text-xs font-semibold text-ink-2">项目已导出，请注意：</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {exportWarnings.map((w, i) => (
+                  <li key={i} className="text-xs leading-5 text-ink-3">
+                    {warningText(w)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {pendingImport !== null && (
+            <div role="status" className="mt-1.5 border-t border-edge px-2.5 py-2">
+              <p className="text-xs font-semibold text-ink-2">项目已导入，请注意：</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {pendingImport.warnings.map((w, i) => (
+                  <li key={i} className="text-xs leading-5 text-ink-3">
+                    {warningText(w)}
+                  </li>
+                ))}
+              </ul>
               <button
                 type="button"
-                onClick={() =>
-                  window.location.assign(`/?doc=${encodeURIComponent(pendingOpenDocId)}`)
-                }
+                onClick={openPendingDoc}
                 className="mt-1.5 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white"
               >
                 打开新画布

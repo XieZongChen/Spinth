@@ -60,6 +60,14 @@ describe('ProjectFileService', () => {
     store.close();
   });
 
+  it('导入门卫（评审 P2-7）：getDoc 为 null → PROJECT_NOT_READY（设计 §5.2 契约）', async () => {
+    const built = await buildProject({ docId: 'notready-doc', widgets: [widgetMap('SHAPE')] });
+    const { service, store } = makeService({ withDoc: false });
+    await expectCode(service.importProject(built.blob), 'PROJECT_NOT_READY');
+    store.close();
+    built.store.close();
+  });
+
   it('依赖注入的 now/randomDocId 生效：文件名时间戳与导入新 id 来自注入', async () => {
     const built = await buildProject({ docId: 'inj-doc', widgets: [widgetMap('SHAPE')] });
     const { service, store } = makeService({});

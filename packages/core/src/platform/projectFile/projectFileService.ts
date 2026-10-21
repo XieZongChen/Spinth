@@ -46,9 +46,13 @@ export class ProjectFileService {
     return exportProject(exportDeps, opts);
   }
 
-  /** 导入项目文件为**新**本地画布（§7：校验全部通过后才写库） */
+  /** 导入项目文件为**新**本地画布（§7：校验全部通过后才写库）。导入虽不读当前
+   *  文档，但按设计 §5.2 契约：画布未 synced（初始化失败/未就绪）时一并拒绝 */
   async importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult> {
     this.assertReady();
+    if (!this.deps.getDoc()) {
+      throw new ProjectFileError('PROJECT_NOT_READY', '画布未就绪（未同步或已释放）');
+    }
     const importDeps: IProjectImportDeps = {
       assetStore: this.deps.assetStore,
       createDoc: this.deps.createDoc,

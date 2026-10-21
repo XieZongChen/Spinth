@@ -253,4 +253,81 @@ describe('exportProject', () => {
     );
     store.close();
   });
+
+  it('导出产物超过 archiveBytes → PROJECT_ARCHIVE_LIMIT（评审 P1-1：不自产无法导入的文件）', async () => {
+    const store = new AssetStore();
+    const ref = await store.put(new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' }));
+    const doc = makeDoc('zip-limit', [widget('IMAGE', { src: ref.src })]);
+    // 产物必然大于 64 字节（manifest + document + zip 结构）
+    await expectCode(
+      exportProject({
+        getDoc: () => doc,
+        assetStore: store,
+        appVersion: '0.3.0',
+        limits: { archiveBytes: 64 },
+      }),
+      'PROJECT_ARCHIVE_LIMIT',
+    );
+    store.close();
+  });
+
+  it('sourceDocId 超 128 截断、空回退——产物可被导入侧解析（评审 P2-4）', async () => {
+    const store = new AssetStore();
+    const longId = 'x'.repeat(200);
+    const result = await exportProject({
+      getDoc: () => makeDoc(longId, [widget('SHAPE')]),
+      assetStore: store,
+      appVersion: '0.3.0',
+      now: () => NOW,
+    });
+    expect(result.manifest.sourceDocId).toBe('x'.repeat(128));
+    // 导入侧（manifest 解析）接受该产物——不自不兼容
+    expect(() =>
+      parseProjectManifest(JSON.stringify({ ...result.manifest, createdAt: NOW.toISOString() }), {
+        assetCount: 256,
+      }),
+    ).not.toThrow();
+    const empty = await exportProject({
+      getDoc: () => makeDoc('', [widget('SHAPE')]),
+      assetStore: store,
+      appVersion: '0.3.0',
+      now: () => NOW,
+    });
+    expect(empty.manifest.sourceDocId).toBe('doc');
+    store.close();
+  });
+
+  it('资产 MIME 非 image/* → PROJECT_ASSET_INVALID（评审 P2-8）', async () => {
+    const textStore = {
+      get: async () => new Blob([new Uint8Array([1, 2])], { type: 'text/plain' }),
+    };
+    const doc = makeDoc('mime-doc', [widget('IMAGE', { src: assetSrcOf(id(1)) })]);
+    const err = await expectCode(
+      exportProject({ getDoc: () => doc, assetStore: textStore, appVersion: '0.3.0' }),
+      'PROJECT_ASSET_INVALID',
+    );
+    expect(err.details?.assets).toEqual([id(1)]);
+  });
+
+  it('3×5MB 资产导出完成（A17：可复现计时，zip 在 fflate worker 异步执行）', async () => {
+    const store = new AssetStore();
+    const doc = makeDoc('big-export', []);
+    for (let i = 0; i < 3; i++) {
+      const bytes = new Uint8Array(5 * 1024 * 1024).fill(0x30 + i);
+      const ref = await store.put(new Blob([bytes], { type: 'image/png' }));
+      doc.yWidgets.push([widget('IMAGE', { src: ref.src })]);
+    }
+    const t0 = Date.now();
+    const result = await exportProject({
+      getDoc: () => doc,
+      assetStore: store,
+      appVersion: '0.3.0',
+    });
+    const elapsed = Date.now() - t0;
+    // 记录实测供 §18 A17 引用；上限宽松（CI 机器波动），只防回归性劣化
+    console.info(`[project-export] 3×5MB 导出耗时 ${elapsed}ms，产物 ${result.blob.size} 字节`);
+    expect(result.stats.assetBytes).toBe(15 * 1024 * 1024);
+    expect(elapsed).toBeLessThan(30_000);
+    store.close();
+  });
 });

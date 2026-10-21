@@ -349,8 +349,9 @@ flushLocalWrites(): Promise<void> {
 4. 逐个 `assetStore.get(id)`：
    - miss → `PROJECT_ASSET_MISSING`（列出 id）；
    - 读 `arrayBuffer`；重新计算 SHA-256，必须等于 id，否则 `PROJECT_ASSET_INVALID`；
+   - MIME 非 `image/*`（空归一 `image/png`）→ `PROJECT_ASSET_INVALID`——不得产出导入侧会拒收的文件；
    - 大小超限 → `PROJECT_ASSET_LIMIT`；累计超限 → `PROJECT_ARCHIVE_LIMIT`。
-5. 构建 manifest：document 字节数/哈希、assets 的 id/path/mime/size、createdAt（注入 clock）、generator、sourceDocId。
+5. 构建 manifest：document 字节数/哈希、assets 的 id/path/mime/size、createdAt（注入 clock）、generator、sourceDocId（超 128 字符截断、空回退占位值——保证产物可被导入侧解析）。
 6. 生成 ZIP（异步 `fflate.zip`）：manifest 第一、document 次之、assets 按 id；图片 level 0。
 7. 返回 Blob + fileName + manifest + stats + warnings。
 

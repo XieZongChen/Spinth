@@ -98,12 +98,22 @@ export async function exportProject(
         assets: [id],
       });
     }
-    assetEntries.push({ id, mime: blob.type, size: bytes.length, bytes });
+    // §4.2：MIME 仅允许 image/*（空归一 image/png）——非图片类型会产出导入侧
+    //  拒绝的文件，导出即拒绝（评审 P2-8）
+    const mime = blob.type.length > 0 ? blob.type : 'image/png';
+    if (!/^image\//i.test(mime)) {
+      throw new ProjectFileError('PROJECT_ASSET_INVALID', '资产 MIME 不是 image/*', {
+        assets: [id],
+      });
+    }
+    assetEntries.push({ id, mime, size: bytes.length, bytes });
   }
 
   const now = deps.now?.() ?? new Date();
+  // §4.2：sourceDocId 限 1–128——超长截断、空回退，保证产物能被导入侧解析（评审 P2-4）
+  const sourceDocId = doc.docId.length > 0 ? doc.docId.slice(0, 128) : 'doc';
   const { manifest, jsonBytes } = await buildProjectManifest({
-    sourceDocId: doc.docId,
+    sourceDocId,
     appVersion: deps.appVersion,
     now,
     documentBytes,
@@ -118,6 +128,15 @@ export async function exportProject(
     }),
   ];
   const zipBytes = await zipProject(entries);
+  // 产物必须能通过导入侧的压缩包限额（§11.1 archiveBytes）——totalAssetBytes +
+  //  documentBytes 的组合可能超过 archiveBytes（资产 level 0 存储），导出即拦截
+  // （评审 P1-1：否则会产出自己无法导入的文件）
+  if (zipBytes.length > limits.archiveBytes) {
+    throw new ProjectFileError(
+      'PROJECT_ARCHIVE_LIMIT',
+      `导出产物超过压缩包大小上限（${limits.archiveBytes} 字节）`,
+    );
+  }
 
   const widgetCount = doc.yWidgets.length;
   if (widgetCount === 0) warnings.push({ code: 'EMPTY_PROJECT' });

@@ -12,8 +12,11 @@ import {
   persisted,
   placeText,
   ready,
+  setFirstImageExternal,
+  textContent,
   uniquePngBytes,
   waitForImportedNav,
+  widgetTypes,
 } from './helpers/projectFileE2e';
 
 /**
@@ -63,11 +66,20 @@ test('round-trip（含图片）：导出 → 新文档导入 → 内容/图片�
   const importedDocId = await waitForImportedNav(page, importDocBase);
   await expect.poll(async () => await modelCount(page)).toBe(4);
   await expect.poll(async () => anyImageSprite(page)).toBe(true);
+  // A3 断言补强（评审 P2-9）：类型逐件对齐 + TEXT 内容一致
+  await expect
+    .poll(async () => (await widgetTypes(page)).join(','))
+    .toBe('IMAGE,SHAPE,STICKY,TEXT');
+  await expect.poll(async () => await textContent(page)).toContain('项目 round-trip');
 
   // reload 后仍完整（A12）
   await page.reload();
   await ready(page);
   await expect.poll(async () => await modelCount(page)).toBe(4);
+  await expect
+    .poll(async () => (await widgetTypes(page)).join(','))
+    .toBe('IMAGE,SHAPE,STICKY,TEXT');
+  await expect.poll(async () => await textContent(page)).toContain('项目 round-trip');
 
   // 原文档不受影响（A6）：回到原 doc URL，内容仍在
   await page.goto(`/?doc=${docId}`);
@@ -124,6 +136,24 @@ test('导入失败：坏 ZIP / 版本过新 / 缺资产 / 坏哈希——错误�
       .catch(() => [] as string[]),
   );
   expect(dbsAfter.filter((n) => n.startsWith('spinth-doc:') && !dbsBefore.includes(n))).toEqual([]);
+
+  // 存储写入失败（评审 P2-9/A7：页面内注入 put 失败 → 用户提示可见）
+  await page.getByRole('button', { name: '项目' }).click();
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      __spinth: { assetStore: { put: (b: Blob) => Promise<unknown> } };
+    };
+    w.__spinth.assetStore.put = async () => {
+      throw new Error('注入：配额不足');
+    };
+  });
+  await importViaInput(page, path);
+  await expect(page.locator('[data-spinth-project-menu-panel] [role="alert"]')).toHaveText(
+    /本地存储空间不足/,
+  );
+  await expect(page).toHaveURL(urlBefore);
+  await page.keyboard.press('Escape');
   await cleanupDoc(page, docId);
 });
 
@@ -175,25 +205,88 @@ function buildTamperedZips(goodPath: string): Array<{ path: string; message: Reg
     }),
     message: /图片校验失败/,
   });
+  // 资产条目数超限（评审 P2-9/A7：manifest 声明 257 项 → ASSET_LIMIT 提示）
+  cases.push({
+    path: writeZip((m) => {
+      const assets = m.assets as Array<Record<string, unknown>>;
+      for (let i = 0; assets.length <= 256; i++) {
+        const fake = String(i).padStart(64, '0');
+        assets.push({ id: fake, path: `assets/${fake}`, mime: 'image/png', size: 1 });
+      }
+    }),
+    message: /图片超过大小限制/,
+  });
   return cases;
 }
 
-test('当前文档落盘：编辑后立即导入 → 回原文档，编辑仍在（A11）', async ({ page }) => {
+test('当前文档落盘：未落盘文本编辑后立即导入 → 回原文档，编辑仍在（A11）', async ({ page }) => {
   const docId = `e2e-pf-flush-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);
   await dragWidget(page, 'r');
   await expect.poll(async () => await modelCount(page)).toBe(1);
-  // 不等 persisted——立即导出再导入（导出读取内存态，导入前 flush 当前文档）
+  await persisted(page);
 
+  // 先备好导出文件（导入源与本例编辑无关）
   const { path } = await exportViaMenu(page);
+
+  // 制造「未落盘」编辑：放置文本后不等 persisted（写聚合 100ms 窗口内）立即导入
+  // ——导入成功前 ProjectFileService 会 flushLocalWrites 收口当前文档（§5.5）
+  await placeText(page, 'flush 收口验证文本');
+  await expect.poll(async () => await modelCount(page)).toBe(2);
   await importViaInput(page, path);
   const importedDocId = await waitForImportedNav(page, docId);
 
+  // 回原文档：文本编辑不丢（flush 生效；pagehide 仅是兜底）
   await page.goto(`/?doc=${docId}`);
   await ready(page);
-  await expect.poll(async () => await modelCount(page)).toBe(1);
+  await expect.poll(async () => await modelCount(page)).toBe(2);
+  await expect.poll(async () => await textContent(page)).toContain('flush 收口验证文本');
   await cleanupDoc(page, docId);
+  await cleanupDoc(page, importedDocId);
+});
+
+test('外链图片 warning 到达用户（D3/评审 P1-2）：导出提示未打包；导入先确认再打开', async ({
+  page,
+}) => {
+  const docId = `e2e-pf-ext-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+  await dragWidget(page, 'r');
+  await pastePng(page, await uniquePngBytes(page));
+  await expect.poll(async () => await modelCount(page)).toBe(2);
+  // 现场把 IMAGE 的 src 改为外链 URL（导出/导入两侧都应给出 warning）
+  await setFirstImageExternal(page, 'https://assets.example-cdn.test/x.png');
+  await persisted(page);
+
+  // 导出：菜单保持打开并展示「外链图片未打包」（有 warning 不自动关闭）
+  await page.getByRole('button', { name: '项目' }).click();
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
+  const dlPromise = page.waitForEvent('download', { timeout: 15_000 });
+  await page.getByRole('menuitem', { name: /导出项目/ }).click();
+  const download = await dlPromise;
+  const path = `/tmp/${download.suggestedFilename()}`;
+  await download.saveAs(path);
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
+  await expect(page.locator('[data-spinth-project-menu-panel] [role="status"]').first()).toHaveText(
+    /外链图片.*未打包/,
+  );
+
+  // 导入：显示 warning + 「打开新画布」确认（不自动导航），确认后才打开
+  const hostDoc = `e2e-pf-ext-host-${Date.now()}`;
+  await page.goto(`/?doc=${hostDoc}`);
+  await ready(page);
+  await importViaInput(page, path);
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
+  await expect(page.locator('[data-spinth-project-menu-panel] [role="status"]').first()).toHaveText(
+    /外链图片.*未打包/,
+  );
+  await page.getByRole('button', { name: '打开新画布' }).click();
+  const importedDocId = await waitForImportedNav(page, hostDoc);
+  await expect.poll(async () => await modelCount(page)).toBe(2);
+
+  await cleanupDoc(page, docId);
+  await cleanupDoc(page, hostDoc);
   await cleanupDoc(page, importedDocId);
 });
 

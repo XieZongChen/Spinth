@@ -78,14 +78,22 @@ function concatBytes(chunks: Uint8Array[], total: number): Uint8Array {
 }
 
 /**
- * 解包并做条目级校验：条目数/单条大小/总解压大小限额、条目名安全、已知条目
- * （manifest.json / document.yjs / assets/<64hex>）去重。缺 manifest/document
- * 在此判定为 ARCHIVE_INVALID（§13.1）。
+ * 解包并做条目级校验：压缩包大小/条目数/单条大小/总解压大小限额、条目名安全、
+ * 已知条目（manifest.json / document.yjs / assets/<64hex>）去重。缺 manifest/
+ * document 在此判定为 ARCHIVE_INVALID（§13.1）。
  */
 export async function unzipProject(
   archive: Uint8Array,
   limits: ProjectFileLimits,
 ): Promise<IUnzippedProject> {
+  // 压缩包大小限额下沉到解包入口（评审 P2-10）：导入层调用前虽已检查 file.size，
+  //  直接调用本 API 也必须受同一限额保护
+  if (archive.length > limits.archiveBytes) {
+    throw new ProjectFileError(
+      'PROJECT_ARCHIVE_LIMIT',
+      `压缩包超过大小上限（${limits.archiveBytes} 字节）`,
+    );
+  }
   const { Unzip, UnzipInflate } = await import('fflate');
   const result: IUnzippedProject = {
     manifestBytes: null,

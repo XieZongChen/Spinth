@@ -88,6 +88,18 @@ describe('unzipProject 校验路径', () => {
     await expectUnzipCode(new Uint8Array(128).fill(7), LIMITS, 'PROJECT_ARCHIVE_INVALID');
   });
 
+  it('压缩包自身超 archiveBytes → PROJECT_ARCHIVE_LIMIT（评审 P2-10：限额下沉到解包入口）', async () => {
+    const zipBytes = await zipProject(baseEntries());
+    await expectUnzipCode(
+      zipBytes,
+      { ...LIMITS, archiveBytes: zipBytes.length - 1 },
+      'PROJECT_ARCHIVE_LIMIT',
+    );
+    // 限额内可正常解包（边界含等号）
+    const unzipped = await unzipProject(zipBytes, { ...LIMITS, archiveBytes: zipBytes.length });
+    expect(unzipped.manifestBytes).not.toBeNull();
+  });
+
   it('缺 manifest / 缺 document → PROJECT_ARCHIVE_INVALID', async () => {
     const noManifest = await zipProject([baseEntries()[1]!, baseEntries()[2]!]);
     await expectUnzipCode(noManifest, LIMITS, 'PROJECT_ARCHIVE_INVALID');
