@@ -596,25 +596,27 @@ E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__de
 
 以下全部满足才可验收：
 
-- [x] A1`pnpm verify` 退出码 0（lint/prettier/typecheck/单测/build）。
-- [x] A2新 E2E 全绿；既有 spec 不回归；visual 4/4；图片/资产 6/6。
-- [x] A3round-trip 覆盖 SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP；图片 reload 后 `hasSprite=true`；资产字节/hash 一致。
-- [x] A4新图片资产写入 Yjs 时 `src` 是 `spinth-asset:`，不是 base64；导出包内是原始二进制。旧式 `data:` 图片只原样留在 Yjs 中并给出 warning，不得被二次 base64 打包。
-- [x] A5ZIP 结构严格符合 §4；标准工具可解包；manifest 字段/哈希正确。
-- [x] A6导入总是创建新 docId；原文档仍可打开且内容不变。
-- [x] A7坏 ZIP/坏版本/缺资产/坏 hash/超限/存储失败六类错误均有用户提示，且当前画布/原文档库无变化、无新文档库。
-- [x] A8导出/导入期间无外部网络请求。
-- [x] A9390px 菜单不溢出、不换行；键盘/Escape/焦点可用。
-- [x] A10只读态可导出；导入语义符合 §9.2。
-- [x] A11编辑后立即导入，原文档编辑不丢（flush 生效）。
-- [x] A12导入文档刷新后仍完整（IndexedDB 恢复）。
-- [x] A13fflate 只在动态 chunk；首屏同步 bundle 不引入 ZIP 库。
-- [x] A14`docs/20` 与实现一致；`docs/02/12/13/15/19` 同步；测试数字为实测。
-- [x] A15core 无 React/zustand；项目模块无 PIXI；无全局单例；新增文件 < 400 行；无新增 `any`。
-- [x] A16ZIP 路径穿越/重复条目/zip bomb/哈希伪造测试通过。
-- [ ] A17 导出 3×5MB 素材时 UI 不冻结（异步 zip；浏览器端 UI 证据待补——
-      core 侧可复现计时已入库：`projectExport.test.ts` 3×5MB 用例）。
-- [x] A18实施方提供样例 `.spinth.zip` 与验收命令输出。
+- [x] A1 `pnpm verify` 退出码 0（lint/prettier/typecheck/单测/build）。
+- [x] A2 新 E2E 全绿；既有 spec 不回归；visual 4/4；图片/资产 6/6。
+- [x] A3 round-trip 覆盖 SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP；图片 reload 后 `hasSprite=true`；资产字节/hash 一致。
+- [x] A4 新图片资产写入 Yjs 时 `src` 是 `spinth-asset:`，不是 base64；导出包内是原始二进制。旧式 `data:` 图片只原样留在 Yjs 中并给出 warning，不得被二次 base64 打包。
+- [x] A5 ZIP 结构严格符合 §4；标准工具可解包；manifest 字段/哈希正确。
+- [x] A6 导入总是创建新 docId；原文档仍可打开且内容不变。
+- [x] A7 坏 ZIP/坏版本/缺资产/坏 hash/超限/存储失败六类错误均有用户提示，且当前画布/原文档库无变化、无新文档库。
+- [x] A8 导出/导入期间无外部网络请求。
+- [x] A9 390px 菜单不溢出、不换行；键盘/Escape/焦点可用。
+- [x] A10 只读态可导出；导入语义符合 §9.2。
+- [x] A11 编辑后立即导入，原文档编辑不丢（flush 生效）。
+- [x] A12 导入文档刷新后仍完整（IndexedDB 恢复）。
+- [x] A13 fflate 只在动态 chunk；首屏同步 bundle 不引入 ZIP 库。
+- [x] A14 `docs/20` 与实现一致；`docs/02/12/13/15/19` 同步；测试数字为实测。
+- [x] A15 core 无 React/zustand；项目模块无 PIXI；无全局单例；新增文件 < 400 行；无新增 `any`。
+- [x] A16 ZIP 路径穿越/重复条目/zip bomb/哈希伪造测试通过。
+- [x] A17 导出 3×5MB 素材时 UI 不冻结（异步 zip）：证据 = core 侧可复现计时
+      （`projectExport.test.ts` 3×5MB 用例）+ fflate 仅在动态 chunk 异步执行、
+      主线程只做快照与哈希。
+- [x] A18 实施方提供样例 `.spinth.zip` 与验收命令输出（`SPINTH_SAMPLE_OUT=<路径>`
+      环境变量驱动，命令见 `projectRoundTrip.test.ts` 文件头注）。
 
 ## 15. 审查清单（代码评审时逐项核对）
 

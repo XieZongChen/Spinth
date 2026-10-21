@@ -19,7 +19,7 @@
 - 视觉：**4/4**（macOS 系统 Chrome）。
 - 图片/资产专项：**6/6**。
 - `pnpm verify`：hygiene + lint + prettier + typecheck + 单测 + build，通过。
-- coverage：Stmts **64.13%** / Branch **53.6%** / Funcs **55.23%** / Lines **66.02%**，
+- coverage：Stmts **64.13%** / Branch **53.62%** / Funcs **55.23%** / Lines **66.02%**，
   阈值 61/51/52/63。
 
 ## 3. 各层怎么加
@@ -57,24 +57,24 @@
 
 ## 4. E2E 剧本清单
 
-| 文件                  | 覆盖                                                                           |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `smoke.spec.ts`       | 创建→拖拽→undo→刷新恢复；初始化失败出口；只读态；空态/新建画布；单机启动无网络 |
-| `bench.spec.ts`       | 1000 控件拖拽 rAF 双指标 + culling 翻转                                        |
-| `clipboard.spec.ts`   | 剪贴板链路 + 右键菜单                                                          |
-| `mind.spec.ts`        | 脑图全链路/节点级选中/拖拽/快捷键                                              |
-| `widgets.spec.ts`     | 线/画笔/橡皮/图形交互                                                          |
-| `textEdit.spec.ts`    | 文字编辑与排版                                                                 |
-| `image.spec.ts`       | 图片拖放/粘贴/资产迁移/objectURL 配平/GC                                       |
-| `coverage.spec.ts`    | redo/图层/色板/缩放/快捷键面                                                   |
-| `toolbar.spec.ts`     | 工具坞常驻二级菜单                                                             |
-| `visual.spec.ts`      | 视觉快照 4 例                                                                  |
-| `refline.spec.ts`     | 参考线吸附/等间距                                                              |
-| `align.spec.ts`       | 对齐/分布/undo 裂项                                                            |
-| `export.spec.ts`      | PNG 导出双入口                                                                 |
-| `projectFile.spec.ts` | 项目导出/导入 round-trip、失败注入、flush、只读、390px、零外部网络             |
-| `rotate.spec.ts`      | 旋转                                                                           |
-| `group.spec.ts`       | 编组                                                                           |
+| 文件                  | 覆盖                                                                             |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `smoke.spec.ts`       | 创建→拖拽→undo→刷新恢复；初始化失败出口；只读态；空态/新建画布；单机启动无网络   |
+| `bench.spec.ts`       | 1000 控件拖拽 rAF 双指标 + culling 翻转                                          |
+| `clipboard.spec.ts`   | 剪贴板链路 + 右键菜单                                                            |
+| `mind.spec.ts`        | 脑图全链路/节点级选中/拖拽/快捷键                                                |
+| `widgets.spec.ts`     | 线/画笔/橡皮/图形交互                                                            |
+| `textEdit.spec.ts`    | 文字编辑与排版                                                                   |
+| `image.spec.ts`       | 图片拖放/粘贴/资产迁移/objectURL 配平/GC                                         |
+| `coverage.spec.ts`    | redo/图层/色板/缩放/快捷键面                                                     |
+| `toolbar.spec.ts`     | 工具坞常驻二级菜单                                                               |
+| `visual.spec.ts`      | 视觉快照 4 例                                                                    |
+| `refline.spec.ts`     | 参考线吸附/等间距                                                                |
+| `align.spec.ts`       | 对齐/分布/undo 裂项                                                              |
+| `export.spec.ts`      | PNG 导出双入口                                                                   |
+| `projectFile.spec.ts` | 项目导出/导入 round-trip、失败注入、flush、只读、390px、零外部网络、外链 warning |
+| `rotate.spec.ts`      | 旋转                                                                             |
+| `group.spec.ts`       | 编组                                                                             |
 
 ## 5. 视觉快照
 

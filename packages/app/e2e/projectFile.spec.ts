@@ -283,6 +283,16 @@ test('外链图片 warning 到达用户（D3/评审 P1-2）：导出提示未打
   await expect(page.locator('[data-spinth-project-menu-panel] [role="status"]').first()).toHaveText(
     /外链图片.*未打包/,
   );
+
+  // 「稍后」只收起菜单、不丢入口：重开菜单仍能看到 warning + 打开新画布
+  await page.getByRole('button', { name: '稍后' }).click();
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeHidden();
+  await page.getByRole('button', { name: '项目' }).click();
+  await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
+  await expect(page.locator('[data-spinth-project-menu-panel] [role="status"]').first()).toHaveText(
+    /外链图片.*未打包/,
+  );
+
   await page.getByRole('button', { name: '打开新画布' }).click();
   const importedDocId = await waitForImportedNav(page, hostDoc);
   await expect.poll(async () => await modelCount(page)).toBe(2);

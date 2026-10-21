@@ -295,9 +295,11 @@ export function ProjectMenu() {
               >
                 打开新画布
               </button>
+              {/* 稍后 = 只收起菜单，保留 pendingImport——应用没有文档列表，
+                  清掉状态就再也找不到刚导入的画布（评审：标签与行为一致） */}
               <button
                 type="button"
-                onClick={() => setPendingImport(null)}
+                onClick={() => setOpen(false)}
                 className="mt-1.5 ml-2 rounded-md px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-hover"
               >
                 稍后
