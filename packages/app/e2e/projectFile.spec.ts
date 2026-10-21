@@ -249,6 +249,8 @@ test('当前文档落盘：未落盘文本编辑后立即导入 → 回原文档
 test('外链图片 warning 到达用户（D3/评审 P1-2）：导出提示未打包；导入先确认再打开', async ({
   page,
 }) => {
+  // 保持用例离线：外链请求止步于 Playwright 拦截层，不真发网络
+  await page.route('**/x.png', (route) => route.abort());
   const docId = `e2e-pf-ext-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);

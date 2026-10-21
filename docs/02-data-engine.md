@@ -151,4 +151,4 @@ abstract class BaseModel<D extends IWidgetData> {
 - [x] compaction 在 Worker 与同步兜底路径均通过测试。
 - [ ] 跨标签页实时同步（当前未实现；多标签策略见 docs/13 与后续计划）。
 - [x] 项目级导出/导入（已实现，规格与验收：docs/20——`.spinth.zip` 快照导入
-      经 `createDocFromSnapshot` 写新文档库，不改当前文档；62 单测 + 6 E2E）。
+      经 `createDocFromSnapshot` 写新文档库，不改当前文档；68 单测 + 7 E2E）。

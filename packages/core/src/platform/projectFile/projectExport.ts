@@ -98,13 +98,15 @@ export async function exportProject(
         assets: [id],
       });
     }
-    // §4.2：MIME 仅允许 image/*（空归一 image/png）——非图片类型会产出导入侧
-    //  拒绝的文件，导出即拒绝（评审 P2-8）
+    // §4.2：MIME 仅允许 image/* 且 ≤128 字符（空归一 image/png）——非图片或
+    //  超长类型会产出导入侧拒收的文件，导出即拒绝
     const mime = blob.type.length > 0 ? blob.type : 'image/png';
-    if (!/^image\//i.test(mime)) {
-      throw new ProjectFileError('PROJECT_ASSET_INVALID', '资产 MIME 不是 image/*', {
-        assets: [id],
-      });
+    if (!/^image\//i.test(mime) || mime.length > 128) {
+      throw new ProjectFileError(
+        'PROJECT_ASSET_INVALID',
+        '资产 MIME 非法（须 image/* 且 ≤128 字符）',
+        { assets: [id] },
+      );
     }
     assetEntries.push({ id, mime, size: bytes.length, bytes });
   }

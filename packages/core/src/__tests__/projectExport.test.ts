@@ -6,7 +6,7 @@ import { AssetStore, assetSrcOf } from '../platform/dataEngine/assetStore';
 import { unzipProject } from '../platform/projectFile/projectArchive';
 import { exportProject } from '../platform/projectFile/projectExport';
 import { ProjectFileError } from '../platform/projectFile/projectFileError';
-import { parseProjectManifest } from '../platform/projectFile/projectManifest';
+import { hashProjectBytes, parseProjectManifest } from '../platform/projectFile/projectManifest';
 import { DEFAULT_PROJECT_FILE_LIMITS } from '../types/projectFile';
 
 const NOW = new Date('2026-10-21T08:00:00.000Z');
@@ -297,19 +297,31 @@ describe('exportProject', () => {
     store.close();
   });
 
-  it('资产 MIME 非 image/* → PROJECT_ASSET_INVALID（评审 P2-8）', async () => {
-    const textStore = {
-      get: async () => new Blob([new Uint8Array([1, 2])], { type: 'text/plain' }),
+  it('资产 MIME 非 image/* / 超过 128 字符 → PROJECT_ASSET_INVALID', async () => {
+    // id 必须与内容哈希一致——否则先命中的是哈希分支，MIME 分支是假绿
+    const bytes = new Uint8Array([1, 2]);
+    const realId = await hashProjectBytes(bytes);
+    const badMimeStore = {
+      get: async () => new Blob([bytes], { type: 'text/plain' }),
     };
-    const doc = makeDoc('mime-doc', [widget('IMAGE', { src: assetSrcOf(id(1)) })]);
+    const doc = makeDoc('mime-doc', [widget('IMAGE', { src: assetSrcOf(realId) })]);
     const err = await expectCode(
-      exportProject({ getDoc: () => doc, assetStore: textStore, appVersion: '0.3.0' }),
+      exportProject({ getDoc: () => doc, assetStore: badMimeStore, appVersion: '0.3.0' }),
       'PROJECT_ASSET_INVALID',
     );
-    expect(err.details?.assets).toEqual([id(1)]);
+    expect(err.details?.assets).toEqual([realId]);
+
+    // image/* 前缀合法但超长（schema ≤128）：同样拒绝
+    const longMimeStore = {
+      get: async () => new Blob([bytes], { type: `image/png;${'x'.repeat(150)}` }),
+    };
+    await expectCode(
+      exportProject({ getDoc: () => doc, assetStore: longMimeStore, appVersion: '0.3.0' }),
+      'PROJECT_ASSET_INVALID',
+    );
   });
 
-  it('3×5MB 资产导出完成（A17：可复现计时，zip 在 fflate worker 异步执行）', async () => {
+  it('3×5MB 资产导出完成（A17 core 侧计时：zip 在 fflate worker 异步执行）', async () => {
     const store = new AssetStore();
     const doc = makeDoc('big-export', []);
     for (let i = 0; i < 3; i++) {
@@ -324,7 +336,8 @@ describe('exportProject', () => {
       appVersion: '0.3.0',
     });
     const elapsed = Date.now() - t0;
-    // 记录实测供 §18 A17 引用；上限宽松（CI 机器波动），只防回归性劣化
+    // core 层可复现计时（浏览器端「UI 不冻结」证据另计，见 §14 A17）；
+    // 上限宽松（CI 机器波动），只防回归性劣化
     console.info(`[project-export] 3×5MB 导出耗时 ${elapsed}ms，产物 ${result.blob.size} 字节`);
     expect(result.stats.assetBytes).toBe(15 * 1024 * 1024);
     expect(elapsed).toBeLessThan(30_000);

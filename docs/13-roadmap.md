@@ -11,7 +11,7 @@
 - [x] 富文本编辑、排版 override、marks、橡皮分段擦除
 - [x] 本地资产库、图片 GC、失败回退
 - [x] 390px 移动端工具菜单
-- [x] 771 单测、E2E 146 用例、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
+- [x] 777 单测、E2E 147 用例、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
 
 ## 2. 下一阶段优先级
 
@@ -20,7 +20,7 @@
 - [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
 - [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
 - [x] round-trip 测试（含图片资产、Yjs 无 base64）：68 单测 + 7 E2E（含外链 warning 到达用户）。
-- [ ] 验收复验：导出 ZIP 限额、warning 展示、A17/A18 证据。
+- [ ] 验收复验：A17 浏览器端 UI 证据待补（导出 ZIP 限额、warning 展示、A18 样例命令均已闭环）。
 - 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
 - 规格：[20-project-file](20-project-file.md)。
 

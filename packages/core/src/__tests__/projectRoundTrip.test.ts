@@ -18,7 +18,7 @@ import { widgetMap } from './helpers/projectFileFixtures';
  * 样例文件生成（验收 A18 可复现命令）：
  *   SPINTH_SAMPLE_OUT=./sample.spinth.zip \
  *     pnpm --filter @spinth/core exec vitest run src/__tests__/projectRoundTrip.test.ts
- * 验证：unzip -l 与 manifest 哈希（详见 docs/20 §18 A18）。
+ * 验证：unzip -l 与 manifest 哈希（详见 docs/20 §14 A18）。
  */
 
 /** 按需把导出产物落盘为验收样例（A18：环境变量驱动，日常测试零副作用） */

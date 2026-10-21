@@ -145,6 +145,9 @@ export function ProjectMenu() {
 
   const openMenu = (): void => {
     setError(null);
+    // 旧导出提示不跨开合残留（每次打开是新的操作上下文）；pendingImport 保留
+    // ——导入确认未处理前用户关掉菜单，重开仍能看到「打开新画布」入口
+    setExportWarnings([]);
     setOpen(true);
   };
 
@@ -291,6 +294,13 @@ export function ProjectMenu() {
                 className="mt-1.5 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white"
               >
                 打开新画布
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingImport(null)}
+                className="mt-1.5 ml-2 rounded-md px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-hover"
+              >
+                稍后
               </button>
             </div>
           )}

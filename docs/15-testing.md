@@ -14,12 +14,12 @@
 
 ## 2. 当前基线
 
-- 单测：**771 passed**（core 762 + react 9，92 文件）。
-- E2E：16 个 spec、**146 例**；fast 层排除 @timing/@bench/@visual。
+- 单测：**777 passed**（core 768 + react 9，92 文件）。
+- E2E：16 个 spec、**147 例**；fast 层排除 @timing/@bench/@visual。
 - 视觉：**4/4**（macOS 系统 Chrome）。
 - 图片/资产专项：**6/6**。
 - `pnpm verify`：hygiene + lint + prettier + typecheck + 单测 + build，通过。
-- coverage：Stmts **64.1%** / Branch **53.52%** / Funcs **55.23%** / Lines **65.98%**，
+- coverage：Stmts **64.13%** / Branch **53.6%** / Funcs **55.23%** / Lines **66.02%**，
   阈值 61/51/52/63。
 
 ## 3. 各层怎么加
@@ -91,8 +91,9 @@
 
 - 资产 GC Web Locks 单写者：已修复 + 4 例回归（`assetGcLock.test.ts`）。
 - `navigator.storage.persist/estimate`：存储状态专项为 0。
-- 项目导出/导入：单测 8 文件 62 用例（manifest/archive/assetRefs/export/import/service/dbProvider 快照/round-trip）；
-  E2E `projectFile.spec.ts` 6 用例（round-trip 含图片、失败注入、flush、只读、390px、零外部网络）；
+- 项目导出/导入：单测 8 文件 68 用例（manifest/archive/assetRefs/export/import/service/dbProvider 快照/round-trip）；
+  E2E `projectFile.spec.ts` 7 用例（round-trip 含图片与类型/文本断言、六类失败注入含超限与存储失败提示、
+  未落盘文本 flush、只读、390px、零外部网络、外链 warning 到达用户）；
   规格见 [20-project-file](20-project-file.md)。
 - 多标签：0（双页面只读/接管/GC 并发）。
 - 默认启动无外部网络：无显式 E2E 断言。
