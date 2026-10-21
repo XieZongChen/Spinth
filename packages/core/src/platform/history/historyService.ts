@@ -84,10 +84,9 @@ export class HistoryService extends Disposable implements IHistoryService {
   /**
    * 长会话内存监控（docs/16 P3#3，2026-09-28）：Y.UndoManager 无外部修剪 API
    * （仅 clear() = 丢全部撤销，不可用）——撤销栈随会话单调增长，内存有界性
-   * 依赖「会话结束即重建」。行业参照（2026-09-27 核实）：编辑器 会话内无步数
-   * 上限、受内存约束（相关反馈 要求可配置未果）；图像工具 默认 50、上限
-   * 1000 历史状态；办公套件 硬上限 100 级；参考会话内不限、随会话结束清空——
-   * spinth 同参考口径（会话内不限步 + 刷新重建），超阈值仅告警提示。
+   * 依赖「会话结束即重建」。行业参照：部分桌面编辑器会话内不限步数、仅受内存
+   * 约束；部分默认 50、上限 1000；办公软件硬上限 100 级。spinth 采用会话内
+   * 不限步 + 刷新重建，超阈值仅告警提示。
    */
   private warnIfStackDeep(): void {
     const depth = this.um?.undoStack.length ?? 0;

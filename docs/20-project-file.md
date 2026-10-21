@@ -1,9 +1,7 @@
-# 20 — 项目文件（导出/导入）设计
+# 20 — 项目文件（导出/导入）规格
 
-> 状态：已实施（2026-10-21，PR1–PR4；验收记录见 §18）。D1–D7 冻结不变；
-> 实现、代码审查与验收均以本文为准。
-> 实施方不得自行改变 §4 的格式与 §7 的导入语义；需要变更时先回到设计评审，不得静默改格式。
-> 实施拆分与评审门见 §16；验收标准与记录模板见 §14/§18。
+> 本文件是项目文件格式、导出/导入与兼容性的当前规格；实现、评审与验收以本文为准。
+> 实现不得自行改变 §4 的格式与 §7 的导入语义；变更先改本文。
 
 ## 1. 目标与非目标
 
@@ -361,6 +359,7 @@ flushLocalWrites(): Promise<void> {
 - 不写 Yjs、不调用 `transact`、不产生 undo。
 - 快照后用户继续编辑不影响本次导出文件；资产内容寻址不可变，读到的字节可安全打包。
 - 空画布允许导出（`assets=[]`），结果带 `EMPTY_PROJECT` warning；UI 不禁用导出。
+- 打包后必须校验 `zipBytes.length <= limits.archiveBytes`；超限返回 `PROJECT_ARCHIVE_LIMIT`，不得产出导入侧会拒收的文件。
 - 导出不弹“另存为”对话框；由 app 壳用 Blob URL + `<a download>` 触发浏览器下载。
 
 ## 7. 导入流程
@@ -428,8 +427,9 @@ flushLocalWrites(): Promise<void> {
 
 - `docState !== 'synced'` 时按钮 disabled；初始化失败时 disabled。
 - 导出中：菜单项禁用 + “正在导出…”；导入中：“正在导入…”。
-- 成功导出：触发下载，关闭菜单；不写任何 store。
-- 成功导入：关闭菜单，导航到新 docId；新画布内容即反馈。
+- 成功导出：触发下载；`warnings` 为空时关闭菜单，非空时保持菜单并展示提示（如外链图片未打包）。不写任何 store。
+- 成功导入：先展示 `warnings`（如有），用户确认后关闭菜单并导航到新 docId；无 warning 直接导航。
+- 导出/导入返回的 warning 不得静默丢弃；外链图片、未知条目、未引用资产等提示必须在菜单内可见。
 - 失败：菜单保持打开，`role="alert"` 显示 §10 的中文提示；允许重试/关闭。
 - 只读态：导出可用；导入也可用（创建新画布，不改当前文档）。若产品要求只读态禁止导入，需在评审中明确，不能由实现自行决定。
 - 不使用 `alert()/confirm()`；不做覆盖确认（因为永远新建）。
@@ -543,11 +543,6 @@ export const DEFAULT_PROJECT_FILE_LIMITS: ProjectFileLimits = {
 
 ## 13. 测试计划
 
-> 实施落点（2026-10-21）：§13.1 八个单测文件全部落地（另加共享夹具
-> `helpers/projectFileFixtures.ts`），共 62 用例；E2E `projectFile.spec.ts`
-> 6 用例（公共助手拆分至 `e2e/helpers/projectFileE2e.ts`）。§13.3-8 无新增
-> 视觉快照（顶栏不在现有 clip 内）。§13.4 手工验收见 §18 A5/A17。
-
 ### 13.1 纯逻辑 / 单测（core，vitest）
 
 | 文件                                | 必测                                                                                                                               |
@@ -581,7 +576,7 @@ export const DEFAULT_PROJECT_FILE_LIMITS: ProjectFileLimits = {
 2. **原文档不受影响**：导入后回到原 doc URL，断言原内容仍在。
 3. **导入失败**：坏 ZIP/版本过新/缺资产/坏 hash；错误文案可见；URL 不变；原 `modelCount` 不变；`indexedDB.databases()` 无新增 `spinth-doc:`（API 可用时）。
 4. **当前文档落盘**：编辑→立即导入→回到原 doc，编辑内容仍在（验证 flush/导航收口）。
-5. **只读**：`__spinth.updateEditable(false)` 后导出仍可用；导入创建新画布成功（若评审允许）。
+5. **只读**：`__spinth.updateEditable(false)` 后导出仍可用；导入创建新画布成功（只读态允许导入，见 §16 D6）。
 6. **390px**：菜单面板完全在视口内；导出/导入项可点；顶栏不换行（断言高度 44px）。
 7. **无网络**：导入期间监听外部 request，断言 0 次；导出同理。
 8. **视觉**：顶栏不在现有 visual clip（y=44 起）内，不新增快照；若实现改了画布视觉则必须说明并重录，禁止假绿。
@@ -601,7 +596,7 @@ E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__de
 以下全部满足才可验收：
 
 - [ ] A1 `pnpm verify` 退出码 0（lint/prettier/typecheck/单测/build）。
-- [ ] A2 新 E2E 全绿；既有 15 个 spec 不回归；visual 4/4；图片/资产 6/6。
+- [ ] A2 新 E2E 全绿；既有 spec 不回归；visual 4/4；图片/资产 6/6。
 - [ ] A3 round-trip 覆盖 SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP；图片 reload 后 `hasSprite=true`；资产字节/hash 一致。
 - [ ] A4 新图片资产写入 Yjs 时 `src` 是 `spinth-asset:`，不是 base64；导出包内是原始二进制。旧式 `data:` 图片只原样留在 Yjs 中并给出 warning，不得被二次 base64 打包。
 - [ ] A5 ZIP 结构严格符合 §4；标准工具可解包；manifest 字段/哈希正确。
@@ -613,7 +608,7 @@ E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__de
 - [ ] A11 编辑后立即导入，原文档编辑不丢（flush 生效）。
 - [ ] A12 导入文档刷新后仍完整（IndexedDB 恢复）。
 - [ ] A13 fflate 只在动态 chunk；首屏同步 bundle 不引入 ZIP 库。
-- [ ] A14 `docs/20` 与实现一致；`docs/02/12/13/19` 同步；测试数字为实测。
+- [ ] A14 `docs/20` 与实现一致；`docs/02/12/13/15/19` 同步；测试数字为实测。
 - [ ] A15 core 无 React/zustand；项目模块无 PIXI；无全局单例；新增文件 < 400 行；无新增 `any`。
 - [ ] A16 ZIP 路径穿越/重复条目/zip bomb/哈希伪造测试通过。
 - [ ] A17 导出 3×5MB 素材时 UI 不冻结（异步 zip；人工/录屏证据）。
@@ -634,31 +629,7 @@ E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__de
 - [ ] 文档：§4 格式与代码一致；版本常量单一源；路线图/测试清单/资产文档同步；无过期数字。
 - [ ] 构建：fflate 动态 chunk；没有新增启动网络/依赖服务端。
 
-## 16. 实施拆分与交接
-
-建议 PR 顺序（每个 PR 独立可验证、可回退）：
-
-1. **PR1 格式与导出**：`types/projectFile.ts`、manifest/archive/assetRefs/export、版本常量抽取、`fflate` 依赖、单测。
-2. **PR2 导入与持久化**：import、`createDocFromSnapshot`、`ProjectFileService` 接线、`flushLocalWrites`、单测/round-trip。
-3. **PR3 UI/E2E**：`spinthCommands`、`ProjectMenu`、图标、`projectFile.spec.ts`、390px/只读/失败 E2E。
-4. **PR4 文档**：`docs/20` 回填实测数字与验收记录，README/13/19/02/12/15 同步；可并入 PR3。
-
-每个 PR 交付：
-
-- 变更说明 + 关键决策/偏差；
-- `pnpm verify` 输出；
-- 新增/修改测试清单；
-- 已知限制（不得隐瞒）；
-- 如改格式，附样例文件。
-
-评审门：
-
-- G1 设计评审（本文）→ 已通过（2026-10-21，D1–D7 冻结）；实施方可按 PR1 开工。
-- G2 PR1/PR2 代码评审（格式/安全/持久化）。
-- G3 PR3 验收（§14 全项 + 手工 §13.4）。
-- 任何 P0/P1 问题未关闭不得合并；P2 可挂账但必须记录。
-
-## 17. 已确认决策（2026-10-21 冻结）
+## 16. 决策
 
 | ID  | 决策          | 结论                                 | 说明                               |
 | --- | ------------- | ------------------------------------ | ---------------------------------- |
@@ -668,34 +639,5 @@ E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__de
 | D4  | 未知 ZIP 条目 | 忽略 + warning，计入限额             | 不解压未知条目                     |
 | D5  | 文件命名      | `spinth-<docId>-<时间戳>.spinth.zip` | 时间戳格式由实现定，E2E 用正则断言 |
 | D6  | 只读态导入    | 允许（新建画布）                     | 不修改当前文档                     |
-| D7  | AGENTS 索引   | 已加入 20 篇                         | 2026-10-21                         |
 
-以上为设计冻结项；实现偏差按 §2/§16 回到设计评审，不得静默变更。
-
-## 18. 验收记录（2026-10-21 实施后回填；证据均为概述性结论）
-
-| 项  | 命令/步骤                         | 结果         | 证据                                                                                                                   |
-| --- | --------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| A1  | `pnpm verify`                     | 通过         | core 762 单测（700 基线 + 62 新增）+ react 9 + build 绿                                                                |
-| A2  | `pnpm test:e2e`                   | 通过         | 16 spec / 146 用例全绿（含 visual 4/4、图片/资产专项 6/6）                                                             |
-| A3  | round-trip（含图片）              | 通过         | 单测 `projectRoundTrip.test.ts`（六类 widget + 资产字节一致）；E2E reload 后 `hasSprite=true`                          |
-| A4  | 检查 Yjs src 前缀                 | 通过         | 单测断言 IMAGE src 均为 `spinth-asset:`、无 `data:` 回写                                                               |
-| A5  | `unzip -l` + manifest/shasum 校验 | 通过         | 系统工具解包：manifest 第一条目、document/资产哈希与 shasum -a 256 一致                                                |
-| A6  | 导入后回原 doc                    | 通过         | E2E：回原 URL 后 modelCount 不变                                                                                       |
-| A7  | 六类失败注入                      | 通过         | E2E 坏 ZIP/版本过新/缺资产/坏哈希 + 单测超限/存储失败：提示可见、URL/画布/库零变化                                     |
-| A8  | 网络监听                          | 通过         | E2E request 监听：导出/导入全程 0 外部请求                                                                             |
-| A9  | 390px 视口                        | 通过         | E2E：面板在视口内、顶栏高 44px 不换行、Escape 还焦点                                                                   |
-| A10 | 只读态                            | 通过         | E2E：只读导出可用、导入新建画布（D6）                                                                                  |
-| A11 | 编辑后立即导入                    | 通过         | E2E：回原文档编辑仍在（flushLocalWrites 生效）                                                                         |
-| A12 | 导入后 reload                     | 通过         | E2E：reload 后 modelCount 保持                                                                                         |
-| A13 | build chunk 检查                  | 通过         | dist 产物：fflate 独立异步 chunk（仅动态 import 引用），主 chunk 无 ZIP 实现                                           |
-| A14 | docs diff                         | 通过         | 本篇回填 + 02/12/13/15/19/README/AGENTS 同步                                                                           |
-| A15 | 代码约束扫描                      | 通过         | core 无 React；projectFile 模块无 PIXI、无全局单例、无 `any`；新增源码文件最大 242 行                                  |
-| A16 | 安全单测                          | 通过         | `projectArchive.test.ts`（路径穿越/重复条目/声明与实际限额/高压缩比 bomb）+ `projectImport.test.ts`（哈希伪造/零写入） |
-| A17 | 3×5MB 导出                        | 通过（机制） | 一次性实测约 0.3s 完成（zip 全程 fflate Worker 异步，主线程仅快照+哈希）；浏览器端录屏证据待人工补录                   |
-| A18 | 样例文件/日志                     | 已留档       | 样例 `.spinth.zip` 存于仓库外本地（`.local` 命名受 gitignore 保护，不入库）                                            |
-
-设计评审：通过（2026-10-21，D1–D7 按推荐冻结）。
-实施：PR1–PR4（格式与导出 / 导入与持久化 / UI 与 E2E / 文档回填）已完成。
-
-结论：____________________ 验收人/日期：____________________
+以上为当前决策；变更先改本文。

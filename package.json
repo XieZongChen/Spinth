@@ -12,6 +12,9 @@
     "dev": "pnpm --filter @spinth/app dev",
     "build": "pnpm --filter @spinth/app build",
     "preview": "pnpm --filter @spinth/app preview",
+    "hygiene": "node scripts/check-hygiene.mjs",
+    "hygiene:staged": "node scripts/check-hygiene.mjs --staged",
+    "prepare": "node scripts/install-git-hooks.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -19,7 +22,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
-    "verify": "pnpm lint && prettier --check . && pnpm typecheck && pnpm -r test && pnpm build",
+    "verify": "pnpm hygiene && pnpm lint && prettier --check . && pnpm typecheck && pnpm -r test && pnpm build",
     "test:e2e": "NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test"
   },
   "devDependencies": {

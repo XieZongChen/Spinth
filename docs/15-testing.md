@@ -14,12 +14,12 @@
 
 ## 2. 当前基线
 
-- 单测：**709 passed**（core 700 + react 9，84 文件）。
-- E2E：15 个 spec、**140 例**；fast 层排除 @timing/@bench/@visual。
+- 单测：**771 passed**（core 762 + react 9，92 文件）。
+- E2E：16 个 spec、**146 例**；fast 层排除 @timing/@bench/@visual。
 - 视觉：**4/4**（macOS 系统 Chrome）。
 - 图片/资产专项：**6/6**。
-- `pnpm verify`：lint + prettier + typecheck + 单测 + build，通过。
-- coverage：Stmts **63.06%** / Branch **52.32%** / Funcs **54.49%** / Lines **64.93%**，
+- `pnpm verify`：hygiene + lint + prettier + typecheck + 单测 + build，通过。
+- coverage：Stmts **64.1%** / Branch **53.52%** / Funcs **55.23%** / Lines **65.98%**，
   阈值 61/51/52/63。
 
 ## 3. 各层怎么加
@@ -57,23 +57,24 @@
 
 ## 4. E2E 剧本清单
 
-| 文件                | 覆盖                                                                           |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `smoke.spec.ts`     | 创建→拖拽→undo→刷新恢复；初始化失败出口；只读态；空态/新建画布；单机启动无网络 |
-| `bench.spec.ts`     | 1000 控件拖拽 rAF 双指标 + culling 翻转                                        |
-| `clipboard.spec.ts` | 剪贴板链路 + 右键菜单                                                          |
-| `mind.spec.ts`      | 脑图全链路/节点级选中/拖拽/快捷键                                              |
-| `widgets.spec.ts`   | 线/画笔/橡皮/图形交互                                                          |
-| `textEdit.spec.ts`  | 文字编辑与排版                                                                 |
-| `image.spec.ts`     | 图片拖放/粘贴/资产迁移/objectURL 配平/GC                                       |
-| `coverage.spec.ts`  | redo/图层/色板/缩放/快捷键面                                                   |
-| `toolbar.spec.ts`   | 工具坞常驻二级菜单                                                             |
-| `visual.spec.ts`    | 视觉快照 4 例                                                                  |
-| `refline.spec.ts`   | 参考线吸附/等间距                                                              |
-| `align.spec.ts`     | 对齐/分布/undo 裂项                                                            |
-| `export.spec.ts`    | PNG 导出双入口                                                                 |
-| `rotate.spec.ts`    | 旋转                                                                           |
-| `group.spec.ts`     | 编组                                                                           |
+| 文件                  | 覆盖                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `smoke.spec.ts`       | 创建→拖拽→undo→刷新恢复；初始化失败出口；只读态；空态/新建画布；单机启动无网络 |
+| `bench.spec.ts`       | 1000 控件拖拽 rAF 双指标 + culling 翻转                                        |
+| `clipboard.spec.ts`   | 剪贴板链路 + 右键菜单                                                          |
+| `mind.spec.ts`        | 脑图全链路/节点级选中/拖拽/快捷键                                              |
+| `widgets.spec.ts`     | 线/画笔/橡皮/图形交互                                                          |
+| `textEdit.spec.ts`    | 文字编辑与排版                                                                 |
+| `image.spec.ts`       | 图片拖放/粘贴/资产迁移/objectURL 配平/GC                                       |
+| `coverage.spec.ts`    | redo/图层/色板/缩放/快捷键面                                                   |
+| `toolbar.spec.ts`     | 工具坞常驻二级菜单                                                             |
+| `visual.spec.ts`      | 视觉快照 4 例                                                                  |
+| `refline.spec.ts`     | 参考线吸附/等间距                                                              |
+| `align.spec.ts`       | 对齐/分布/undo 裂项                                                            |
+| `export.spec.ts`      | PNG 导出双入口                                                                 |
+| `projectFile.spec.ts` | 项目导出/导入 round-trip、失败注入、flush、只读、390px、零外部网络             |
+| `rotate.spec.ts`      | 旋转                                                                           |
+| `group.spec.ts`       | 编组                                                                           |
 
 ## 5. 视觉快照
 
@@ -90,9 +91,9 @@
 
 - 资产 GC Web Locks 单写者：已修复 + 4 例回归（`assetGcLock.test.ts`）。
 - `navigator.storage.persist/estimate`：存储状态专项为 0。
-- 项目导出/导入：已实现——单测 8 文件 62 用例（manifest/archive/assetRefs/export/import/service/dbProvider 快照/round-trip）
-  - E2E `projectFile.spec.ts` 6 用例（round-trip 含图片、失败注入、flush、只读、390px、零外部网络）；
-    规格见 [20-project-file](20-project-file.md)。
+- 项目导出/导入：单测 8 文件 62 用例（manifest/archive/assetRefs/export/import/service/dbProvider 快照/round-trip）；
+  E2E `projectFile.spec.ts` 6 用例（round-trip 含图片、失败注入、flush、只读、390px、零外部网络）；
+  规格见 [20-project-file](20-project-file.md)。
 - 多标签：0（双页面只读/接管/GC 并发）。
 - 默认启动无外部网络：无显式 E2E 断言。
 - coverage include 已收窄到 TS/TSX，README 解析噪声已消除。

@@ -11,21 +11,22 @@
 - [x] 富文本编辑、排版 override、marks、橡皮分段擦除
 - [x] 本地资产库、图片 GC、失败回退
 - [x] 390px 移动端工具菜单
-- [x] 709 单测、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
+- [x] 771 单测、E2E 146 用例、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
 
 ## 2. 下一阶段优先级
 
 ### P1 项目导出/导入
 
-- [x] **已实现**（2026-10-21，规格与验收：[20-project-file](20-project-file.md)；PR1–PR4）。
 - [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
 - [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
 - [x] round-trip 测试（含图片资产、Yjs 无 base64）：62 单测 + 6 E2E。
+- [ ] 验收复验：导出 ZIP 限额、warning 展示、A17/A18 证据。
 - 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
+- 规格：[20-project-file](20-project-file.md)。
 
 ### P1 多标签策略
 
-- [x] 修复资产 GC 的 Web Locks 单写者 bug：锁被占用时跳过（896ddca + `assetGcLock.test.ts`）。
+- [x] 资产 GC 的 Web Locks 单写者：锁被占用时跳过本轮。
 - [ ] 明确策略：单写者 + 其他标签只读 + 原标签关闭后自动接管，或 BroadcastChannel 实时同步。
 - 补双标签并发 GC/只读/接管测试。
 
@@ -81,4 +82,4 @@
 - 边缘自动滚屏：规格保留，未实现。
 - 纹理共享、图片重试、GC 分片：挂账。
 - 多标签实时同步：策略待拍板；首期建议单写者 + 只读跟随。
-- 项目文件格式、导入语义、ZIP 依赖：已冻结并实现（docs/20）——`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning。
+- 项目文件格式、导入语义、ZIP 依赖：`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning（docs/20）。

@@ -32,10 +32,11 @@ pnpm test:coverage
 pnpm test:e2e
 pnpm lint
 pnpm typecheck
+pnpm hygiene
 pnpm verify
 ```
 
-提交前必须全绿：`pnpm verify`（lint + prettier + typecheck + `pnpm -r test` + build）。
+提交前必须全绿：`pnpm verify`（hygiene + lint + prettier + typecheck + `pnpm -r test` + build）。
 Node >= 24，pnpm 11.28.5。
 
 ## 八条铁律
@@ -61,6 +62,14 @@ Node >= 24，pnpm 11.28.5。
 - 文件：`xxxService.ts / xxxVm.ts / xxxModel.ts`；接口 `I` 前缀；rx 流 `$` 后缀；常量 UPPER_SNAKE。
 - 注释解释“为什么”（约束、踩坑、算法出处），不复述“是什么”。
 - 提交信息：`feat|fix|docs|refactor|test|chore: 中文描述`。
+
+## 文档迭代与仓库卫生
+
+- 文档只写**当前事实**（格式、契约、约束、当前验收状态）；不写日期、提交哈希、PR 编号、验收流水账，也不追加“此前/现在/已修复”叙事。历史由 git 提交信息承载。
+- 修改能力时**直接改写对应段落**，不新增变更记录；文档与代码不一致时先改文档。
+- 交接 Prompt、代理计划、评审草稿不入库：`HANDOFF*`、`*handoff*.md`、`本地代理目录`、`本地代理目录`、`本地代理目录` 等只保留在本机，并由 `.gitignore` 与 `pnpm hygiene` 拦截。
+- 仓库内容不得包含本机绝对路径、用户名、邮箱、其他项目名称或来源痕迹。需要本地拒绝词时写 `.hygiene.local.json`（ignored），不要写进仓库。
+- `pnpm install` 会安装 pre-commit 钩子；已有自定义 pre-commit 不会被覆盖。
 
 ## docs 索引
 
@@ -104,7 +113,7 @@ Node >= 24，pnpm 11.28.5。
 
 单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/旋转/
 参考线、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单、
-项目文件导出/导入（`.spinth.zip`，docs/20）。
+项目文件导出/导入（`.spinth.zip`，docs/20；验收待复验）。
 当前实测基线：`pnpm verify` 通过；771 单测（core 762 + react 9）；E2E 16 spec /
 146 用例全绿（视觉 4/4；图片/资产专项 6/6）。
 
