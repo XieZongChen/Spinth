@@ -10,13 +10,7 @@ playwright-report/
 .idea/
 *.log
 
-# 本地交接 / 代理工作区（不提交）
+# 本地交接 / 代理工作区（不提交；具体代理目录写 .git/info/exclude）
 HANDOFF*
 *handoff*.md
-.agents/
-.claude/
-.cursor/
-.codex/
 .hygiene.local.json
-.zcode/
-.v2c/

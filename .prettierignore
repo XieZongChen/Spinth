@@ -6,5 +6,5 @@ test-results/
 playwright-report/
 coverage/
 .spinth/
-.zcode/
-.v2c/
+# 本地隐藏工具目录（不入库）
+.*/

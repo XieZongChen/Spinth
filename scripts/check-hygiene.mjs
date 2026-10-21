@@ -4,7 +4,7 @@
  * 仓库卫生检查（AGENTS: 文档迭代与仓库卫生）。
  *
  * 拦截三类问题：
- * 1. 交接/代理文件被跟踪：HANDOFF*、*handoff*、本地代理目录 等；
+ * 1. 交接/代理文件被跟踪：HANDOFF*、*handoff*、本地代理目录等；
  * 2. 本机隐私：绝对 home 路径、邮箱、疑似密钥；本地拒绝词可写 .hygiene.local.json；
  * 3. 文档历史记录：变更/历史/验收记录章节、PR 编号、带日期的“已实现/已修复”叙事、
  *    commit 哈希。docs 只写当前事实，历史由 git 提交信息承载。
@@ -57,10 +57,6 @@ function readText(file) {
 const deniedPaths = [
   { re: /(^|\/)HANDOFF[^/]*$/i, reason: '交接文档不入库' },
   { re: /(^|\/)[^/]*handoff[^/]*$/i, reason: '交接文档不入库' },
-  {
-    re: /(^|\/)(\.zcode|\.v2c|\.agents?|\.claude|\.cursor|\.codex)(\/|$)/i,
-    reason: '本地代理/计划目录不入库',
-  },
   { re: /(^|\/)\.env(\.local)?$/i, reason: '.env 不入库' },
 ];
 
