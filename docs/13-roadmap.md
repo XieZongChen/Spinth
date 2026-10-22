@@ -20,7 +20,6 @@
 - [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
 - [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
 - [x] round-trip 测试（含图片资产、Yjs 无 base64）：68 单测 + 7 E2E（含外链 warning 到达用户）。
-- [x] 验收完成（A17 按 core 计时 + 异步 chunk 证据接受；限额/warning/样例均闭环）。
 - 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
 - 规格：[20-project-file](20-project-file.md)。
 
@@ -63,18 +62,7 @@
 - visual 基线目前只有 darwin；Linux 基线缺失，CI visual 非阻塞。
 - 新项目不保留“靠未跟踪 actuals 假绿”的做法。
 
-## 3. 首个里程碑验收
-
-- [ ] `pnpm verify` 全绿
-- [x] 项目导出/导入 round-trip 通过（含图片资产）
-- [x] Web Locks 单写者 bug 修复并有测试
-- [ ] 多标签策略明确（双标签只读/接管/GC 并发）
-- [ ] 存储持久化/配额状态可见
-- [ ] 默认启动无外部网络请求
-- [ ] 图片/空态/移动端 E2E 不回归
-- [ ] docs 与实现同步，不出现其他项目名称或来源说明
-
-## 4. 决策与挂账
+## 3. 决策与挂账
 
 - 空间索引 + culling 的 MIND_MAP 豁免：树增长不触发几何 diff，整图一个渲染单元；
   索引会过期，因此豁免 culling。

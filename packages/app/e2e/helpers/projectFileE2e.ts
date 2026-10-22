@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * 项目文件 E2E 公共助手（docs/20 §13.3 卫生约定）：
+ * 项目文件 E2E 公共助手：
  * 探针轮询对导航间隙做空安全；导入导航先等 URL 提交再等 synced。
  */
 

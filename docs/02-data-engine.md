@@ -143,12 +143,7 @@ abstract class BaseModel<D extends IWidgetData> {
 图片 `src` 支持 `data:`、`http(s):`、`spinth-asset:<sha256>`。新图片入库后
 文档只存短引用；资产库、GC、失败回退见 docs/19。
 
-## 10. 验收与已知边界
+## 10. 当前边界
 
-- [x] 创建/修改/删除 widget，Yjs update 只含预期字段（写前 diff 有单测）。
-- [x] 批量删除 = 一次 undo 恢复全部。
-- [x] 刷新后 IndexedDB 恢复全部数据。
-- [x] compaction 在 Worker 与同步兜底路径均通过测试。
-- [ ] 跨标签页实时同步（当前未实现；多标签策略见 docs/13 与后续计划）。
-- [x] 项目级导出/导入（已实现，规格与验收：docs/20——`.spinth.zip` 快照导入
-      经 `createDocFromSnapshot` 写新文档库，不改当前文档；68 单测 + 7 E2E）。
+- 跨标签页实时同步未实现，多标签策略待定。
+- 项目级导出/导入已实现；格式与失败回滚见 docs/20。

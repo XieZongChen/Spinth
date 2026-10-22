@@ -144,10 +144,3 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   preview 直写 `root.rotation`，松手 `model.update({ rotation })` 单事务。
 - 首版降级：旋转件不参与参考线/等间距；多选框/awareness 框恒 AABB；
   ActionBar 按 AABB 定位；对齐/分布按外接矩形。多选整体旋转挂账。
-
-## 9. 验收
-
-- [x] 单选/多选/shift 加减选/框选实时高亮。
-- [x] 拖拽中 Yjs 零写；松手一条事务；undo 一次恢复。
-- [x] 对齐/分布/旋转有纯函数单测 + E2E。
-- [ ] 边缘自动滚屏（未实现）。

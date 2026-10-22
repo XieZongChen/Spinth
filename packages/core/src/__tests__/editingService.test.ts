@@ -7,7 +7,7 @@ import type { IEditSessionDescriptor } from '../types';
 /**
  * 统一编辑会话编排桩测试（docs/17 §5 批 4 护栏）：全局互斥抢占 / 退出序列
  * 时序（flush → 空文本策略 → onExit → detach）/ discard 语义 / 同目标重入
- * （IME）/ dispose 兜底。修过一次的编排 bug 必须留下桩测试（docs/15 §2）。
+ * （IME）/ dispose 兜底。修过一次的编排 bug 必须留下桩测试（docs/15 §3）。
  */
 
 function makeHarness() {

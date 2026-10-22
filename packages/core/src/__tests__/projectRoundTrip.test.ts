@@ -11,14 +11,14 @@ import { ProjectFileService } from '../platform/projectFile/projectFileService';
 import { widgetMap } from './helpers/projectFileFixtures';
 
 /**
- * 全链路 round-trip（docs/20 §13.1 / 验收 A3/A4）：
+ * 全链路 round-trip（A3/A4）：
  * 真实 Y.Doc + fake-indexeddb AssetStore —— 导出 → 导入 → attach 恢复，
  * widget 数据与资产字节一致；Yjs 内不出现 base64。
  *
  * 样例文件生成（验收 A18 可复现命令）：
  *   SPINTH_SAMPLE_OUT=./sample.spinth.zip \
  *     pnpm --filter @spinth/core exec vitest run src/__tests__/projectRoundTrip.test.ts
- * 验证：unzip -l 与 manifest 哈希（详见 docs/20 §14 A18）。
+ * 验证：unzip -l 与 manifest 哈希（A18）。
  */
 
 /** 按需把导出产物落盘为验收样例（A18：环境变量驱动，日常测试零副作用） */

@@ -12,7 +12,7 @@ P3  快照纹理 LOD（已落地）
 P3  TextVm.render 全量重建（平移复用已落地）
 ```
 
-验收基准：1000 控件 + 视口外滚动，拖拽帧间隔相对增量 < 8ms；启动维护链走
+性能基准：1000 控件 + 视口外滚动，拖拽帧间隔相对增量 < 8ms；启动维护链走
 `requestIdleCallback`，不阻塞首屏。
 
 ## 1. 空间索引 + 视口 culling
@@ -77,13 +77,12 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - `lineService` / `app.ts` / `dbProvider` 等文件超过 400 行，阅读与维护成本高。
 - 纹理共享、图片重试、GC 分片：下一阶段。
 
-## 7. 基准与验收
+## 7. 性能基准
 
-- `bench.spec.ts`：程序化创建 1000 控件（shape/text/pen），断言拖拽 rAF
-  绝对 p95 < 25ms 且相对增量 < 8ms；3 屏外滚动 culling 翻转计数。
-- headless 软渲染空转 p95 ≈ 18ms 是环境噪声；机器高负载（load > 8）会边缘超限
-  26–28ms，偶红先看 `uptime` 再怀疑代码。
-- 启动维护链 `requestIdleCallback`，超时兜底 3s。
+- bench：程序化创建 1000 控件（shape/text/pen），拖拽 rAF 绝对 p95 <25ms、
+  相对增量 <8ms；3 屏外滚动 culling 翻转计数。
+- headless 软渲染空转 p95 ≈18ms 是环境噪声；load >8 时边缘可能超限 26–28ms。
+- 启动维护链走 `requestIdleCallback`，超时兜底 3s。
 
 ## 8. 性能审查机制
 

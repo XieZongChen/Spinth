@@ -77,10 +77,3 @@ new WebsocketProvider(wsUrl, 'spinth/<docId>', yDoc);
 - 跨设备协同需要额外资产传输层（例如服务端 blob 端点）；在该层落地前，
   不能把本地资产引用当作跨设备可读 URL。
 - 未来协同时，资产 provider 作为可选依赖注入，不能成为单机硬依赖。
-
-## 9. 验收（未来协同阶段）
-
-- [ ] 双端并发编辑无冲突，断网可编辑、重连合并。
-- [ ] 远端 origin 不进本地 undo；本地 undo 不穿越他人操作。
-- [ ] 三态（docState/wsState/persistState）语义不混同。
-- [ ] 协同关闭时启动路径零网络请求、零协同 UI。

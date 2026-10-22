@@ -20,7 +20,7 @@ import {
 } from './helpers/projectFileE2e';
 
 /**
- * 项目文件（.spinth.zip）E2E（docs/20 §13.3）：
+ * 项目文件（.spinth.zip）E2E：
  * 导出/导入 round-trip（含图片）、原文档不受影响、失败注入零影响、
  * 导航前落盘、只读态、390px、零外部网络。
  * fflate 仅供测试构造/检视包（app devDependency，不进运行时 bundle）。

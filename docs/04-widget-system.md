@@ -129,16 +129,6 @@ VmEngine.initialize():
   按可移动参与数表达禁用态。
 - 详细 UI 规格见 docs/12 §4；命令实现见 `boardCommands.ts`。
 
-## 7. 新增控件 checklist
-
-1. 在 `types/widget.ts` 加 zod schema + 判别联合分支。
-2. 在 `widgets/xxx/` 写三件套（Model/Vm/Service；创建型继承基类）。
-3. 在 `WIDGET_REGISTRY` 登记 schema/capabilities。
-4. 在 `WIDGET_TOKENS` / `WIDGET_FACTORIES` 登记 model/vm token。
-5. 在组合根构造 Service 并 `initialize()`。
-6. 补单测：Model 校验/clamp、纯函数数学、交互编排桩测试。
-7. 更新 docs 与 E2E 探针。
-
 ## 8. 控件清单
 
 | 控件     | 说明                                                       |
@@ -161,9 +151,7 @@ VmEngine.initialize():
   undo 靠 captureTimeout 窗口合并为一步。
 - 切割数学：`common/geometry.eraseStrokeAgainstSweep`，纯函数带单测。
 
-## 9. 验收
+### 8.2 形状 20 型
 
-- [x] 创建→渲染→拖动→undo→redo→删除，无一处直接改 VM。
-- [x] 同值 update 不产生 op；非法字段被拒；超限 clamp。
-- [x] 新增控件零改 dataEngine/vmEngine。
-- [x] 形状 20 型、线三型、橡皮分段均有单测/E2E。
+- 形状类型由 `SHAPE_TYPE_OPTIONS` 单一源维护：四基础型 + 流程图/工程图扩展，共 20 型。
+- 几何内接、路径绘制与带字撑高见 `shapeGeometry.ts` / `shapePath.ts` / docs/17 §6。

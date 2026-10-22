@@ -1,6 +1,6 @@
 # 20 — 项目文件（导出/导入）规格
 
-> 本文件是项目文件格式、导出/导入与兼容性的当前规格；实现、评审与验收以本文为准。
+> 本文件是项目文件格式、导出/导入与兼容性的当前规格；实现与评审以本文为准。
 > 实现不得自行改变 §4 的格式与 §7 的导入语义；变更先改本文。
 
 ## 1. 目标与非目标
@@ -370,7 +370,7 @@ flushLocalWrites(): Promise<void> {
 **所有校验通过之前，不写资产、不写文档库、不触碰当前 Y.Doc。**
 当前画布的唯一影响是导入成功后的“导航前 flush”。
 
-### 7.2 步骤
+### 7.2 导入流程
 
 1. 检查文件大小（压缩包）≤ `MAX_ARCHIVE_BYTES`；读 `arrayBuffer`。
 2. 解包并做条目级校验（§11）：
@@ -542,98 +542,7 @@ export const DEFAULT_PROJECT_FILE_LIMITS: ProjectFileLimits = {
 - widget schema 演进继续走现有 Model `initializeY` 的补默认/隔离机制；项目文件层不重复实现。
 - 协同：未来跨设备资产传输应作为独立 provider/包接入，不改变本项目文件格式的本地语义。
 
-## 13. 测试计划
-
-### 13.1 纯逻辑 / 单测（core，vitest）
-
-| 文件                                | 必测                                                                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `projectManifest.test.ts`           | 合法解析；format/version/字段缺失；坏 hash/path；重复 id/path；未知字段忽略；createdAt 非法                                        |
-| `projectArchive.test.ts`            | 打包→解包 round-trip；坏 ZIP；缺 manifest/document；重复条目；路径穿越；未知条目 warning；单条/总量/条目数限额                     |
-| `projectAssetRefs.test.ts`          | 只收集 IMAGE 的 `spinth-asset:`；去重；data/http/非 IMAGE 忽略；外链计数                                                           |
-| `projectExport.test.ts`             | shape/text/image 文档；manifest/资产字节；stats；空画布；缺资产/坏哈希/超限/abort；文件名安全化；无 Yjs 写                         |
-| `projectImport.test.ts`             | 合法导入写资产+新文档；缺资产/坏哈希/坏文档/版本/超限；全部失败路径零写入；未引用资产 warning；重复导入不同 docId；DOC_EXISTS 重试 |
-| `projectFileService.test.ts`        | not ready/disposed；依赖注入；flush 失败 warning；异常映射                                                                         |
-| `dbProvider.importSnapshot.test.ts` | 新库一 update + 一审计；`DbProvider.attach` 能恢复；已存在库拒绝；事务失败清理                                                     |
-| `projectRoundTrip.test.ts`          | 真实 Y.Doc + fake-indexeddb AssetStore：导出→导入→打开，widget 数据/资产字节一致；Yjs 内无 base64                                  |
-
-要求：
-
-- 每个 §5.1 错误码至少一个用例。
-- 限额测试注入小限额（如 1 KiB），不生成 25 MiB 夹具。
-- 测试文件尽量 < 400 行；大矩阵按 manifest/archive/import 拆分。
-- 新增纯逻辑模块分支覆盖目标 ≥ 90%（coverage 报告人工核对；不强制改全局阈值）。
-- 单测不依赖真实网络、真实计时器、真实浏览器下载。
-
-### 13.2 集成 / 编排
-
-- `createDocFromSnapshot` 与 `DbProvider.attach` 的真实 IDB 链路（fake-indexeddb）。
-- 资产写入使用真实 `AssetStore`（fake-indexeddb + Node `crypto.subtle`）。
-- 失败注入：`createDoc` 抛错、`assetStore.put` 抛错、事务 abort；断言当前 Y.Doc 未被修改、无新文档库。
-
-### 13.3 E2E（Playwright，`packages/app/e2e/projectFile.spec.ts`）
-
-1. **round-trip（含图片）**：新建 shape/text/sticky + 粘贴唯一 PNG → 等待 saved → 菜单导出（download 事件）→ 记录文件名/路径 → 新文档页导入（`setInputFiles`）→ 等 URL 变化/synced → 断言 `modelCount`、类型、图片 `hasSprite` → reload 后仍恢复 → 资产库存在该 hash。
-2. **原文档不受影响**：导入后回到原 doc URL，断言原内容仍在。
-3. **导入失败**：坏 ZIP/版本过新/缺资产/坏 hash；错误文案可见；URL 不变；原 `modelCount` 不变；`indexedDB.databases()` 无新增 `spinth-doc:`（API 可用时）。
-4. **当前文档落盘**：编辑→立即导入→回到原 doc，编辑内容仍在（验证 flush/导航收口）。
-5. **只读**：`__spinth.updateEditable(false)` 后导出仍可用；导入创建新画布成功（只读态允许导入，见 §16 D6）。
-6. **390px**：菜单面板完全在视口内；导出/导入项可点；顶栏不换行（断言高度 44px）。
-7. **无网络**：导入期间监听外部 request，断言 0 次；导出同理。
-8. **视觉**：顶栏不在现有 visual clip（y=44 起）内，不新增快照；若实现改了画布视觉则必须说明并重录，禁止假绿。
-
-E2E 卫生：每例结束清理 `spinth-doc:<id>`；使用 `window.__spinth.__debug` 探针；坐标从世界坐标反推；不手写屏幕数字。
-
-### 13.4 手工验收
-
-- 用系统解压工具（`unzip -l`）检查 ZIP 结构；manifest 可读；document/assets 哈希正确。
-- 在**全新浏览器 profile**（无 IndexedDB）导入含图片文件；断网后仍能打开。
-- 清站点数据前导出、清空后导入，确认恢复。
-- 故意改坏 manifest 版本/资产字节，确认错误提示且原画布无变化。
-- 390px 真机/模拟器检查菜单与顶栏。
-
-## 14. 验收标准
-
-以下全部满足才可验收：
-
-- [x] A1 `pnpm verify` 退出码 0（lint/prettier/typecheck/单测/build）。
-- [x] A2 新 E2E 全绿；既有 spec 不回归；visual 4/4；图片/资产 6/6。
-- [x] A3 round-trip 覆盖 SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP；图片 reload 后 `hasSprite=true`；资产字节/hash 一致。
-- [x] A4 新图片资产写入 Yjs 时 `src` 是 `spinth-asset:`，不是 base64；导出包内是原始二进制。旧式 `data:` 图片只原样留在 Yjs 中并给出 warning，不得被二次 base64 打包。
-- [x] A5 ZIP 结构严格符合 §4；标准工具可解包；manifest 字段/哈希正确。
-- [x] A6 导入总是创建新 docId；原文档仍可打开且内容不变。
-- [x] A7 坏 ZIP/坏版本/缺资产/坏 hash/超限/存储失败六类错误均有用户提示，且当前画布/原文档库无变化、无新文档库。
-- [x] A8 导出/导入期间无外部网络请求。
-- [x] A9 390px 菜单不溢出、不换行；键盘/Escape/焦点可用。
-- [x] A10 只读态可导出；导入语义符合 §9.2。
-- [x] A11 编辑后立即导入，原文档编辑不丢（flush 生效）。
-- [x] A12 导入文档刷新后仍完整（IndexedDB 恢复）。
-- [x] A13 fflate 只在动态 chunk；首屏同步 bundle 不引入 ZIP 库。
-- [x] A14 `docs/20` 与实现一致；`docs/02/12/13/15/19` 同步；测试数字为实测。
-- [x] A15 core 无 React/zustand；项目模块无 PIXI；无全局单例；新增文件 < 400 行；无新增 `any`。
-- [x] A16 ZIP 路径穿越/重复条目/zip bomb/哈希伪造测试通过。
-- [x] A17 导出 3×5MB 素材时 UI 不冻结（异步 zip）：证据 = core 侧可复现计时
-      （`projectExport.test.ts` 3×5MB 用例）+ fflate 仅在动态 chunk 异步执行、
-      主线程只做快照与哈希。
-- [x] A18 实施方提供样例 `.spinth.zip` 与验收命令输出（`SPINTH_SAMPLE_OUT=<路径>`
-      环境变量驱动，命令见 `projectRoundTrip.test.ts` 文件头注）。
-
-## 15. 审查清单（代码评审时逐项核对）
-
-- [ ] 设计边界：只改 core 数据/平台层 + app 壳；没有动 dataEngine/vmEngine 的核心分发逻辑（除 §5.4/§5.5 的明确小改）。
-- [ ] 类型先行：zod schema 在 `types/projectFile.ts`；导入边界全部运行时校验；没有把 manifest 字段直接当可信类型。
-- [ ] 数据流：导出只读 Y.Doc；导入只写临时 Y.Doc + 新库；没有直接改 VM/PIXI；没有把 base64 写回 Yjs。
-- [ ] DI：`ProjectFileService` 构造注入；没有全局单例/隐式 import 副作用；`boardComposition` 装配清晰。
-- [ ] 持久化：`createDocFromSnapshot` 单事务、新库检测、失败清理；没有复用 `DbProvider` 实例导致监听/compaction 副作用。
-- [ ] 失败路径：校验先于写入；每个 await 有错误映射；没有吞异常；导航只在成功后。
-- [ ] 安全：路径穿越、重复条目、解压后大小、哈希、MIME、无网络逐项有测试。
-- [ ] UI：菜单可访问性、busy/error、Escape/焦点、390px、只读；没有把核心错误 message 直接展示。
-- [ ] 性能：zip 异步；资产内存上限；没有在主线程做超大同步压缩。
-- [ ] 测试质量：断言数据而非只断言“无报错”；失败用例真的失败；E2E 不靠未跟踪 actuals；清理 doc 库。
-- [ ] 文档：§4 格式与代码一致；版本常量单一源；路线图/测试清单/资产文档同步；无过期数字。
-- [ ] 构建：fflate 动态 chunk；没有新增启动网络/依赖服务端。
-
-## 16. 决策
+## 13. 决策
 
 | ID  | 决策          | 结论                                 | 说明                               |
 | --- | ------------- | ------------------------------------ | ---------------------------------- |

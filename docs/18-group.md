@@ -112,14 +112,6 @@ marquee 命中集后处理：凡带 groupId 的成员，其组全部存活成员
 - `collapseGroupParticipants(parts, groupOf)`：对齐参与体折叠。
 - `computeGroupZOrderContraction`：建组 zOrder 归拢（复用 layerOps 数学）。
 
-## 7. 测试与验收
-
-- 单测：groupOps 六函数（单员组、半组命中、空集、锚定线混选拒绝）。
-- 桩测试：groupService 编排（建组事务原子性 / 解组键删除 / 粘贴重映射 / 转锚定清除）。
-- E2E：建组 → 点击整组选中 → 拖动整组 → Alt 单体缩放 → undo 建组一步 →
-  解组 → 粘贴保组 → 框选半组不选 → 对齐组整体参与 → 快捷键双入口。
-- 验收：上述全绿 + §0 拍板行为逐条核对。
-
 ## 8. 挂账
 
 - 嵌套编组（`groupId` → `groupIds` 迁移；可参考 penModel 的 initializeY 一次性迁移）。

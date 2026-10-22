@@ -336,7 +336,7 @@ describe('exportProject', () => {
       appVersion: '0.3.0',
     });
     const elapsed = Date.now() - t0;
-    // core 层可复现计时（浏览器端「UI 不冻结」证据另计，见 §14 A17）；
+    // core 层可复现计时（浏览器端「UI 不冻结」证据另行采集）；
     // 上限宽松（CI 机器波动），只防回归性劣化
     console.info(`[project-export] 3×5MB 导出耗时 ${elapsed}ms，产物 ${result.blob.size} 字节`);
     expect(result.stats.assetBytes).toBe(15 * 1024 * 1024);

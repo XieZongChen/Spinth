@@ -1,5 +1,5 @@
 /**
- * 项目文件测试夹具（docs/20 §13）：构建合法/篡改的 .spinth.zip。
+ * 项目文件测试夹具：构建合法/篡改的 .spinth.zip。
  * 测试文件自行负责 `import 'fake-indexeddb/auto'`（本助手不开环境）。
  */
 
