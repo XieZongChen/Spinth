@@ -14,9 +14,9 @@ export const TAB_LOCK_PREFIX = 'spinth-doc-write:';
 export const PROMOTION_DELAY_MS = 300;
 /** 接管回调未导航（页面仍存活）的兜底窗口：释放锁、回 follower，防陈旧写者 */
 export const PROMOTION_FALLBACK_MS = 1000;
-/** fallback 回 follower 后的自愈重排延迟：回调失效场景的低频重试——不做
- *  1s 级（会与失效的 onPromoted 组成无限「授予→刷新失败→释放」循环） */
-export const RETRY_AFTER_FALLBACK_MS = 30_000;
+/** 锁重试延迟：wait 失败 / 接管回调未导航后的自愈重排间隔——两条路径共用。
+ *  低频重试，不做 1s 级（会与失效的 onPromoted 或持续失败的 wait 组成高频循环） */
+export const RETRY_DELAY_MS = 30_000;
 
 export interface ITabSessionOptions {
   docId: string;
@@ -73,7 +73,8 @@ export class TabSessionService extends Disposable {
         this.queueWait(name);
       })
       .catch((err: unknown) => {
-        if (this.disposed) return;
+        // 让锁后（pagehide）才到达的失败不再降级 emit
+        if (this.disposed || this.released) return;
         console.warn('[spinth:tab] 写者锁申请失败，降级单标签可写', err);
         this.emit({ role: 'solo', writable: true });
       });
@@ -112,7 +113,7 @@ export class TabSessionService extends Disposable {
           if (this.disposed || this.released) return;
           this.opts.onPromoted();
           // 接管回调没导航（页面仍存活）→ 释放锁、回 follower、warn；
-          // 不自动重新排队——回调失效下重排会造成无限刷新循环
+          // 30s 后自愈重排（低频；回调持续失效也不会形成刷新风暴）
           this.fallbackTimer = setTimeout(() => {
             this.fallbackTimer = null;
             if (this.disposed || this.released) return;
@@ -121,28 +122,33 @@ export class TabSessionService extends Disposable {
             this.emit({ role: 'follower', writable: false });
             // 自愈：30s 后重新排队等锁（若写者已离开仍可接管；回调持续失效
             // 则每 30s 至多重试一轮，不构成刷新风暴）
-            this.retryTimer = setTimeout(() => {
-              this.retryTimer = null;
-              if (this.disposed || this.released) return;
-              this.queueWait(name);
-            }, RETRY_AFTER_FALLBACK_MS);
+            this.scheduleRetry(name);
           }, PROMOTION_FALLBACK_MS);
         }, this.opts.promotionDelayMs ?? PROMOTION_DELAY_MS);
       })
       .catch((err: unknown) => {
-        if (this.disposed) return;
+        // pagehide 之后才到达的失败不再 emit/挂重试——页面即将消失，
+        // 此时 released 已置位（dispose 也走 release）
+        if (this.disposed || this.released) return;
         // 能走到排队说明 tryAcquire 已返回 null——确实存在别的写者；wait 失败
         // 不允许降级 solo（否则出现第二个写者），保持 follower 只读
         console.warn('[spinth:tab] 写者锁等待失败，保持只读', err);
         this.emit({ role: 'follower', writable: false });
         // 与 fallback 同款退避自愈：wait 持续失败每 30s 重排一轮——写者离开后
         // 仍可自动接管，不需用户手动刷新
-        this.retryTimer = setTimeout(() => {
-          this.retryTimer = null;
-          if (this.disposed || this.released) return;
-          this.queueWait(name);
-        }, RETRY_AFTER_FALLBACK_MS);
+        this.scheduleRetry(name);
       });
+  }
+
+  /** 退避重排（wait 失败 / 接管回调失效共用）：30s 后重新排队等锁。
+   *  单飞：已有待执行的重排时不重复挂（两条失败路径不会并发，保持幂等）。 */
+  private scheduleRetry(name: string): void {
+    if (this.retryTimer !== null) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (this.disposed || this.released) return;
+      this.queueWait(name);
+    }, RETRY_DELAY_MS);
   }
 
   private emit(state: ITabSessionState): void {

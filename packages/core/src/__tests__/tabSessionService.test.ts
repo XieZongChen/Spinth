@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   PROMOTION_DELAY_MS,
   PROMOTION_FALLBACK_MS,
-  RETRY_AFTER_FALLBACK_MS,
+  RETRY_DELAY_MS,
   TAB_LOCK_PREFIX,
   TabSessionService,
 } from '../platform/tabSession/tabSessionService';
@@ -174,7 +174,7 @@ describe('TabSessionService', () => {
     await s.start();
     expect(s.state$.value).toEqual({ role: 'follower', writable: false }); // wait 失败保持只读
     holder.release(); // 写者离开
-    await vi.advanceTimersByTimeAsync(RETRY_AFTER_FALLBACK_MS - 1);
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS - 1);
     expect(waitCalls).toBe(1); // 退避窗口内不重排
     await vi.advanceTimersByTimeAsync(1); // 30s 到：重排 → 锁空闲立即授予
     expect(waitCalls).toBe(2);
@@ -240,7 +240,7 @@ describe('TabSessionService', () => {
     expect(onPromoted).toHaveBeenCalledTimes(1);
     expect(s.state$.value).toEqual({ role: 'follower', writable: false });
     // 30s 后自愈重排：锁空闲 → 立即授予 → 延时后第二次接管尝试
-    await vi.advanceTimersByTimeAsync(RETRY_AFTER_FALLBACK_MS - 1);
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS - 1);
     expect(onPromoted).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1 + PROMOTION_DELAY_MS);
     expect(onPromoted).toHaveBeenCalledTimes(2);

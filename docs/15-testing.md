@@ -22,7 +22,7 @@
   只读视图操作/390px/手动刷新/只读不跑维护链；同 context 双 page 共享 Web Locks）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：64.61 / 54.28 / 55.94 / 66.59，阈值 61/51/52/63。
+- coverage：64.60 / 54.30 / 55.94 / 66.58，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 

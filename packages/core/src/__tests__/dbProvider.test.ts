@@ -686,15 +686,22 @@ describe('DbProvider 只读写保护（docs/21 §4）', () => {
     // 成为该增量的唯一落盘路径——真正隔离 dispose 入口
     (db as unknown as { readOnly: boolean }).readOnly = true;
     db.dispose(); // dispose 走 flushPendingWrites——不得被只读拦截
-    await flush(30); // 等 IDB 写事务与延迟关库链完成
     doc.destroy();
-    const doc2 = new Y.Doc();
-    const db2 = new DbProvider();
-    await db2.attach(docId, doc2);
-    expect(
-      (doc2.getArray('widgets').toArray() as Y.Map<unknown>[]).map((m) => m.get('id')),
-    ).toEqual(['a']);
-    db2.dispose();
-    doc2.destroy();
+    // 不写死等待：dispose 的冲刷与延迟关库都是异步——轮询重连读，读到即证明
+    // 该增量确实经 dispose 落了盘（固定 sleep 在慢环境会假红）
+    const readIds = async (): Promise<string[]> => {
+      const probe = new Y.Doc();
+      const probeDb = new DbProvider();
+      try {
+        await probeDb.attach(docId, probe);
+        return (probe.getArray('widgets').toArray() as Y.Map<unknown>[]).map(
+          (m) => m.get('id') as string,
+        );
+      } finally {
+        probeDb.dispose();
+        probe.destroy();
+      }
+    };
+    await expect.poll(readIds, { timeout: 3_000 }).toEqual(['a']);
   });
 });

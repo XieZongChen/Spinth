@@ -59,9 +59,9 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
   时间排进锁队列，刷新完成后优先拿回锁（刚刷新的前台标签不会反被另一个标签抢成
   只读）；② 覆盖 pagehide 时 100ms 写聚合窗口的 flush。
 - 再过 `PROMOTION_FALLBACK_MS = 1000` 页面仍存活（接管回调没导航、留下陈旧写者）→
-  释放锁、回 follower、warn；`RETRY_AFTER_FALLBACK_MS = 30_000` 后自愈重排一轮
-  （低频重试，不做 1s 级——会与失效回调组成无限循环）。`wait()` 失败保持
-  follower 后走同款 30s 退避重排——写者离开仍可自动接管，不需手动刷新。
+  释放锁、回 follower、warn；`RETRY_DELAY_MS = 30_000` 后自愈重排一轮
+  （`wait()` 失败与接管回调失效共用；低频重试，不做 1s 级——会与失效回调或
+  持续失败的 `wait` 组成高频循环）。写者离开后仍可自动接管，不需手动刷新。
 - `pagehide` 主动 `release()` 让锁（否则跳到新文档后旧页面进 bfcache 仍持旧 doc 的锁，
   另一标签永久只读）；`pageshow(persisted)`（bfcache 恢复，内存状态必然过期）整页刷新。
 
