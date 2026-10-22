@@ -82,6 +82,10 @@ export class DbProvider extends Disposable {
   private compactWorkerUsed = false;
   /** 下次失败重试延迟（指数退避；成功复位 WRITE_FLUSH_MS） */
   private retryDelayMs = WRITE_FLUSH_MS;
+  /** 只读标签（docs/21 §4）：拒绝一切文档写入——update 丢弃、flush/compaction/
+   *  legacy 迁移写跳过；persistState$ 保持 saved（没有真实未落盘发生） */
+  private readOnly = false;
+  private readOnlyWarned = false;
   /** origin 标记：本实例触发的 update（恢复/迁移回放）不回流落盘 */
   private readonly self = Symbol('spinth-db');
   /** 落盘状态（Batch 1 · 1.15，2026-10-17 审查 4.3「最危险项」）：saving=缓冲有
@@ -101,7 +105,12 @@ export class DbProvider extends Disposable {
    * replay 模式（docs/10 §6）：跳过普通恢复（updates store 不 apply），
    * 供 ReplayProvider 从 allupdates 审计日志逐条回放。
    */
-  async attach(docId: string, yDoc: Y.Doc, opts?: { replay?: boolean }): Promise<void> {
+  async attach(
+    docId: string,
+    yDoc: Y.Doc,
+    opts?: { replay?: boolean; readOnly?: boolean },
+  ): Promise<void> {
+    this.readOnly = opts?.readOnly === true;
     // P0-5（2026-10-17 外部审查）：旧库迁移改为「先读入内存 → 开新库 → 合并态
     // 快照落新库（写事务确认后）→ 删旧库」——原实现读入内存后立即删旧库且不
     // 向新库写任何内容，首次打开看似正常（内存有数据）、二次刷新全丢且旧库
@@ -122,9 +131,11 @@ export class DbProvider extends Disposable {
     }
     this.pendingCount = updates.length;
 
-    if (legacy) {
+    if (legacy && !this.readOnly) {
       // 合并态（legacy + 既有 updates）快照落新库：clear+add 幂等（迁移中途
-      // 崩溃旧库仍在，重迁无害——allupdates 可能多一行快照，replay 幂等）
+      // 崩溃旧库仍在，重迁无害——allupdates 可能多一行快照，replay 幂等）。
+      // 只读标签跳过写与删旧库：旧库 update 已在 readLegacyUpdates 应用到内存，
+      // 主写者标签会完成迁移（docs/21 §4）
       const snapshot = Y.encodeStateAsUpdate(yDoc);
       const wtx = this.db.transaction([STORE_UPDATES, STORE_ALL], 'readwrite');
       wtx.objectStore(STORE_UPDATES).clear();
@@ -166,8 +177,24 @@ export class DbProvider extends Disposable {
     }
   }
 
+  /** 运行时切换只读（updateEditable → engine.setWriteEnabled 联动，docs/21 §4）：
+   *  切回可写即恢复写缓冲路径——宿主运行时切换后不静默丢写 */
+  setReadOnly(v: boolean): void {
+    this.readOnly = v;
+    if (!v) this.readOnlyWarned = false;
+  }
+
   private onDocUpdate = (update: Uint8Array, origin: unknown): void => {
     if (this.skipOrigins.has(origin)) return; // db 恢复/迁移/replay 回放不落盘
+    if (this.readOnly) {
+      // 只读标签兜底：UI/命令闸门有十来处，漏一处就是第二个写者（Yjs 会合并，
+      // 但 undo 栈与用户预期都会坏）——磁盘层最后防线，首次提示一次
+      if (!this.readOnlyWarned) {
+        this.readOnlyWarned = true;
+        console.warn('[spinth:db] 只读标签拒绝文档写入（另一标签可能是写者）');
+      }
+      return;
+    }
     if (!this.db) return;
     this.writeBuffer.push(update);
     this.auditBuffer.push({ u: update, t: Date.now() } satisfies IAuditEntry);
@@ -186,6 +213,7 @@ export class DbProvider extends Disposable {
    * 之前」经验族。pendingCount 按条累加：compaction 阈值语义不变（外部审查 DoD #2）。
    */
   async flushPendingWrites(): Promise<void> {
+    if (this.readOnly) return; // 只读：缓冲恒空，pagehide flush 亦 no-op
     if (!this.db || this.flushing || this.writeBuffer.length === 0) return;
     this.flushing = true;
     const updates = this.writeBuffer;
@@ -249,6 +277,7 @@ export class DbProvider extends Disposable {
    * 最近一次 compaction 之后**（冲突复现场景都在近期窗口，docs/10 §6）。
    */
   private compact(): Promise<void> {
+    if (this.readOnly) return Promise.resolve(); // 只读不塌缩磁盘（docs/21 §4）
     if (!this.db || !this.doc) return Promise.resolve();
     if (this.compacting) return Promise.resolve(); // 在途：丢弃本次（debounce 会再来）
     this.compacting = true;

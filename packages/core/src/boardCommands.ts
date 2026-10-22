@@ -96,6 +96,9 @@ export class BoardCommands {
     // 可输入的 DOM 而命令层已全禁——先 flush 收口
     if (!v) this.ctx.editingService?.exitActive();
     this.ctx.viewport?.editable$.next(v);
+    // 磁盘兜底联动（docs/21 §4）：UI 闸门 + writeEnabled 拒写同时生效，
+    // 切回可写时写入恢复——宿主运行时切换不静默丢写
+    this.ctx.engine?.setWriteEnabled(v);
   }
 
   /** 写命令统一只读守卫（Batch 1 · 1.13）：键盘 handler 层有闸门，但 react

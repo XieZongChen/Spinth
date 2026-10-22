@@ -94,8 +94,16 @@ export interface IViewportService {
 }
 
 export interface IDataEngineService {
-  initialize(config: { docId: string; wsUrl?: string; userName?: string }): Promise<void>;
+  initialize(config: {
+    docId: string;
+    wsUrl?: string;
+    userName?: string;
+    /** false = 只读标签：DbProvider 拒绝文档写入（docs/21 §4）。默认可写 */
+    writeEnabled?: boolean;
+  }): Promise<void>;
   dispose(): void;
+  /** 运行时切换写授权（updateEditable 同步调用——只读宿主不落盘，切回不丢写） */
+  setWriteEnabled(v: boolean): void;
 
   add(data: IWidgetData): IBaseModel<IWidgetData>;
   removeByIds(ids: string[]): void;

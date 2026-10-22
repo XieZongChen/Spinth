@@ -58,11 +58,22 @@ export class DataEngineService extends Disposable implements IDataEngineService 
     return this.db.flushPendingWrites();
   }
 
+  /** 运行时切换写授权（updateEditable 联动，docs/21 §4）：只读宿主不落盘，
+   *  切回可写恢复写入路径 */
+  setWriteEnabled(v: boolean): void {
+    this.db.setReadOnly(!v);
+  }
+
   private ws: WebsocketProvider | null = null;
 
   private _yWidgets!: Y.Array<unknown>;
 
-  async initialize(config: { docId: string; wsUrl?: string; userName?: string }): Promise<void> {
+  async initialize(config: {
+    docId: string;
+    wsUrl?: string;
+    userName?: string;
+    writeEnabled?: boolean;
+  }): Promise<void> {
     this.docState$.next('loading');
     this._yDoc = new Y.Doc({ guid: config.docId });
     this.processorRef = new DataProcessor(this._yDoc);
@@ -81,7 +92,11 @@ export class DataEngineService extends Disposable implements IDataEngineService 
     const replayOn =
       typeof localStorage !== 'undefined' && localStorage.getItem('spinth.replay') === '1';
     this.db.ignoreOrigin(REPLAY_ORIGIN); // 回放不回写 db（外部审查揪出：曾致审计日志重复叠加）
-    await this.db.attach(config.docId, this._yDoc, { replay: replayOn });
+    // 只读标签（docs/21 §4）：writeEnabled === false → db 拒绝一切文档写入
+    await this.db.attach(config.docId, this._yDoc, {
+      replay: replayOn,
+      readOnly: config.writeEnabled === false,
+    });
     if (replayOn) {
       await this.replayFromAudit();
       this.docState$.next('synced');

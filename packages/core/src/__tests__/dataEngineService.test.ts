@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { DataEngineService } from '../platform/dataEngine/dataEngineService';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
+import { DbProvider } from '../platform/dataEngine/dbProvider';
 import { yRectSet, type IYRectEntry } from '../platform/dataEngine/yRect';
 import { generateKeyBetween } from 'fractional-indexing';
 import { ServiceRegistry, token, type Token } from '../platform/registry/serviceRegistry';
@@ -237,4 +238,24 @@ describe('1.4 yRectSet 同 key 并发残渣自愈', () => {
     yRectSet(yDoc, yRect, { y: 2 });
     expect(JSON.stringify(yRect.toArray())).toBe(lenBefore);
   });
+});
+
+it('writeEnabled 透传：initialize 与 setWriteEnabled 联动 db 只读（docs/21 §4）', async () => {
+  // 桩掉 DbProvider（不开真实 IndexedDB），只验证透传契约
+  const attachSpy = vi.spyOn(DbProvider.prototype, 'attach').mockResolvedValue(undefined);
+  const roSpy = vi.spyOn(DbProvider.prototype, 'setReadOnly').mockImplementation(() => {});
+  const registry = new ServiceRegistry();
+  const engine = new DataEngineService(registry, new Map());
+  await engine.initialize({ docId: 'we-test', writeEnabled: false });
+  expect(attachSpy).toHaveBeenCalledWith('we-test', expect.any(Y.Doc), {
+    replay: false,
+    readOnly: true,
+  });
+  engine.setWriteEnabled(true);
+  expect(roSpy).toHaveBeenCalledWith(false); // 切回可写 = 解除只读
+  engine.setWriteEnabled(false);
+  expect(roSpy).toHaveBeenCalledWith(true);
+  engine.dispose();
+  attachSpy.mockRestore();
+  roSpy.mockRestore();
 });
