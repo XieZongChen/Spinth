@@ -8,6 +8,7 @@ import {
   type IProjectImportResult,
   type IProjectWarning,
 } from '@spinth/react';
+import { docUrl } from './siteBase';
 
 /**
  * 项目菜单（docs/20 §9）：顶栏「导出项目 / 导入项目」入口。
@@ -198,7 +199,7 @@ export function ProjectMenu() {
         setOpen(true);
         return;
       }
-      window.location.assign(`/?doc=${encodeURIComponent(result.docId)}`);
+      window.location.assign(docUrl(result.docId));
     } catch (err) {
       // 失败时菜单同样保持/打开（§9.2：菜单保持打开显示错误，允许重试）
       setError(messageOf(err, 'import'));
@@ -210,7 +211,7 @@ export function ProjectMenu() {
 
   const openPendingDoc = (): void => {
     if (!pendingImport) return;
-    window.location.assign(`/?doc=${encodeURIComponent(pendingImport.docId)}`);
+    window.location.assign(docUrl(pendingImport.docId));
   };
 
   const itemClass =

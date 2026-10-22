@@ -14,13 +14,14 @@ import {
 import { spinthCommands } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
 import { ProjectMenu } from './ProjectMenu';
+import { docUrl, publicAsset } from './siteBase';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
  *  mark 已裁掉原图透明留白；favicon 用同源 32/180 派生图（index.html） */
 function BrandMark({ className }: { className?: string }) {
   return (
     <img
-      src="/spinth-mark.png"
+      src={publicAsset('spinth-mark.png')}
       alt=""
       aria-hidden="true"
       draggable={false}
@@ -119,7 +120,7 @@ export function App() {
             title="新建画布"
             aria-label="新建画布"
             onClick={() => {
-              window.location.href = `/?doc=${crypto.randomUUID().slice(0, 8)}`;
+              window.location.href = docUrl(crypto.randomUUID().slice(0, 8));
             }}
             className="flex h-8 w-8 items-center justify-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink"
           >

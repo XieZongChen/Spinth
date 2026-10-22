@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -46,10 +47,22 @@ function cspInject(): Plugin {
 }
 
 /**
+ * 站点基路径（GitHub Pages 子路径部署）：SPINTH_BASE 注入，缺省 '/'（dev/自托管）。
+ * Vite 由此重写 index.html 的 assets/favicon/worker URL；JS 内跳转走 src/siteBase.ts。
+ */
+function resolveBase(): string {
+  const raw = process.env.SPINTH_BASE?.trim();
+  if (!raw) return '/';
+  const withLeading = raw.startsWith('/') ? raw : `/${raw}`;
+  return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
+}
+
+/**
  * workspace 内部包以 TS 源码直引（main 指向 src/index.ts），
  * 通过 alias 让 dev 与 build 都直接编译源码，无需预构建步骤。
  */
 export default defineConfig({
+  base: resolveBase(),
   plugins: [react(), tailwindcss(), cspInject()],
   resolve: {
     alias: {
