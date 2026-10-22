@@ -264,3 +264,29 @@ test('follower 手动刷新：仍是 follower（leader 还在），内容更新�
   await waitRole(pageB, 'follower');
   await expect.poll(() => modelCount(pageB), { timeout: 5_000 }).toBe(1);
 });
+
+test('只读标签不跑资产维护链：leader 跑过（assetMaint=1）、follower 从未跑', async ({
+  page,
+  context,
+}) => {
+  const docId = `e2e-mt-maint-${Date.now()}`;
+  await page.goto(`/?doc=${docId}&assetMaint=1`);
+  await ready(page);
+
+  const pageB = await context.newPage();
+  await pageB.goto(`/?doc=${docId}&assetMaint=1`);
+  await ready(pageB);
+  await waitRole(pageB, 'follower');
+
+  // leader 侧维护链跑过（idle 调度 3s + 迁移/GC 秒级）
+  const maintOf = (p: Page) =>
+    p.evaluate(() => {
+      const w = window as unknown as {
+        __spinth: { lastAssetMaintenance: { when: number } | null };
+      };
+      return w.__spinth.lastAssetMaintenance;
+    });
+  await expect.poll(() => maintOf(page), { timeout: 15_000 }).not.toBeNull();
+  // follower 侧 app 传 assetMaintenance=false 且 composeBoard 双重闸门——从未跑
+  expect(await maintOf(pageB)).toBeNull();
+});
