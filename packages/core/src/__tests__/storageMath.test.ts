@@ -30,6 +30,7 @@ describe('存储配额纯函数（docs/02 §6.1）', () => {
 
   it('storagePressure 边界：warn>=0.80、critical>=0.95（A6）', () => {
     expect(storageRatio(79, 100)).toBeLessThan(STORAGE_WARN_RATIO);
+    expect(storageRatio(94.9, 100)).toBeLessThan(STORAGE_CRITICAL_RATIO);
     expect(storagePressure(79, 100)).toBe('ok');
     expect(storagePressure(80, 100)).toBe('warn');
     expect(storagePressure(94.9, 100)).toBe('warn');
