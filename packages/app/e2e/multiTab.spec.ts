@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { modelCount, persisted, ready } from './helpers/projectFileE2e';
 
 /**
@@ -11,8 +11,7 @@ import { modelCount, persisted, ready } from './helpers/projectFileE2e';
 async function tabRole(page: Page): Promise<string> {
   return page.evaluate(
     () =>
-      document.querySelector('[data-spinth-tab-role]')?.getAttribute('data-spinth-tab-role') ??
-      '',
+      document.querySelector('[data-spinth-tab-role]')?.getAttribute('data-spinth-tab-role') ?? '',
   );
 }
 
@@ -52,9 +51,10 @@ test('双标签同文档：先到 leader、后到 follower（徽标/提示条/�
 
   // 只读徽标 + 提示条（follower 专属）
   await expect(pageB.locator('[data-spinth-readonly-pill]')).toBeVisible();
-  await expect(
-    pageB.locator('[data-spinth-readonly-pill]'),
-  ).toHaveAttribute('title', '此画布为只读——另一标签正在编辑');
+  await expect(pageB.locator('[data-spinth-readonly-pill]')).toHaveAttribute(
+    'title',
+    '此画布为只读——另一标签正在编辑',
+  );
   await expect(pageB.locator('[data-spinth-readonly-notice]')).toBeVisible();
 
   // 写工具 disabled；视图工具（cursor/hand）可用
@@ -78,10 +78,7 @@ test('双标签同文档：先到 leader、后到 follower（徽标/提示条/�
   expect(await tabRole(page)).toBe('leader');
 });
 
-test('接管：关闭 leader → follower 自动刷新接管，内容为最后落盘状态', async ({
-  page,
-  context,
-}) => {
+test('接管：关闭 leader → follower 自动刷新接管，内容为最后落盘状态', async ({ page, context }) => {
   const docId = `e2e-mt-takeover-${Date.now()}`;
   await page.goto(`/?doc=${docId}&assetMaint=0`);
   await ready(page);

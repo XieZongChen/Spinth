@@ -13,13 +13,15 @@
 
 ## 2. 当前基线
 
-- 单测：793 passed（core 784 + react 9，94 文件）。
-- E2E：17 个 spec、155 例。
+- 单测：809 passed（core 800 + react 9，95 文件）。
+- E2E：18 个 spec、163 例。
 - 视觉：4/4（macOS 系统 Chrome）。
 - 图片/资产专项：6/6。
+- 多标签专项：multiTab.spec 8 例（双标签角色/接管/只读不写盘/不同文档并行/无锁降级/
+  只读视图操作/390px/手动刷新；同 context 双 page 共享 Web Locks）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：64.31 / 54.05 / 55.36 / 66.22，阈值 61/51/52/63。
+- coverage：64.29 / 54.11 / 55.28 / 66.24，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 
