@@ -18,6 +18,8 @@
 - 视觉：4/4（macOS 系统 Chrome）。
 - 图片/资产专项：6/6。
 - coverage：64.13 / 53.62 / 55.23 / 66.02，阈值 61/51/52/63。
+- CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
+  （`scripts/check-pages-build.mjs`）。
 
 ## 3. 断言纪律
 

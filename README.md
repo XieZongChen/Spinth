@@ -26,6 +26,20 @@ pnpm verify       # lint + format + typecheck + 单测 + build
 
 要求 Node >= 24、pnpm 11.28.5。
 
+## 部署（GitHub Pages）
+
+子路径部署到 `https://<user>.github.io/<repo>/` 时，用 `SPINTH_BASE` 注入基路径：
+
+```bash
+SPINTH_BASE=/Spinth/ pnpm build          # 产物全量带 /Spinth/ 前缀
+node scripts/check-pages-build.mjs packages/app/dist /Spinth/   # 产物路径校验
+```
+
+push main 由 `.github/workflows/pages.yml` 自动构建部署；前提是仓库
+Settings → Pages → Source 选 **GitHub Actions**。自托管/根路径部署不需要
+`SPINTH_BASE`（默认 `/`）。站内跳转与 public 资源统一走
+`packages/app/src/siteBase.ts`，不要在 JS 里写死根路径。
+
 ## 仓库结构
 
 ```

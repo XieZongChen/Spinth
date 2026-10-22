@@ -1,0 +1,57 @@
+name: pages
+
+# GitHub Pages 部署（仅 main）：SPINTH_BASE=/<repo>/ 子路径构建，产物先过
+# scripts/check-pages-build.mjs 再发布；dispatch 供 main 重发，非 main 不部署。
+# 前置：Settings → Pages → Source = GitHub Actions。与 ci.yml 并行，部署不等 CI。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # 按 ref 分组：feature 分支的 dispatch 不取消 main 部署
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 构建（子路径）
+        run: |
+          SPINTH_BASE="/${GITHUB_REPOSITORY#*/}/" pnpm build
+      - name: 校验产物
+        run: |
+          node scripts/check-pages-build.mjs packages/app/dist "/${GITHUB_REPOSITORY#*/}/"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
