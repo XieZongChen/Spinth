@@ -40,7 +40,8 @@ export function StoragePanel(props: StoragePanelProps) {
       : null;
   const percent = ratio === null ? null : Math.round(ratio * 100);
   const percentText = formatPercent(status.usage, status.quota);
-  const readableUsage = status.usage !== null && status.quota !== null;
+  // 用量/配额任一可读即显示数字（缺边 — ）；百分比与进度条需要双边可算
+  const hasAnyUsage = status.usage !== null || status.quota !== null;
   const barColor =
     status.pressure === 'critical'
       ? 'bg-danger'
@@ -113,12 +114,13 @@ export function StoragePanel(props: StoragePanelProps) {
             {status.requestingPersist ? '申请中…' : '申请持久化'}
           </button>
         )}
-        {status.persistOutcome === 'denied' && (
+        {/* 已开启后不再显示历史申请结果（复审低优 #1：「已开启 + 未授予」矛盾） */}
+        {status.persistOutcome === 'denied' && status.persistence !== 'persisted' && (
           <p role="status" className={BODY_CLASS}>
             浏览器未授予持久化；可稍后重试。
           </p>
         )}
-        {status.persistOutcome === 'failed' && (
+        {status.persistOutcome === 'failed' && status.persistence !== 'persisted' && (
           <p role="status" className={BODY_CLASS}>
             申请失败；可重试。
           </p>
@@ -128,33 +130,42 @@ export function StoragePanel(props: StoragePanelProps) {
       {/* 3. 站点用量 / 配额（estimate 是站点总量估算） */}
       <div className={SECTION_CLASS}>
         <p className={TITLE_CLASS}>用量</p>
-        {readableUsage ? (
+        {hasAnyUsage ? (
           <>
             <p className={BODY_CLASS}>
-              {formatBytes(status.usage)} / {formatBytes(status.quota)}（{percentText}）
+              {formatBytes(status.usage)} / {formatBytes(status.quota)}
+              {percent !== null ? `（${percentText}）` : ''}
             </p>
-            <div
-              role="progressbar"
-              aria-label="站点存储用量"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent ?? undefined}
-              aria-valuetext={percentText}
-              data-spinth-storage-bar=""
-              className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-hover"
-            >
+            {percent !== null && (
               <div
-                className={`h-full rounded-full ${barColor}`}
-                style={{ width: `${percent ?? 0}%` }}
-              />
-            </div>
+                role="progressbar"
+                aria-label="站点存储用量"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={percent}
+                aria-valuetext={percentText}
+                data-spinth-storage-bar=""
+                className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-hover"
+              >
+                <div
+                  className={`h-full rounded-full ${barColor}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            )}
             {status.pressure === 'warn' && (
-              <p role="status" className="mt-1.5 text-xs leading-5 font-semibold text-warning">
+              <p
+                role="status"
+                className="mt-1.5 rounded-md bg-warning-soft px-2 py-1 text-xs font-semibold text-warning"
+              >
                 空间接近上限，建议导出备份。
               </p>
             )}
             {status.pressure === 'critical' && (
-              <p role="alert" className="mt-1.5 text-xs leading-5 font-semibold text-danger">
+              <p
+                role="alert"
+                className="mt-1.5 rounded-md bg-danger-soft px-2 py-1 text-xs font-semibold text-danger"
+              >
                 空间不足，请尽快导出备份。
               </p>
             )}

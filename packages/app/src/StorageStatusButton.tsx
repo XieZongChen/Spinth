@@ -97,7 +97,9 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
   const critical = storageStatus.pressure === 'critical';
   const warn = storageStatus.pressure === 'warn';
   const label = failed ? '保存失败' : saving ? '保存中…' : '已保存';
-  const ariaLabel = critical ? `${label} · 空间不足` : `${label} · 本地存储详情`;
+  // 压力态在可读文本中点名（复审低优 #4：warn 不只靠圆点颜色）
+  const pressureHint = critical ? '空间不足' : warn ? '空间接近上限' : '';
+  const ariaLabel = pressureHint ? `${label} · ${pressureHint}` : `${label} · 本地存储详情`;
   const dotClass =
     failed || critical
       ? 'bg-danger animate-pulse'
@@ -112,7 +114,7 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
       <button
         ref={buttonRef}
         type="button"
-        title={critical ? '本地存储详情（空间不足）' : '本地存储详情'}
+        title={pressureHint ? `本地存储详情（${pressureHint}）` : '本地存储详情'}
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}

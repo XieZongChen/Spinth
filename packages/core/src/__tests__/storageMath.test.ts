@@ -53,6 +53,14 @@ describe('存储配额纯函数（docs/02 §6.1）', () => {
     expect(formatBytes(3 * 1024 ** 4)).toBe('3.0 TB');
   });
 
+  it('formatBytes 进位按显示值：1023.99…KB 不输出「1024 KB」而进到 MB（复审低优 #2）', () => {
+    expect(formatBytes(1024 * 1024 - 1)).toBe('1.0 MB');
+    // 1023.4KB：显示值 1023 < 1024，停留在 KB 档
+    expect(formatBytes(1023.4 * 1024)).toBe('1023 KB');
+    // 1023.6KB：显示值取整 1024，进到 MB
+    expect(formatBytes(1023.6 * 1024)).toBe('1.0 MB');
+  });
+
   it('formatPercent：缺边 → —；整数百分比、四舍五入、超额封顶 100', () => {
     expect(formatPercent(null, 100)).toBe('—');
     expect(formatPercent(50, null)).toBe('—');

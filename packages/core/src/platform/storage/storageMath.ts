@@ -28,12 +28,19 @@ export function storagePressure(usage: number | null, quota: number | null): Sto
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
 
+/** 显示值：>=10 取整，否则 1 位小数（与 formatBytes 的输出规则一致） */
+function displayValue(n: number): number {
+  return n >= 10 ? Math.round(n) : Math.round(n * 10) / 10;
+}
+
 /** 字节人性化（— / B / KB / MB / GB / TB；>=10 取整，否则 1 位小数）。 */
 export function formatBytes(value: number | null): string {
   if (value === null || !Number.isFinite(value) || value < 0) return '—';
   let v = value;
   let unit = 0;
-  while (v >= 1024 && unit < BYTE_UNITS.length - 1) {
+  // 按显示值进位：1048575B 换算 999.99…KB 取整后是 1024，继续进到 1.0 MB
+  // （复审低优 #2：只按原始值 <1024 判断会输出「1024 KB」）
+  while (unit < BYTE_UNITS.length - 1 && displayValue(v) >= 1024) {
     v /= 1024;
     unit += 1;
   }
