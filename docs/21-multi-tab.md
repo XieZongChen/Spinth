@@ -35,9 +35,10 @@
 - **UI/命令**：`editable: false` 走既有闸门（viewport 指针分发整条丢弃、keyboard /
   clipboard / boardCommands / image 守卫，docs/09）。
 - **磁盘**：`writeEnabled === false` 时 `DbProvider.attach(..., { readOnly: true })` ——
-  丢弃文档 update（首次 warn 一次）、跳过 flush / compaction 与 legacy 迁移写（旧库
-  update 只应用到内存，不写新库、不删旧库，主写者会完成迁移）；`persistState$` 保持
-  saved。`setEditable(true)` 经 `engine.setWriteEnabled` 同步恢复写入，运行时切回不丢写。
+  **新**文档 update 直接丢弃（首次 warn 一次）、compaction 与 legacy 迁移写跳过
+  （旧库 update 只应用到内存，不写新库、不删旧库，主写者会完成迁移）；已进写缓冲的
+  增量仍正常 flush 落盘——只读只拒绝新写，不滞留未落盘状态。`setEditable(true)` 经
+  `engine.setWriteEnabled` 同步恢复写入，运行时切回不丢写。
 - **维护链**：app 传 `assetMaintenance = 基线 && writable`；core 侧 `composeBoard`
   调度与执行前再各断言一次 `config.editable !== false`。
 

@@ -644,4 +644,56 @@ describe('DbProvider 只读写保护（docs/21 §4）', () => {
     });
     expect(exists).toBe(true);
   });
+
+  it('切只读冲刷已缓冲写：audit=1 且 persistState 回 saved（不滞留 saving）', async () => {
+    const docId = `t-ro-flush-${Date.now()}`;
+    const doc = new Y.Doc();
+    const db = new DbProvider();
+    await db.attach(docId, doc);
+    writeWidget(doc, 'a', 'x'); // 100ms 写聚合窗口内——仍在缓冲
+    expect(db.persistState$.value).toBe('saving');
+    db.setReadOnly(true); // 切只读：setReadOnly 内部主动冲缓冲
+    await flush(30); // 等 IDB 写事务完成
+    expect(await db.readAuditLog()).toHaveLength(1); // 已发生的写落盘了
+    expect(db.persistState$.value).toBe('saved'); // 不滞留 saving
+    db.dispose();
+    doc.destroy();
+  });
+
+  it('切只读后再写仍丢弃（只拒绝新 update）', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const docId = `t-ro-flush2-${Date.now()}`;
+    const doc = new Y.Doc();
+    const db = new DbProvider();
+    await db.attach(docId, doc);
+    writeWidget(doc, 'a', 'x');
+    db.setReadOnly(true);
+    await flush(30);
+    expect(await db.readAuditLog()).toHaveLength(1);
+    writeWidget(doc, 'b', 'y'); // 只读期间的新写——丢弃
+    await db.flushPendingWrites();
+    expect(await db.readAuditLog()).toHaveLength(1); // 不涨
+    expect(db.persistState$.value).toBe('saved');
+    db.dispose();
+    doc.destroy();
+  });
+
+  it('切只读后 dispose 冲刷不丢（pagehide/dispose 同入口）', async () => {
+    const docId = `t-ro-flush3-${Date.now()}`;
+    const doc = new Y.Doc();
+    const db = new DbProvider();
+    await db.attach(docId, doc);
+    writeWidget(doc, 'a', 'x');
+    db.setReadOnly(true);
+    db.dispose(); // dispose 走 flushPendingWrites——不得被只读拦截
+    doc.destroy();
+    const doc2 = new Y.Doc();
+    const db2 = new DbProvider();
+    await db2.attach(docId, doc2);
+    expect(
+      (doc2.getArray('widgets').toArray() as Y.Map<unknown>[]).map((m) => m.get('id')),
+    ).toEqual(['a']);
+    db2.dispose();
+    doc2.destroy();
+  });
 });

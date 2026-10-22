@@ -119,9 +119,10 @@ abstract class BaseModel<D extends IWidgetData> {
   以全量快照为锚点重写，可回放深度 = 最近一次 compaction 之后。
 - origin 守卫：本实例恢复/迁移/replay 的 update 不重复落盘。
 - `pagehide` / `visibilitychange(hidden)` / dispose 触发 best-effort flush。
-- 只读标签拒绝写入（`writeEnabled === false` → attach `readOnly`）：文档 update 直接
-  丢弃（首次 warn）、flush / compaction / legacy 迁移写跳过（旧库 update 只应用到内存，
-  主写者完成迁移）；`persistState$` 保持 saved。`setWriteEnabled(true)` 恢复写入路径。
+- 只读标签拒绝写入（`writeEnabled === false` → attach `readOnly`）：**新**文档 update
+  直接丢弃（首次 warn）、compaction / legacy 迁移写跳过（旧库 update 只应用到内存，
+  主写者完成迁移）；已进写缓冲的增量仍正常 flush 落盘（切换/`pagehide`/dispose 同
+  入口——只读不滞留未落盘状态）。`setWriteEnabled(true)` 恢复写入路径。
   角色与写者唯一性见 [21-multi-tab](21-multi-tab.md)。
 
 **有意不做 doc 级 LRU**：单机版本地即唯一副本，整库删 = 删用户数据。

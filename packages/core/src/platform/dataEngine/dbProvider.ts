@@ -178,10 +178,13 @@ export class DbProvider extends Disposable {
   }
 
   /** 运行时切换只读（updateEditable → engine.setWriteEnabled 联动，docs/21 §4）：
-   *  切回可写即恢复写缓冲路径——宿主运行时切换后不静默丢写 */
+   *  只读只拒绝**新** update——切换前已进写缓冲的增量必须立即冲落盘
+   *  （updateEditable(false) 先 exitActive，可能刚产生一次文本提交），否则
+   *  persistState 滞留 saving 且 dispose 也冲不掉；切回可写恢复写入路径 */
   setReadOnly(v: boolean): void {
     this.readOnly = v;
-    if (!v) this.readOnlyWarned = false;
+    if (v) void this.flushPendingWrites();
+    else this.readOnlyWarned = false;
   }
 
   private onDocUpdate = (update: Uint8Array, origin: unknown): void => {
@@ -213,7 +216,8 @@ export class DbProvider extends Disposable {
    * 之前」经验族。pendingCount 按条累加：compaction 阈值语义不变（外部审查 DoD #2）。
    */
   async flushPendingWrites(): Promise<void> {
-    if (this.readOnly) return; // 只读：缓冲恒空，pagehide flush 亦 no-op
+    // 只读不拦 flush：已发生的写必须落盘（切只读前的缓冲 / pagehide / dispose
+    // 都走本入口）；只读的拦截在 onDocUpdate——新 update 根本进不了缓冲
     if (!this.db || this.flushing || this.writeBuffer.length === 0) return;
     this.flushing = true;
     const updates = this.writeBuffer;
