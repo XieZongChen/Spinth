@@ -94,6 +94,7 @@ export interface ProjectMenuProps {
 
 export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
   const docState = useSpinthStore((s) => s.docState);
+  const editable = useSpinthStore((s) => s.editable);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 导出结果 warning（导出后留在菜单内展示，用户手动关闭） */
@@ -276,10 +277,13 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
               <Icon name="download" size={16} strokeWidth={2} />
               {busy === 'export' ? '正在导出…' : '导出项目（.spinth.zip）'}
             </button>
+            {/* 只读（多标签 follower 或宿主只读）禁用导入（docs/21 §4）：导入 =
+                写新文档 + 导航；导出纯读不受影响 */}
             <button
               type="button"
               role="menuitem"
-              disabled={disabled}
+              disabled={disabled || !editable}
+              title={!editable ? '只读时无法导入（另一标签正在编辑）' : undefined}
               onClick={() => inputRef.current?.click()}
               className={itemClass}
             >

@@ -24,6 +24,13 @@ export {
   type StoragePersistence,
   type StoragePressure,
 } from '@spinth/core';
+// 多标签会话公共面（docs/21——app 壳取标签角色；角色不是 SDK 能力，经此转发）
+export {
+  INITIAL_TAB_SESSION_STATE,
+  TabSessionService,
+  createBrowserLockPort,
+  type ITabSessionState,
+} from '@spinth/core';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';

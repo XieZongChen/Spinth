@@ -14,6 +14,8 @@ import {
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
 import { ProjectMenu } from './ProjectMenu';
 import { StorageStatusButton } from './StorageStatusButton';
+import { ReadOnlyNotice } from './ReadOnlyNotice';
+import { useTabRole } from './tabSession';
 import { docUrl, publicAsset } from './siteBase';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
@@ -40,7 +42,6 @@ export function App() {
   const initError = useSpinthStore((s) => s.initError);
   const editable = useSpinthStore((s) => s.editable);
   const modelCount = useSpinthStore((s) => s.modelCount);
-  const loading = !boardReady || docState !== 'synced';
 
   // 本地文档路由：?doc=xxx 选择文档；默认 docId 随机并稳定在 sessionStorage。
   // 单机版不读取远端地址或协同参数。
@@ -49,7 +50,13 @@ export function App() {
   // 资产维护链：生产默认开（启动 idle 迁移+GC）；DEV 默认关
   // ——GC 全库扫描是并行页面下的 IO 压力源（E2E 偶红源），专项用例 ?assetMaint=1
   const isProd = (import.meta as unknown as { env?: { PROD?: boolean } }).env?.PROD;
-  const assetMaintenance = isProd !== false || params.get('assetMaint') === '1';
+  const assetMaintenanceBase = isProd !== false || params.get('assetMaint') === '1';
+
+  // 多标签角色（docs/21 §3）：锁 → 角色 → 画布。pending 不挂 Board——
+  // editable 从第一帧起就是终值，不存在「先可写、后降级」的窗口
+  const tab = useTabRole(docId);
+  const writable = tab.role === 'leader' || tab.role === 'solo';
+  const loading = tab.role === 'pending' || !boardReady || docState !== 'synced';
 
   useEffect(() => {
     setTheme(initTheme());
@@ -64,7 +71,10 @@ export function App() {
   };
 
   return (
-    <div className="flex h-dvh w-screen flex-col bg-canvas text-ink">
+    <div
+      className="flex h-dvh w-screen flex-col bg-canvas text-ink"
+      data-spinth-tab-role={tab.role}
+    >
       <header className="z-20 flex h-11 shrink-0 items-center justify-between border-b border-edge bg-surface px-4">
         {/* min-w-0 + truncate：390px 下长 docId 截断（docs/12 移动端），顶栏不换行不横滚 */}
         <div className="flex min-w-0 items-center gap-2.5">
@@ -78,7 +88,17 @@ export function App() {
           {!editable && (
             <span
               className="rounded-md bg-surface-hover px-2 py-0.5 text-xs font-semibold text-ink-2"
-              title="此画布为只读——编辑命令已禁用"
+              data-spinth-readonly-pill=""
+              title={
+                tab.role === 'follower'
+                  ? '此画布为只读——另一标签正在编辑'
+                  : '此画布为只读——编辑命令已禁用'
+              }
+              aria-label={
+                tab.role === 'follower'
+                  ? '此画布为只读——另一标签正在编辑'
+                  : '此画布为只读——编辑命令已禁用'
+              }
             >
               只读
             </span>
@@ -122,7 +142,19 @@ export function App() {
       </header>
 
       <main className="relative flex-1 overflow-hidden">
-        <Board config={{ docId, assetMaintenance }} onReady={handleBoardReady} theme={theme} />
+        {/* 角色未定（pending）不挂画布（docs/21 §3）——loading 覆盖层在场 */}
+        {tab.role !== 'pending' && (
+          <Board
+            config={{
+              docId,
+              editable: writable,
+              assetMaintenance: assetMaintenanceBase && writable,
+            }}
+            onReady={handleBoardReady}
+            theme={theme}
+          />
+        )}
+        {tab.role === 'follower' && <ReadOnlyNotice />}
         {/* 空画布引导（Batch 1 · 1.23）：零件时轻提示，建首件即隐（modelCount 镜像驱动） */}
         {!loading && modelCount === 0 && (
           <div
