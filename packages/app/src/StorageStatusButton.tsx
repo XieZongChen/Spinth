@@ -37,21 +37,26 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
     });
   }, [open]);
 
+  // 统一关闭：收面板 + 焦点回按钮（Escape 与「关闭」按钮同一条路径——复审 #1）
+  const closePanel = (): void => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
+
   // Escape 关闭回焦（capture 独占——不冒泡到全局清选区，同 ProjectMenu）
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        setOpen(false);
-        buttonRef.current?.focus();
+        closePanel();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open]);
 
-  // 点击外部关闭
+  // 点击外部关闭（不回焦——外点语义是去别处交互）
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent): void => {
@@ -61,10 +66,11 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
     return () => window.removeEventListener('pointerdown', onDown);
   }, [open]);
 
-  // 打开时焦点移入面板
+  // 打开时焦点移入面板。依赖含 panelStyle：面板「先定位后挂载」，首次打开时
+  // 面板在 panelStyle 就绪后才挂载——只依赖 open 会在挂载前跑一次空聚焦（复审 #1）
   useEffect(() => {
     if (open) panelRef.current?.focus();
-  }, [open]);
+  }, [open, panelStyle]);
 
   // 刷新时机（D6：不轮询）：面板打开 / 窗口 focus / 页面重新可见 / 写失败
   useEffect(() => {
@@ -136,7 +142,7 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
             setOpen(false);
             onOpenProjectMenu();
           }}
-          onClose={() => setOpen(false)}
+          onClose={closePanel}
           panelRef={panelRef}
           style={panelStyle}
         />

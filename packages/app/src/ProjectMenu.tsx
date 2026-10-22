@@ -126,12 +126,23 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
     });
   }, [open]);
 
-  // 打开后焦点移入首个可用菜单项（键盘用户不必回 tab；Escape 仍回按钮）
+  // 关闭即清旧错误/导出提示（开合是新的操作上下文；pendingImport 保留——导入确认
+  // 未处理前重开仍可见）。清在关闭沿而非打开沿：导入失败路径 setError +
+  // onOpenChange(true) 同批提交，打开沿清理会把刚设置的 error 一并抹掉（复审 #2）
+  useEffect(() => {
+    if (open) return;
+    setError(null);
+    setExportWarnings([]);
+  }, [open]);
+
+  // 打开后焦点移入首个可用菜单项（键盘用户不必回 tab；Escape 仍回按钮）。
+  // 依赖含 panelStyle：面板「先定位后挂载」，首次打开时面板在 panelStyle 就绪后
+  // 才挂载——只依赖 open 会在挂载前跑一次空聚焦（复审 #1）
   useEffect(() => {
     if (!open) return;
     const first = panelRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
     first?.focus();
-  }, [open]);
+  }, [open, panelStyle]);
 
   // Escape 关闭并把焦点还给按钮（§9.3；capture 相独占——不冒泡到全局清选区）
   useEffect(() => {
@@ -157,13 +168,8 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
     return () => window.removeEventListener('pointerdown', onDown);
   }, [open, onOpenChange]);
 
-  const openMenu = (): void => {
-    setError(null);
-    // 旧导出提示不跨开合残留（每次打开是新的操作上下文）；pendingImport 保留
-    // ——导入确认未处理前用户关掉菜单，重开仍能看到「打开新画布」入口
-    setExportWarnings([]);
-    onOpenChange(true);
-  };
+  // 旧错误/导出提示的清理由上方关闭沿 effect 单一负责（任何入口重开都是干净状态）
+  const openMenu = (): void => onOpenChange(true);
 
   const handleExport = async (): Promise<void> => {
     setBusy('export');

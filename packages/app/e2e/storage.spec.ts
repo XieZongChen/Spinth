@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { writeFileSync } from 'fs';
 import { cleanupDoc, dragWidget, modelCount, persisted, ready } from './helpers/projectFileE2e';
 
 /**
@@ -78,6 +79,7 @@ test('默认：未持久化 → 启动申请一次；面板显示未开启/50%�
   await page.locator('[data-spinth-storage-button]').click();
   const panel = page.locator('[data-spinth-storage-panel]');
   await expect(panel).toBeVisible();
+  await expect(panel).toBeFocused(); // 复审 #1：打开即焦点入面板（非顶栏按钮/body）
   await expect(panel.getByText('已开启（降低被浏览器清理的风险）')).toBeHidden();
   await expect(panel.getByText('未开启（空间不足时可能被浏览器清理）')).toBeVisible();
   await expect(panel.getByText('50 MB / 100 MB（50%）')).toBeVisible();
@@ -86,6 +88,11 @@ test('默认：未持久化 → 启动申请一次；面板显示未开启/50%�
   await panel.locator('[data-spinth-storage-persist]').click();
   await expect(panel.getByText('浏览器未授予持久化；可稍后重试。')).toBeVisible();
   await expect.poll(() => persistCalls(page)).toBe(2);
+
+  // 「关闭」按钮：面板收起且焦点回顶栏按钮（复审 #1）
+  await panel.getByRole('button', { name: '关闭' }).click();
+  await expect(panel).toBeHidden();
+  await expect(page.locator('[data-spinth-storage-button]')).toBeFocused();
   await cleanupDoc(page, docId);
 });
 
@@ -187,11 +194,48 @@ test('备份入口：面板「打开项目菜单」打开 ProjectMenu，Escape �
   await expect(panel).toBeHidden();
   const menu = page.locator('[data-spinth-project-menu-panel]');
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: /导出项目/ })).toBeEnabled();
+  const exportItem = menu.getByRole('menuitem', { name: /导出项目/ });
+  await expect(exportItem).toBeEnabled();
+  // 复审 #1：外部入口打开后焦点移入首个菜单项（不在 body）
+  await expect(exportItem).toBeFocused();
 
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   await expect(page.getByRole('button', { name: '项目' })).toBeFocused();
+  await cleanupDoc(page, docId);
+});
+
+test('外部重开清旧错误：坏包错误 → 关闭 → 存储面板重开为干净菜单（复审 #2）', async ({ page }) => {
+  const docId = `e2e-st-clear-${Date.now()}`;
+  await stubStorage(page, { persistedValue: true, usage: 10 * MB, quota: 100 * MB });
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+
+  // 坏包 → 菜单内 role=alert 显示错误（同 projectFile 失败注入的 garbage 模式）
+  const garbage = `/tmp/e2e-st-garbage-${Date.now()}.zip`;
+  writeFileSync(garbage, Buffer.from('this is not a zip file'));
+  const menu = page.locator('[data-spinth-project-menu-panel]');
+  await page.getByRole('button', { name: '项目' }).click();
+  await expect(menu).toBeVisible();
+  await page.locator('[data-spinth-project-import]').setInputFiles(garbage);
+  await expect(menu.getByRole('alert')).toContainText(/已损坏或不是 spinth 项目/);
+
+  // Escape 关闭（关闭沿即清旧错误/导出提示）
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  // 从存储面板「打开项目菜单」重开：无错误残留，焦点入首个菜单项
+  await page.locator('[data-spinth-storage-button]').click();
+  const panel = page.locator('[data-spinth-storage-panel]');
+  await expect(panel).toBeVisible();
+  await panel.locator('[data-spinth-storage-backup]').click();
+  await expect(panel).toBeHidden();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('alert')).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: /导出项目/ })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
   await cleanupDoc(page, docId);
 });
 
