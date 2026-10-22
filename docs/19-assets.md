@@ -35,7 +35,8 @@ src = "spinth-asset:<sha256>"
 ## 4. 失败回退
 
 资产入库失败（配额满、隐私模式、IndexedDB 禁用、非安全上下文）时回退 data URL
-创建图片，保证用户不会「贴了没反应」。`persistState` 继续反映本地文档写入状态。
+创建图片，保证用户不会「贴了没反应」。`persistState` 继续反映本地文档写入状态；
+配额/持久化状态见 [02-data-engine](02-data-engine.md) §6.1。
 
 ## 5. GC 与安全
 

@@ -420,7 +420,9 @@ flushLocalWrites(): Promise<void> {
 - 菜单项：
   1. 导出项目（`.spinth.zip`）
   2. 导入项目…
-- 后续“存储状态/备份”可复用同一菜单，不在本期实现。
+- 存储面板（docs/02 §6.1）的备份入口复用本菜单：`ProjectMenu` 受控开合
+  （open 由 App 持有），存储面板「打开项目菜单」与顶栏按钮共用同一开合源；
+  导出/导入的 warning/error 流程不复制到存储面板。
 - 隐藏 `<input type="file" accept=".zip,.spinth.zip,application/zip">` 由“导入项目”触发；`data-spinth-project-import` 供 E2E 定位。
 - `IconName` 增加 `download` / `upload` / `more`（lucide 已有同义图标），仍只通过 `Icon` 语义名使用。
 
@@ -444,8 +446,9 @@ flushLocalWrites(): Promise<void> {
 
 ### 9.4 390px
 
-- 按钮 32×32；面板 `fixed`，右对齐，宽 `min(320px, calc(100vw - 16px))`，顶部在顶栏下方。
-- 不改变顶栏高度、不让 docId/保存状态换行；面板不挤压工具坞。
+- 按钮 32×32；面板 `fixed`，右对齐，宽 `min(320px, calc(100vw - 16px))`，顶部在顶栏下方；面板先定位后挂载（首帧 static 会挤歪锚点按钮测量）。
+- 不改变顶栏高度、不让 docId/保存状态换行；面板不挤压工具坞。docId 胶囊
+  `min-w-0 + truncate` 截断（长 id 不撑出横向滚动）。
 - 菜单按钮不放在 docId 胶囊内；顶栏右侧顺序固定为：保存状态 → 链接 → 新建 → 项目 → 主题（实现可按现有间距微调，但不得新增换行）。
 
 ## 10. 错误模型与提示

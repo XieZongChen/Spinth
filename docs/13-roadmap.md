@@ -11,7 +11,7 @@
 - [x] 富文本编辑、排版 override、marks、橡皮分段擦除
 - [x] 本地资产库、图片 GC、失败回退
 - [x] 390px 移动端工具菜单
-- [x] 777 单测、E2E 147 用例、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
+- [x] 792 单测、E2E 154 用例、视觉 4/4、图片/资产专项 6/6、`pnpm verify` 通过
 
 ## 2. 下一阶段优先级
 
@@ -31,9 +31,10 @@
 
 ### P1 存储可靠性
 
-- `navigator.storage.persist()` 已在启动时调用；仍需暴露 persisted 状态，并让 `estimate()` 配额/用量可见。
-- 配额不足/写入失败的用户提示；导出/导入作为备份/恢复入口。
-- 存储面板不要挤压 390px 顶栏。
+- [x] 启动 refresh 一次 `persisted()/estimate()`；未持久化时申请一次 `persist()`，失败不抛（`StorageStatusService`，docs/02 §6.1）。
+- [x] 顶栏保存状态即存储入口：持久化授权 / 用量配额压力（warn ≥ 80%、critical ≥ 95%）可见；写失败可重试。
+- [x] 备份/恢复入口复用项目菜单（docs/20 §9），不复制导出/导入流程。
+- [x] 390px：面板视口 clamp、顶栏 44px 不换行（docId 截断），E2E 覆盖。
 
 ### P1 资产/图片生命周期
 
@@ -44,14 +45,13 @@
 
 ### P2 UI / 可访问性
 
-- 390px 顶栏 docId/保存状态换行。
 - 只读态 ActionBar/undo/delete 的“看起来可点”项。
 - 错误页/危险色对比度。
 - 移动端完整布局断言。
 
 ### P2 架构收口
 
-- `app.ts` 继续拆分（当前 956 行）。
+- `app.ts` 继续拆分（当前 1009 行）。
 - `boardCommands.ts` 的 `ctx: any` 类型化。
 - `BoardPublicApi` 从 blocklist 改 allowlist。
 - 类型注册表 union/tokens/factories 多源收口。

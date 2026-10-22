@@ -13,11 +13,13 @@
 
 ## 2. 当前基线
 
-- 单测：777 passed（core 768 + react 9，92 文件）。
-- E2E：16 个 spec、147 例。
+- 单测：792 passed（core 783 + react 9，94 文件）。
+- E2E：17 个 spec、154 例。
 - 视觉：4/4（macOS 系统 Chrome）。
 - 图片/资产专项：6/6。
-- coverage：64.13 / 53.62 / 55.23 / 66.02，阈值 61/51/52/63。
+- 存储状态专项：storage.spec 7 例（持久化授权/申请/配额压力/unsupported/390px/
+  备份入口/保存失败入口；navigator.storage 经 addInitScript 桩注入）。
+- coverage：64.29 / 53.97 / 55.34 / 66.2，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 
@@ -45,7 +47,8 @@
 - coverage include 收窄到 TS/TSX；阈值 61/51/52/63，低于基线即红。
 - 资产 GC Web Locks 单写者已修复并有回归测试。
 - 多标签实时同步未实现。
-- 存储持久化/配额状态未可见。
+- 存储状态：StorageStatusService 10 单测 + storageMath 5 单测 + E2E 7 例
+  （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
 - 大测试文件（lineMath、mindService）可按域拆分，降低阅读成本。
 - Linux 视觉基线缺失；CI visual 非阻塞。

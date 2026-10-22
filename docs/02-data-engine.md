@@ -122,6 +122,23 @@ abstract class BaseModel<D extends IWidgetData> {
 
 **有意不做 doc 级 LRU**：单机版本地即唯一副本，整库删 = 删用户数据。
 
+### 6.1 存储状态与持久化（StorageStatusService）
+
+- `StorageStatusService`（platform/storage）组合注入端口 `IStorageManager`（测试替身与
+  浏览器实现同源），输出单一 `storageStatus$` 流；浏览器实现 `createBrowserStorageManager()`
+  在无 `navigator.storage` 时返回 null——降级为 unsupported，不影响画布保存。
+- 启动 `initialize()`：refresh 一次；未持久化才申请一次 `persist()`（此前是
+  fire-and-forget 丢弃返回值）；失败不抛、不阻塞初始化。
+- `requestPersist()` 单飞；结果 `persistOutcome`（granted/denied/failed）随流到达，
+  UI 提供用户手势重试，不自动反复申请。
+- 配额压力阈值固定：warn ≥ 80%、critical ≥ 95%（storageMath 单源，随 pressure 输出）。
+  `estimate()` 是站点总量估算（含图片资产），不是单个文档用量。
+- 不轮询：只在启动、面板打开、窗口 focus/重新可见、persistState 转 failed 时 refresh；
+  并发调用合并为一次查询。
+- 语义边界：`persistState$` 是文档写 IndexedDB 的状态；`IStorageStatus` 是浏览器持久化
+  授权 + 站点配额——UI 必须分行呈现，不得合成「已同步」。persisted 只降低被浏览器
+  清理的风险，不是备份；备份 = 导出项目文件（docs/20）。
+
 ## 7. replay 时间机器
 
 - localStorage 开关：`spinth.replay=1`；运行时跳过普通恢复，从 `allupdates`

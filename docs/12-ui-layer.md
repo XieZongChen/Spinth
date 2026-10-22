@@ -87,18 +87,21 @@ ActionBar / MindAddButtons：纯算术定位
 | `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                           |
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                             |
 
-顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊；右侧只读徽标 /
-本地保存状态（已保存 / 保存中 / 保存失败·点击重试）/ 复制链接 / 新建 / 项目菜单
-（导出/导入 `.spinth.zip`，docs/20 §9；`ProjectMenu.tsx`）/ 主题切换。
+顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊（390px 截断）；右侧只读徽标 /
+本地存储入口（`StorageStatusButton.tsx`：已保存 / 保存中 / 保存失败 三态，点击打开
+「本地存储」面板 `StoragePanel.tsx`——文档保存重试、浏览器持久化申请、用量/配额压力、
+备份入口，docs/02 §6.1）/ 复制链接 / 新建 / 项目菜单（导出/导入 `.spinth.zip`，
+docs/20 §9；`ProjectMenu.tsx` 受控开合）/ 主题切换。
 单机版不显示“已同步”或任何远端连接状态。
 
-移动端：390px 下 docId 截断，工具坞横向滚动，二级菜单 portal + fixed + 视口 clamp；
-只读态仍保留选择/复制/视图操作。
+移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞横向
+滚动，二级菜单与存储面板 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
+锚点按钮的测量）；只读态仍保留选择/复制/视图操作。
 
 ## 5. 主题与样式架构
 
 - 语义令牌唯一色源：`packages/app/src/styles/tokens.css`，以 CSS 自定义属性定义
-  canvas/surface/edge/ink/accent/danger/工具色/阴影；组件只消费语义类。
+  canvas/surface/edge/ink/accent/danger/warning/工具色/阴影；组件只消费语义类。
 - `index.css` 的 `@theme inline` 把令牌映射为 Tailwind 工具类；
   `data-theme` 切换 `:root` 变量即整站换肤。
 - 首绘由 index.html 内联脚本预置 `data-theme`（防暗色白屏闪烁）；
