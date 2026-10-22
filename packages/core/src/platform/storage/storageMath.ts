@@ -14,7 +14,9 @@ export function normalizeBytes(value: number | undefined | null): number | null 
 }
 
 export function storageRatio(usage: number | null, quota: number | null): number | null {
-  if (usage === null || quota === null || quota <= 0) return null;
+  if (usage === null || quota === null) return null;
+  // 非有限值（NaN/Infinity）与 0 配额一律 unknown——避免 formatPercent 输出 NaN%
+  if (!Number.isFinite(usage) || !Number.isFinite(quota) || quota <= 0) return null;
   return Math.min(1, Math.max(0, usage / quota));
 }
 

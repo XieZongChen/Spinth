@@ -99,7 +99,10 @@ export class StorageStatusService extends Disposable {
     }
     if (estimateRes.status === 'fulfilled' && estimateRes.value) {
       next.usage = normalizeBytes(estimateRes.value.usage);
-      next.quota = normalizeBytes(estimateRes.value.quota);
+      // quota 0/缺失按未知处理（StorageEstimate 的 0 不可用于百分比/压力判断）——
+      // 否则面板显示 0.0 B / 0.0 B，百分比与压力都失去意义
+      const quota = normalizeBytes(estimateRes.value.quota);
+      next.quota = quota !== null && quota > 0 ? quota : null;
       next.estimateFailed = false;
     } else {
       next.estimateFailed = true; // 保留上次 usage/quota

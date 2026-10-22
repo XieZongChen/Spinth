@@ -26,6 +26,10 @@ describe('存储配额纯函数（docs/02 §6.1）', () => {
     expect(storageRatio(50, 100)).toBe(0.5);
     expect(storageRatio(150, 100)).toBe(1);
     expect(storageRatio(-5, 100)).toBe(0);
+    expect(storageRatio(Number.NaN, 100)).toBeNull();
+    expect(storageRatio(50, Number.NaN)).toBeNull();
+    expect(storageRatio(Infinity, 100)).toBeNull();
+    expect(storageRatio(50, Infinity)).toBeNull();
   });
 
   it('storagePressure 边界：warn>=0.80、critical>=0.95（A6）', () => {
@@ -38,6 +42,8 @@ describe('存储配额纯函数（docs/02 §6.1）', () => {
     expect(storagePressure(100, 100)).toBe('critical');
     expect(storagePressure(null, 100)).toBe('unknown');
     expect(storagePressure(50, null)).toBe('unknown');
+    expect(storagePressure(Number.NaN, 100)).toBe('unknown');
+    expect(storagePressure(50, Infinity)).toBe('unknown');
   });
 
   it('formatBytes：null/NaN/负数 → —；单位阶梯与取整规则', () => {
@@ -71,5 +77,7 @@ describe('存储配额纯函数（docs/02 §6.1）', () => {
     expect(formatPercent(150, 100)).toBe('100%');
     expect(formatPercent(50.4, 100)).toBe('50%');
     expect(formatPercent(50.5, 100)).toBe('51%');
+    expect(formatPercent(Number.NaN, 100)).toBe('—');
+    expect(formatPercent(50, Infinity)).toBe('—');
   });
 });

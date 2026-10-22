@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { writeFileSync } from 'fs';
 import { cleanupDoc, dragWidget, modelCount, persisted, ready } from './helpers/projectFileE2e';
 
 /**
@@ -211,13 +210,15 @@ test('外部重开清旧错误：坏包错误 → 关闭 → 存储面板重开�
   await page.goto(`/?doc=${docId}`);
   await ready(page);
 
-  // 坏包 → 菜单内 role=alert 显示错误（同 projectFile 失败注入的 garbage 模式）
-  const garbage = `/tmp/e2e-st-garbage-${Date.now()}.zip`;
-  writeFileSync(garbage, Buffer.from('this is not a zip file'));
+  // 坏包 → 菜单内 role=alert 显示错误（FilePayload 直传，不落临时文件）
   const menu = page.locator('[data-spinth-project-menu-panel]');
   await page.getByRole('button', { name: '项目' }).click();
   await expect(menu).toBeVisible();
-  await page.locator('[data-spinth-project-import]').setInputFiles(garbage);
+  await page.locator('[data-spinth-project-import]').setInputFiles({
+    name: 'garbage.zip',
+    mimeType: 'application/zip',
+    buffer: Buffer.from('this is not a zip file'),
+  });
   await expect(menu.getByRole('alert')).toContainText(/已损坏或不是 spinth 项目/);
 
   // Escape 关闭（关闭沿即清旧错误/导出提示）

@@ -62,6 +62,18 @@ describe('StorageStatusService（docs/02 §6.1）', () => {
     expect(missing.status$.value.estimateFailed).toBe(true);
     expect(missing.status$.value.usage).toBeNull();
 
+    // quota 0 视为未知（StorageEstimate 语义）——不显示 0.0 B / 0.0 B
+    const zeroQuota = new StorageStatusService({
+      estimate: async () => ({ usage: 0, quota: 0 }),
+    });
+    await zeroQuota.refresh();
+    expect(zeroQuota.status$.value).toMatchObject({
+      usage: 0,
+      quota: null,
+      pressure: 'unknown',
+      estimateFailed: false,
+    });
+
     // 第二次 throw：保留第一次的值
     let calls = 0;
     const flaky = new StorageStatusService({

@@ -19,7 +19,7 @@
 - 图片/资产专项：6/6。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：64.3 / 53.98 / 55.36 / 66.21，阈值 61/51/52/63。
+- coverage：64.31 / 54.05 / 55.36 / 66.22，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 
