@@ -653,8 +653,7 @@ describe('DbProvider 只读写保护（docs/21 §4）', () => {
     writeWidget(doc, 'a', 'x'); // 100ms 写聚合窗口内——仍在缓冲
     expect(db.persistState$.value).toBe('saving');
     db.setReadOnly(true); // 切只读：setReadOnly 内部主动冲缓冲
-    await flush(30); // 等 IDB 写事务完成
-    expect(await db.readAuditLog()).toHaveLength(1); // 已发生的写落盘了
+    await expect.poll(() => db.readAuditLog(), { timeout: 3_000 }).toHaveLength(1);
     expect(db.persistState$.value).toBe('saved'); // 不滞留 saving
     db.dispose();
     doc.destroy();
@@ -668,8 +667,7 @@ describe('DbProvider 只读写保护（docs/21 §4）', () => {
     await db.attach(docId, doc);
     writeWidget(doc, 'a', 'x');
     db.setReadOnly(true);
-    await flush(30);
-    expect(await db.readAuditLog()).toHaveLength(1);
+    await expect.poll(() => db.readAuditLog(), { timeout: 3_000 }).toHaveLength(1);
     writeWidget(doc, 'b', 'y'); // 只读期间的新写——丢弃
     await db.flushPendingWrites();
     expect(await db.readAuditLog()).toHaveLength(1); // 不涨
@@ -678,14 +676,17 @@ describe('DbProvider 只读写保护（docs/21 §4）', () => {
     doc.destroy();
   });
 
-  it('切只读后 dispose 冲刷不丢（pagehide/dispose 同入口）', async () => {
+  it('只读（直设私有）后 dispose 冲刷不丢——dispose 是唯一落盘入口', async () => {
     const docId = `t-ro-flush3-${Date.now()}`;
     const doc = new Y.Doc();
     const db = new DbProvider();
     await db.attach(docId, doc);
     writeWidget(doc, 'a', 'x');
-    db.setReadOnly(true);
+    // 直设私有 readOnly（绕过 setReadOnly 的主动冲刷），让 dispose 的冲刷
+    // 成为该增量的唯一落盘路径——真正隔离 dispose 入口
+    (db as unknown as { readOnly: boolean }).readOnly = true;
     db.dispose(); // dispose 走 flushPendingWrites——不得被只读拦截
+    await flush(30); // 等 IDB 写事务与延迟关库链完成
     doc.destroy();
     const doc2 = new Y.Doc();
     const db2 = new DbProvider();

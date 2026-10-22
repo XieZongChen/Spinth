@@ -135,6 +135,13 @@ export class TabSessionService extends Disposable {
         // 不允许降级 solo（否则出现第二个写者），保持 follower 只读
         console.warn('[spinth:tab] 写者锁等待失败，保持只读', err);
         this.emit({ role: 'follower', writable: false });
+        // 与 fallback 同款退避自愈：wait 持续失败每 30s 重排一轮——写者离开后
+        // 仍可自动接管，不需用户手动刷新
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null;
+          if (this.disposed || this.released) return;
+          this.queueWait(name);
+        }, RETRY_AFTER_FALLBACK_MS);
       });
   }
 

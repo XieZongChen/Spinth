@@ -155,6 +155,34 @@ describe('TabSessionService', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('wait 失败后 30s 退避自愈：重排成功授予并可接管', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // wait 第一次 reject（SecurityError 类瞬时失败），第二次走真排队授予
+    let waitCalls = 0;
+    const real = new MemoryLockPort();
+    const flaky: ITabLockPort = {
+      tryAcquire: (name: string) => real.tryAcquire(name),
+      wait: (name: string) => {
+        waitCalls += 1;
+        if (waitCalls === 1) return Promise.reject(new Error('boom'));
+        return real.wait(name);
+      },
+    };
+    const holder = (await real.tryAcquire(TAB_LOCK_PREFIX + 'test-doc'))!;
+    const onPromoted = vi.fn();
+    const s = makeService(flaky, { onPromoted });
+    await s.start();
+    expect(s.state$.value).toEqual({ role: 'follower', writable: false }); // wait 失败保持只读
+    holder.release(); // 写者离开
+    await vi.advanceTimersByTimeAsync(RETRY_AFTER_FALLBACK_MS - 1);
+    expect(waitCalls).toBe(1); // 退避窗口内不重排
+    await vi.advanceTimersByTimeAsync(1); // 30s 到：重排 → 锁空闲立即授予
+    expect(waitCalls).toBe(2);
+    await vi.advanceTimersByTimeAsync(PROMOTION_DELAY_MS);
+    expect(onPromoted).toHaveBeenCalledTimes(1); // 接管尝试发生
+    s.dispose();
+  });
+
   it('start() 幂等：调用两次只申请一次', async () => {
     const port = new MemoryLockPort();
     const s = makeService(port);
