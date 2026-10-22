@@ -68,6 +68,14 @@ jobs:
       - name: build
         run: pnpm build
 
+      # Pages 子路径构建门禁：SPINTH_BASE 构建产物必须全量带 base 前缀，
+      # 防 index.html 前缀丢失或 JS 写死根路径回归（scripts/check-pages-build.mjs）
+      - name: Pages 子路径构建校验
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          SPINTH_BASE="/${REPO_NAME}/" pnpm build
+          node scripts/check-pages-build.mjs packages/app/dist "/${REPO_NAME}/"
+
       - name: 安装 Chrome（E2E 用系统 Chrome）
         run: npx playwright install chrome
 
