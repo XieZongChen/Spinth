@@ -120,6 +120,7 @@ export type BoardPublicApi = Omit<
   | 'imageService'
   | 'assetStore'
   | 'projectFile'
+  | 'storageStatus'
   | 'mindService'
   | 'contextMenu'
   | 'keyboard'

@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { CURRENT_PHASE, SPINTH_VERSION } from '@spinth/core';
+import { CURRENT_PHASE, INITIAL_STORAGE_STATUS, SPINTH_VERSION } from '@spinth/core';
 import type {
   CursorMode,
   DocState,
   WsState,
   IActionBarSchema,
   IMindAddButtonsState,
+  IStorageStatus,
 } from '@spinth/core';
 
 /**
@@ -25,6 +26,8 @@ export interface SpinthUiState {
   modelCount: number;
   initError: string | null;
   persistState: 'saved' | 'saving' | 'failed';
+  /** 浏览器持久化授权 + 站点配额（docs/02 §6.1——与 persistState 不混同） */
+  storageStatus: IStorageStatus;
   cursorMode: CursorMode;
   pageScale: number;
   /** 可视世界坐标矩形（vpBounds$ 镜像；DotGrid 定位用） */
@@ -57,6 +60,7 @@ export const useSpinthStore = create<SpinthUiState>(() => ({
   editBlocked: false,
   modelCount: 0,
   persistState: 'saved',
+  storageStatus: INITIAL_STORAGE_STATUS,
   initError: null,
   cursorMode: 'cursor',
   pageScale: 1,

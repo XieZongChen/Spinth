@@ -27,6 +27,8 @@ import { ImageService } from './widgets/image/imageService';
 import { AssetStore } from './platform/dataEngine/assetStore';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
 import { ProjectFileError } from './platform/projectFile/projectFileError';
+import { StorageStatusService } from './platform/storage/storageStatusService';
+import { INITIAL_STORAGE_STATUS, type IStorageStatus } from './types/storage';
 import type {
   IProjectExportOptions,
   IProjectExportResult,
@@ -220,6 +222,8 @@ export class BoardSDK {
   network: NetworkService | null = null;
   /** @internal 项目文件（docs/20 §5.2）：组合根构造注入，门面方法见 exportProject/importProject */
   projectFile: ProjectFileService | null = null;
+  /** @internal 存储状态（docs/02 §6.1）：组合根构造注入，门面见 storageStatus$/refreshStorageStatus */
+  storageStatus: StorageStatusService | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   initialized = false;
 
@@ -255,6 +259,7 @@ export class BoardSDK {
     docState: null as BehaviorSubject<'idle'> | null,
     wsState: null as BehaviorSubject<'off'> | null,
     persistState: null as BehaviorSubject<'saved'> | null,
+    storageStatus: null as BehaviorSubject<IStorageStatus> | null,
     selected: null as BehaviorSubject<string[]> | null,
     canUndo: null as BehaviorSubject<boolean> | null,
     canRedo: null as BehaviorSubject<boolean> | null,
@@ -352,6 +357,24 @@ export class BoardSDK {
   /** 手动重试落盘（幂等） */
   retryPersist(): void {
     this.engine?.retryPersist();
+  }
+
+  /** 浏览器持久化授权 + 站点配额（docs/02 §6.1——与 persistState$ 不混同） */
+  get storageStatus$() {
+    return (
+      this.storageStatus?.status$ ??
+      (this.fallbacks.storageStatus ??= new BehaviorSubject<IStorageStatus>(INITIAL_STORAGE_STATUS))
+    );
+  }
+
+  /** 刷新存储状态（面板打开/窗口可见/写失败时由宿主调用；并发合并） */
+  refreshStorageStatus(): void {
+    void this.storageStatus?.refresh();
+  }
+
+  /** 用户手势申请持久化（单飞；结果经 storageStatus$ 的 persistOutcome 到达） */
+  requestStoragePersist(): void {
+    void this.storageStatus?.requestPersist();
   }
 
   get selected$() {
@@ -947,6 +970,7 @@ export class BoardSDK {
     // 编辑会话先收口（flush 尾字——先于服务拆序，避免 detach 依赖已拆组件）
     this.editingService?.exitActive();
     this.projectFile?.dispose();
+    this.storageStatus?.dispose();
     this.assetStore?.close();
     this.keyboard?.dispose();
     this.clipboard?.dispose();

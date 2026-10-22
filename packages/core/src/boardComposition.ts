@@ -39,6 +39,10 @@ import {
   runAssetMaintenance,
 } from './platform/dataEngine/assetMigration';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
+import {
+  StorageStatusService,
+  createBrowserStorageManager,
+} from './platform/storage/storageStatusService';
 import { SPINTH_VERSION } from './version';
 import type { BoardSDK } from './app';
 
@@ -149,6 +153,10 @@ export async function composeBoard(
       }
     },
   });
+
+  // 存储状态服务（docs/02 §6.1）：持久化授权 + 站点配额可见化；无
+  // navigator.storage 的环境降级为 unsupported，不影响画布保存
+  sdk.storageStatus = new StorageStatusService(createBrowserStorageManager());
 
   // 3. 渲染就绪（widgetLayer 此时可能已有恢复的控件，首帧即完整）
   await sdk.viewport.initialize(root, { editable: config.editable ?? true });
@@ -413,11 +421,10 @@ export async function composeBoard(
 
   sdk.initialized = true;
 
-  // 存储持久化申请（第三轮审查）：浏览器在存储压力下可驱逐 IndexedDB
-  // （Safari 尤甚）——persisted 后浏览器不再自动清（数据只有本地一份）
-  void (navigator as unknown as { storage?: { persist?: () => Promise<boolean> } }).storage
-    ?.persist?.()
-    .catch(() => {});
+  // 存储持久化申请（docs/02 §6.1）：浏览器在存储压力下可驱逐 IndexedDB
+  // （Safari 尤甚）——启动 refresh 一次，未持久化才申请一次 persist；
+  // 失败不抛、不阻塞初始化（此前是 fire-and-forget 丢弃返回值）
+  void sdk.storageStatus.initialize().catch(() => {});
 
   // 资产维护链（Batch 2 二期·单机）：启动 idle 一轮——存量 dataURL 迁移
   // （无条件，幂等）→ 有迁移则 compactNow（旧 dataURL 从盘上历史真正消失）

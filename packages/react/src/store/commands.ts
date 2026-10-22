@@ -50,6 +50,14 @@ export const spinthCommands = {
   retryPersist(): void {
     board?.retryPersist();
   },
+  /** 刷新存储状态（docs/02 §6.1——面板打开/窗口可见/写失败时调用） */
+  refreshStorageStatus(): void {
+    board?.refreshStorageStatus();
+  },
+  /** 用户手势申请浏览器持久化（docs/02 §6.1——结果经 storageStatus$ 到达） */
+  requestStoragePersist(): void {
+    board?.requestStoragePersist();
+  },
   redo(): void {
     board?.redo();
   },

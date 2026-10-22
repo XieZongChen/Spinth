@@ -51,6 +51,7 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     sdk.wsState$.subscribe((v) => store.setState({ wsState: v })),
     sdk.editBlocked$.subscribe((v) => store.setState({ editBlocked: v })),
     sdk.persistState$.subscribe((v) => store.setState({ persistState: v })),
+    sdk.storageStatus$.subscribe((v) => store.setState({ storageStatus: { ...v } })),
     sdk.cursorMode$.subscribe((v) => {
       store.setState({ cursorMode: v });
       syncMindButtons();

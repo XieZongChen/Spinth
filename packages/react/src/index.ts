@@ -16,6 +16,14 @@ export {
   type IProjectImportResult,
   type IProjectWarning,
 } from '@spinth/core';
+// 存储状态公共面（docs/02 §6.1——app 壳只消费 @spinth/react；格式化单源）
+export {
+  formatBytes,
+  formatPercent,
+  type IStorageStatus,
+  type StoragePersistence,
+  type StoragePressure,
+} from '@spinth/core';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';
