@@ -79,3 +79,5 @@ export type {
   IStorageStatus,
   IStorageManager,
 } from './storage';
+export { TabRoleSchema, INITIAL_TAB_SESSION_STATE } from './tabSession';
+export type { TabRole, ITabSessionState, ITabLockHandle, ITabLockPort } from './tabSession';

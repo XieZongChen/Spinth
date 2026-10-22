@@ -72,6 +72,19 @@ export type {
 } from './types';
 export { formatBytes, formatPercent } from './platform/storage/storageMath';
 
+// 多标签写者会话（docs/21——app 壳消费的宿主工具，角色不是 SDK 能力，
+// 不进 BoardPublicApi，也不挂 BoardSDK）
+export { TabRoleSchema, INITIAL_TAB_SESSION_STATE } from './types';
+export type { TabRole, ITabSessionState, ITabLockHandle, ITabLockPort } from './types';
+export {
+  TabSessionService,
+  TAB_LOCK_PREFIX,
+  PROMOTION_DELAY_MS,
+  PROMOTION_FALLBACK_MS,
+} from './platform/tabSession/tabSessionService';
+export type { ITabSessionOptions } from './platform/tabSession/tabSessionService';
+export { createBrowserLockPort } from './platform/tabSession/browserLockPort';
+
 // 形状工具默认创建型（docs/04 §2 形状默认型小节——工具坞二级菜单与 ActionBar 同源）
 export { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）

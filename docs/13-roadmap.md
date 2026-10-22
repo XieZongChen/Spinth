@@ -27,8 +27,8 @@
 
 - [x] 资产 GC 的 Web Locks 单写者：锁被占用时跳过本轮。
 - [x] 单写者 + 只读跟随（Web Locks 按文档排他锁）：先到者 leader，其余标签只读
-  （视图操作保留、写入/导入禁用、不落盘、不跑维护链），写者离开后 follower 自动接管
-  （整页刷新）；无 Web Locks 降级 solo。规格：[21-multi-tab](21-multi-tab.md)。
+      （视图操作保留、写入/导入禁用、不落盘、不跑维护链），写者离开后 follower 自动接管
+      （整页刷新）；无 Web Locks 降级 solo。规格：[21-multi-tab](21-multi-tab.md)。
 - [x] 双标签并发 GC/只读/接管测试（core 单测 + `multiTab.spec` E2E）。
 
 ### P1 存储可靠性
