@@ -86,9 +86,14 @@ function downloadBlob(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000); // 等下载真正启动后回收
 }
 
-export function ProjectMenu() {
+/** 受控开合（docs/02 §6.1 D7）：open 由 App 持有——存储面板「打开项目菜单」共用同一开合源 */
+export interface ProjectMenuProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
   const docState = useSpinthStore((s) => s.docState);
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** 导出结果 warning（导出后留在菜单内展示，用户手动关闭） */
@@ -102,6 +107,7 @@ export function ProjectMenu() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // §9.2：docState 未 synced / 初始化失败时禁用；忙碌中同样禁用
   const ready = docState === 'synced';
@@ -120,36 +126,43 @@ export function ProjectMenu() {
     });
   }, [open]);
 
+  // 打开后焦点移入首个可用菜单项（键盘用户不必回 tab；Escape 仍回按钮）
+  useEffect(() => {
+    if (!open) return;
+    const first = panelRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
+    first?.focus();
+  }, [open]);
+
   // Escape 关闭并把焦点还给按钮（§9.3；capture 相独占——不冒泡到全局清选区）
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        setOpen(false);
+        onOpenChange(false);
         buttonRef.current?.focus();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   // 点击外部关闭
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent): void => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) onOpenChange(false);
     };
     window.addEventListener('pointerdown', onDown);
     return () => window.removeEventListener('pointerdown', onDown);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   const openMenu = (): void => {
     setError(null);
     // 旧导出提示不跨开合残留（每次打开是新的操作上下文）；pendingImport 保留
     // ——导入确认未处理前用户关掉菜单，重开仍能看到「打开新画布」入口
     setExportWarnings([]);
-    setOpen(true);
+    onOpenChange(true);
   };
 
   const handleExport = async (): Promise<void> => {
@@ -164,14 +177,14 @@ export function ProjectMenu() {
       }
       downloadBlob(result.blob, result.fileName);
       // 有 warning 保持菜单打开展示（评审 P1-2：外链未打包等必须到达用户）；
-      //  无 warning 按设计 §9.2 关闭菜单，不写任何 store。setOpen(true) 兜底
+      //  无 warning 按设计 §9.2 关闭菜单，不写任何 store。onOpenChange(true) 兜底
       //  「菜单已被外部关闭」的窗口（如文件对话框期间的焦点切换）
       if (result.warnings.length > 0) {
         setExportWarnings(result.warnings);
-        setOpen(true);
+        onOpenChange(true);
         return;
       }
-      setOpen(false);
+      onOpenChange(false);
     } catch (err) {
       setError(messageOf(err, 'export'));
     } finally {
@@ -193,17 +206,17 @@ export function ProjectMenu() {
       if (result.warnings.length > 0) {
         // 任何 warning（外链/未引用资产/空项目/flush 未完成）都先展示，
         // 用户确认「打开新画布」后才导航（评审 P1-2/P2-5：pending 保留到确认）。
-        // setOpen(true)：import 由隐藏 input 触发，菜单可能未开——强制打开保证
+        // onOpenChange(true)：import 由隐藏 input 触发，菜单可能未开——强制打开保证
         // warning 面板必然渲染（用户永远看得到确认入口）
         setPendingImport({ docId: result.docId, warnings: result.warnings });
-        setOpen(true);
+        onOpenChange(true);
         return;
       }
       window.location.assign(docUrl(result.docId));
     } catch (err) {
       // 失败时菜单同样保持/打开（§9.2：菜单保持打开显示错误，允许重试）
       setError(messageOf(err, 'import'));
-      setOpen(true);
+      onOpenChange(true);
     } finally {
       setBusy(null);
     }
@@ -227,15 +240,18 @@ export function ProjectMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        onClick={() => (open ? onOpenChange(false) : openMenu())}
         data-spinth-project-menu=""
         className="flex h-8 w-8 items-center justify-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon name="more" size={16} strokeWidth={2} />
       </button>
 
-      {open && (
+      {/* 先定位后挂载（同 StorageStatusButton）：面板首帧若为 static 会撑宽按钮组，
+          顶栏左组可收缩时按钮被挤左、定位量到偏移坐标；panelStyle 就绪即 fixed 不再影响布局 */}
+      {open && panelStyle !== null && (
         <div
+          ref={panelRef}
           role="menu"
           aria-label="项目"
           aria-busy={busy !== null}
@@ -300,7 +316,7 @@ export function ProjectMenu() {
                   清掉状态就再也找不到刚导入的画布（评审：标签与行为一致） */}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 className="mt-1.5 ml-2 rounded-md px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-hover"
               >
                 稍后

@@ -39,6 +39,10 @@
   --spinth-danger: #e5484d;
   --spinth-danger-soft: #fdecec;
 
+  /* 警示（存储配额 warn 等：与 danger 分档，不拿工具色充当状态色） */
+  --spinth-warning: #b45309;
+  --spinth-warning-soft: #fef3c7;
+
   /* 工具色（记号笔托盘：激活态点亮） */
   --spinth-tool-hand: #e8843c;
   --spinth-tool-hand-soft: #fdf1e7;
@@ -83,6 +87,9 @@
 
   --spinth-danger: #ff6369;
   --spinth-danger-soft: #3a2226;
+
+  --spinth-warning: #fbbf24;
+  --spinth-warning-soft: #3a2c12;
 
   --spinth-tool-hand: #f09a5a;
   --spinth-tool-hand-soft: #3a2c22;

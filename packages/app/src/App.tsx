@@ -11,9 +11,9 @@ import {
   Icon,
   useSpinthStore,
 } from '@spinth/react';
-import { spinthCommands } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
 import { ProjectMenu } from './ProjectMenu';
+import { StorageStatusButton } from './StorageStatusButton';
 import { docUrl, publicAsset } from './siteBase';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
@@ -34,13 +34,13 @@ function BrandMark({ className }: { className?: string }) {
 export function App() {
   const [boardReady, setBoardReady] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
+  // 项目菜单受控（docs/02 §6.1 D7）：存储面板「打开项目菜单」与顶栏按钮共用一个开合源
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const docState = useSpinthStore((s) => s.docState);
-  const persistState = useSpinthStore((s) => s.persistState);
   const initError = useSpinthStore((s) => s.initError);
   const editable = useSpinthStore((s) => s.editable);
   const modelCount = useSpinthStore((s) => s.modelCount);
   const loading = !boardReady || docState !== 'synced';
-  const saving = persistState === 'saving';
 
   // 本地文档路由：?doc=xxx 选择文档；默认 docId 随机并稳定在 sessionStorage。
   // 单机版不读取远端地址或协同参数。
@@ -66,10 +66,11 @@ export function App() {
   return (
     <div className="flex h-dvh w-screen flex-col bg-canvas text-ink">
       <header className="z-20 flex h-11 shrink-0 items-center justify-between border-b border-edge bg-surface px-4">
-        <div className="flex items-center gap-2.5">
+        {/* min-w-0 + truncate：390px 下长 docId 截断（docs/12 移动端），顶栏不换行不横滚 */}
+        <div className="flex min-w-0 items-center gap-2.5">
           <BrandMark className="h-7 w-auto" />
           <span className="text-[15px] font-extrabold tracking-tight">spinth</span>
-          <span className="ml-1 rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3">
+          <span className="ml-1 min-w-0 truncate rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3">
             {docId}
           </span>
         </div>
@@ -82,28 +83,7 @@ export function App() {
               只读
             </span>
           )}
-          {!loading && persistState === 'failed' ? (
-            // 本地落盘失败：IndexedDB 写入退避中（配额满/私密模式）。
-            <button
-              type="button"
-              onClick={() => spinthCommands.retryPersist()}
-              className="flex items-center gap-1.5 rounded-md bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger"
-              aria-live="polite"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-danger animate-pulse" aria-hidden />
-              本地保存失败 · 点击重试
-            </button>
-          ) : (
-            !loading && (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-2">
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${saving ? 'bg-tool-shape animate-pulse' : 'bg-tool-pen'}`}
-                  aria-hidden
-                />
-                {saving ? '保存中…' : '已保存'}
-              </span>
-            )
-          )}
+          {!loading && <StorageStatusButton onOpenProjectMenu={() => setProjectMenuOpen(true)} />}
           <button
             type="button"
             title="复制本文档链接"
@@ -126,7 +106,7 @@ export function App() {
           >
             <Icon name="add" size={16} strokeWidth={2} />
           </button>
-          <ProjectMenu />
+          <ProjectMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} />
           <button
             type="button"
             title={theme === 'light' ? '切换到深色' : '切换到浅色'}

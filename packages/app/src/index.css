@@ -33,6 +33,9 @@
   --color-danger: var(--spinth-danger);
   --color-danger-soft: var(--spinth-danger-soft);
 
+  --color-warning: var(--spinth-warning);
+  --color-warning-soft: var(--spinth-warning-soft);
+
   --color-tool-hand: var(--spinth-tool-hand);
   --color-tool-hand-soft: var(--spinth-tool-hand-soft);
   --color-tool-shape: var(--spinth-tool-shape);
