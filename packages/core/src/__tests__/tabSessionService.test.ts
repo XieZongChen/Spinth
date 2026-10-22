@@ -142,6 +142,18 @@ describe('TabSessionService', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('tryAcquire=null（确有写者）且 wait 失败 → 保持 follower，不降级 solo', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const busyThenFail: ITabLockPort = {
+      tryAcquire: () => Promise.resolve(null),
+      wait: () => Promise.reject(new Error('SecurityError')),
+    };
+    const s = makeService(busyThenFail);
+    await s.start();
+    expect(s.state$.value).toEqual({ role: 'follower', writable: false });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('start() 幂等：调用两次只申请一次', async () => {
     const port = new MemoryLockPort();
     const s = makeService(port);

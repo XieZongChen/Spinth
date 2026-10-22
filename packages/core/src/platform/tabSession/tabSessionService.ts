@@ -120,8 +120,10 @@ export class TabSessionService extends Disposable {
       })
       .catch((err: unknown) => {
         if (this.disposed) return;
-        console.warn('[spinth:tab] 写者锁等待失败，降级单标签可写', err);
-        this.emit({ role: 'solo', writable: true });
+        // 能走到排队说明 tryAcquire 已返回 null——确实存在别的写者；wait 失败
+        // 不允许降级 solo（否则出现第二个写者），保持 follower 只读
+        console.warn('[spinth:tab] 写者锁等待失败，保持只读', err);
+        this.emit({ role: 'follower', writable: false });
       });
   }
 
