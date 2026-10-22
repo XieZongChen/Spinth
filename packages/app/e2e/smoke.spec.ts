@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { persisted } from './helpers/projectFileE2e';
 
 /**
  * 冒烟链路（docs/15 §3）：刷新进入 → 工具创建控件 → 拖拽移动 → undo 复位 → 刷新恢复。
@@ -88,7 +89,10 @@ test('创建 → 拖拽 → undo → 刷新恢复', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(async () => (await debug(page)).vms[0]!.x, { timeout: 5_000 }).toBe(createdX);
 
-  // 4) 刷新 → IndexedDB 恢复同一控件（刷新恢复链路）
+  // 4) 刷新 → IndexedDB 恢复同一控件（刷新恢复链路）。
+  //    先等落盘：undo 也是一次写入，100ms 写聚合窗口内 reload 会丢最后一帧
+  //    （曾因启动新增存储状态异步工作放大此窗口而 flaky，复审 #4）
+  await persisted(page);
   await page.reload();
   await waitBoardReady(page);
   state = await debug(page);
