@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   INITIAL_TAB_SESSION_STATE,
   TabSessionService,
@@ -30,7 +30,9 @@ export function tabSessionFor(docId: string): TabSessionService {
 
 /** 当前标签角色（docs/21 §3）：pending 期间不挂画布——editable 从第一帧起是终值 */
 export function useTabRole(docId: string): ITabSessionState {
-  const session = tabSessionFor(docId);
+  // useState 惰性初始化：render 期间不建 session / 不挂 window 监听（render 纯度）。
+  // docId 来自 URL，是页面级常量——初始化一次即可，不随重渲染换 session
+  const [session] = useState(() => tabSessionFor(docId));
   useEffect(() => {
     void session.start();
   }, [session]);

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   PROMOTION_DELAY_MS,
   PROMOTION_FALLBACK_MS,
+  RETRY_AFTER_FALLBACK_MS,
   TAB_LOCK_PREFIX,
   TabSessionService,
 } from '../platform/tabSession/tabSessionService';
@@ -197,5 +198,24 @@ describe('TabSessionService', () => {
     s.state$.subscribe({ complete: () => (completed = true) });
     s.dispose();
     expect(completed).toBe(true);
+  });
+
+  it('fallback 后 30s 自愈重排：重新授予并再次尝试接管', async () => {
+    const port = new MemoryLockPort();
+    const holder = (await port.tryAcquire(TAB_LOCK_PREFIX + 'test-doc'))!;
+    const onPromoted = vi.fn();
+    const s = makeService(port, { onPromoted });
+    await s.start();
+    holder.release();
+    // 第一轮：授予 → onPromoted（不导航）→ fallback 释放回 follower
+    await vi.advanceTimersByTimeAsync(PROMOTION_DELAY_MS + PROMOTION_FALLBACK_MS);
+    expect(onPromoted).toHaveBeenCalledTimes(1);
+    expect(s.state$.value).toEqual({ role: 'follower', writable: false });
+    // 30s 后自愈重排：锁空闲 → 立即授予 → 延时后第二次接管尝试
+    await vi.advanceTimersByTimeAsync(RETRY_AFTER_FALLBACK_MS - 1);
+    expect(onPromoted).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1 + PROMOTION_DELAY_MS);
+    expect(onPromoted).toHaveBeenCalledTimes(2);
+    s.dispose();
   });
 });

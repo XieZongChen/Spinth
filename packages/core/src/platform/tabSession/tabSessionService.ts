@@ -14,6 +14,9 @@ export const TAB_LOCK_PREFIX = 'spinth-doc-write:';
 export const PROMOTION_DELAY_MS = 300;
 /** 接管回调未导航（页面仍存活）的兜底窗口：释放锁、回 follower，防陈旧写者 */
 export const PROMOTION_FALLBACK_MS = 1000;
+/** fallback 回 follower 后的自愈重排延迟：回调失效场景的低频重试——不做
+ *  1s 级（会与失效的 onPromoted 组成无限「授予→刷新失败→释放」循环） */
+export const RETRY_AFTER_FALLBACK_MS = 30_000;
 
 export interface ITabSessionOptions {
   docId: string;
@@ -38,6 +41,7 @@ export class TabSessionService extends Disposable {
   private handle: ITabLockHandle | null = null;
   private promotionTimer: ReturnType<typeof setTimeout> | null = null;
   private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(opts: ITabSessionOptions) {
     super();
@@ -115,6 +119,13 @@ export class TabSessionService extends Disposable {
             console.warn('[spinth:tab] 接管回调未导航，释放写者锁并回到只读');
             this.releaseHandle();
             this.emit({ role: 'follower', writable: false });
+            // 自愈：30s 后重新排队等锁（若写者已离开仍可接管；回调持续失效
+            // 则每 30s 至多重试一轮，不构成刷新风暴）
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = null;
+              if (this.disposed || this.released) return;
+              this.queueWait(name);
+            }, RETRY_AFTER_FALLBACK_MS);
           }, PROMOTION_FALLBACK_MS);
         }, this.opts.promotionDelayMs ?? PROMOTION_DELAY_MS);
       })
@@ -145,6 +156,10 @@ export class TabSessionService extends Disposable {
     if (this.fallbackTimer !== null) {
       clearTimeout(this.fallbackTimer);
       this.fallbackTimer = null;
+    }
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
     }
   }
 }
