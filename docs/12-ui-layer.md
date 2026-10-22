@@ -87,16 +87,21 @@ ActionBar / MindAddButtons：纯算术定位
 | `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                           |
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                             |
 
-顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊（390px 截断）；右侧只读徽标 /
-本地存储入口（`StorageStatusButton.tsx`：已保存 / 保存中 / 保存失败 三态，点击打开
-「本地存储」面板 `StoragePanel.tsx`——文档保存重试、浏览器持久化申请、用量/配额压力、
-备份入口，docs/02 §6.1）/ 复制链接 / 新建 / 项目菜单（导出/导入 `.spinth.zip`，
-docs/20 §9；`ProjectMenu.tsx` 受控开合）/ 主题切换。
+顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊（390px 截断）；右侧只读徽标
+（`data-spinth-readonly-pill`，按标签角色区分提示文案——多标签口径见
+[21-multi-tab](21-multi-tab.md)）/ 本地存储入口（`StorageStatusButton.tsx`：已保存 /
+保存中 / 保存失败 三态，点击打开「本地存储」面板 `StoragePanel.tsx`——文档保存重试、
+浏览器持久化申请、用量/配额压力、备份入口，docs/02 §6.1）/ 复制链接 / 新建 / 项目菜单
+（导出/导入 `.spinth.zip`，docs/20 §9；`ProjectMenu.tsx` 受控开合；导入在只读态
+disabled）/ 主题切换。
 单机版不显示“已同步”或任何远端连接状态。
+
+只读提示条（app 壳 `ReadOnlyNotice.tsx`，`data-spinth-readonly-notice`）：仅多标签
+follower 角色渲染，说明本页只读与接管行为，提供「刷新」与会话内「知道了」。
 
 移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞横向
 滚动，二级菜单与存储面板 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
-锚点按钮的测量）；只读态仍保留选择/复制/视图操作。
+锚点按钮的测量）；只读态保留缩放/平移，选择与复制受写门禁限制。
 
 ## 5. 主题与样式架构
 

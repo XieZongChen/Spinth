@@ -45,8 +45,11 @@ src = "spinth-asset:<sha256>"
   - 资产库差集即孤儿；
   - undo 栈非空时整轮跳过；
   - 本会话新 put 的资产受启动时间基线保护；
-  - 多标签用 Web Locks 串行化；锁被占用时跳过本轮，Web Locks API 不可用时降级直跑
-    （单标签场景无竞争）。
+- 维护链（迁移 + GC）只在写者标签运行：app 壳按标签角色传
+  `assetMaintenance = 基线 && writable`，core 侧 `composeBoard` 调度与执行前再各断言
+  一次（docs/21 §4）；Web Locks 锁保留为并发兜底。
+- 多标签用 Web Locks 串行化；锁被占用时跳过本轮，Web Locks API 不可用时降级直跑
+  （单标签场景无竞争）。
 - 删除单行前检查 objectURL 引用计数；正在渲染的资产跳过。
 - 全库扫描是线性成本；文档数多时仍是挂账。
 

@@ -29,6 +29,7 @@
 | 测试/E2E/视觉基线       | [15-testing](15-testing.md)                                                                           |
 | 性能/索引/culling       | [16-performance](16-performance.md)                                                                   |
 | 图片资产/GC/失败回退    | [19-assets](19-assets.md)                                                                             |
+| 多标签/只读/接管        | [21-multi-tab](21-multi-tab.md)                                                                       |
 | 项目导出/导入/备份      | [20-project-file](20-project-file.md)、[19-assets](19-assets.md)、[02-data-engine](02-data-engine.md) |
 
 ## 2. 篇目
@@ -56,10 +57,11 @@
 | 18   | [18-group](18-group.md)                                   | 编组数据模型、命令、选择集成        |
 | 19   | [19-assets](19-assets.md)                                 | 本地资产、GC、失败回退、导出边界    |
 | 20   | [20-project-file](20-project-file.md)                     | 项目文件格式、导出/导入             |
+| 21   | [21-multi-tab](21-multi-tab.md)                           | 多标签单写者、只读跟随、接管        |
 
 ## 3. 文档纪律
 
-- **编号稳定**：不要复用/重排已有编号；新增主题追加到末尾（当前下一个是 21）。
+- **编号稳定**：不要复用/重排已有编号；新增主题追加到末尾（当前下一个是 22）。
 - **章节稳定**：代码引用 `§M` 时，修改标题/顺序必须同步改引用或保留锚点。
 - **接口先行**：类型/zod 契约在 `packages/core/src/types/`，文档与实现同步。
 - **只写当前事实**：文档描述当前实现、契约与约束；不写变更记录、日期、提交哈希、PR 编号或验收流水账，也不追加“此前/现在/已修复”叙事。历史由 git 提交信息承载。
