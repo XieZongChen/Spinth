@@ -71,6 +71,11 @@ export class StorageStatusService extends Disposable {
 
   override dispose(): void {
     if (this.disposedFlag) return;
+    // 请求中状态收口（复审 #3）：complete 前补一帧 requestingPersist=false，
+    // 消费者不停在中间态（A12：dispose 后无状态泄漏）
+    if (this.status$.value.requestingPersist) {
+      this.status$.next({ ...this.status$.value, requestingPersist: false });
+    }
     this.disposedFlag = true;
     this.status$.complete();
     super.dispose();

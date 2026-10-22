@@ -157,7 +157,7 @@ describe('StorageStatusService（docs/02 §6.1）', () => {
     expect(svc.status$.value.persistence).toBe('persisted');
   });
 
-  it('dispose：流 complete；in-flight 申请完成与后续 refresh 均不再发射', async () => {
+  it('dispose：流 complete；请求中状态收口为 false；此后不再发射（A12/复审 #3）', async () => {
     const gate = deferred<boolean>();
     const svc = new StorageStatusService({
       persist: () => gate.promise,
@@ -168,12 +168,14 @@ describe('StorageStatusService（docs/02 §6.1）', () => {
     await flush(); // requestingPersist=true 已发射
     const before = emissions.length;
     svc.dispose();
+    // complete 前补一帧 requestingPersist=false——消费者不停在中间态
+    expect(emissions.length).toBe(before + 1);
+    expect(emissions[emissions.length - 1]!.requestingPersist).toBe(false);
     gate.resolve(true);
     await p;
     await svc.refresh();
-    expect(emissions.length).toBe(before);
-    // 停在最后发射的中间态，无泄漏状态
-    expect(svc.status$.value.requestingPersist).toBe(true);
+    expect(emissions.length).toBe(before + 1); // in-flight 完成与后续 refresh 均无新帧
+    expect(svc.status$.value.requestingPersist).toBe(false);
   });
 
   it('initialize：已持久化不申请；未持久化申请一次（D4/A3）', async () => {
