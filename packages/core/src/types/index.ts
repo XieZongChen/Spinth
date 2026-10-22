@@ -65,3 +65,17 @@ export type {
   IProjectImportOptions,
   ProjectFileLimits,
 } from './projectFile';
+export {
+  StoragePersistenceSchema,
+  StoragePressureSchema,
+  StoragePersistOutcomeSchema,
+  StorageStatusSchema,
+  INITIAL_STORAGE_STATUS,
+} from './storage';
+export type {
+  StoragePersistence,
+  StoragePressure,
+  StoragePersistOutcome,
+  IStorageStatus,
+  IStorageManager,
+} from './storage';

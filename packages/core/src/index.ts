@@ -61,6 +61,17 @@ export type {
   IProjectFileErrorDetails,
 } from './platform/projectFile/projectFileError';
 
+// 存储状态契约与纯函数（docs/02 §6.1——app 壳经 @spinth/react 消费；格式化单源）
+export { INITIAL_STORAGE_STATUS } from './types';
+export type {
+  StoragePersistence,
+  StoragePressure,
+  StoragePersistOutcome,
+  IStorageStatus,
+  IStorageManager,
+} from './types';
+export { formatBytes, formatPercent } from './platform/storage/storageMath';
+
 // 形状工具默认创建型（docs/04 §2 形状默认型小节——工具坞二级菜单与 ActionBar 同源）
 export { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）
