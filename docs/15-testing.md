@@ -13,16 +13,23 @@
 
 ## 2. 当前基线
 
-- 单测：820 passed（core 811 + react 9，96 文件）。
-- E2E：18 个 spec、164 例（分层：fast 155 / timing+bench 5 / visual 4；混跑不作门禁，
+- 单测：853 passed（core 844 + react 9，99 文件）。
+- E2E：18 个 spec、169 例（分层：fast 160 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
-- 图片/资产专项：6/6。
-- 多标签专项：multiTab.spec 9 例（双标签角色/接管/只读不写盘/不同文档并行/无锁降级/
-  只读视图操作/390px/手动刷新/只读不跑维护链；同 context 双 page 共享 Web Locks）。
+- 图片/资产专项：10/10（image.spec——创建入口、资产引用、存量迁移、objectURL
+  配平、GC 清孤儿，以及生命周期专项：纹理共享 refs 递减、切 src 计数配平、
+  http 自动重试（route 前两次 abort）、missing 双击手动重试）。
+- 图片加载链单测：`imageRetry`（重试分类）/ `imageLoadController`（token 会话、
+  迟到成功/失败只动自己的租约、重试计时器纪律）/ `imageTextureCache`（同
+  assetId 一份纹理、并发 in-flight 去重、失败分阶段 retryable、dispose 兜底）；
+  GC 单测含空库短路、mark 中断零删除、sweep 预算部分完成、协作让出节奏。
+- 多标签专项：multiTab.spec 10 例（双标签角色/接管/只读不写盘/不同文档并行/无锁降级/
+  只读视图操作/390px/手动刷新/只读不跑维护链/只读标签双击 missing 图可重试不写盘；
+  同 context 双 page 共享 Web Locks）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：64.60 / 54.30 / 55.94 / 66.58，阈值 61/51/52/63。
+- coverage：65.25 / 55.11 / 56.30 / 67.22，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 

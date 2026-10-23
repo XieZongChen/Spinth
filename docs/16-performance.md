@@ -60,6 +60,10 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - 审计日志以快照为锚点重写，窗口 = 最近一次 compaction 之后。
 - 文本拖动出屏重评、平移复用、编辑期节能早退。
 - 快照纹理 LOD、测量缓存、空间索引、culling。
+- 同图多实例纹理共享（按 assetId 引用计数，一份解码/一份 GPU 纹理/一份
+  URL 计数，docs/19 §3）。
+- 资产 GC 启动成本收口：空库零扫描短路、批量删除（单批 64 行两事务）、
+  每篇扫描/每块删除协作让出、单轮软预算 1500ms、mark 中断零删除（docs/19 §5）。
 
 有意保留：
 
@@ -69,20 +73,20 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - 事件小对象分配抖动（现代 GC 无感）。
 - `getFocused/findNode` O(树)（数百节点大树才显现，届时可挂 id 索引）。
 - `worldToClient` 每次调 `getBoundingClientRect`（调用点已节流 34ms）。
+- GC 引用集仍是逐文档全量扫描（无落盘引用索引）；软预算保证不卡启动，
+  文档极多时靠多轮清完。
 
 仍需关注：
 
-- GC 全库扫描是线性成本（文档数多时）。
-- 同图多实例各自解码/上传纹理，未做纹理共享。
 - `lineService` / `app.ts` / `dbProvider` 等文件超过 400 行，阅读与维护成本高。
-- 纹理共享、图片重试、GC 分片：下一阶段。
 
 ## 7. 性能基准
 
 - bench：程序化创建 1000 控件（shape/text/pen），拖拽 rAF 绝对 p95 <25ms、
   相对增量 <8ms；3 屏外滚动 culling 翻转计数。
 - headless 软渲染空转 p95 ≈18ms 是环境噪声；load >8 时边缘可能超限 26–28ms。
-- 启动维护链走 `requestIdleCallback`，超时兜底 3s。
+- 启动维护链走 `requestIdleCallback`，超时兜底 3s；GC 单轮软预算 1500ms、
+  每篇扫描/每块删除协作让出。
 
 ## 8. 性能审查机制
 
