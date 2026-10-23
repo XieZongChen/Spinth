@@ -60,6 +60,8 @@ export class ImageTextureCache implements IImageTexturePort {
   private readonly entries = new Map<string, ICacheEntry>();
   /** in-flight 去重：同 key 并发 acquire 共享同一次 build */
   private readonly pending = new Map<string, Promise<ICacheEntry>>();
+  /** data/http（无 key）的在租条目：不共享但仍需被 dispose 兜底回收 */
+  private readonly transient = new Set<ICacheEntry>();
   private disposed = false;
 
   constructor(
@@ -85,7 +87,9 @@ export class ImageTextureCache implements IImageTexturePort {
     }
     try {
       const entry = await p;
-      if (entry.destroyed) return { kind: 'missing' }; // dispose 竞态兜底
+      // dispose 竞态双兜底：dispose 的 then 可能排在本次续体之后——此时
+      // entry 尚未标 destroyed 但马上会被销毁，不能再发租约
+      if (entry.destroyed || this.disposed) return { kind: 'missing' };
       entry.refs++;
       return { kind: 'ok', lease: this.leaseOf(entry) };
     } catch (err) {
@@ -98,11 +102,14 @@ export class ImageTextureCache implements IImageTexturePort {
   }
 
   /** 无条件销毁全部缓存条目与 URL 租约（SDK 生命周期结束；UI 不再复用）。
-   *  build 在途的 pending 挂销毁兜底，acquire 侧用 entry.destroyed 拦截 */
+   *  build 在途的 pending 挂销毁兜底，acquire 侧用 disposed/destroyed 拦截；
+   *  无 key 的 transient 条目（data/http）同样无条件回收 */
   dispose(): void {
     this.disposed = true;
     for (const entry of this.entries.values()) this.destroyEntry(entry);
     this.entries.clear();
+    for (const entry of this.transient) this.destroyEntry(entry);
+    this.transient.clear();
     for (const p of this.pending.values()) {
       void p.then(
         (entry) => this.destroyEntry(entry),
@@ -133,6 +140,10 @@ export class ImageTextureCache implements IImageTexturePort {
       return { kind: 'error', error: err, retryable: false };
     }
     if (!source) return { kind: 'missing' };
+    if (this.disposed) {
+      source.release(); // open 在途时 dispose 到达——拿到的租约即刻归还
+      return { kind: 'missing' };
+    }
     let img: HTMLImageElement;
     try {
       img = await this.codec.decode(source.url);
@@ -148,6 +159,11 @@ export class ImageTextureCache implements IImageTexturePort {
       return { kind: 'error', error: err, retryable: false }; // 建纹失败：不自动重试
     }
     const entry: ICacheEntry = { key: null, refs: 1, texture, source, destroyed: false };
+    this.transient.add(entry); // 登记：dispose 兜底能回收（无 key 不进 entries）
+    if (this.disposed) {
+      this.destroyEntry(entry); // 建纹期间 dispose 到达——纹理不得逃逸出销毁链
+      return { kind: 'missing' };
+    }
     return { kind: 'ok', lease: this.leaseOf(entry) };
   }
 
@@ -194,6 +210,7 @@ export class ImageTextureCache implements IImageTexturePort {
     if (entry.destroyed) return; // dispose 与 lease 归零可能先后到达
     entry.destroyed = true;
     if (entry.key !== null && this.entries.get(entry.key) === entry) this.entries.delete(entry.key);
+    this.transient.delete(entry); // 无条件（keyed 条目不在集合内，delete 无害）
     try {
       entry.texture.destroy(true); // true = 连 textureSource 释放 GPU
     } catch {

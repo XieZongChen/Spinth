@@ -187,4 +187,50 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
     await p;
     expect(cache.debug().pending).toBe(0);
   });
+
+  it('dispose 竞态：key 在途 build 于 dispose 之后完成 → 返回 missing 不发租约', async () => {
+    const { source, open } = makeSource();
+    const { codec, textures } = makeCodec();
+    const cache = new ImageTextureCache(source, codec);
+    let releaseOpen!: (h: IImageSourceHandle) => void;
+    open.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          releaseOpen = res;
+        }),
+    );
+    const p = cache.acquire(SRC);
+    cache.dispose(); // open 在途时 dispose 先到
+    releaseOpen({ url: 'blob:x', release: vi.fn() });
+    // dispose 的 then 兜底会销毁该 entry；acquire 续体不得再发租约
+    await expect(p).resolves.toEqual({ kind: 'missing' });
+    expect(textures[0]?.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispose 回收无 key 条目：data 在租/在途的纹理都被销毁 + source 归还', async () => {
+    const { source, releases } = makeSource();
+    const { codec, decode, textures } = makeCodec();
+    const cache = new ImageTextureCache(source, codec);
+    // 在租：acquire 成功未 release
+    const held = await cache.acquire('data:image/png;base64,xxx');
+    expect(held.kind).toBe('ok');
+    // 在途：第二个 data URL 的 decode 挂起（open 已归还 handle）
+    let releaseDecode!: (img: HTMLImageElement) => void;
+    decode.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          releaseDecode = res;
+        }),
+    );
+    const inflight = cache.acquire('data:image/png;base64,yyy');
+    await new Promise((r) => setTimeout(r, 0)); // 让 acquire 走到 decode 挂起点
+    expect(typeof releaseDecode).toBe('function');
+    cache.dispose();
+    releaseDecode({} as HTMLImageElement); // 建纹于 dispose 之后 → 不得逃逸销毁链
+    await expect(inflight).resolves.toEqual({ kind: 'missing' });
+    expect(textures[0]?.destroy).toHaveBeenCalledTimes(1); // 在租条目被无条件回收
+    expect(textures[1]?.destroy).toHaveBeenCalledTimes(1); // 建纹后即时销毁
+    expect(releases.length).toBeGreaterThanOrEqual(2);
+    for (const r of releases) expect(r).toHaveBeenCalledTimes(1);
+  });
 });
