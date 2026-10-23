@@ -181,8 +181,8 @@ test('1.22 只读态 UI：updateEditable(false) → 徽标 + 写面禁用 + 运�
   await expect(page.getByRole('button', { name: /矩形/ })).toBeDisabled();
   await expect(page.getByRole('button', { name: /选择/ })).toBeEnabled(); // 读类工具不受限
 
-  // 钳制路径：可写 → 切到写工具（shape）→ 再降级 → 工具必须落回 cursor
-  // （若无钳制将停在 shape——ToolGhost 继续画幽灵而指针已被丢弃）
+  // 降级序列的工具复位（D4 ②）：可写 → 切到写工具（shape）→ 再降级 → 工具落回 cursor
+  // （这里验证的是 updateEditable 的复位，不是 setCursorMode 钳制——钳制另有下面的直调断言）
   await page.evaluate(() =>
     (
       window as unknown as { __spinth: { updateEditable(v: boolean): void } }
@@ -204,6 +204,23 @@ test('1.22 只读态 UI：updateEditable(false) → 徽标 + 写面禁用 + 运�
     )
     .toBe('cursor');
   await expect(page.getByTitle('此画布为只读——编辑命令已禁用')).toBeVisible();
+
+  // 真钳制路径（D5）：只读态宿主直接调写工具 → 仍被钳回 cursor
+  // （去掉钳制后此处会停在 pen——与上一条可区分的回归锁）
+  await page.evaluate(() => {
+    (window as unknown as { __spinth: { setCursorMode(m: string): void } }).__spinth.setCursorMode(
+      'pen',
+    );
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __spinth: { cursorMode$: { getValue(): string } } }
+        ).__spinth.cursorMode$.getValue(),
+      ),
+    )
+    .toBe('cursor');
 });
 
 test('1.23 空态引导与文档操作：空画布提示现身/建件即隐 + 新建画布换 doc', async ({ page }) => {
