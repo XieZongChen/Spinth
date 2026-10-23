@@ -121,7 +121,9 @@ test('1.14 初始化失败出口：IndexedDB 不可用 → 失败卡 + 重试（
   await expect(page.getByText('正在恢复画布…')).toHaveCount(0);
 });
 
-test('1.22 只读态 UI：updateEditable(false) → 顶栏「只读」徽标 + 写工具禁用', async ({ page }) => {
+test('1.22 只读态 UI：updateEditable(false) → 徽标 + 写面禁用 + 运行时降级收口', async ({
+  page,
+}) => {
   const docId = `e2e-readonly-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await page.waitForFunction(
@@ -133,12 +135,55 @@ test('1.22 只读态 UI：updateEditable(false) → 顶栏「只读」徽标 + �
     { timeout: 20_000 },
   );
   await expect(page.getByText('只读')).toHaveCount(0);
+
+  // 前置可写状态：建矩形（世界 500,300 → 660,420，中心 580,360）→ 切回选择 → 点击选中
+  await page.keyboard.press('r');
+  const canvas = page.locator('canvas').first();
+  await canvas.hover({ position: { x: 500, y: 300 } });
+  await page.mouse.down();
+  await page.mouse.move(660, 420, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await debug(page)).modelCount).toBe(1);
+  await page.getByTitle('选择 (V)').click();
+  const at = await page.evaluate(() => {
+    const w = (
+      window as unknown as {
+        __spinth: {
+          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        };
+      }
+    ).__spinth;
+    return w.viewport.worldToClient({ x: 580, y: 360 });
+  });
+  await page.mouse.click(at.x, at.y);
+  await expect(page.locator('[data-spinth-action-bar]')).toHaveCount(1); // 选中 → 操作栏可见
+  await expect(page.getByTitle('撤销 (Cmd+Z)')).toBeEnabled();
+
+  // 运行时降级：徽标 + 语义收口（选区清空/工具回 cursor）+ 呈现收口（操作栏/三键）
   await page.evaluate(() =>
     (
       window as unknown as { __spinth: { updateEditable(v: boolean): void } }
     ).__spinth.updateEditable(false),
   );
   await expect(page.getByTitle('此画布为只读——编辑命令已禁用')).toBeVisible();
+  await expect(page.locator('[data-spinth-action-bar]')).toHaveCount(0); // 降级清选区 → 操作栏消失
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const w = window as unknown as { __spinth: { selected$: { getValue(): string[] } } };
+        return w.__spinth.selected$.getValue().length;
+      }),
+    )
+    .toBe(0);
+  const mode = await page.evaluate(() =>
+    (
+      window as unknown as { __spinth: { cursorMode$: { getValue(): string } } }
+    ).__spinth.cursorMode$.getValue(),
+  );
+  expect(mode).toBe('cursor'); // 降级后工具态收口为 cursor（钳制路径另由单测覆盖）
+  await expect(page.getByTitle('撤销 (Cmd+Z)')).toBeDisabled();
+  await expect(page.getByTitle('重做 (Shift+Cmd+Z)')).toBeDisabled();
+  await expect(page.getByTitle('删除选中 (Delete)')).toBeDisabled();
   await expect(page.getByRole('button', { name: /矩形/ })).toBeDisabled();
   await expect(page.getByRole('button', { name: /选择/ })).toBeEnabled(); // 读类工具不受限
 });

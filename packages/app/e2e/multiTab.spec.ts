@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { modelCount, persisted, ready } from './helpers/projectFileE2e';
+import { cleanupDoc, modelCount, persisted, ready } from './helpers/projectFileE2e';
 
 /**
  * 多标签单写者 + 只读跟随（docs/21）：同一 BrowserContext 两个 page 共享
@@ -204,6 +204,65 @@ test('只读视图操作：抓手平移 + 快捷键缩放可用（白名单放�
   await expect.poll(scaleOf, { timeout: 5_000 }).toBeGreaterThan(1);
   // 平移/缩放不产生写（modelCount 仍 0）
   expect(await modelCount(pageB)).toBe(0);
+});
+
+test('follower 右键：不建选区、无操作栏、菜单只读降级（画布菜单 + 粘贴禁用）', async ({
+  page,
+  context,
+}) => {
+  const docId = `e2e-mt-ctx-${Date.now()}`;
+  await page.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(page);
+  await waitRole(page, 'leader');
+
+  // leader 建件落盘（拖拽矩形：世界 500,300 → 660,420，中心 580,360）
+  await createShapeByDrag(page);
+  await persisted(page);
+
+  const pageB = await context.newPage();
+  await pageB.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(pageB);
+  await waitRole(pageB, 'follower');
+  await expect.poll(() => modelCount(pageB), { timeout: 5_000 }).toBe(1);
+
+  // follower 右键元素中心（世界→client 精确换算，docs/15 §3）
+  const at = await pageB.evaluate(() => {
+    const w = (
+      window as unknown as {
+        __spinth: {
+          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        };
+      }
+    ).__spinth;
+    return w.viewport.worldToClient({ x: 580, y: 360 });
+  });
+  await pageB.mouse.click(at.x, at.y, { button: 'right' });
+
+  // 只读：右键不建选区（docs/21 §4 只读禁止选择）→ ActionBar 不出现
+  await expect
+    .poll(() =>
+      pageB.evaluate(() => {
+        const w = window as unknown as { __spinth: { selected$: { getValue(): string[] } } };
+        return w.__spinth.selected$.getValue().length;
+      }),
+    )
+    .toBe(0);
+  await expect(pageB.locator('[data-spinth-action-bar]')).toHaveCount(0);
+
+  // 菜单降级为画布菜单：无元素项（删除），读操作保留（导出 PNG），粘贴禁用
+  const menu = pageB.locator('[data-spinth-context-menu]');
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('button', { name: '删除' })).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: '导出画布 PNG' })).toBeVisible();
+  await expect(menu.getByRole('button', { name: '粘贴' })).toBeDisabled();
+
+  // 关菜单后文档纹丝不动
+  await pageB.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  expect(await modelCount(pageB)).toBe(1);
+
+  await cleanupDoc(page, docId);
+  await cleanupDoc(pageB, docId);
 });
 
 test('390px：提示条在视口内、顶栏 44px、无横向滚动、「知道了」可关闭', async ({
