@@ -399,11 +399,11 @@ dbProvider.test.ts 补 4 条（§4.4-6）。
 
 | #   | 提交     | 内容                                                                                                               |
 | --- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1   | e540f56  | docs: 多标签单写者规格（docs/21 + docs/02/12/13/15/19/README 六处改写）                                            |
-| 2   | 9b7844a  | feat: 标签会话锁与角色服务（types/tabSession + TabSessionService + browserLockPort + 11 单测 + 导出）              |
-| 3   | a458440  | feat: 只读写保护与维护链闸门（DbProvider readOnly / engine writeEnabled / composeBoard / updateEditable + 5 单测） |
-| 4   | fabbf2e  | feat: 多标签只读 UI 与自动接管（app/tabSession 页面级单例 + App + ReadOnlyNotice + ProjectMenu 导入禁用）          |
-| 5   | a526934  | test: 双标签 E2E（multiTab.spec 8 例 + 区分验证）                                                                  |
+| 1   | bb7d88c  | docs: 多标签单写者规格（docs/21 + docs/02/12/13/15/19/README 六处改写）                                            |
+| 2   | eb610d2  | feat: 标签会话锁与角色服务（types/tabSession + TabSessionService + browserLockPort + 11 单测 + 导出）              |
+| 3   | 26a2275  | feat: 只读写保护与维护链闸门（DbProvider readOnly / engine writeEnabled / composeBoard / updateEditable + 5 单测） |
+| 4   | efc40c8  | feat: 多标签只读 UI 与自动接管（app/tabSession 页面级单例 + App + ReadOnlyNotice + ProjectMenu 导入禁用）          |
+| 5   | ad4b5d3  | test: 双标签 E2E（multiTab.spec 8 例 + 区分验证）                                                                  |
 | 6   | （本次） | docs: 实测数字校正（docs/15）+ multiTab spec lint/prettier 收口                                                    |
 
 **实测数字**：
@@ -458,7 +458,7 @@ dbProvider.test.ts 补 4 条（§4.4-6）。
 
 ## 12. 审查处置（实施 agent 第二轮，回应方案作者审查）
 
-追加 4 个 fix 提交（不改写历史）：879002f / a01fb1d / 2bced45 / b6336f9。
+追加 4 个 fix 提交（不改写历史）：50a4937 / 5dbbeed / 9a55dbe / 6fb159c。
 
 **P0 全部修复**：
 
@@ -506,7 +506,7 @@ P0-7 @timing 按仓库惯例记 flake（CI 本就分层跑），本轮未改。
 
 ## 13. 二轮审查处置（实施 agent 第三轮）
 
-审查结论「代码层面通过，可签收；差一个 docs 提交」。处置（5861cd2 + 本轮 docs 提交）：
+审查结论「代码层面通过，可签收；差一个 docs 提交」。处置（f3f5661 + 本轮 docs 提交）：
 
 - **必须项 3 处**：docs/15 基线更新为实测（820 单测 / 96 文件；E2E 18 spec 164 例，
   分层 fast 155 + timing/bench 5 + visual 4；multiTab 9 例；coverage 64.61 / 54.28 /
@@ -514,7 +514,7 @@ P0-7 @timing 按仓库惯例记 flake（CI 本就分层跑），本轮未改。
   = 保持 follower，不允许降级成第二写者）；docs/21 §7 测试锚点补 browserLockPort
   单测与维护链 E2E；HANDOFF A2 计数更正为实测（tabSessionService 14 / DbProvider
   只读 7 / browserLockPort 5 / writeEnabled 1）。
-- **观察项 2 条也已落实**（5861cd2）：wait 失败保持 follower 后挂与 fallback 同款
+- **观察项 2 条也已落实**（f3f5661）：wait 失败保持 follower 后挂与 fallback 同款
   30s 退避自愈重排（写者离开后仍可自动接管，不需手动刷新），补单测「wait 失败 →
   30s 重排 → 授予 → 接管尝试」；「dispose 冲刷不丢」用例改为直设私有 readOnly
   （绕过 setReadOnly 主动冲刷），dispose 成为唯一落盘入口——回应「原用例证明不了

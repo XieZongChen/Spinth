@@ -399,10 +399,10 @@ docs/21 §4 矩阵 + docs/12 §4 + docs/09 闸门 + docs/13 勾选 + 测试基�
 
 | commit  | 内容                                                                                                                                               | 门禁结果                                                                            |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| ec5e855 | refactor: 只读语义收口（右键不建选区、降级序列）——D3/D4/D5/D7 + contextMenuReadonly 4 例 + updateEditable 9 例 + boardSdkCursorMode 桩补 editable$ | lint/typecheck/单测全绿；红用例随之转绿                                             |
-| 864ad99 | fix: 只读态呈现门禁（工具坞三键/操作栏/脑图按钮）——D6 + F2 契约修复 + readonlyGate 7 例                                                            | lint/typecheck/react 单测 16/16                                                     |
-| 2d9a365 | test: 只读态回归（右键不建选区、降级收口）——multiTab 新用例 + smoke 1.22 扩写                                                                      | smoke+multiTab 16/16；clipboard/projectFile/toolbar/export 25/25；fast 全量 161/161 |
-| 4a9cabb | docs: 只读可交互面矩阵——docs/21 §4 矩阵+序列+边界句、docs/12、docs/09、docs/13、docs/15、AGENTS 数字三处对齐                                       | prettier/hygiene 随最终 verify                                                      |
+| bf5908e | refactor: 只读语义收口（右键不建选区、降级序列）——D3/D4/D5/D7 + contextMenuReadonly 4 例 + updateEditable 9 例 + boardSdkCursorMode 桩补 editable$ | lint/typecheck/单测全绿；红用例随之转绿                                             |
+| f6b9af5 | fix: 只读态呈现门禁（工具坞三键/操作栏/脑图按钮）——D6 + F2 契约修复 + readonlyGate 7 例                                                            | lint/typecheck/react 单测 16/16                                                     |
+| 34b1a19 | test: 只读态回归（右键不建选区、降级收口）——multiTab 新用例 + smoke 1.22 扩写                                                                      | smoke+multiTab 16/16；clipboard/projectFile/toolbar/export 25/25；fast 全量 161/161 |
+| 9490a20 | docs: 只读可交互面矩阵——docs/21 §4 矩阵+序列+边界句、docs/12、docs/09、docs/13、docs/15、AGENTS 数字三处对齐                                       | prettier/hygiene 随最终 verify                                                      |
 
 ### 12.2 与方案的偏离
 
@@ -428,8 +428,8 @@ docs/21 §4 矩阵 + docs/12 §4 + docs/09 闸门 + docs/13 勾选 + 测试基�
 - `pnpm test:e2e`：fast 层 `--grep-invert "@timing|@bench|@visual"` 161/161 全绿
   （6.6m）；timing+bench 5/5（28.4s，--workers=1）；visual 4/4（27.0s）——三层合计
   170/170。
-- 红用例转绿证据：Step 0 新用例在 main@285c5b6 上跑 `-g 右键` 失败于
-  「selected$.getValue().length 期望 0、实收 1」（F4 实证），ec5e855 后同命令通过
+- 红用例转绿证据：Step 0 新用例在 main@5d02876 上跑 `-g 右键` 失败于
+  「selected$.getValue().length 期望 0、实收 1」（F4 实证），bf5908e 后同命令通过
   （16.4s）；提交信息与本地运行记录留痕。
 
 ### 12.5 遗留 / 疑问
@@ -484,7 +484,7 @@ core/react 分层没有串味，命令层守卫未动，回执数据经独立复
   → 2 passed（23.3s）。
 - 计数核对：core 861 + react 16 = 877（102 文件）；E2E 170 = 161 fast + 5 timing/bench + 4 visual；
   multiTab 11 例。
-- 提交拆分：ec5e855 core / 864ad99 react / 2d9a365 e2e / 4a9cabb docs，无夹带。
+- 提交拆分：bf5908e core / f6b9af5 react / 34b1a19 e2e / 9490a20 docs，无夹带。
 
 ### 13.5 待人类确认
 
@@ -495,7 +495,7 @@ core/react 分层没有串味，命令层守卫未动，回执数据经独立复
 
 用户指示「全部都改」——F-1..F-4 与四条 Nit 全部落实，两个 commit：
 
-- **876bbd1** `fix: 只读降级补收口（rectEditor 窗口级手势与右键菜单）`
+- **567cff0** `fix: 只读降级补收口（rectEditor 窗口级手势与右键菜单）`
   - F-2：新增 `RectEditorService.cancelGesture()`（撤 window 监听、缩放按
     `applyResizePreview(start, start)` 回落、旋转按起点角度回落、隐藏参考线匹配；
     不 commit 不 stopCapturing），接入 `updateEditable` 步骤②。选了「补实现」
@@ -506,7 +506,7 @@ core/react 分层没有串味，命令层守卫未动，回执数据经独立复
     保守清选区为既有语义，注释与测试明确）。
   - Nit-3：`updateEditable.test.ts` 序数组经 `editable$.subscribe` 记录闸门翻转，
     「先翻闸门 → 再清选区」被锁死；无 viewport 用例 +1。
-- **3a909ec** `fix: 空画布引导只读不显示 + 降级钳制 E2E 路径`
+- **5b5d914** `fix: 空画布引导只读不显示 + 降级钳制 E2E 路径`
   - F-3：`App.tsx` 空画布引导加 `editable` 条件；multiTab「只读不写盘」用例补双向
     断言（follower 无引导 / leader 有引导）。
   - Nit-2：smoke 1.22 尾部补钳制路径（可写 → 按 R 切 shape → 再降级 → poll
@@ -523,15 +523,15 @@ core/react 分层没有串味，命令层守卫未动，回执数据经独立复
 
 本轮由方案作者直接修改并推送，三个 commit：
 
-- **dadcb55** `fix: rectEditor 取消手势通知跟随层并标脏（审查 F-5）`：
+- **6e0584d** `fix: rectEditor 取消手势通知跟随层并标脏（审查 F-5）`：
   `cancelGesture()` 复位后补 `resizeMove$.next()` / `onRotatePreview?.()` /
   `markRender()`（无手势时不标脏）；单测补"跟随层通知 + 标脏"断言与 no-op 不标脏。
-- **acb41e5** `test: smoke 1.22 补只读钳制直调断言（审查 F-6）`：原来那条改名
+- **e67b8c9** `test: smoke 1.22 补只读钳制直调断言（审查 F-6）`：原来那条改名
   "降级序列的工具复位"，另加只读态 `__spinth.setCursorMode('pen')` → 仍 cursor
   的真钳制断言（去掉 D5 钳制即红）。
-- **d7d9fd8** `docs: 测试锚点与降级口径补正（审查 F-6/F-7）`：docs/21 §7 补
+- **b71e750** `docs: 测试锚点与降级口径补正（审查 F-6/F-7）`：docs/21 §7 补
   `rectEditor.test.ts` 锚点、docs/15 措辞区分"复位"与"钳制"。
-- **536ca42** `docs: 覆盖率基线随取消手势修复复测`：65.79→**65.81 / 55.38 / 56.68 /
+- **9e11e36** `docs: 覆盖率基线随取消手势修复复测`：65.79→**65.81 / 55.38 / 56.68 /
   67.83**（取消手势新增行被测试覆盖，重测后微升）。
 
 核验：`pnpm verify` 全绿（881）；全量 E2E **170/170**（6.4m）；三次推送的
@@ -554,7 +554,7 @@ F-8 已处置：§14 末尾悬挂句改为实测结果。**仍未销账**：`AGE
   把 targetId 置空并隐藏编辑器，之后再取消就拿不到 vm 了）；`applyResizePreview(start, start)`
   在 base/pen 两条实现上都退化为恒等（`mapPointsRect` 对零宽高有守卫）；
   `removeEventListener('pointerup')` 与 `{ once: true }` 的注册参数匹配，监听确会撤掉。
-- 提交拆分：876bbd1 core / 3a909ec app+e2e / 3548e33 docs，无夹带。
+- 提交拆分：567cff0 core / 5b5d914 app+e2e / fb64e20 docs，无夹带。
 
 ### 15.2 仍非阻塞（可下批）
 
