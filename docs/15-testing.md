@@ -13,7 +13,7 @@
 
 ## 2. 当前基线
 
-- 单测：853 passed（core 844 + react 9，99 文件）。
+- 单测：857 passed（core 848 + react 9，99 文件）。
 - E2E：18 个 spec、169 例（分层：fast 160 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
@@ -29,7 +29,7 @@
   同 context 双 page 共享 Web Locks）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：65.25 / 55.11 / 56.30 / 67.22，阈值 61/51/52/63。
+- coverage：65.35 / 55.19 / 56.39 / 67.31，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 
