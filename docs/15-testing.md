@@ -36,7 +36,7 @@
   复位 + 只读态宿主直调写工具被钳回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：65.79 / 55.37 / 56.68 / 67.81，阈值 61/51/52/63。
+- coverage：65.81 / 55.38 / 56.68 / 67.83，阈值 61/51/52/63。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTab.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`
