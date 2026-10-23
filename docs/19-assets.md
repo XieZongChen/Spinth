@@ -24,8 +24,8 @@ src = "spinth-asset:<sha256>"
 加载链分层：`ImageVm`（几何/占位/sprite）→ `ImageLoadController`（加载会话）
 → `ImageTextureCache`（纹理租约）→ 解码（`Image.decode`）+ 建纹（`Texture.from`）。
 
-1. `ImageLoadController`：一次 src 变化 = 一个 token 化会话；解析与解码两处
-   都按 token 校验，过期结果不落地、只释放自己拿到的租约（不触碰当前会话）。
+1. `ImageLoadController`：一次 src 变化 = 一个 token 化会话；会话完成时按
+   token 校验一次，过期结果不落地、只释放自己拿到的租约（不触碰当前会话）。
 2. `ImageTextureCache`：同 assetId 只解码/建纹一次，多实例各持一份纹理租约
    （引用计数），归零才 `texture.destroy(true)` 并归还 URL 租约——
    同图 N 实例 = 1 次解码、1 份 GPU 纹理、1 份 objectURL 计数。
