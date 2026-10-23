@@ -44,10 +44,43 @@
 - **维护链**：app 传 `assetMaintenance = 基线 && writable`；core 侧 `composeBoard`
   调度与执行前再各断言一次 `config.editable !== false`。
 
-只读标签允许：滚轮 / Cmd 缩放、抓手平移、导出项目、新建画布（导航到新 docId，天然是
-新写者）。禁止：选择/框选、拖拽、编辑、粘贴、撤销、导入项目（菜单项 disabled）。
-「选择与复制受写门禁限制」——选择松手会走 selector 的 engine.transact 落库，放开等于
-半个写者，本阶段明确不放开。
+只读可交互面矩阵（呈现层与命令层各守其半——命令层是安全网，矩阵保证 UI 不出现
+「看起来可点但静默 no-op」的入口）：
+
+| 入口                                                     | 只读表现                                              | 实现层 |
+| -------------------------------------------------------- | ----------------------------------------------------- | ------ |
+| 工具坞：写工具（shape/text/line/pen/eraser/sticky/mind） | 禁用                                                  | react  |
+| 工具坞：cursor / hand                                    | 可用                                                  | react  |
+| 工具坞：undo / redo / delete                             | 禁用                                                  | react  |
+| 画布指针：选择 / 拖拽 / 框选 / 绘制                      | 丢弃                                                  | core   |
+| 右键：命中元素                                           | 不选中、不出元素菜单；出画布菜单                      | core   |
+| 右键菜单：复制/剪切/置顶/置底/删除                       | 不出现（元素菜单不可达）                              | core   |
+| 右键菜单：粘贴                                           | 禁用（`canPaste` 恒 false）                           | core   |
+| 右键菜单：导出画布 PNG / 适应屏幕                        | 可用（读操作）                                        | —      |
+| ActionBar（含删除、样式）                                | 不渲染                                                | react  |
+| MindAddButtons（脑图 ＋）                                | 不渲染                                                | react  |
+| 键盘：工具键 / 删除 / undo                               | 拦截                                                  | core   |
+| 键盘：缩放四键 / F / Esc / 空格抓手                      | 可用                                                  | core   |
+| 项目菜单：导入                                           | 禁用                                                  | app    |
+| 项目菜单：导出 / 新建画布 / 主题 / 存储面板              | 可用（读/导航；新建画布导航到新 docId，天然是新写者） | —      |
+
+右键是 DOM 事件（不经 viewport 指针分发），`ContextMenuService` 只读自守：不做命中
+测试的就地选中、`onWidget` 恒 false、`canPaste` 恒 false——菜单降级为画布菜单，只保留
+读操作。只读态选择/复制不放开：选择松手会走 selector 的 engine.transact 落库，放开
+等于半个写者。
+
+运行时降级 `updateEditable(false)`（core `boardCommands`）按序收口（顺序本身是语义）：
+`exitActive()`（编辑会话先落库）→ 手势 cancel（写工具走 `setCursorMode('cursor')`——
+viewport 内部对旧模式发 cancel；已 cursor/hand 直接 `dispatchGestureCancel`——恰好一次
+不双发）→ `editable$.next(false)`（先翻闸门，派生态首算即只读）→ `setSelected([])`
+（选区框/ActionBar/MindAddButtons 连带消失）→ `setWriteEnabled(false)`（最后拒写，
+不吞步骤①可能刚产生的文本提交）。切回可写只翻闸门 + 恢复写，不恢复工具/选区
+（无记忆）。`BoardCommands.setCursorMode` 带只读钳制：非 cursor/hand 的模式落为
+cursor（宿主可编程入口不得让 UI 宣称「可以画」而指针已被丢弃；空格临时抓手走
+ViewportService 内部直调，不经此闸门）。
+
+物理断网（`editBlocked`）是与只读相互独立的另一条闸门（docs/10 §4），其交互面矩阵
+另行收口，不并入本表。
 
 UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文案）+ 只读提示条
 （`ReadOnlyNotice`，`data-spinth-readonly-notice`，follower 专属，可会话内关闭）。
@@ -83,9 +116,15 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
   幂等/竞态/自愈重排）；`browserLockPort.test.ts`（注入锁桩：ifAvailable null 判空/
   持锁/幂等释放/reject 传播）；`dbProvider.test.ts`（只读写保护、切只读冲刷、切回
   恢复、只读 attach、legacy 迁移跳写、dispose 冲刷）；`dataEngineService.test.ts`
-  （writeEnabled 透传）。
+  （writeEnabled 透传）；`contextMenuReadonly.test.ts`（右键只读：不建选区/画布菜单
+  降级/canPaste 恒 false）；`updateEditable.test.ts`（降级五步序列/手势收口恰好一次/
+  切回可写无记忆/只读工具钳制）。
 - E2E：`packages/app/e2e/multiTab.spec.ts`（同 context 双 page：leader/follower、接管、
   只读不写盘、不同 docId 并行、无锁降级、只读视图操作、390px、手动刷新、只读标签
-  不跑资产维护链——`lastAssetMaintenance` 探针）。
+  不跑资产维护链、只读标签双击 missing 图可重试、只读右键降级——
+  `lastAssetMaintenance`/`selected$`/`__debug` 探针）；
+  `smoke.spec.ts` 1.22（运行时降级收口：徽标/三键禁用/选区清除/工具回 cursor）。
+- 单测（react）：`packages/react/src/__tests__/readonlyGate.test.tsx`（工具坞三键只读
+  禁用、ActionBar/MindAddButtons 只读不渲染、schema disabled 契约三类控件）。
 - DOM 锚点：`data-spinth-tab-role` / `data-spinth-readonly-notice` /
   `data-spinth-readonly-pill`（探针与断言消费）。

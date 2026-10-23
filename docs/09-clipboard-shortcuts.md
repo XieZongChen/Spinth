@@ -76,3 +76,4 @@ interface IShortcutDef {
 - contentEditable / INPUT / TEXTAREA 内不触发；TipTap `.ProseMirror` 区分编辑/选中态。
 - 断网态可用：视图类缩放键 + f + esc；工具键被拦；space 临时抓手指在 hotkeys 体系外。
 - 只读态：视图四键 + esc 可用；工具/删除/undo 被拦。
+- 只读态右键：菜单降级为画布菜单（不建选区、粘贴与元素项不可达，docs/21 §4）。

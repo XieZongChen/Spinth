@@ -13,8 +13,8 @@
 
 ## 2. 当前基线
 
-- 单测：857 passed（core 848 + react 9，99 文件）。
-- E2E：18 个 spec、169 例（分层：fast 160 / timing+bench 5 / visual 4；混跑不作门禁，
+- 单测：877 passed（core 861 + react 16，102 文件）。
+- E2E：18 个 spec、170 例（分层：fast 161 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
 - 图片/资产专项：10/10（image.spec——创建入口、资产引用、存量迁移、objectURL
@@ -24,9 +24,14 @@
   迟到成功/失败只动自己的租约、重试计时器纪律）/ `imageTextureCache`（同
   assetId 一份纹理、并发 in-flight 去重、失败分阶段 retryable、dispose 兜底）；
   GC 单测含空库短路、mark 中断零删除、sweep 预算部分完成、协作让出节奏。
-- 多标签专项：multiTab.spec 10 例（双标签角色/接管/只读不写盘/不同文档并行/无锁降级/
-  只读视图操作/390px/手动刷新/只读不跑维护链/只读标签双击 missing 图可重试不写盘；
-  同 context 双 page 共享 Web Locks）。
+- 多标签专项：multiTab.spec 11 例（双标签角色/接管/只读不写盘/不同文档并行/无锁降级/
+  只读视图操作/390px/手动刷新/只读不跑维护链/只读标签双击 missing 图可重试不写盘/
+  只读右键降级——不建选区无操作栏画布菜单；同 context 双 page 共享 Web Locks）。
+- 只读态收口单测：core `contextMenuReadonly`（右键只读：不建选区/onWidget 恒 false/
+  canPaste 恒 false）+ `updateEditable`（降级五步调用序/手势收口恰好一次/切回可写
+  无记忆/setCursorMode 只读钳制）；react `readonlyGate`（工具坞三键禁用、ActionBar/
+  MindAddButtons 不渲染、schema disabled 三类控件契约）；E2E smoke 1.22 扩为运行时
+  降级收口（徽标/三键/选区清除/工具回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
 - coverage：65.35 / 55.19 / 56.39 / 67.31，阈值 61/51/52/63。

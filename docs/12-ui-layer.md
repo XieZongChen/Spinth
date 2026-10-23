@@ -71,21 +71,21 @@ ActionBar / MindAddButtons：纯算术定位
 
 ## 4. 组件清单
 
-| 组件             | 职责                                                                    |
-| ---------------- | ----------------------------------------------------------------------- |
-| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御）+ 主题注入 |
-| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库           |
-| `Toolbar`        | 底部工具坞；常驻二级菜单；工具音色；会话级默认参数                      |
-| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）                 |
-| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；边缘翻转                                  |
-| `ZoomControl`    | 缩放胶囊（−/百分比/＋）                                                 |
-| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮                     |
-| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）                          |
-| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                        |
-| `OfflineBar`     | 离线提示条                                                              |
-| `MindAddButtons` | 脑图节点 +/− 按钮（纯算术定位）                                         |
-| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                           |
-| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                             |
+| 组件             | 职责                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御）+ 主题注入                                          |
+| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                    |
+| `Toolbar`        | 底部工具坞；常驻二级菜单；工具音色；会话级默认参数                                                               |
+| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）                                                          |
+| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；边缘翻转                                                                           |
+| `ZoomControl`    | 缩放胶囊（−/百分比/＋）                                                                                          |
+| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                              |
+| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态） |
+| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                 |
+| `OfflineBar`     | 离线提示条                                                                                                       |
+| `MindAddButtons` | 脑图节点 +/− 按钮（纯算术定位）                                                                                  |
+| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                    |
+| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                      |
 
 顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊（390px 截断）；右侧只读徽标
 （`data-spinth-readonly-pill`，按标签角色区分提示文案——多标签口径见
@@ -97,7 +97,8 @@ disabled）/ 主题切换。
 单机版不显示“已同步”或任何远端连接状态。
 
 只读提示条（app 壳 `ReadOnlyNotice.tsx`，`data-spinth-readonly-notice`）：仅多标签
-follower 角色渲染，说明本页只读与接管行为，提供「刷新」与会话内「知道了」。
+follower 角色渲染，说明本页只读与接管行为，提供「刷新」与会话内「知道了」。只读下
+选择与复制受写门禁限制，右键不建选区（完整矩阵见 [21-multi-tab](21-multi-tab.md) §4）。
 
 移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞横向
 滚动，二级菜单与存储面板 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
