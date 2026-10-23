@@ -2,7 +2,7 @@
 /* global process, console */
 /**
  * 安装仓库自带的 git 钩子（package.json prepare）：
- * - pre-commit：staged 卫生检查（毫秒级，防交接/隐私文件入库）；
+ * - pre-commit：staged 卫生检查（毫秒级，防本机文档/隐私文件入库）；
  * - pre-push：pnpm verify 全量门禁（防红提交推到远端）。
  * 已有自定义钩子不会被覆盖：只跳过没有本仓库 marker 的那一个。
  */

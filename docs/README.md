@@ -67,14 +67,14 @@
 - **只写当前事实**：文档描述当前实现、契约与约束；不写变更记录、日期、提交哈希、PR 编号或验收流水账，也不追加“此前/现在/已修复”叙事。历史由 git 提交信息承载。
 - **原地更新**：能力变化时改写对应段落，不新增变更记录；代码引用 `§M` 的章节号保持稳定。
 - **不写来源对比**：不出现其他项目名称、来源路径、历史对比或本机绝对路径、用户名、邮箱。
-- **交接不入库**：`HANDOFF*`、`*handoff*.md` 与本地代理目录只在本机；具体目录写本机 `.git/info/exclude`，由 `.gitignore` 与 `pnpm hygiene` 拦截。
-- **验收/执行步骤不入 docs**：验收清单、手工验证步骤、运行手册写在本地交接文档；docs 只保留规格、约束、架构与当前边界。
+- **spec 不入库**：本机 `specs/<功能名>.md`（按功能命名、无前缀）与本地代理目录只在本机；`specs/` 由 `.gitignore` 与 `pnpm hygiene` 拦截，其余本地目录写本机 `.git/info/exclude`。
+- **验收/执行步骤不入 docs**：验收清单、手工验证步骤、运行手册写在本机 spec 文档；docs 只保留规格、约束、架构与当前边界。
 - **时点数字要真跑**：测试数、覆盖率、用例数写“当前实测”，并在提交前复跑。
 
 ## 4. 命令
 
 ```bash
-pnpm hygiene      # 交接文件/隐私路径/文档历史记录检查
+pnpm hygiene      # 本机文档/隐私路径/文档历史记录检查
 pnpm verify       # hygiene + lint + prettier + typecheck + pnpm -r test + build
 pnpm test:coverage
 pnpm test:e2e
