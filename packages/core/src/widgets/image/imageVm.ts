@@ -224,13 +224,9 @@ export class ImageVm extends BaseWidgetVm<ImageData & IRect> {
     return this.sprite !== null;
   }
 
-  /** 调试/E2E 探针：加载会话状态（src/状态/重试次数/纹理标识） */
-  get loadDebug(): {
-    src: string;
-    state: ImageLoadState;
-    attempts: number;
-    textureUid: number;
-  } | null {
+  /** 调试/E2E 探针：加载会话状态（字段以 controller.debug 为单源：
+   *  src/state/attempts/acquires/textureUid——手动重试由 acquires 证伪） */
+  get loadDebug(): ImageLoadController['debug'] | null {
     return this.loader ? this.loader.debug : null;
   }
 }
