@@ -87,8 +87,9 @@ function setup() {
   const { host, events } = fakeHost();
   const timers = fakeTimers();
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const info = vi.spyOn(console, 'info').mockImplementation(() => {});
   const controller = new ImageLoadController(port, host, timers.port);
-  return { acquire, events, timers, controller, warn };
+  return { acquire, events, timers, controller, warn, info };
 }
 
 describe('ImageLoadController（fake port + fake timer）', () => {
@@ -176,15 +177,16 @@ describe('ImageLoadController（fake port + fake timer）', () => {
     expect(leaseB.release).not.toHaveBeenCalled();
   });
 
-  it('missing：状态 missing、onFailed("missing")、无自动重试、终态 warn 一次', async () => {
-    const { acquire, events, timers, controller, warn } = setup();
+  it('missing：状态 missing、onFailed("missing")、无自动重试、终态 info（非 warn）', async () => {
+    const { acquire, events, timers, controller, warn, info } = setup();
     acquire.mockResolvedValueOnce({ kind: 'missing' });
     controller.setSrc(SRC_A);
     await flush();
     expect(controller.debug.state).toBe('missing');
     expect(events).toContainEqual({ kind: 'failed', src: SRC_A, failKind: 'missing' });
     expect(timers.slots).toHaveLength(0);
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledTimes(1); // 降级 info：缺资产可能他端稍后写入
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('http 解码失败：按 600/1800 排两次自动重试，第三次失败终态（attempts=2）', async () => {
@@ -200,6 +202,7 @@ describe('ImageLoadController（fake port + fake timer）', () => {
     await flush();
     expect(timers.slots).toHaveLength(0); // 上限 2 次
     expect(controller.debug.attempts).toBe(2);
+    expect(controller.debug.acquires).toBe(3); // 初次 + 两次自动重试
     expect(controller.debug.state).toBe('failed');
     expect(warn).toHaveBeenCalledTimes(1); // 只在终态打一次
   });
@@ -241,11 +244,13 @@ describe('ImageLoadController（fake port + fake timer）', () => {
     expect(controller.debug.state).toBe('missing');
     const lease = fakeLease(7);
     acquire.mockResolvedValueOnce(ok(lease));
+    expect(controller.debug.acquires).toBe(1); // 双击前：初次加载一次
     controller.retry();
     expect(controller.debug.state).toBe('loading');
     expect(controller.debug.attempts).toBe(0);
     await flush();
     expect(controller.debug.state).toBe('loaded');
+    expect(controller.debug.acquires).toBe(2); // 双击重试真实发起了 acquire
     expect(events.at(-1)).toEqual({ kind: 'loaded', src: SRC_A, uid: 7 });
   });
 

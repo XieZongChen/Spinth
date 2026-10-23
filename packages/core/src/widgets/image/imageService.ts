@@ -80,18 +80,15 @@ export class ImageService extends Disposable {
   }
 
   /** 双击画布上的 IMAGE → 手动重试加载（仅终态失败态生效，loaded no-op）。
-   *  只读标签允许重试（纯本地渲染，不写文档）；不加 editable 闸门 */
+   *  只读标签允许重试（纯本地渲染，不写文档）；不加 editable 闸门。
+   *  只认命中栈顶（getVmByPoint 顶层优先）——形状盖住失败图时双击形状不触发 */
   private onDblClick = (e: MouseEvent): void => {
     if (!this.vmEngine) return;
     if (!(e.target instanceof HTMLCanvasElement)) return; // 排除 DOM 控件双击
     if (this.viewport.cursorMode$.value !== 'cursor') return; // 画笔/连线等工具期不接管
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
-    for (const vm of this.vmEngine.getVmByPoint({ x: world.x, y: world.y } as Point)) {
-      if (vm instanceof ImageVm) {
-        vm.retry();
-        return;
-      }
-    }
+    const top = this.vmEngine.getVmByPoint({ x: world.x, y: world.y } as Point)[0];
+    if (top instanceof ImageVm) top.retry();
   };
 
   /** 粘贴系统剪贴板图片（组合根由 ClipboardService.onPasteImage 接入） */

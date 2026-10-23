@@ -68,6 +68,9 @@ export async function migrateDataUrls(
     if (!shouldContinue()) return { migrated, failed, cancelled: true };
     try {
       const ref = await assetStore.put(dataUrlToBlob(src));
+      // put 之后、写文档之前再查中断：dispose 落在 put 间隙时不再对已销毁的
+      // Y.Doc transact（blob 已入库，内容寻址幂等——下轮直接命中不再重 put）
+      if (!shouldContinue()) return { migrated, failed, cancelled: true };
       engine.transact(() => {
         m.set('src', ref.src);
       }, MIGRATE_ORIGIN);

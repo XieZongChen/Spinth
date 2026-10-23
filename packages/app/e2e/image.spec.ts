@@ -562,6 +562,7 @@ interface ImageLoadProbe {
   src: string;
   state: string;
   attempts: number;
+  acquires: number;
   textureUid: number;
 }
 

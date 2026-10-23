@@ -352,7 +352,20 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
     .toBe('missing');
 
   // follower 双击图中心（世界→client 精确换算）：retry 允许（重载仍
-  // missing——行不存在），无页面错误、不写文档
+  // missing——行不存在），无页面错误、不写文档。acquires 探针证伪
+  // 「双击真的触发了重试」（固定 sleep 不可证）
+  const loadProbe = (): Promise<{ state: string; acquires: number }> =>
+    pageB.evaluate(() => {
+      const d = (
+        window as unknown as {
+          __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinth.__debug;
+      const img = d.vmStates.find((v) => v.type === 'IMAGE');
+      const l = img?.imageLoad as { state?: string; acquires?: number } | undefined;
+      return { state: String(l?.state ?? ''), acquires: Number(l?.acquires ?? 0) };
+    });
+  await expect.poll(async () => (await loadProbe()).acquires, { timeout: 5_000 }).toBe(1);
   const errors: string[] = [];
   pageB.on('pageerror', (err) => errors.push(String(err)));
   const at = await pageB.evaluate(() => {
@@ -366,7 +379,7 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
     return w.viewport.worldToClient({ x: 430, y: 320 });
   });
   await pageB.mouse.dblclick(at.x, at.y);
-  await pageB.waitForTimeout(300);
+  await expect.poll(async () => (await loadProbe()).acquires, { timeout: 5_000 }).toBe(2); // 重试真实发起
   expect(errors).toEqual([]);
   await expect
     .poll(

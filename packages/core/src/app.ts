@@ -829,7 +829,7 @@ export class BoardSDK {
       mindService: this.mindService,
       awareness: this.awareness,
       imageTextures: this.imageTextures,
-      assetStore: this.assetStore as unknown as { objectUrlRefs: Map<string, number> } | null,
+      assetStore: this.assetStore,
     });
   }
 

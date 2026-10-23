@@ -55,7 +55,7 @@ export interface IDebugSnapshotDeps {
     debug(): { entries: Array<{ key: string; refs: number; uid: number }>; pending: number };
   } | null;
   /** 资产 objectURL 租约快照（id → refs；E2E 断言切 src/删图计数归位） */
-  assetStore: { objectUrlRefs: Map<string, number> } | null;
+  assetStore: { debugLeases(): Record<string, number> } | null;
 }
 
 export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
@@ -131,6 +131,6 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
     /** 纹理缓存探针：entries[].key=assetId（refs>0 存活）/pending 在途数 */
     imageTextures: d.imageTextures?.debug() ?? { entries: [], pending: 0 },
     /** 资产 URL 租约（id → 计数；非资产图为空对象） */
-    assetLeases: d.assetStore ? Object.fromEntries(d.assetStore.objectUrlRefs) : {},
+    assetLeases: d.assetStore?.debugLeases() ?? {},
   };
 }

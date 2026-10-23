@@ -177,6 +177,11 @@ export class AssetStore {
     return ids.length;
   }
 
+  /** objectURL 租约快照（id → 计数；dev 探针/debugSnapshot 用，不绑私有字段） */
+  debugLeases(): Record<string, number> {
+    return Object.fromEntries(this.objectUrlRefs);
+  }
+
   /** 删除单行。objectURL 引用计数 >0（正在渲染）时跳过返回 false——GC 的
    *  防误删活引用闸：调用方下轮 GC 会再见到它 */
   async delete(id: string): Promise<boolean> {

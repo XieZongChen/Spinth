@@ -73,6 +73,8 @@ export class ImageLoadController {
   private state: ImageLoadState = 'idle';
   private token = 0;
   private attempts = 0;
+  /** 已发起的 acquire 次数（含自动/手动重试；E2E 探针——双击重试可证伪） */
+  private acquires = 0;
   private lease: IImageTextureLease | null = null;
   private cancelTimer: (() => void) | null = null;
   private disposed = false;
@@ -124,17 +126,25 @@ export class ImageLoadController {
     this.state = 'idle';
   }
 
-  get debug(): { src: string; state: ImageLoadState; attempts: number; textureUid: number } {
+  get debug(): {
+    src: string;
+    state: ImageLoadState;
+    attempts: number;
+    acquires: number;
+    textureUid: number;
+  } {
     return {
       src: this.src,
       state: this.state,
       attempts: this.attempts,
+      acquires: this.acquires,
       textureUid: this.lease ? textureUidOf(this.lease.texture) : -1,
     };
   }
 
   private async run(token: number): Promise<void> {
     let r: ImageTextureResult;
+    this.acquires++;
     try {
       r = await this.textures.acquire(this.src); // port 抛错也归入 decode 失败
     } catch (error) {
@@ -161,8 +171,10 @@ export class ImageLoadController {
     this.releaseCurrent(); // 再释放纹理租约
     const delay = autoRetryDelay(this.src, kind, retryable, this.attempts);
     if (delay === null) {
-      // 终态失败才打印（重试中间过程不打印，防噪声；src 截断防 data URL 刷屏）
-      console.warn(`[spinth:image] 加载终态失败（${kind}）：${brief(this.src)}`);
+      // 终态才打印（重试中间过程不打印，防噪声；src 截断防 data URL 刷屏）。
+      // missing 降 info：资产行缺失可能他端稍后写入，非错误——批量缺资产不刷警告
+      const log = kind === 'missing' ? console.info : console.warn;
+      log(`[spinth:image] 加载终态（${kind}）：${brief(this.src)}`);
       return;
     }
     this.attempts++;

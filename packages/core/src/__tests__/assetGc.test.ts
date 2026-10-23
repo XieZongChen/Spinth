@@ -176,8 +176,8 @@ describe('资产 GC mark-sweep', () => {
     const store = new AssetStore();
     const listDocIds = vi.fn(() => Promise.resolve(['t-doc-a' as string]));
     const scanDoc = vi.fn(() => Promise.resolve(new Set<string>()));
-    // 注入空 listIds（同进程共享库的其他用例可能已写行——stub 隔离顺序耦合）
-    (store as unknown as { listIds: () => Promise<string[]> }).listIds = async () => [];
+    // 注入空 listIds（同进程共享库的其他用例可能已写行——spyOn 隔离顺序耦合）
+    vi.spyOn(store, 'listIds').mockResolvedValue([]);
     const res = await runAssetGc({
       assetStore: store,
       currentDocId: 't',

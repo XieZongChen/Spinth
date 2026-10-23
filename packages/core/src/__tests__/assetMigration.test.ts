@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
-import { describe, expect, it } from 'vitest';
-import { AssetStore, assetIdOf, isAssetSrc } from '../platform/dataEngine/assetStore';
+import { describe, expect, it, vi } from 'vitest';
+import { AssetStore, assetIdOf, isAssetSrc, sha256Hex } from '../platform/dataEngine/assetStore';
 import { dataUrlToBlob, migrateDataUrls } from '../platform/dataEngine/assetMigration';
 import { createEngineForTest } from './helpers/createEngineForTest';
 
@@ -133,6 +133,40 @@ describe('存量 dataURL 迁移', () => {
     dispose();
   });
 
+  it('put 之后 transact 之前中断：blob 已入库、src 未改写、cancelled', async () => {
+    const { engine, dispose } = await createEngineForTest(`t-mig-putcancel-${Date.now()}`);
+    engine.add({
+      id: 'w1',
+      type: 'IMAGE',
+      zOrder: 'a0',
+      src: PNG_1PX,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    } as never);
+    const store = new AssetStore();
+    const origPut = store.put.bind(store);
+    let allow = true;
+    // put 完成即翻转开关：命中「put 后、transact 前」的中断窗口
+    vi.spyOn(store, 'put').mockImplementation(async (b: Blob) => {
+      const r = await origPut(b);
+      allow = false;
+      return r;
+    });
+    const r = await migrateDataUrls(engine, store, {
+      shouldContinue: () => allow,
+      yieldToMain: () => Promise.resolve(),
+    });
+    expect(r).toEqual({ migrated: 0, failed: 0, cancelled: true });
+    const src = engine.getModelById('w1')!.toJSON() as { src: string };
+    expect(src.src.startsWith('data:')).toBe(true); // 未改写——下轮续
+    const id = await sha256Hex(await dataUrlToBlob(PNG_1PX).arrayBuffer());
+    expect(await store.get(id)).not.toBeNull(); // blob 已入库（幂等，下轮命中）
+    store.close();
+    dispose();
+  });
+
   it('shouldContinue 中断：停止迁移、余量保持 data URL、返回 cancelled', async () => {
     const { engine, dispose } = await createEngineForTest(`t-mig-cancel-${Date.now()}`);
     engine.add({
@@ -156,9 +190,15 @@ describe('存量 dataURL 迁移', () => {
       height: 10,
     } as never);
     const store = new AssetStore();
-    let allow = 1; // 只放行第一张
+    // 每项前/put 后都会查中断——桩语义改为「w1 完整迁移后停」：
+    // w1 transact 落地前放行（项前+put 后两查都过），落地后 w2 项前中断
+    const shouldContinue = (): boolean => {
+      const w1 = engine.getModelById('w1');
+      if (!w1) return true;
+      return !isAssetSrc((w1.toJSON() as { src: string }).src);
+    };
     const r = await migrateDataUrls(engine, store, {
-      shouldContinue: () => allow-- > 0,
+      shouldContinue,
       yieldToMain: () => Promise.resolve(),
     });
     expect(r.cancelled).toBe(true);
