@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import * as Y from 'yjs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AssetStore, assetSrcOf } from '../platform/dataEngine/assetStore';
 import { DbProvider, scanDocAssetRefs } from '../platform/dataEngine/dbProvider';
 import { collectLiveAssetRefs, runAssetGc } from '../platform/dataEngine/assetGc';
@@ -168,6 +168,131 @@ describe('资产 GC mark-sweep', () => {
     });
     expect(await store.get(saved.id)).not.toBeNull(); // 重采救回
     expect(rRescue.removed).toBe(0);
+    store.close();
+  });
+
+  /** P1 分片/预算/取消：注入 now/yield/shouldContinue 断言中断语义 */
+  it('空资产库短路：listDocIds/scanDoc 零调用，直接返回', async () => {
+    const store = new AssetStore();
+    const listDocIds = vi.fn(() => Promise.resolve(['t-doc-a' as string]));
+    const scanDoc = vi.fn(() => Promise.resolve(new Set<string>()));
+    // 注入空 listIds（同进程共享库的其他用例可能已写行——stub 隔离顺序耦合）
+    (store as unknown as { listIds: () => Promise<string[]> }).listIds = async () => [];
+    const res = await runAssetGc({
+      assetStore: store,
+      currentDocId: 't',
+      currentDocRefs: new Set<string>(),
+      listDocIds,
+      scanDoc,
+      olderThan: Infinity,
+    });
+    expect(res).toMatchObject({
+      docs: 0,
+      assets: 0,
+      orphans: 0,
+      removed: 0,
+      skipped: false,
+      partial: 'none',
+    });
+    expect(listDocIds).not.toHaveBeenCalled();
+    expect(scanDoc).not.toHaveBeenCalled();
+    store.close();
+  });
+
+  it('mark 阶段 shouldContinue 中断：零删除、partial=cancelled', async () => {
+    const store = new AssetStore();
+    const ref = await store.put(pngBlob('gc-cancel')); // 孤儿（不应被删）
+    let scans = 0;
+    const res = await runAssetGc({
+      assetStore: store,
+      currentDocId: 't',
+      currentDocRefs: new Set<string>(),
+      listDocIds: () => Promise.resolve(['d1', 'd2', 'd3']),
+      scanDoc: () => {
+        scans++;
+        return Promise.resolve(new Set<string>());
+      },
+      olderThan: Infinity,
+      shouldContinue: () => scans < 2, // 第 2 篇扫描后中断 → 第 3 篇前停下
+    });
+    expect(res.partial).toBe('cancelled');
+    expect(res.docs).toBe(2);
+    expect(res.removed).toBe(0); // mark 中断 = 零删除（部分引用集不可用于删除）
+    expect(await store.get(ref.id)).not.toBeNull();
+    store.close();
+  });
+
+  it('mark 阶段预算耗尽：零删除、partial=budget；sweep 阶段预算耗尽：已删块保留', async () => {
+    const store = new AssetStore();
+    // mark 预算：now 每读 +1000，首篇前即超预算
+    let clock = 0;
+    const ref1 = await store.put(pngBlob('gc-b1'));
+    const rMark = await runAssetGc({
+      assetStore: store,
+      currentDocId: 't',
+      currentDocRefs: new Set<string>(),
+      listDocIds: () => Promise.resolve(['d1', 'd2']),
+      scanDoc: () => Promise.resolve(new Set<string>()),
+      olderThan: Infinity,
+      now: () => (clock += 1000), // 每次读表 +1000：首篇前已 1000 ≥ 1000 预算
+      budgetMs: 1000,
+      yieldToMain: () => Promise.resolve(),
+    });
+    expect(rMark.partial).toBe('budget');
+    expect(rMark.removed).toBe(0);
+    expect(await store.get(ref1.id)).not.toBeNull();
+
+    // sweep 预算：不扫文档（listDocIds=[]），单批 1 行，批间超预算
+    await store.put(pngBlob('gc-b2'));
+    let clock2 = 0;
+    const rSweep = await runAssetGc({
+      assetStore: store,
+      currentDocId: 't',
+      currentDocRefs: new Set<string>(),
+      listDocIds: () => Promise.resolve([]),
+      olderThan: Infinity,
+      batchSize: 1,
+      now: () => (clock2 += 600), // 首批 600 < 1000 过；第二批 1200 ≥ 1000 停
+      budgetMs: 1000,
+      yieldToMain: () => Promise.resolve(),
+    });
+    expect(rSweep.partial).toBe('budget');
+    expect(rSweep.removed).toBe(1); // 首块保留
+    expect(rSweep.removed).toBeLessThan(rSweep.orphans); // 余量下轮
+    const stillThere = (await store.listIds()).length;
+    expect(stillThere).toBeGreaterThanOrEqual(1); // 非全删
+    store.close();
+  });
+
+  it('协作让出：每篇扫描后一次、每块删除后一次（顺序记账）', async () => {
+    const store = new AssetStore();
+    const a = await store.put(pngBlob('gc-y1'));
+    const b = await store.put(pngBlob('gc-y2'));
+    const events: string[] = [];
+    const res = await runAssetGc({
+      assetStore: store,
+      currentDocId: 't',
+      currentDocRefs: new Set<string>(),
+      listDocIds: () => Promise.resolve(['d1', 'd2']),
+      scanDoc: (id) => {
+        events.push(`scan:${id}`);
+        return Promise.resolve(new Set<string>());
+      },
+      olderThan: Infinity,
+      batchSize: 1,
+      shouldContinue: () => true,
+      yieldToMain: () => {
+        events.push('yield');
+        return Promise.resolve();
+      },
+    });
+    expect(res.partial).toBe('none');
+    // 前 4 事件固定（2 篇扫描各 yield 一次）；其后每删除块（batchSize=1）一次 yield
+    expect(events.slice(0, 4)).toEqual(['scan:d1', 'yield', 'scan:d2', 'yield']);
+    expect(events.slice(4)).toEqual(Array.from({ length: res.orphans }, () => 'yield'));
+    expect(res.removed).toBe(res.orphans); // 共享库残留全清（相对断言）
+    expect(await store.get(a.id)).toBeNull();
+    expect(await store.get(b.id)).toBeNull();
     store.close();
   });
 });

@@ -202,8 +202,17 @@ export class BoardSDK {
   /** @internal 图片纹理缓存（同 assetId 共享、引用计数租约）：组合根建，
    *  IMAGE VM 注入共享；销毁顺序晚于 vmEngine、早于 assetStore.close */
   imageTextures: ImageTextureCache | null = null;
-  /** 启动资产维护（dataURL 迁移 + GC，Batch 2 二期）统计——E2E/调试探针 */
-  lastAssetMaintenance: { migrated: number; removed: number; when: number } | null = null;
+  /** 启动资产维护（dataURL 迁移 + GC，Batch 2 二期）统计——E2E/调试探针。
+   *  docs/assets/partial/ms 为 GC 侧可选追加（中断/预算统计），未跑 GC 时缺省 */
+  lastAssetMaintenance: {
+    migrated: number;
+    removed: number;
+    when: number;
+    docs?: number;
+    assets?: number;
+    partial?: 'none' | 'budget' | 'cancelled';
+    ms?: number;
+  } | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   mindService: MindService | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */

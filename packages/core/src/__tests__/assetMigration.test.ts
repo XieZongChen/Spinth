@@ -94,4 +94,80 @@ describe('存量 dataURL 迁移', () => {
     store.close();
     dispose();
   });
+
+  it('批量让出：每 8 张迁移让出一次（记录节奏）', async () => {
+    const { engine, dispose } = await createEngineForTest(`t-mig-yield-${Date.now()}`);
+    engine.add({
+      id: 'w1',
+      type: 'IMAGE',
+      zOrder: 'a0',
+      src: PNG_1PX,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    } as never);
+    engine.add({
+      id: 'w2',
+      type: 'IMAGE',
+      zOrder: 'a1',
+      src: 'data:image/png,faulty-no-base64', // 必 throw——不依赖 base64 长度
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    } as never);
+    const store = new AssetStore();
+    let yields = 0;
+    const r = await migrateDataUrls(engine, store, {
+      yieldToMain: () => {
+        yields++;
+        return Promise.resolve();
+      },
+      batchSize: 2,
+    });
+    expect(r.migrated).toBe(1); // w2 是损坏 data URL → failed
+    expect(r.failed).toBe(1);
+    expect(yields).toBe(1); // 迁移量 2（成败都计入节奏）→ 恰一次让出
+    store.close();
+    dispose();
+  });
+
+  it('shouldContinue 中断：停止迁移、余量保持 data URL、返回 cancelled', async () => {
+    const { engine, dispose } = await createEngineForTest(`t-mig-cancel-${Date.now()}`);
+    engine.add({
+      id: 'w1',
+      type: 'IMAGE',
+      zOrder: 'a0',
+      src: PNG_1PX,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    } as never);
+    engine.add({
+      id: 'w2',
+      type: 'IMAGE',
+      zOrder: 'a1',
+      src: PNG_1PX,
+      x: 20,
+      y: 0,
+      width: 10,
+      height: 10,
+    } as never);
+    const store = new AssetStore();
+    let allow = 1; // 只放行第一张
+    const r = await migrateDataUrls(engine, store, {
+      shouldContinue: () => allow-- > 0,
+      yieldToMain: () => Promise.resolve(),
+    });
+    expect(r.cancelled).toBe(true);
+    expect(r.migrated).toBe(1);
+    const src2 = engine.getModelById('w2')!.toJSON() as { src: string };
+    expect(src2.src.startsWith('data:')).toBe(true); // 余量未动，下轮续
+    const src1 = engine.getModelById('w1')!.toJSON() as { src: string };
+    expect(isAssetSrc(src1.src)).toBe(true);
+    store.close();
+    dispose();
+  });
 });

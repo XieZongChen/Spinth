@@ -194,19 +194,70 @@ export class AssetStore {
 
   /** 孤儿宽限删除（GC 专用）：只删 t < beforeEpoch 的行——「本会话/其他标签
    *  刚 put、文档引用尚未落盘」的统一兜底窗口（第三轮审查：跨标签误删）。
-   *  行不存在视为已删返回 true（幂等） */
+   *  行不存在视为已删返回 true（幂等）。语义等价 sweepOrphans([id]) */
   async deleteIfOlderThan(id: string, beforeEpoch: number): Promise<boolean> {
+    const r = await this.sweepOrphans([id], beforeEpoch);
+    return r.removed > 0 || r.gone > 0;
+  }
+
+  /** 批量宽限删除结果：removed = 实删；kept = 宽限内或持活；gone = 行已
+   *  不存在（并发删除，幂等计为已删） */
+  async sweepOrphans(
+    ids: readonly string[],
+    beforeEpoch: number,
+  ): Promise<{ removed: number; kept: number; gone: number }> {
+    if (ids.length === 0) return { removed: 0, kept: 0, gone: 0 };
     await this.open();
     const db = this.db!;
-    const row = await new Promise<IAssetRow | undefined>((resolve, reject) => {
+    // 单读 tx：一批共享一个事务逐 id get（结果按下标对位，回调乱序无关）
+    const rows = await new Promise<Array<IAssetRow | undefined>>((resolve, reject) => {
       const tx = db.transaction('assets', 'readonly');
-      const req = tx.objectStore('assets').get(id);
-      req.onsuccess = (): void => resolve(req.result as IAssetRow | undefined);
-      req.onerror = (): void => reject(req.error);
+      const store = tx.objectStore('assets');
+      const out = new Array<IAssetRow | undefined>(ids.length);
+      let left = ids.length;
+      let failed = false;
+      ids.forEach((id, i) => {
+        const req = store.get(id);
+        req.onsuccess = (): void => {
+          out[i] = req.result as IAssetRow | undefined;
+          if (--left === 0) resolve(out);
+        };
+        req.onerror = (): void => {
+          if (!failed) {
+            failed = true;
+            reject(req.error);
+          }
+        };
+      });
     });
-    if (!row) return true;
-    if (row.t >= beforeEpoch) return false; // 基线之后新 put——下轮再看
-    return this.delete(id);
+    // 判宽限 + 持活：读结果回来后、写 tx 开始前同步复核 objectUrlRefs
+    //  （内存 Map 同步读——「正在渲染的行不删」闸门与逐行删除语义一致）
+    const deletable: string[] = [];
+    let kept = 0;
+    let gone = 0;
+    ids.forEach((id, i) => {
+      const row = rows[i];
+      if (!row) {
+        gone++;
+        return;
+      }
+      if (row.t >= beforeEpoch || (this.objectUrlRefs.get(id) ?? 0) > 0) {
+        kept++;
+        return;
+      }
+      deletable.push(id);
+    });
+    if (deletable.length > 0) {
+      // 单写 tx：一批一次删除（孤儿删除从 2N 事务降到 2×ceil(N/批)）
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('assets', 'readwrite');
+        const store = tx.objectStore('assets');
+        for (const id of deletable) store.delete(id);
+        tx.oncomplete = (): void => resolve();
+        tx.onerror = (): void => reject(tx.error);
+      });
+    }
+    return { removed: deletable.length, kept, gone };
   }
 
   close(): void {

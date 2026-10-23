@@ -69,4 +69,36 @@ describe('AssetStore', () => {
     expect(await store.count()).toBe(before + 1);
     store.close();
   });
+
+  it('sweepOrphans：混合四类（可删/宽限内/持活/不存在）只删可删；计数正确', async () => {
+    const store = new AssetStore();
+    const del = await store.put(pngBlob('sw-del')); // 可删（t < 基线）
+    await new Promise((r) => setTimeout(r, 3)); // 跨毫秒——del.t 严格早于基线
+    const baseline = Date.now();
+    const grace = await store.put(pngBlob('sw-grace')); // 宽限内（t ≥ 基线）
+    const live = await store.put(pngBlob('sw-live')); // 持活（objectURL 未 release）
+    await store.objectURL(live.id);
+    const ghost = 'f'.repeat(64); // 行不存在（并发删除）
+
+    const res = await store.sweepOrphans([del.id, grace.id, live.id, ghost], baseline);
+    expect(res).toEqual({ removed: 1, kept: 2, gone: 1 });
+    expect(await store.get(del.id)).toBeNull();
+    expect(await store.get(grace.id)).not.toBeNull();
+    expect(await store.get(live.id)).not.toBeNull();
+
+    // 全部可删口径（基线在未来）：宽限/持活解除后照删
+    store.releaseObjectURL(live.id);
+    const res2 = await store.sweepOrphans([grace.id, live.id, ghost], Date.now() + 60_000);
+    expect(res2).toEqual({ removed: 2, kept: 0, gone: 1 });
+    store.close();
+  });
+
+  it('sweepOrphans：空数组 no-op；deleteIfOlderThan 委托语义保持', async () => {
+    const store = new AssetStore();
+    expect(await store.sweepOrphans([], 0)).toEqual({ removed: 0, kept: 0, gone: 0 });
+    const ref = await store.put(pngBlob('sw-single'));
+    expect(await store.deleteIfOlderThan(ref.id, Date.now() + 60_000)).toBe(true); // 可删
+    expect(await store.deleteIfOlderThan(ref.id, Date.now() + 60_000)).toBe(true); // gone → true（幂等）
+    store.close();
+  });
 });
