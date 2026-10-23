@@ -119,6 +119,9 @@ test('只读不写盘：A 建控件后 B 保持打开时的快照', async ({ pag
   await ready(pageB);
   await waitRole(pageB, 'follower');
   expect(await modelCount(pageB)).toBe(0);
+  // 只读空文档不出「R 拖出矩形…」引导——引导全是写指令，只读不可执行
+  await expect(pageB.getByText('空画布')).toHaveCount(0);
+  await expect(page.getByText('空画布')).toBeVisible(); // 写者侧正常显示（区分验证）
 
   // A 建件落盘后，B 无实时同步也不落盘——modelCount 不涨
   await createShapeByDrag(page);
@@ -461,10 +464,6 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
         img: expect.objectContaining({ hasSprite: false }),
       }),
     );
-  await page.evaluate((id) => {
-    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
-  }, docId);
-  await pageB.evaluate((id) => {
-    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
-  }, docId);
+  await cleanupDoc(page, docId);
+  await cleanupDoc(pageB, docId);
 });

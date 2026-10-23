@@ -155,8 +155,9 @@ export function App() {
           />
         )}
         {tab.role === 'follower' && <ReadOnlyNotice />}
-        {/* 空画布引导（Batch 1 · 1.23）：零件时轻提示，建首件即隐（modelCount 镜像驱动） */}
-        {!loading && modelCount === 0 && (
+        {/* 空画布引导（Batch 1 · 1.23）：零件时轻提示，建首件即隐（modelCount 镜像驱动）；
+            只读不显示——引导的全是写指令，follower 空文档不该读到无法执行的提示 */}
+        {!loading && editable && modelCount === 0 && (
           <div
             className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center"
             aria-hidden
