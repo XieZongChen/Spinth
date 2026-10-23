@@ -173,19 +173,21 @@ export function Toolbar() {
           {
             icon: 'undo' as IconName,
             title: '撤销 (Cmd+Z)',
-            disabled: !canUndo,
+            // 只读态三键禁用（docs/21 §4 矩阵）：命令层已有守卫，这里是呈现
+            // 层门禁——不留"可点但静默 no-op"的假激活
+            disabled: !editable || !canUndo,
             onClick: () => spinthCommands.undo(),
           },
           {
             icon: 'redo' as IconName,
             title: '重做 (Shift+Cmd+Z)',
-            disabled: !canRedo,
+            disabled: !editable || !canRedo,
             onClick: () => spinthCommands.redo(),
           },
           {
             icon: 'trash' as IconName,
             title: '删除选中 (Delete)',
-            disabled: selectedCount === 0,
+            disabled: !editable || selectedCount === 0,
             onClick: () => spinthCommands.removeSelected(),
           },
         ] satisfies Array<{ icon: IconName; title: string; disabled: boolean; onClick: () => void }>

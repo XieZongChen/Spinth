@@ -81,8 +81,10 @@ export function PopoverControl({
           aria-label={item.label}
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-disabled={item.disabled === true}
+          disabled={item.disabled === true}
           onClick={() => setOpen((o) => !o)}
-          className={`flex h-7 items-center gap-0.5 rounded-md px-1 transition-colors duration-100 ${
+          className={`flex h-7 items-center gap-0.5 rounded-md px-1 transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
             open
               ? 'bg-surface-hover text-ink'
               : 'text-ink-2 hover:bg-surface-hover/60 hover:text-ink'

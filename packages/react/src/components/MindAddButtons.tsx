@@ -27,7 +27,9 @@ interface Slot {
 
 export function MindAddButtons() {
   const state = useSpinthStore((s) => s.mindAddButtons);
-  if (!state) return null;
+  const editable = useSpinthStore((s) => s.editable); // 只读态不渲染（docs/21 §4）
+  // 焦点对象在只读态不存在（降级即清、右键不建选区）——隐藏是语义结果
+  if (!editable || !state) return null;
   const { bounds, isRoot, direction, slotLeft, slotRight } = state;
   const midX = bounds.x + bounds.width / 2 - BTN / 2;
   const midY = bounds.y + bounds.height / 2 - BTN / 2;

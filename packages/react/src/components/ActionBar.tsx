@@ -41,12 +41,14 @@ function ToggleControl({
         type="button"
         aria-label={item.label}
         aria-pressed={active}
+        aria-disabled={item.disabled === true}
+        disabled={item.disabled === true}
         onClick={() => onToggle(item.id, !active)}
         className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-100 ${
           active
             ? 'bg-surface-hover text-ink'
             : 'text-ink-2 hover:bg-surface-hover/60 hover:text-ink'
-        }`}
+        } disabled:pointer-events-none disabled:opacity-40`}
       >
         <Icon name={(item.icon ?? '') as IconName} size={15} strokeWidth={2} />
       </button>
@@ -103,6 +105,7 @@ function renderSchema(schema: IActionBarSchema): React.ReactNode {
 
 export function ActionBar() {
   const actionBar = useSpinthStore((s) => s.actionBar);
+  const editable = useSpinthStore((s) => s.editable); // 只读态整条不渲染（docs/21 §4）
   const { schema, bounds } = actionBar;
 
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
@@ -121,7 +124,9 @@ export function ActionBar() {
     // 依赖 schema/bounds：栏内容或选区几何变化时重量（相等短路保证不循环）
   }, [schema, bounds]);
 
-  if (!schema || !bounds) return null;
+  // 只读早退（hooks 之后，顺序稳定）：选区在只读态本就不存在（右键不建选区、
+  // 降级即清），操作栏附着于选区——隐藏是语义结果而非特判，六个写控件不出现
+  if (!editable || !schema || !bounds) return null;
 
   const barW = measured?.barW ?? BAR_WIDTH_FALLBACK;
   const areaW = measured?.areaW ?? window.innerWidth;
