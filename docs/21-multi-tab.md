@@ -70,14 +70,17 @@
 等于半个写者。
 
 运行时降级 `updateEditable(false)`（core `boardCommands`）按序收口（顺序本身是语义）：
-`exitActive()`（编辑会话先落库）→ 手势 cancel（写工具走 `setCursorMode('cursor')`——
-viewport 内部对旧模式发 cancel；已 cursor/hand 直接 `dispatchGestureCancel`——恰好一次
-不双发）→ `editable$.next(false)`（先翻闸门，派生态首算即只读）→ `setSelected([])`
-（选区框/ActionBar/MindAddButtons 连带消失）→ `setWriteEnabled(false)`（最后拒写，
+`exitActive()`（编辑会话先落库）→ 手势 cancel（`rectEditor.cancelGesture()`——缩放/旋转
+是 window 级监听不经 viewport 路由，不显式取消则抬手仍会写库；viewport 路由的手势：
+写工具走 `setCursorMode('cursor')`——viewport 内部对旧模式发 cancel，已 cursor/hand
+直接 `dispatchGestureCancel`——恰好一次不双发）→ `editable$.next(false)`（先翻闸门，
+派生态首算即只读）→ `setSelected([])`（选区框/ActionBar/MindAddButtons 连带消失）+
+`contextMenu.close()`（已打开的菜单不再留死按钮）→ `setWriteEnabled(false)`（最后拒写，
 不吞步骤①可能刚产生的文本提交）。切回可写只翻闸门 + 恢复写，不恢复工具/选区
 （无记忆）。`BoardCommands.setCursorMode` 带只读钳制：非 cursor/hand 的模式落为
 cursor（宿主可编程入口不得让 UI 宣称「可以画」而指针已被丢弃；空格临时抓手走
-ViewportService 内部直调，不经此闸门）。
+ViewportService 内部直调，不经此闸门）。空画布引导（app 壳）只读不显示——引导全是
+写指令，只读不可执行。
 
 物理断网（`editBlocked`）是与只读相互独立的另一条闸门（docs/10 §4），其交互面矩阵
 另行收口，不并入本表。

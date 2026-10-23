@@ -124,7 +124,8 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 
 1. index.html 静态首帧（品牌标 + 背景色，无 JS）。
 2. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”。
-3. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导。
+3. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导（只读态不显示——
+   引导全是写指令，docs/21 §4）。
 4. 初始化失败 → 错误卡 + 重试按钮（IndexedDB 禁用/配额满等），不永久卡 loading。
 
 ## 7. app 层
