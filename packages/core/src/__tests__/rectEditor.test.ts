@@ -3,6 +3,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { RectEditorService } from '../platform/rectEditor/rectEditorService';
 import { resizeRect, resizeRotatedRect } from '../platform/rectEditor/resizeMath';
+import { getRenderId } from '../common/render';
 
 /**
  * RectEditor 缩放编排桩测试（docs/15 §3 挂账收口：lastNext 落库——
@@ -243,8 +244,15 @@ describe('RectEditor.cancelGesture 只读降级收口（docs/21 §4）', () => {
     h.fireMove(180, 170); // 预览拖大
     expect(h.svc.isResizing).toBe(true);
 
+    // 跟随层通知与标脏：取消本身要闭环（不依赖调用方后续恰好有别的重绘）
+    let moveEmits = 0;
+    const sub = h.svc.resizeMove$.subscribe(() => (moveEmits += 1));
+    const beforeRender = getRenderId();
     h.svc.cancelGesture();
+    sub.unsubscribe();
     expect(h.svc.isResizing).toBe(false);
+    expect(moveEmits).toBe(1); // 快捷连接点按模型几何重排
+    expect(getRenderId()).toBeGreaterThan(beforeRender); // 预览复位已标脏
     // 预览回落 = applyResizePreview(start, start)（scale 归 1），不 commit、不结历史
     expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(
       { x: 100, y: 100, width: 50, height: 50 },
@@ -257,13 +265,18 @@ describe('RectEditor.cancelGesture 只读降级收口（docs/21 §4）', () => {
     expect(h.vmStub.commitResize).not.toHaveBeenCalled();
   });
 
-  it('旋转中取消：预览回落到起点角度、迟到的 pointerup 不再落库', () => {
+  it('旋转中取消：预览回落到起点角度、锚定线重路由、迟到的 pointerup 不再落库', () => {
     const h = makeHarness();
     h.selected$.next(['w1']);
     startRotateAt(h.svc, 125, 65);
     h.fireMove(185, 125); // 预览 +90°
+    const follow = vi.fn();
+    h.svc.onRotatePreview = follow;
+    const beforeRender = getRenderId();
     h.svc.cancelGesture();
     expect(h.vmStub.applyRotatePreview).toHaveBeenLastCalledWith(0); // 起点角度回落
+    expect(follow).toHaveBeenCalledTimes(1); // 锚定线按复位后的几何重路由
+    expect(getRenderId()).toBeGreaterThan(beforeRender);
     expect(h.vmStub.commitRotate).not.toHaveBeenCalled();
     expect(h.stopCapturing).not.toHaveBeenCalled();
 
@@ -271,11 +284,20 @@ describe('RectEditor.cancelGesture 只读降级收口（docs/21 §4）', () => {
     expect(h.vmStub.commitRotate).not.toHaveBeenCalled();
   });
 
-  it('无手势时取消：no-op 不抛', () => {
+  it('无手势时取消：no-op 不抛、不通知跟随层、不标脏', () => {
     const h = makeHarness();
+    const follow = vi.fn();
+    h.svc.onRotatePreview = follow;
+    let moveEmits = 0;
+    const sub = h.svc.resizeMove$.subscribe(() => (moveEmits += 1));
+    const beforeRender = getRenderId();
     expect(() => h.svc.cancelGesture()).not.toThrow();
+    sub.unsubscribe();
     expect(h.vmStub.applyResizePreview).not.toHaveBeenCalled();
     expect(h.vmStub.applyRotatePreview).not.toHaveBeenCalled();
+    expect(follow).not.toHaveBeenCalled();
+    expect(moveEmits).toBe(0);
+    expect(getRenderId()).toBe(beforeRender);
   });
 });
 

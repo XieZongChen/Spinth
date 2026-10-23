@@ -226,8 +226,11 @@ export class RectEditorService extends Disposable {
   /** 只读降级手势收口（docs/21 §4）：缩放/旋转是 window 级监听（拖出画布仍
    *  跟随），不经 viewport 路由——editable 闸门与 dispatchGestureCancel 都打不
    *  到这里，降级时必须显式取消：撤监听、视觉预览按手势起点回落（预览通道
-   *  零落库），不 commit、不 stopCapturing（取消路径无落库，无历史项可结） */
+   *  零落库），不 commit、不 stopCapturing（取消路径无落库，无历史项可结）。
+   *  复位同时通知跟随层（resizeMove$ / onRotatePreview）并 markRender——
+   *  方法自带闭环，不依赖调用方后续恰好有别的重绘 */
   cancelGesture(): void {
+    let cancelled = false;
     if (this.resize) {
       window.removeEventListener('pointermove', this.onWindowMove);
       window.removeEventListener('pointerup', this.onWindowUp);
@@ -236,7 +239,11 @@ export class RectEditorService extends Disposable {
       if (vm) vm.applyResizePreview(start, start); // scale 归 1 = 回到起点视觉
       this.refLine.hideMatches();
       this.resize = null;
+      // 跟随层复位（与 onWindowMove 同款通知）：快捷连接点按模型几何重排；
+      // 不通知则叠层停在预览位置，直到下一次几何变化
+      this.resizeMove$.next();
       this.reposition();
+      cancelled = true;
     }
     if (this.rotate) {
       window.removeEventListener('pointermove', this.onRotateMove);
@@ -245,8 +252,14 @@ export class RectEditorService extends Disposable {
       const vm = this.vmEngine.getVmById(vmId);
       if (vm) vm.applyRotatePreview(startTheta);
       this.rotate = null;
+      // 锚定线重路由（与 onRotateMove 同款通知）：不上报则线停在预览角度
+      this.onRotatePreview?.();
       this.reposition();
+      cancelled = true;
     }
+    // 预览复位是视觉变更：方法自带闭环，复用方不必靠别的状态变更兜底标脏
+    // （只读降级路径正好有清选区触发重绘，但 Esc 之类复用路径不一定有）
+    if (cancelled) markRender();
   }
 
   private startRotate(worldX: number, worldY: number): void {
