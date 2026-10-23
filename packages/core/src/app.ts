@@ -819,6 +819,8 @@ export class BoardSDK {
       shapeTypeOptionIds: SHAPE_TYPE_OPTIONS.map((o) => o.id),
       mindService: this.mindService,
       awareness: this.awareness,
+      imageTextures: this.imageTextures,
+      assetStore: this.assetStore as unknown as { objectUrlRefs: Map<string, number> } | null,
     });
   }
 

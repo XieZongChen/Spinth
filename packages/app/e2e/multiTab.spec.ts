@@ -290,3 +290,109 @@ test('只读标签不跑资产维护链：leader 跑过（assetMaint=1）、foll
   // follower 侧 app 传 assetMaintenance=false 且 composeBoard 双重闸门——从未跑
   expect(await maintOf(pageB)).toBeNull();
 });
+
+test('follower 双击 missing 图：允许重试（纯本地渲染），不报错不写文档', async ({
+  page,
+  context,
+}) => {
+  const docId = `e2e-mt-retry-${Date.now()}`;
+  await page.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(page);
+  await waitRole(page, 'leader');
+
+  const pageB = await context.newPage();
+  await pageB.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(pageB);
+  await waitRole(pageB, 'follower');
+
+  // leader 建 missing 引用图（账本无此行）→ 落盘后 follower 刷新取快照
+  await page.evaluate(() => {
+    const w = (
+      window as unknown as {
+        __spinth: {
+          engine: {
+            transact(fn: () => void): void;
+            genInitialOrder(): string;
+            add(d: Record<string, unknown>): void;
+          };
+        };
+      }
+    ).__spinth;
+    w.engine.transact(() => {
+      w.engine.add({
+        id: 'w-mt-missing',
+        type: 'IMAGE',
+        zOrder: w.engine.genInitialOrder(),
+        src: `spinth-asset:${'c'.repeat(64)}`, // 账本无此行
+        x: 400,
+        y: 300,
+        width: 60,
+        height: 40,
+      });
+    });
+  });
+  await persisted(page);
+  await pageB.reload();
+  await ready(pageB);
+  await waitRole(pageB, 'follower');
+  await expect
+    .poll(
+      () =>
+        pageB.evaluate(() => {
+          const d = (
+            window as unknown as {
+              __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+            }
+          ).__spinth.__debug;
+          const img = d.vmStates.find((v) => v.type === 'IMAGE');
+          return img === undefined ? '' : String((img.imageLoad as { state?: string })?.state);
+        }),
+      { timeout: 8_000 },
+    )
+    .toBe('missing');
+
+  // follower 双击图中心（世界→client 精确换算）：retry 允许（重载仍
+  // missing——行不存在），无页面错误、不写文档
+  const errors: string[] = [];
+  pageB.on('pageerror', (err) => errors.push(String(err)));
+  const at = await pageB.evaluate(() => {
+    const w = (
+      window as unknown as {
+        __spinth: {
+          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        };
+      }
+    ).__spinth;
+    return w.viewport.worldToClient({ x: 430, y: 320 });
+  });
+  await pageB.mouse.dblclick(at.x, at.y);
+  await pageB.waitForTimeout(300);
+  expect(errors).toEqual([]);
+  await expect
+    .poll(
+      () =>
+        pageB.evaluate(() => {
+          const d = (
+            window as unknown as {
+              __spinth: {
+                __debug: { modelCount: number; vmStates: Array<Record<string, unknown>> };
+              };
+            }
+          ).__spinth.__debug;
+          return { count: d.modelCount, img: d.vmStates.find((v) => v.type === 'IMAGE') };
+        }),
+      { timeout: 5_000 },
+    )
+    .toEqual(
+      expect.objectContaining({
+        count: 1,
+        img: expect.objectContaining({ hasSprite: false }),
+      }),
+    );
+  await page.evaluate((id) => {
+    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
+  }, docId);
+  await pageB.evaluate((id) => {
+    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
+  }, docId);
+});

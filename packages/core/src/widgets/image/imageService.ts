@@ -1,12 +1,15 @@
 import { Disposable } from '../../base/disposable';
 import { genId } from '../../utils/id';
+import type { Point } from 'pixi.js';
 import type {
   IDataEngineService,
   IHistoryService,
   ISelectorService,
+  IVmEngineService,
   IViewportService,
 } from '../../types';
 import { AssetStore, type IAssetRef } from '../../platform/dataEngine/assetStore';
+import { ImageVm } from './imageVm';
 
 /** 图片长边上限（视觉规格：粘贴/拖入大图先缩到可操作尺寸） */
 const MAX_IMAGE_EDGE = 480;
@@ -41,6 +44,8 @@ export class ImageService extends Disposable {
     private history: IHistoryService,
     private selector: ISelectorService,
     assetStore: AssetStore | null = null,
+    /** 双击手动重试需要按命中点找 IMAGE VM（组合根传 sdk.vmEngine） */
+    private vmEngine: IVmEngineService | null = null,
   ) {
     super();
     this.assets = assetStore;
@@ -66,7 +71,28 @@ export class ImageService extends Disposable {
       () => el.removeEventListener('dragover', onDragOver),
       () => el.removeEventListener('drop', onDrop),
     );
+    if (typeof window !== 'undefined') {
+      // 双击失败/缺失图手动重试（docs/19 §4）：模式与 lineService.onLineDblClick
+      // 对齐——capture 相 window 监听，只认画布 target，工具期不接管
+      window.addEventListener('dblclick', this.onDblClick, true);
+      this.addDisposable(() => window.removeEventListener('dblclick', this.onDblClick, true));
+    }
   }
+
+  /** 双击画布上的 IMAGE → 手动重试加载（仅终态失败态生效，loaded no-op）。
+   *  只读标签允许重试（纯本地渲染，不写文档）；不加 editable 闸门 */
+  private onDblClick = (e: MouseEvent): void => {
+    if (!this.vmEngine) return;
+    if (!(e.target instanceof HTMLCanvasElement)) return; // 排除 DOM 控件双击
+    if (this.viewport.cursorMode$.value !== 'cursor') return; // 画笔/连线等工具期不接管
+    const world = this.viewport.clientToWorld(e.clientX, e.clientY);
+    for (const vm of this.vmEngine.getVmByPoint({ x: world.x, y: world.y } as Point)) {
+      if (vm instanceof ImageVm) {
+        vm.retry();
+        return;
+      }
+    }
+  };
 
   /** 粘贴系统剪贴板图片（组合根由 ClipboardService.onPasteImage 接入） */
   pasteImage(blob: Blob): void {

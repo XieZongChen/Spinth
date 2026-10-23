@@ -12,6 +12,10 @@ export const PNG_B64 =
 export type Debug = {
   modelCount: number;
   vmStates: Array<Record<string, unknown>>;
+  /** 纹理缓存探针（同图一份纹理断言）；导航间隙由调用方判空 */
+  imageTextures: { entries: Array<{ key: string; refs: number; uid: number }>; pending: number };
+  /** 资产 objectURL 租约（id → 计数） */
+  assetLeases: Record<string, number>;
 };
 
 export async function ready(page: Page): Promise<void> {
@@ -33,6 +37,8 @@ export async function debug(page: Page): Promise<Debug | null> {
     return {
       modelCount: w.__spinth.__debug.modelCount,
       vmStates: w.__spinth.__debug.vmStates,
+      imageTextures: w.__spinth.__debug.imageTextures,
+      assetLeases: w.__spinth.__debug.assetLeases,
     };
   });
 }

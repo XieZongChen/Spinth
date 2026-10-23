@@ -319,6 +319,7 @@ export async function composeBoard(
     sdk.history,
     sdk.selector,
     sdk.assetStore,
+    sdk.vmEngine,
   );
   sdk.imageService.initialize();
   sdk.contextMenu = new ContextMenuService(
