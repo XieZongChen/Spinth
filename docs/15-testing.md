@@ -30,9 +30,10 @@
 - 只读态收口单测：core `contextMenuReadonly`（右键只读：不建选区/onWidget 恒 false/
   canPaste 恒 false）+ `updateEditable`（降级调用序含翻闸门相对位/手势收口恰好一次/
   切回可写无记忆/setCursorMode 只读钳制与无 viewport 语义）+ `rectEditor`（取消手势：
-  撤 window 监听、预览按起点回落零写、迟到抬手不落库）；react `readonlyGate`（工具坞
-  三键禁用、ActionBar/MindAddButtons 不渲染、schema disabled 三类控件契约）；E2E
-  smoke 1.22 扩为运行时降级收口（徽标/三键/选区清除/写工具降级钳制回 cursor）。
+  撤 window 监听、预览按起点回落零写、迟到抬手不落库、跟随层通知与标脏）；react
+  `readonlyGate`（工具坞三键禁用、ActionBar/MindAddButtons 不渲染、schema disabled
+  三类控件契约）；E2E smoke 1.22 扩为运行时降级收口（徽标/三键/选区清除/降级后工具
+  复位 + 只读态宿主直调写工具被钳回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
 - coverage：65.79 / 55.37 / 56.68 / 67.81，阈值 61/51/52/63。

@@ -120,13 +120,15 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
   持锁/幂等释放/reject 传播）；`dbProvider.test.ts`（只读写保护、切只读冲刷、切回
   恢复、只读 attach、legacy 迁移跳写、dispose 冲刷）；`dataEngineService.test.ts`
   （writeEnabled 透传）；`contextMenuReadonly.test.ts`（右键只读：不建选区/画布菜单
-  降级/canPaste 恒 false）；`updateEditable.test.ts`（降级五步序列/手势收口恰好一次/
-  切回可写无记忆/只读工具钳制）。
+  降级/canPaste 恒 false）；`updateEditable.test.ts`（降级序列与翻闸门相对位/手势收口
+  恰好一次/切回可写无记忆/只读工具钳制）；`rectEditor.test.ts`（取消缩放与旋转手势：
+  撤 window 监听、预览按起点回落零写、迟到抬手不落库、跟随层通知与标脏）。
 - E2E：`packages/app/e2e/multiTab.spec.ts`（同 context 双 page：leader/follower、接管、
   只读不写盘、不同 docId 并行、无锁降级、只读视图操作、390px、手动刷新、只读标签
   不跑资产维护链、只读标签双击 missing 图可重试、只读右键降级——
   `lastAssetMaintenance`/`selected$`/`__debug` 探针）；
-  `smoke.spec.ts` 1.22（运行时降级收口：徽标/三键禁用/选区清除/工具回 cursor）。
+  `smoke.spec.ts` 1.22（运行时降级收口：徽标/三键禁用/选区清除/降级后工具复位；
+  只读态宿主直调写工具被钳回 cursor）。
 - 单测（react）：`packages/react/src/__tests__/readonlyGate.test.tsx`（工具坞三键只读
   禁用、ActionBar/MindAddButtons 只读不渲染、schema disabled 契约三类控件）。
 - DOM 锚点：`data-spinth-tab-role` / `data-spinth-readonly-notice` /
