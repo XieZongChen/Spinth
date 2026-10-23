@@ -58,13 +58,18 @@ export class BoardCommands {
   }
 
   setCursorMode(mode: CursorMode): void {
+    // 只读钳制（docs/21 §4）：宿主可编程调写工具时落为 cursor，视图工具
+    // （cursor/hand）放行——否则 UI 宣称"可以画"（ToolGhost/二级菜单）而
+    // viewport 已丢弃全部指针。空格临时抓手走 ViewportService 内部直调，不经此闸门
+    const target =
+      !this.ctx.viewport?.editable$.value && mode !== 'cursor' && mode !== 'hand' ? 'cursor' : mode;
     // 同模式切换不清选区（工具栏重复点击「选择」曾把选区抹掉——脑图 Tab/Enter
     // 依赖「MIND_MAP 在选区中」，静默失效，2026-09 Phase 4 审查实测揪出）；
     // 换工具才清——工具语义切换本来就该丢弃当前选中上下文
-    if (this.ctx.viewport?.cursorMode$.value !== mode) {
+    if (this.ctx.viewport?.cursorMode$.value !== target) {
       this.ctx.selector?.setSelected([]);
     }
-    this.ctx.viewport?.setCursorMode(mode);
+    this.ctx.viewport?.setCursorMode(target);
   }
 
   /** 工具坞二级菜单 → 形状默认创建型（zod 校验在 service；会话级不持久化） */
@@ -92,13 +97,34 @@ export class BoardCommands {
   }
 
   updateEditable(v: boolean): void {
-    // 只读切换先退出编辑会话（Batch 1 · 1.13）：开着编辑器转只读会留下
-    // 可输入的 DOM 而命令层已全禁——先 flush 收口
-    if (!v) this.ctx.editingService?.exitActive();
-    this.ctx.viewport?.editable$.next(v);
-    // 磁盘兜底联动（docs/21 §4）：UI 闸门 + writeEnabled 拒写同时生效，
-    // 切回可写时写入恢复——宿主运行时切换不静默丢写
-    this.ctx.engine?.setWriteEnabled(v);
+    if (v) {
+      // 切回可写：只翻闸门 + 恢复写，不恢复工具/选区（无记忆，简单且可预期）
+      this.ctx.viewport?.editable$.next(true);
+      this.ctx.engine?.setWriteEnabled(true);
+      return;
+    }
+    // 只读降级序列（docs/21 §4）——顺序本身是语义：
+    // ① 退编辑会话：开着编辑器转只读会留下可输入的 DOM 而命令层已全禁，
+    //    先 flush 收口（可能刚产生一次文本提交，必须先于⑤的拒写）
+    this.ctx.editingService?.exitActive();
+    // ② 手势收口（恰好一次，不双 cancel）：写工具 → setCursorMode('cursor')
+    //    （viewport 内部对旧模式发 dispatchGestureCancel）；已 cursor/hand →
+    //    直接 cancel 当前模式（取消框选蓝框/抓手拖拽）。只读闸门(:290)会吞掉
+    //    后续 up，不收口则交互状态机悬挂在半路
+    const mode = this.ctx.viewport?.cursorMode$.value;
+    if (mode && mode !== 'cursor' && mode !== 'hand') {
+      this.ctx.viewport?.setCursorMode('cursor');
+    } else {
+      this.ctx.viewport?.dispatchGestureCancel(mode ?? 'cursor');
+    }
+    // ③ 先翻闸门：其后所有派生状态（工具坞/菜单/schema 拉取）第一次计算就
+    //    看到只读，不存在"先可写一帧"
+    this.ctx.viewport?.editable$.next(false);
+    // ④ 清选区：选区框/ActionBar/MindAddButtons 连带消失（②若走了
+    //    setCursorMode 已顺带清一次，这里幂等）
+    this.ctx.selector?.setSelected([]);
+    // ⑤ 磁盘兜底最后联动（docs/21 §4）：UI 闸门 + writeEnabled 拒写同时生效
+    this.ctx.engine?.setWriteEnabled(false);
   }
 
   /** 写命令统一只读守卫（Batch 1 · 1.13）：键盘 handler 层有闸门，但 react

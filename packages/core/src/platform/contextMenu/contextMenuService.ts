@@ -44,6 +44,19 @@ export class ContextMenuService extends Disposable {
       if (t?.isContentEditable) return;
       me.preventDefault();
       if (this.modeGuard() !== 'cursor') return;
+      // 只读降级（docs/21 §4）：右键是 DOM 事件，不经 viewport 指针闸门——
+      // 此处必须自守：不建选区（选区会把 ActionBar 整条带进只读画布）、
+      // 不出元素菜单、粘贴恒不可用；菜单仍打开，只留读操作（导出/适应屏幕）
+      if (!this.viewport.editable$.value) {
+        this.options$.next({
+          show: true,
+          x: me.clientX,
+          y: me.clientY,
+          onWidget: false,
+          canPaste: false,
+        });
+        return;
+      }
       // clientX/Y - canvas 页偏移（offsetX 隐含 target=canvas 的假设，
       // 落在其他 DOM 子元素上时坐标错误——外部审查提示）
       const canvas = this.viewport.container?.querySelector('canvas');

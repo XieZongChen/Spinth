@@ -13,6 +13,8 @@ describe('BoardSDK.setCursorMode 选区保持语义', () => {
     const cleared: string[][] = [];
     const viewport = {
       cursorMode$: new BehaviorSubject(mode),
+      // 只读钳制读 editable$——桩对齐 IViewportService 形状（缺省会误判只读）
+      editable$: new BehaviorSubject(true),
       setCursorMode: vi.fn((m: string) => viewport.cursorMode$.next(m)),
     };
     const selector = {

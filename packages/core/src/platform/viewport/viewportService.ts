@@ -287,6 +287,9 @@ export class ViewportService extends Disposable implements IViewportService {
       }
       const handlers = this.handlers.get(this.cursorMode$.value);
       if (!handlers) return;
+      // 只读下 up/upoutside 也吞（上面"up 必须放行"仅对 editBlocked 断网分支
+      // 成立）——依赖 BoardCommands.updateEditable(false) 降级时先对手势发
+      // dispatchGestureCancel 收口，交互状态机不会悬挂在等 up 的半路
       if (!this.editable$.value && kind !== 'cancel') return;
       const info: IPointerEventInfo = {
         world: this.toWorld(e.global),

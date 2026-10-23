@@ -69,6 +69,9 @@ export interface IViewportService {
   readonly editable$: BehaviorSubject<boolean>;
 
   setCursorMode(mode: CursorMode): void;
+  /** 对指定模式的手势发 cancel（哨兵坐标）：切工具/Esc/运行时只读降级共用的
+   *  在途手势收口入口——不收口则交互状态机悬挂（拖拽/框选/绘制半路） */
+  dispatchGestureCancel(mode: CursorMode): void;
   /** 悬停态临时光标（连线手柄等非命中对象）：null = 恢复当前模式默认光标 */
   setHoverCursor(cursor: string | null): void;
   toWorld(screen: IPoint): Point;
