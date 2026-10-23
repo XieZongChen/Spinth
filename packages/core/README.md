@@ -13,4 +13,4 @@
   `spinth-asset:<sha256>`（docs/19）。
 - **协作者模式**：宿主 service + 拆出协作类（host 窄回调），先例见 line/mind 目录。
 
-单测：`pnpm test`（仓库根）。完整规格文档见仓库根 `docs/`（00-19，文档即规格）。
+单测：`pnpm test`（仓库根）。完整规格文档见仓库根 `docs/`（00-21，文档即规格）。

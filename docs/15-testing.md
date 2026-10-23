@@ -51,7 +51,7 @@
 - 资产 GC Web Locks 单写者已修复并有回归测试。
 - 多标签单写者/只读/接管由 `multiTab.spec` E2E + tabSession 单测覆盖
   （[21-multi-tab](21-multi-tab.md)）；跨标签实时同步未实现（非目标）。
-- 存储状态：StorageStatusService 10 单测 + storageMath 5 单测 + E2E 7 例
+- 存储状态：StorageStatusService 10 单测 + storageMath 6 单测 + E2E 8 例
   （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
 - 大测试文件（lineMath、mindService）可按域拆分，降低阅读成本。
