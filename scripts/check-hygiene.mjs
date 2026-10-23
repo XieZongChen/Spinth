@@ -5,7 +5,8 @@
  *
  * 拦截三类问题：
  * 1. 本机文档被跟踪：HANDOFF*、*handoff*、本地代理目录等；
- * 2. 本机隐私：绝对 home 路径、邮箱、疑似密钥；本地拒绝词可写 .hygiene.local.json；
+ * 2. 本机隐私：绝对 home 路径、邮箱、疑似密钥——对**所有**跟踪文件生效（含 specs/）；
+ *    本地拒绝词可写 .hygiene.local.json，denyPatternsIn 支持按路径前缀生效；
  * 3. 文档历史记录：变更/历史/验收记录章节、PR 编号、带日期的“已实现/已修复”叙事、
  *    commit 哈希。docs 只写当前事实，历史由 git 提交信息承载。
  *
@@ -91,7 +92,7 @@ const docsRules = [
 
 function loadLocalRules() {
   const path = resolve(ROOT, '.hygiene.local.json');
-  if (!existsSync(path)) return { patterns: [], paths: [] };
+  if (!existsSync(path)) return { patterns: [], paths: [], scoped: [] };
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8'));
     return {
@@ -101,10 +102,18 @@ function loadLocalRules() {
       paths: Array.isArray(raw.denyPaths)
         ? raw.denyPaths.filter((v) => typeof v === 'string' && v.length > 0)
         : [],
+      // 按路径前缀生效的本地拒绝词（如 specs/ 的参考项目名）——只在本机，
+      // 名称本身不入库
+      scoped: Array.isArray(raw.denyPatternsIn)
+        ? raw.denyPatternsIn.filter(
+            (e) =>
+              e && typeof e.path === 'string' && e.path.length > 0 && Array.isArray(e.patterns),
+          )
+        : [],
     };
   } catch {
     console.warn('[hygiene] .hygiene.local.json 解析失败，忽略本地拒绝词');
-    return { patterns: [], paths: [] };
+    return { patterns: [], paths: [], scoped: [] };
   }
 }
 
@@ -115,13 +124,20 @@ function main() {
   }
 
   const local = loadLocalRules();
+  const escapeRe = (p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const localContentRules = local.patterns.map((p) => ({
-    re: new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+    re: new RegExp(escapeRe(p), 'i'),
     reason: '命中本地拒绝词',
   }));
   const localPathRules = local.paths.map((p) => ({
-    re: new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+    re: new RegExp(escapeRe(p), 'i'),
     reason: '命中本地拒绝路径',
+  }));
+  const localScopedRules = local.scoped.map((entry) => ({
+    prefix: entry.path,
+    rules: entry.patterns
+      .filter((p) => typeof p === 'string' && p.length > 0)
+      .map((p) => ({ re: new RegExp(escapeRe(p), 'i'), reason: '命中本地拒绝词' })),
   }));
 
   const findings = [];
@@ -142,7 +158,15 @@ function main() {
     const text = readText(file);
     if (text === null) continue;
     const isDoc = file.startsWith('docs/') || file === 'AGENTS.md';
-    const rules = [...genericRules, ...localContentRules, ...(isDoc ? docsRules : [])];
+    const scopedRules = localScopedRules
+      .filter((s) => file.startsWith(s.prefix))
+      .flatMap((s) => s.rules);
+    const rules = [
+      ...genericRules,
+      ...localContentRules,
+      ...scopedRules,
+      ...(isDoc ? docsRules : []),
+    ];
     for (const rule of rules) {
       if (rule.re.test(text)) add(file, rule.reason);
     }
