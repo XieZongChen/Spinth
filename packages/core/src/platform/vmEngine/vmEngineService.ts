@@ -96,6 +96,25 @@ export class VmEngineService extends Disposable implements IVmEngineService {
     markRender();
   }
 
+  /** 卸载期逐 VM dispose：VM 的异步回调链（图片加载会话/重试计时器、编辑
+   *  会话 flush）必须先于纹理缓存与 renderer 销毁收口——否则 SDK dispose
+   *  后迟到回调仍会触达已销毁的 PIXI 对象（teardown 噪声/潜在 pageerror）。
+   *  先取快照并清 map 再逐个 dispose：单个 VM 销毁异常不阻断其余，也不与
+   *  onModelRemoved 双调（map 已空）。 */
+  override dispose(): void {
+    const vms = Array.from(this.vmMapping.values());
+    this.vmMapping.clear();
+    this.mindVmIds.clear();
+    for (const vm of vms) {
+      try {
+        vm.dispose();
+      } catch (err) {
+        console.warn('[VmEngine] 卸载期 vm dispose 异常（忽略）', err);
+      }
+    }
+    super.dispose();
+  }
+
   getVmById(id: string): IBaseWidgetVm | undefined {
     return this.vmMapping.get(id);
   }

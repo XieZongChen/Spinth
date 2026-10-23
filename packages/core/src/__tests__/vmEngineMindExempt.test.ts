@@ -4,7 +4,7 @@ import { stubPixiCanvasDocument } from './helpers/pixiNodeEnv';
 stubPixiCanvasDocument();
 import { Container, Point } from 'pixi.js';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { VmEngineService } from '../platform/vmEngine/vmEngineService';
 import { SpatialIndex } from '../platform/spatial/spatialIndex';
@@ -109,5 +109,25 @@ describe('VmEngine：MIND_MAP 查询豁免空间索引（docs/16 §1 决策）',
 
     const hits = engine.getVmByPoint(new Point(700, 450));
     expect(hits.map((v) => v.id)).toEqual([]);
+  });
+
+  it('卸载期逐 VM dispose：每个 vm.dispose 被调、映射清空（SDK teardown 收口）', () => {
+    const vmA = makeVm({ id: 'a', type: 'SHAPE', hit: () => false });
+    const vmB = makeVm({ id: 'b', type: 'IMAGE', hit: () => false });
+    const disposeA = vi.spyOn(vmA, 'dispose');
+    const disposeB = vi.spyOn(vmB, 'dispose');
+    const { engine, created$ } = makeEngine([vmA, vmB]);
+    created$.next(makeModel('a', 'SHAPE'));
+    created$.next(makeModel('b', 'IMAGE'));
+    expect(engine.getAllVms()).toHaveLength(2);
+
+    engine.dispose();
+    expect(disposeA).toHaveBeenCalledTimes(1); // 图片重试计时器/在途加载随 vm 收口
+    expect(disposeB).toHaveBeenCalledTimes(1);
+    expect(engine.getAllVms()).toHaveLength(0);
+
+    // 幂等/不双调：再次 dispose 不再触达 VM
+    engine.dispose();
+    expect(disposeA).toHaveBeenCalledTimes(1);
   });
 });
