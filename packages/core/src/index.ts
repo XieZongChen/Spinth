@@ -132,6 +132,7 @@ export type BoardPublicApi = Omit<
   | 'stickyService'
   | 'imageService'
   | 'assetStore'
+  | 'imageTextures'
   | 'projectFile'
   | 'storageStatus'
   | 'mindService'

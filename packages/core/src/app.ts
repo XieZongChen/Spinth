@@ -25,6 +25,7 @@ import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { StickyService } from './widgets/sticky/stickyService';
 import { ImageService } from './widgets/image/imageService';
 import { AssetStore } from './platform/dataEngine/assetStore';
+import { ImageTextureCache } from './widgets/image/imageTextureCache';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
 import { ProjectFileError } from './platform/projectFile/projectFileError';
 import { StorageStatusService } from './platform/storage/storageStatusService';
@@ -198,6 +199,9 @@ export class BoardSDK {
   imageService: ImageService | null = null;
   /** 图片资产层（Batch 2 资产服务）：组合根建、vm/service 注入共享 */
   assetStore: AssetStore | null = null;
+  /** @internal 图片纹理缓存（同 assetId 共享、引用计数租约）：组合根建，
+   *  IMAGE VM 注入共享；销毁顺序晚于 vmEngine、早于 assetStore.close */
+  imageTextures: ImageTextureCache | null = null;
   /** 启动资产维护（dataURL 迁移 + GC，Batch 2 二期）统计——E2E/调试探针 */
   lastAssetMaintenance: { migrated: number; removed: number; when: number } | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
@@ -971,7 +975,6 @@ export class BoardSDK {
     this.editingService?.exitActive();
     this.projectFile?.dispose();
     this.storageStatus?.dispose();
-    this.assetStore?.close();
     this.keyboard?.dispose();
     this.clipboard?.dispose();
     this.layer?.dispose();
@@ -994,9 +997,12 @@ export class BoardSDK {
     this.contextMenu?.dispose();
     this.selector?.dispose();
     this.history?.dispose();
-    this.vmEngine?.dispose();
+    this.vmEngine?.dispose(); // 只退订（不逐 VM dispose）——缓存销毁必须自洽
+    this.imageTextures?.dispose(); // 无条件销毁全部缓存纹理 + 归还 URL 租约
+    this.assetStore?.close(); // 晚于纹理租约归还（revoke 配对完整；已核实
+    //   projectFile/storageStatus/imageService 的 dispose 均不依赖本库仍打开）
     this.engine?.dispose();
-    this.viewport?.dispose();
+    this.viewport?.dispose(); // 最后销毁 renderer
     this.registry.dispose();
     this.cullingForgetSub?.unsubscribe();
     this.initialized = false;
