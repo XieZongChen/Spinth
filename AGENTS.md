@@ -34,9 +34,12 @@ pnpm lint
 pnpm typecheck
 pnpm hygiene
 pnpm verify
+pnpm verify:log
 ```
 
 提交前必须全绿：`pnpm verify`（hygiene + lint + prettier + typecheck + `pnpm -r test` + build）。
+跑门禁用 `pnpm verify:log`（或 `set -o pipefail`）——裸 `pnpm verify | tail` 会用 tail 的
+退出码掩盖红测试；pre-push 钩子同样会跑一次 `pnpm verify`。
 Node >= 24，pnpm 11.28.5。
 
 ## 八条铁律
@@ -70,7 +73,8 @@ Node >= 24，pnpm 11.28.5。
 - 交接 Prompt、代理计划、评审草稿不入库：`HANDOFF*`、`*handoff*.md` 与本地代理目录只保留在本机；具体目录写本机 `.git/info/exclude`，由 `pnpm hygiene` 拦截。
 - 验收清单、手工验证步骤与运行手册不写入 `docs/`；它们属于本地交接文档。docs 只保留规格、约束、架构与当前边界。
 - 仓库内容不得包含本机绝对路径、用户名、邮箱、其他项目名称或来源痕迹。需要本地拒绝词时写 `.hygiene.local.json`（ignored），不要写进仓库。
-- `pnpm install` 会安装 pre-commit 钩子；已有自定义 pre-commit 不会被覆盖。
+- `pnpm install` 会安装 pre-commit（staged 卫生）与 pre-push（`pnpm verify`）钩子；
+  已有自定义钩子不会被覆盖。绕过钩子（`--no-verify`）等于放弃本地门禁，CI 仍是 backstop。
 
 ## docs 索引
 
