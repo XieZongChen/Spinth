@@ -4,7 +4,7 @@
  * 仓库卫生检查（AGENTS: 文档迭代与仓库卫生）。
  *
  * 拦截三类问题：
- * 1. 本机文档被跟踪：specs/、HANDOFF*、*handoff*、本地代理目录等；
+ * 1. 本机文档被跟踪：HANDOFF*、*handoff*、本地代理目录等；
  * 2. 本机隐私：绝对 home 路径、邮箱、疑似密钥；本地拒绝词可写 .hygiene.local.json；
  * 3. 文档历史记录：变更/历史/验收记录章节、PR 编号、带日期的“已实现/已修复”叙事、
  *    commit 哈希。docs 只写当前事实，历史由 git 提交信息承载。
@@ -55,7 +55,6 @@ function readText(file) {
 }
 
 const deniedPaths = [
-  { re: /(^|\/)specs\//i, reason: '本机 spec 文档不入库' },
   { re: /(^|\/)HANDOFF[^/]*$/i, reason: '本机文档不入库' },
   { re: /(^|\/)[^/]*handoff[^/]*$/i, reason: '本机文档不入库' },
   { re: /(^|\/)\.env(\.local)?$/i, reason: '.env 不入库' },
@@ -158,7 +157,7 @@ function main() {
   for (const { file, reason } of findings) {
     console.error(`  - ${file}: ${reason}`);
   }
-  console.error('[hygiene] 本机 spec/代理文件请移到本机忽略目录；文档请改写为当前事实，不写历史。');
+  console.error('[hygiene] 本机文档/代理文件请移到本机忽略目录；docs 请改写为当前事实，不写历史。');
   process.exitCode = 1;
 }
 
