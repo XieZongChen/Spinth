@@ -223,6 +223,32 @@ export class RectEditorService extends Disposable {
   // ---------- 旋转手势（docs/05 §8）：preview 直写 root.rotation（零落库），
   // 锚定线经 onRotatePreview 实时跟随；松手 commitRotate 单事务 = 一步 undo ----------
 
+  /** 只读降级手势收口（docs/21 §4）：缩放/旋转是 window 级监听（拖出画布仍
+   *  跟随），不经 viewport 路由——editable 闸门与 dispatchGestureCancel 都打不
+   *  到这里，降级时必须显式取消：撤监听、视觉预览按手势起点回落（预览通道
+   *  零落库），不 commit、不 stopCapturing（取消路径无落库，无历史项可结） */
+  cancelGesture(): void {
+    if (this.resize) {
+      window.removeEventListener('pointermove', this.onWindowMove);
+      window.removeEventListener('pointerup', this.onWindowUp);
+      const { vmId, start } = this.resize;
+      const vm = this.vmEngine.getVmById(vmId);
+      if (vm) vm.applyResizePreview(start, start); // scale 归 1 = 回到起点视觉
+      this.refLine.hideMatches();
+      this.resize = null;
+      this.reposition();
+    }
+    if (this.rotate) {
+      window.removeEventListener('pointermove', this.onRotateMove);
+      window.removeEventListener('pointerup', this.onRotateUp);
+      const { vmId, startTheta } = this.rotate;
+      const vm = this.vmEngine.getVmById(vmId);
+      if (vm) vm.applyRotatePreview(startTheta);
+      this.rotate = null;
+      this.reposition();
+    }
+  }
+
   private startRotate(worldX: number, worldY: number): void {
     if (!this.targetId) return;
     const vm = this.vmEngine.getVmById(this.targetId);

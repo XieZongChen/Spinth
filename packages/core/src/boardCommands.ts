@@ -60,16 +60,18 @@ export class BoardCommands {
   setCursorMode(mode: CursorMode): void {
     // 只读钳制（docs/21 §4）：宿主可编程调写工具时落为 cursor，视图工具
     // （cursor/hand）放行——否则 UI 宣称"可以画"（ToolGhost/二级菜单）而
-    // viewport 已丢弃全部指针。空格临时抓手走 ViewportService 内部直调，不经此闸门
+    // viewport 已丢弃全部指针。无 viewport（未组装/桩）不钳制；空格临时抓手
+    // 走 ViewportService 内部直调，不经此闸门
+    const vp = this.ctx.viewport;
     const target =
-      !this.ctx.viewport?.editable$.value && mode !== 'cursor' && mode !== 'hand' ? 'cursor' : mode;
+      vp && !vp.editable$.value && mode !== 'cursor' && mode !== 'hand' ? 'cursor' : mode;
     // 同模式切换不清选区（工具栏重复点击「选择」曾把选区抹掉——脑图 Tab/Enter
     // 依赖「MIND_MAP 在选区中」，静默失效，2026-09 Phase 4 审查实测揪出）；
     // 换工具才清——工具语义切换本来就该丢弃当前选中上下文
-    if (this.ctx.viewport?.cursorMode$.value !== target) {
+    if (vp?.cursorMode$.value !== target) {
       this.ctx.selector?.setSelected([]);
     }
-    this.ctx.viewport?.setCursorMode(target);
+    vp?.setCursorMode(target);
   }
 
   /** 工具坞二级菜单 → 形状默认创建型（zod 校验在 service；会话级不持久化） */
@@ -107,10 +109,13 @@ export class BoardCommands {
     // ① 退编辑会话：开着编辑器转只读会留下可输入的 DOM 而命令层已全禁，
     //    先 flush 收口（可能刚产生一次文本提交，必须先于⑤的拒写）
     this.ctx.editingService?.exitActive();
-    // ② 手势收口（恰好一次，不双 cancel）：写工具 → setCursorMode('cursor')
-    //    （viewport 内部对旧模式发 dispatchGestureCancel）；已 cursor/hand →
-    //    直接 cancel 当前模式（取消框选蓝框/抓手拖拽）。只读闸门(:290)会吞掉
-    //    后续 up，不收口则交互状态机悬挂在半路
+    // ② 手势收口（恰好一次，不双 cancel）：viewport 路由的手势——写工具 →
+    //    setCursorMode('cursor')（viewport 内部对旧模式发 dispatchGestureCancel）；
+    //    已 cursor/hand → 直接 cancel 当前模式（取消框选蓝框/抓手拖拽）。只读
+    //    闸门(:290)会吞掉后续 up，不收口则交互状态机悬挂在半路。rectEditor 的
+    //    缩放/旋转是 window 级监听（不经 viewport handlers），闸门打不到——
+    //    单独显式取消（不取消则抬手仍会 commitResize/commitRotate 写库）
+    this.ctx.rectEditor?.cancelGesture();
     const mode = this.ctx.viewport?.cursorMode$.value;
     if (mode && mode !== 'cursor' && mode !== 'hand') {
       this.ctx.viewport?.setCursorMode('cursor');
@@ -121,8 +126,10 @@ export class BoardCommands {
     //    看到只读，不存在"先可写一帧"
     this.ctx.viewport?.editable$.next(false);
     // ④ 清选区：选区框/ActionBar/MindAddButtons 连带消失（②若走了
-    //    setCursorMode 已顺带清一次，这里幂等）
+    //    setCursorMode 已顺带清一次，这里幂等）；关掉已打开的右键菜单
+    //    （元素菜单的写项在只读下全 no-op，开着只剩死按钮）
     this.ctx.selector?.setSelected([]);
+    this.ctx.contextMenu?.close();
     // ⑤ 磁盘兜底最后联动（docs/21 §4）：UI 闸门 + writeEnabled 拒写同时生效
     this.ctx.engine?.setWriteEnabled(false);
   }

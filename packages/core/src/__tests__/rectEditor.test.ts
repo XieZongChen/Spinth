@@ -223,6 +223,62 @@ describe('RectEditor 旋转手势（docs/05 §8）', () => {
   });
 });
 
+describe('RectEditor.cancelGesture 只读降级收口（docs/21 §4）', () => {
+  const startResize = (svc: RectEditorService): void => {
+    (
+      svc as unknown as { vm: { onHandleDown: (d: string, x: number, y: number) => void } }
+    ).vm.onHandleDown('se', 150, 150);
+  };
+  const startRotateAt = (svc: RectEditorService, x: number, y: number): void => {
+    (svc as unknown as { vm: { onRotateDown: (x: number, y: number) => void } }).vm.onRotateDown(
+      x,
+      y,
+    );
+  };
+
+  it('缩放中取消：撤监听、预览按起点回落（零写）、迟到的 pointerup 不再落库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResize(h.svc);
+    h.fireMove(180, 170); // 预览拖大
+    expect(h.svc.isResizing).toBe(true);
+
+    h.svc.cancelGesture();
+    expect(h.svc.isResizing).toBe(false);
+    // 预览回落 = applyResizePreview(start, start)（scale 归 1），不 commit、不结历史
+    expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(
+      { x: 100, y: 100, width: 50, height: 50 },
+      { x: 100, y: 100, width: 50, height: 50 },
+    );
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+    expect(h.stopCapturing).not.toHaveBeenCalled();
+
+    h.fireUp(); // 迟到抬手：window 监听已撤，不得写库
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+  });
+
+  it('旋转中取消：预览回落到起点角度、迟到的 pointerup 不再落库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startRotateAt(h.svc, 125, 65);
+    h.fireMove(185, 125); // 预览 +90°
+    h.svc.cancelGesture();
+    expect(h.vmStub.applyRotatePreview).toHaveBeenLastCalledWith(0); // 起点角度回落
+    expect(h.vmStub.commitRotate).not.toHaveBeenCalled();
+    expect(h.stopCapturing).not.toHaveBeenCalled();
+
+    h.fireUp();
+    expect(h.vmStub.commitRotate).not.toHaveBeenCalled();
+  });
+
+  it('无手势时取消：no-op 不抛', () => {
+    const h = makeHarness();
+    expect(() => h.svc.cancelGesture()).not.toThrow();
+    expect(h.vmStub.applyResizePreview).not.toHaveBeenCalled();
+    expect(h.vmStub.applyRotatePreview).not.toHaveBeenCalled();
+  });
+});
+
 describe('1.6 resizeRotatedRect：旋转态对侧锚定（resizeMath 纯函数）', () => {
   const rot = (p: { x: number; y: number }, th: number) => ({
     x: p.x * Math.cos(th) - p.y * Math.sin(th),
