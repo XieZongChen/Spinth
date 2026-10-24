@@ -1,19 +1,18 @@
 import { BehaviorSubject, Subject } from 'rxjs';
 import type { IRect } from './common/geometry';
-import { BoardApplication } from './platform/viewport/boardApplication';
 import { ServiceRegistry } from './platform/registry/serviceRegistry';
 import { DataEngineService } from './platform/dataEngine/dataEngineService';
-import { GroupService } from './platform/selector/groupService';
-import { buildDebugSnapshot } from './debugSnapshot';
+import type { GroupService } from './platform/selector/groupService';
 import { BoardCommands } from './boardCommands';
 import { BoardOutputs } from './boardStreams';
+import { BoardFacade } from './boardFacade';
 import { composeBoard } from './boardComposition';
 import { RectEditorService } from './platform/rectEditor/rectEditorService';
 import { RefLineService } from './platform/refLine/refLineService';
 import { LayerService } from './platform/layer/layerService';
 import { KeyboardService } from './platform/keyboard/keyboardService';
 import { ClipboardService } from './platform/clipboard/clipboardService';
-import { SHAPE_TYPE_OPTIONS, ShapeService } from './widgets/shape/shapeService';
+import { ShapeService } from './widgets/shape/shapeService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
@@ -24,34 +23,31 @@ import { ImageService } from './widgets/image/imageService';
 import { AssetStore } from './platform/dataEngine/assetStore';
 import { ImageTextureCache } from './widgets/image/imageTextureCache';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
-import { ProjectFileError } from './platform/projectFile/projectFileError';
 import { StorageStatusService } from './platform/storage/storageStatusService';
-import type {
-  IProjectExportOptions,
-  IProjectExportResult,
-  IProjectImportOptions,
-  IProjectImportResult,
-} from './types/projectFile';
 import { MindService } from './widgets/mind/mindService';
-import {
-  ContextMenuService,
-  type IContextMenuState,
-} from './platform/contextMenu/contextMenuService';
+import { ContextMenuService } from './platform/contextMenu/contextMenuService';
 import { AwarenessService } from './platform/awareness/awarenessService';
 import { AwarenessVm } from './platform/awareness/awarenessVm';
 import { NetworkService } from './platform/network/networkService';
 import { TextRenderService } from './platform/textEngine/textRenderService';
 import { SpatialIndex } from './platform/spatial/spatialIndex';
 import { CullingService } from './platform/spatial/cullingService';
-import { unionRects } from './common/geometry';
-import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
+import type {
+  IProjectExportOptions,
+  IProjectExportResult,
+  IProjectImportOptions,
+  IProjectImportResult,
+} from './types/projectFile';
 import type { IBoardCommandHost } from './boardHost';
+import type { IBoardConfig } from './boardConfig';
 import { buildActionBarSchema } from './boardActionBar';
 import { updateSelectedStyle } from './styleCommands';
+import { getSelectionBounds, getMindAddButtons, toScreenPoint } from './boardQueries';
+import { disposeBoard } from './boardTeardown';
+import { buildBoardDebugSnapshot } from './boardDebug';
+import { exportProject, importProject } from './boardProject';
 import type {
-  CursorMode,
   IActionBarSchema,
-  IBaseWidgetVm,
   IHistoryService,
   IMindAddButtonsState,
   ISelectorService,
@@ -60,70 +56,58 @@ import type {
   IVmEngineService,
 } from './types';
 
-export interface IBoardConfig {
-  docId: string;
-  /** Phase 3 接入；空 = 本地模式 */
-  wsUrl?: string;
-  userName?: string;
-  editable?: boolean;
-  /** 启动资产维护链（存量迁移 + GC，默认开）。DEV/测试环境建议关——
-   *  GC 全库扫描（indexedDB.databases() × 每 doc 盘上重建）在并行页面下
-   *  是 IO 压力源，E2E 仅专项用例显式开启 */
-  assetMaintenance?: boolean;
-}
-
 /**
- * BoardSDK — 组合根（docs/04 §3）：显式装配全部服务。
+ * BoardSDK — 组合根门面（docs/04 §3）：显式装配全部服务。
  * 对外只暴露「rxjs 输出流（读）+ 命令方法（写）」，UI 框架通过胶水层消费。
+ * 纯委托（17 条流 getter + 31 条命令）在基类 BoardFacade；实现分区
+ * （specs/api-surface）：组装 boardComposition / 命令 boardCommands +
+ * alignCommands·exportCommand·styleCommands / 输出流 boardStreams / ActionBar
+ * boardActionBar / 查询 boardQueries / 销毁 boardTeardown / 调试 boardDebug /
+ * 项目门面 boardProject——本文件只留字段、生命周期与单行委托。
  */
-
-export class BoardSDK implements IBoardCommandHost {
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
+export class BoardSDK extends BoardFacade implements IBoardCommandHost {
+  // ---------- @internal 组装/命令层（批 B 三分）共享服务字段 ----------
+  // 原逐字段重复的 @internal 注释合并为本区块头（specs/api-surface Step 5）。
+  // 字段保持 public 可写：桩测注入（boardSdkDispose/alignCommand 等）与
+  // DEV 句柄（window.__spinth）依赖可写性——禁止改成 private/#private。
   registry = new ServiceRegistry();
-  /** 命令区实现（批 A 三分）——门面方法单行委托至此 */
-  commands = new BoardCommands(this);
-  /** 输出流区实现（specs/api-surface Step 2）——流 getter 一行委托至此；
+  /** 命令区实现（批 A 三分）——委托面在 BoardFacade 基类 */
+  readonly commands = new BoardCommands(this);
+  /** 输出流区实现（specs/api-surface Step 2）——委托面在 BoardFacade 基类；
    *  构造器只存宿主引用（类字段初始化顺序 = 声明顺序，此刻服务字段尚 null） */
-  private readonly outputs = new BoardOutputs(this);
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
+  protected readonly outputs = new BoardOutputs(this);
   viewport: IViewportService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   engine: DataEngineService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   vmEngine: IVmEngineService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   history: IHistoryService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   selector: ISelectorService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   shapeService: ShapeService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   rectEditor: RectEditorService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   refLine: RefLineService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   layer: LayerService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   group: GroupService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   textService: TextService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   editingService: EditingService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   lineService: LineService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   penService: PenService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   eraserService: EraserService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   stickyService: StickyService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  imageService: ImageService | null = null;
+  mindService: MindService | null = null;
+  contextMenu: ContextMenuService | null = null;
+  keyboard: KeyboardService | null = null;
+  clipboard: ClipboardService | null = null;
+  textRender: TextRenderService | null = null;
+  spatial: SpatialIndex | null = null;
+  culling: CullingService | null = null;
+  awareness: AwarenessService | null = null;
+  awarenessVm: AwarenessVm | null = null;
+  network: NetworkService | null = null;
   /** 图片资产层（Batch 2 资产服务）：组合根建、vm/service 注入共享 */
   assetStore: AssetStore | null = null;
-  /** @internal 图片纹理缓存（同 assetId 共享、引用计数租约）：组合根建，
-   *  IMAGE VM 注入共享；销毁顺序晚于 vmEngine、早于 assetStore.close */
+  /** 图片纹理缓存（同 assetId 共享、引用计数租约）：组合根建，IMAGE VM 注入
+   *  共享；销毁顺序晚于 vmEngine、早于 assetStore.close */
   imageTextures: ImageTextureCache | null = null;
+  imageService: ImageService | null = null;
   /** 启动资产维护（dataURL 迁移 + GC，Batch 2 二期）统计——E2E/调试探针。
    *  docs/assets/partial/ms 为 GC 侧可选追加（中断/预算统计），未跑 GC 时缺省 */
   lastAssetMaintenance: {
@@ -135,31 +119,10 @@ export class BoardSDK implements IBoardCommandHost {
     partial?: 'none' | 'budget' | 'cancelled';
     ms?: number;
   } | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  mindService: MindService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  contextMenu: ContextMenuService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  keyboard: KeyboardService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  clipboard: ClipboardService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  textRender: TextRenderService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  spatial: SpatialIndex | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  culling: CullingService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  awareness: AwarenessService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  awarenessVm: AwarenessVm | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
-  network: NetworkService | null = null;
-  /** @internal 项目文件（docs/20 §5.2）：组合根构造注入，门面方法见 exportProject/importProject */
+  /** 项目文件（docs/20 §5.2）：组合根构造注入，门面方法见 exportProject/importProject */
   projectFile: ProjectFileService | null = null;
-  /** @internal 存储状态（docs/02 §6.1）：组合根构造注入，门面见 storageStatus$/refreshStorageStatus */
+  /** 存储状态（docs/02 §6.1）：组合根构造注入，门面见 storageStatus$/refreshStorageStatus */
   storageStatus: StorageStatusService | null = null;
-  /** @internal 组装/命令层（批 B 三分）共享字段 */
   initialized = false;
 
   /** 任意控件数据变化（低频：落库/远端/undo；拖拽中不触发）——ActionBar 等刷新触发器 */
@@ -178,18 +141,7 @@ export class BoardSDK implements IBoardCommandHost {
     await composeBoard(this, config, root, throwIfAborted);
   }
 
-  // ---------- 输出流（react 胶水层只读消费） ----------
-  // 实现在 boardStreams.ts 的 BoardOutputs（specs/api-surface Step 2 迁出）：
-  // 组装前兜底的惰性单例语义由其唯一持有，此处一行委托——语义零变化。
-
-  get cursorMode$(): BehaviorSubject<CursorMode> {
-    return this.outputs.cursorMode$;
-  }
-
-  /** 形状工具默认创建型（会话级，docs/04 §2 形状默认型小节；工具坞二级菜单消费） */
-  get defaultShapeType$(): BehaviorSubject<ShapeType> {
-    return this.outputs.defaultShapeType$;
-  }
+  // ---------- 会话态查询与写通道（直读服务字段，不走委托基类） ----------
 
   get defaultShapeType(): ShapeType {
     return this.shapeService?.defaultShapeType ?? 'rect';
@@ -198,11 +150,13 @@ export class BoardSDK implements IBoardCommandHost {
   /** 工具默认参数聚合表（各 service 会话态流合成；docs/04 §2 工具默认参数节）——
    *  react 单字段镜像 + Toolbar 按 mode/key 查表。**嵌套结构**（线宽笔宽批升级）：
    *  一工具多参数（line 存 {type,width}、pen 存 {color,width}），外层 key = CursorMode、
-   *  内层 key = 参数名、value = 选项 id */
+   *  内层 key = 参数名、value = 选项 id。写通道与 __debug 读 .value 均在本文件
+   *  （specs/api-surface §3.4：写通道不是纯输出，不迁 BoardOutputs） */
   private readonly defaultToolOptionsBs = new BehaviorSubject<
     Record<string, Record<string, string>>
   >({});
 
+  /** @internal 组合根写通道（boardComposition 种子写入；仅组合根调用） */
   syncToolOption(tool: string, key: string, v: string): void {
     const cur = this.defaultToolOptionsBs.value;
     const curTool = cur[tool] ?? {};
@@ -212,38 +166,6 @@ export class BoardSDK implements IBoardCommandHost {
 
   get defaultToolOptions$(): BehaviorSubject<Record<string, Record<string, string>>> {
     return this.defaultToolOptionsBs;
-  }
-
-  get vpScale$(): BehaviorSubject<number> {
-    return this.outputs.vpScale$;
-  }
-
-  get vpBounds$(): BehaviorSubject<IRect> {
-    return this.outputs.vpBounds$;
-  }
-
-  get editable$(): BehaviorSubject<boolean> {
-    return this.outputs.editable$;
-  }
-
-  get docState$() {
-    return this.outputs.docState$;
-  }
-
-  /** ws 连接态（docs/10 §2；本地模式恒 'off'） */
-  get wsState$() {
-    return this.outputs.wsState$;
-  }
-
-  /** 物理断网（阻断编辑；ws 断连仅提示不阻断——docs/10 §4）。组装前兜底 false */
-  get editBlocked$() {
-    return this.outputs.editBlocked$;
-  }
-
-  /** 本地落盘态（Batch 1 · 1.15）：failed=写失败退避中（配额满等），
-   *  UI 顶栏「已同步」不得再与 wsState 混同 */
-  get persistState$() {
-    return this.outputs.persistState$;
   }
 
   /** 画布件数（Batch 1 · 1.23 空态引导用——react 层不得读 __debug） */
@@ -256,11 +178,6 @@ export class BoardSDK implements IBoardCommandHost {
     this.engine?.retryPersist();
   }
 
-  /** 浏览器持久化授权 + 站点配额（docs/02 §6.1——与 persistState$ 不混同） */
-  get storageStatus$() {
-    return this.outputs.storageStatus$;
-  }
-
   /** 刷新存储状态（面板打开/窗口可见/写失败时由宿主调用；并发合并） */
   refreshStorageStatus(): void {
     void this.storageStatus?.refresh();
@@ -271,85 +188,18 @@ export class BoardSDK implements IBoardCommandHost {
     void this.storageStatus?.requestPersist();
   }
 
-  get selected$() {
-    return this.outputs.selected$;
-  }
+  // ---------- 查询（实现在 boardQueries.ts） ----------
 
-  get canUndo$() {
-    return this.outputs.canUndo$;
-  }
-
-  get canRedo$() {
-    return this.outputs.canRedo$;
-  }
-
-  get contextMenuOptions$(): BehaviorSubject<IContextMenuState> {
-    return this.outputs.contextMenuOptions$;
-  }
-
-  /** 拖拽进行中通知（ActionBar 隐藏跟随） */
-  get dragMove$(): Subject<void> {
-    return this.outputs.dragMove$;
-  }
-
-  /** mind 幽灵抑制（指针悬停已有脑图）——ToolGhost 消费（2026-09-22 幽灵 DOM 化） */
-  get mindGhostSuppressed$(): import('rxjs').BehaviorSubject<boolean> {
-    return this.outputs.mindGhostSuppressed$;
-  }
-
-  /** 脑图焦点节点变化（导航/建删/点击落点——AddButtons 重算触发器之一） */
-  get mindFocusChanged$(): Subject<void> {
-    return this.outputs.mindFocusChanged$;
-  }
-
-  /** 选中元素世界坐标外接矩形（无选中返回 null） */
   getSelectionBounds(): IRect | null {
-    const ids = this.selector?.selected$.value ?? [];
-    // 4.9 节点级选中：ActionBar（含删除按钮）定位到**焦点节点本体**；根焦点同样如此
-    // ——既有设计 actionBar 跟的是 selectedBounds，而点根选中的是那个 MIND_NODE。
-    // 挂整树 bbox 会让根焦点时的浮动栏飘到整棵树上方（用户实测：删除按钮位置异常）
-    if (ids.length === 1) {
-      const vm = this.vmEngine?.getVmById(ids[0]!);
-      if (vm?.type === 'MIND_MAP') {
-        const st = this.mindService?.getFocusedState();
-        if (st) return st.worldRect;
-      }
-    }
-    const bounds = ids
-      .map((id) => this.vmEngine?.getVmById(id)?.getBounds())
-      .filter((b): b is IRect => !!b);
-    return unionRects(bounds);
+    return getSelectionBounds(this);
   }
 
-  /** 世界 → 屏幕（canvas 内局部坐标；UI 定位再补画布偏移） */
   toScreenPoint(p: { x: number; y: number }): { x: number; y: number } {
-    return this.viewport!.toScreen(p);
+    return toScreenPoint(this, p);
   }
 
-  /**
-   * 脑图焦点节点 +/- 按钮定位源（docs/12 §4）：焦点节点屏幕外接矩形 + 侧向标志。
-   * 拉取式（同 getActionBarSchema 模式）——bridge 在焦点/树/视口变化时重算。
-   */
   getMindAddButtons(): IMindAddButtonsState | null {
-    if (!this.mindService) return null;
-    if (this.mindService.isDragging) return null; // 拖拽重排中隐藏
-    if (this.viewport!.cursorMode$.value !== 'cursor') return null;
-    const f = this.mindService.getFocusedState();
-    if (!f) return null;
-    const a = this.viewport!.toScreen({ x: f.worldRect.x, y: f.worldRect.y });
-    const c = this.viewport!.toScreen({
-      x: f.worldRect.x + f.worldRect.width,
-      y: f.worldRect.y + f.worldRect.height,
-    });
-    const sl = this.viewport!.toScreen({ x: f.slotLeft, y: 0 });
-    const sr = this.viewport!.toScreen({ x: f.slotRight, y: 0 });
-    return {
-      bounds: { x: a.x, y: a.y, width: c.x - a.x, height: c.y - a.y },
-      isRoot: f.isRoot,
-      direction: f.direction,
-      slotLeft: sl.x,
-      slotRight: sr.x,
-    };
+    return getMindAddButtons(this);
   }
 
   /** ActionBar schema v2（docs/12 §4/§5）——构建器在 boardActionBar.ts
@@ -365,228 +215,25 @@ export class BoardSDK implements IBoardCommandHost {
     return updateSelectedStyle(this, patch);
   }
 
-  /** dev 调试用：渲染链各层数量（window.__spinth.__debug）——聚合在
-   *  debugSnapshot.ts（Batch 2 拆分第一刀），此处转发 */
+  /** dev 调试用：渲染链各层数量（window.__spinth.__debug）——适配器在
+   *  boardDebug.ts（specs/api-surface Step 5 迁出），聚合仍在 debugSnapshot.ts */
   get __debug() {
-    return buildDebugSnapshot({
-      engine: this.engine as unknown as { modelMapping?: Map<string, unknown> } | null,
-      vmMapping:
-        (this.vmEngine as unknown as { vmMapping?: Map<string, IBaseWidgetVm> })?.vmMapping ??
-        new Map(),
-      selector: this.selector as unknown as {
-        __selectionFrame?: IRect | null;
-        selected$: { value: string[] };
-      } | null,
-      rectEditor: this.rectEditor as unknown as {
-        __editorFrame?: IRect | null;
-        __rotateHandle?: { x: number; y: number } | null;
-      } | null,
-      widgetChildrenCount: this.viewport
-        ? (this.viewport as unknown as { widgetLayer: { children: unknown[] } }).widgetLayer
-            .children.length
-        : 0,
-      renderCount: BoardApplication.renderCount,
-      textRender: this.textRender as unknown as {
-        stats: { registered: number; snapshot: number; text: number };
-      } | null,
-      culling: this.culling,
-      shapeService: this.shapeService,
-      defaultToolOptions: { ...this.defaultToolOptionsBs.value },
-      eraserService: this.eraserService,
-      lineService: this.lineService as unknown as Record<string, unknown> | null,
-      refLine: this.refLine,
-      shapeTypeOptionIds: SHAPE_TYPE_OPTIONS.map((o) => o.id),
-      mindService: this.mindService,
-      awareness: this.awareness,
-      imageTextures: this.imageTextures,
-      assetStore: this.assetStore,
-    });
+    return buildBoardDebugSnapshot(this);
   }
 
-  // ---------- 命令（批 A 迁出至 BoardCommands，此处单行委托） ----------
-
-  setTheme(theme: 'light' | 'dark'): void {
-    return this.commands.setTheme(theme);
-  }
-
-  setCursorMode(mode: CursorMode): void {
-    return this.commands.setCursorMode(mode);
-  }
-
-  setDefaultShapeType(t: ShapeType): void {
-    return this.commands.setDefaultShapeType(t);
-  }
-
-  setDefaultToolOption(tool: CursorMode, key: string, id: string): void {
-    return this.commands.setDefaultToolOption(tool, key, id);
-  }
-
-  updateEditable(v: boolean): void {
-    return this.commands.updateEditable(v);
-  }
-
-  setPageScale(scale: number, focus?: { x: number; y: number }, immediate?: boolean): void {
-    return this.commands.setPageScale(scale, focus, immediate);
-  }
-
-  zoomIn(): void {
-    return this.commands.zoomIn();
-  }
-
-  zoomOut(): void {
-    return this.commands.zoomOut();
-  }
-
-  zoomToFit(): void {
-    return this.commands.zoomToFit();
-  }
-
-  undo(): void {
-    return this.commands.undo();
-  }
-
-  redo(): void {
-    return this.commands.redo();
-  }
-
-  removeSelected(): void {
-    return this.commands.removeSelected();
-  }
-
-  mindAddChild(direction?: 'left' | 'right'): void {
-    return this.commands.mindAddChild(direction);
-  }
-
-  mindAddSibling(): void {
-    return this.commands.mindAddSibling();
-  }
-
-  mindDeleteFocused(): void {
-    return this.commands.mindDeleteFocused();
-  }
-
-  bringToFront(): void {
-    return this.commands.bringToFront();
-  }
-
-  sendToBack(): void {
-    return this.commands.sendToBack();
-  }
-
-  bringForward(): void {
-    return this.commands.bringForward();
-  }
-
-  sendBackward(): void {
-    return this.commands.sendBackward();
-  }
-
-  alignSelection(mode: AlignMode): void {
-    return this.commands.alignSelection(mode);
-  }
-
-  exportPNG(mode: 'selection' | 'canvas'): void {
-    return this.commands.exportPNG(mode);
-  }
-
-  /** 导出当前画布为 .spinth.zip（docs/20 §5.3：门面仅委托） */
+  /** 导出当前画布为 .spinth.zip（docs/20 §5.3）——门面在 boardProject.ts */
   async exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult> {
-    return this.expectProjectFile().exportProject(opts);
+    return exportProject(this, opts);
   }
 
   /** 导入项目文件为新的本地画布（docs/20 §7：校验全通过才写库，不触碰当前画布） */
   async importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult> {
-    return this.expectProjectFile().importProject(file, opts);
+    return importProject(this, file, opts);
   }
 
-  /** 组装前/释放后调用项目文件门面 → 统一 NOT_READY（与 getDoc 判空同源） */
-  private expectProjectFile(): ProjectFileService {
-    if (!this.projectFile) {
-      throw new ProjectFileError('PROJECT_NOT_READY', '画布未初始化或已释放');
-    }
-    return this.projectFile;
-  }
-
-  distributeSelection(axis: DistributeAxis): void {
-    return this.commands.distributeSelection(axis);
-  }
-
-  canGroupSelection(): boolean {
-    return this.commands.canGroupSelection();
-  }
-
-  groupSelection(): void {
-    return this.commands.groupSelection();
-  }
-
-  canUngroupSelection(): boolean {
-    return this.commands.canUngroupSelection();
-  }
-
-  ungroupSelection(): void {
-    return this.commands.ungroupSelection();
-  }
-
-  async copySelected(): Promise<void> {
-    return this.commands.copySelected();
-  }
-
-  async cutSelected(): Promise<void> {
-    return this.commands.cutSelected();
-  }
-
-  pasteAt(target: { x: number; y: number }): void {
-    return this.commands.pasteAt(target);
-  }
-
-  pasteAtScreenCenter(): void {
-    return this.commands.pasteAtScreenCenter();
-  }
-
-  closeContextMenu(): void {
-    return this.commands.closeContextMenu();
-  }
-
+  /** 销毁序列唯一真源在 boardTeardown.ts（specs/api-surface Step 5 迁出） */
   dispose(): void {
-    // 幂等（Batch 1 · 1.16）：Board.tsx StrictMode 双挂载会双调 dispose——
-    // disposed 标志一刀切（重复 dispose 各服务是未定义行为）
-    if (this.disposed) return;
-    this.disposed = true;
-    // 编辑会话先收口（flush 尾字——先于服务拆序，避免 detach 依赖已拆组件）
-    this.editingService?.exitActive();
-    this.projectFile?.dispose();
-    this.storageStatus?.dispose();
-    this.keyboard?.dispose();
-    this.clipboard?.dispose();
-    this.layer?.dispose();
-    this.shapeService?.dispose();
-    this.culling?.dispose();
-    this.network?.dispose();
-    this.awarenessVm?.dispose();
-    this.awareness?.dispose();
-    this.textRender?.dispose();
-    this.rectEditor?.dispose();
-    this.refLine?.dispose();
-    this.textService?.dispose();
-    this.editingService?.dispose();
-    this.lineService?.dispose();
-    this.penService?.dispose();
-    this.eraserService?.dispose();
-    this.stickyService?.dispose();
-    this.imageService?.dispose();
-    this.mindService?.dispose();
-    this.contextMenu?.dispose();
-    this.selector?.dispose();
-    this.history?.dispose();
-    this.vmEngine?.dispose(); // 只退订（不逐 VM dispose）——缓存销毁必须自洽
-    this.imageTextures?.dispose(); // 无条件销毁全部缓存纹理 + 归还 URL 租约
-    this.assetStore?.close(); // 晚于纹理租约归还（revoke 配对完整；已核实
-    //   projectFile/storageStatus/imageService 的 dispose 均不依赖本库仍打开）
-    this.engine?.dispose();
-    this.viewport?.dispose(); // 最后销毁 renderer
-    this.registry.dispose();
-    this.cullingForgetSub?.unsubscribe();
-    this.initialized = false;
+    disposeBoard(this);
   }
 
   /** @internal 组装/命令层（批 B 三分）共享字段 */

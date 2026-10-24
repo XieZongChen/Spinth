@@ -82,6 +82,9 @@ export const WIDGET_REGISTRY = {
 - `WIDGET_TOKENS` / `WIDGET_FACTORIES`：组合根装配 Model/Vm 工厂。
 - `BoardSDK.initialize` → `composeBoard` 显式注册 token、构造服务、接线事件。
 - 新增类型只扩展注册表与三件套，不改 dataEngine/vmEngine 的分发逻辑。
+- `BoardSDK` 携门面基类 `BoardFacade`（boardFacade.ts）：17 条输出流 getter 与
+  31 条纯命令委托在基类，服务字段/生命周期/查询留在 `BoardSDK`——对外形状
+  不变（继承成员仍在实例上）。
 
 ## 4. 能力位
 

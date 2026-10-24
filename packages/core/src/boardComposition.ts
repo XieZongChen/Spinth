@@ -1,4 +1,4 @@
-import type { IBoardConfig } from './app';
+import type { IBoardConfig } from './boardConfig';
 import type { Token } from './platform/registry/serviceRegistry';
 import type { IBaseModel, IBaseWidgetVm, IBaseWidgetVm as _IVm } from './types';
 import { Rectangle } from 'pixi.js';

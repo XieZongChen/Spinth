@@ -5,7 +5,7 @@
 
 import type { BoardSDK } from './app';
 export { BoardSDK } from './app';
-export type { IBoardConfig } from './app';
+export type { IBoardConfig } from './boardConfig';
 
 // 多选几何命令（docs/05 §7）
 export type { AlignMode, DistributeAxis, IDelta } from './platform/selector/alignOps';
