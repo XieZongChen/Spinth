@@ -41,11 +41,18 @@ import type {
 import type { IBoardCommandHost } from './boardHost';
 import type { IBoardConfig } from './boardConfig';
 import { buildActionBarSchema } from './boardActionBar';
-import { updateSelectedStyle } from './styleCommands';
-import { getSelectionBounds, getMindAddButtons, toScreenPoint } from './boardQueries';
+import { updateSelectedStyle as updateSelectedStyleImpl } from './styleCommands';
+import {
+  getSelectionBounds as getSelectionBoundsImpl,
+  getMindAddButtons as getMindAddButtonsImpl,
+  toScreenPoint as toScreenPointImpl,
+} from './boardQueries';
 import { disposeBoard } from './boardTeardown';
 import { buildBoardDebugSnapshot } from './boardDebug';
-import { exportProject, importProject } from './boardProject';
+import {
+  exportProject as exportProjectImpl,
+  importProject as importProjectImpl,
+} from './boardProject';
 import type {
   IActionBarSchema,
   IHistoryService,
@@ -188,18 +195,19 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
     void this.storageStatus?.requestPersist();
   }
 
-  // ---------- 查询（实现在 boardQueries.ts） ----------
+  // ---------- 查询（实现在 boardQueries.ts；实现导入带 Impl 后缀，
+  // 避免与同名门面方法混淆——防未来重构误递归） ----------
 
   getSelectionBounds(): IRect | null {
-    return getSelectionBounds(this);
+    return getSelectionBoundsImpl(this);
   }
 
   toScreenPoint(p: { x: number; y: number }): { x: number; y: number } {
-    return toScreenPoint(this, p);
+    return toScreenPointImpl(this, p);
   }
 
   getMindAddButtons(): IMindAddButtonsState | null {
-    return getMindAddButtons(this);
+    return getMindAddButtonsImpl(this);
   }
 
   /** ActionBar schema v2（docs/12 §4/§5）——构建器在 boardActionBar.ts
@@ -212,7 +220,7 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   /** ActionBar 样式写入（实现在 styleCommands.ts，specs/api-surface Step 4 迁出；
    *  不走 BoardCommands——避免给命令类加一个只有门面在用的方法） */
   updateSelectedStyle(patch: Record<string, unknown>): void {
-    return updateSelectedStyle(this, patch);
+    return updateSelectedStyleImpl(this, patch);
   }
 
   /** dev 调试用：渲染链各层数量（window.__spinth.__debug）——适配器在
@@ -223,12 +231,12 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
 
   /** 导出当前画布为 .spinth.zip（docs/20 §5.3）——门面在 boardProject.ts */
   async exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult> {
-    return exportProject(this, opts);
+    return exportProjectImpl(this, opts);
   }
 
   /** 导入项目文件为新的本地画布（docs/20 §7：校验全通过才写库，不触碰当前画布） */
   async importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult> {
-    return importProject(this, file, opts);
+    return importProjectImpl(this, file, opts);
   }
 
   /** 销毁序列唯一真源在 boardTeardown.ts（specs/api-surface Step 5 迁出） */

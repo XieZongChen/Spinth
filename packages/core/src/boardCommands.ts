@@ -4,13 +4,13 @@ import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
 import type { ICollapsedPart } from './platform/selector/groupOps';
 import type { IBoardCommandHost } from './boardHost';
 import {
-  alignSelection,
-  distributeSelection,
-  nudgeSelected,
-  collectCollapsedParticipants,
+  alignSelection as alignSelectionImpl,
+  distributeSelection as distributeSelectionImpl,
+  nudgeSelected as nudgeSelectedImpl,
+  collectCollapsedParticipants as collectCollapsedParticipantsImpl,
   type IAlignParticipant,
 } from './alignCommands';
-import { exportPNG } from './exportCommand';
+import { exportPNG as exportPNGImpl } from './exportCommand';
 
 /**
  * BoardSDK 命令区（Batch 2 · app.ts 三分批 A，2026-10-18）：原门面 856-1192 行
@@ -18,8 +18,8 @@ import { exportPNG } from './exportCommand';
  * ctx 是宿主 BoardSDK 的窄引用（服务字段直读——组装完成即非空，访问式与原
  * 门面 optional chaining 等价）。
  * 对齐/分布/微移族在 alignCommands.ts、PNG 导出在 exportCommand.ts
- * （specs/api-surface Step 4）——本类只留委托与剩余命令；方法体内的裸函数名
- * 解析到模块层实现（类方法名不进词法作用域）。
+ * （specs/api-surface Step 4）——本类只留委托与剩余命令；实现导入带 Impl
+ * 后缀，避免与同名委托方法混淆（防未来重构误递归）。
  */
 export class BoardCommands {
   /** 宿主窄契约（IBoardCommandHost——字段名即契约；type-only import，
@@ -194,22 +194,22 @@ export class BoardCommands {
 
   /** 键盘微移（docs/09 §2）——实现在 alignCommands.ts（specs/api-surface Step 4） */
   nudgeSelected(dx: number, dy: number, _shift: boolean): void {
-    nudgeSelected(this.ctx, dx, dy, _shift);
+    nudgeSelectedImpl(this.ctx, dx, dy, _shift);
   }
 
   /** 多选几何命令：对齐六向（docs/05 §7）——实现在 alignCommands.ts */
   alignSelection(mode: AlignMode): void {
-    alignSelection(this.ctx, mode);
+    alignSelectionImpl(this.ctx, mode);
   }
 
   /** 导出 PNG（docs/03 §8）——实现在 exportCommand.ts */
   exportPNG(mode: 'selection' | 'canvas'): void {
-    exportPNG(this.ctx, mode);
+    exportPNGImpl(this.ctx, mode);
   }
 
   /** 多选几何命令：分布两向——实现在 alignCommands.ts */
   distributeSelection(axis: DistributeAxis): void {
-    distributeSelection(this.ctx, axis);
+    distributeSelectionImpl(this.ctx, axis);
   }
 
   /** 编组（docs/18 §3.1）：Mod+G / ActionBar「编组」入口；≥2 全可组才建 */
@@ -235,7 +235,7 @@ export class BoardCommands {
   /** 参与集 + 组折叠（docs/18 §5，ActionBar 多选禁用态消费）——实现在
    *  alignCommands.ts（specs/api-surface Step 4 后仍是本类公开方法） */
   collectCollapsedParticipants(): ICollapsedPart<IAlignParticipant>[] {
-    return collectCollapsedParticipants(this.ctx);
+    return collectCollapsedParticipantsImpl(this.ctx);
   }
 
   /** 程序化复制/剪切（右键菜单用；快捷键走 document 原生事件通道） */
