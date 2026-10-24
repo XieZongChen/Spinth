@@ -47,6 +47,7 @@ import { unionRects } from './common/geometry';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
 import type { IBoardCommandHost } from './boardHost';
 import { buildActionBarSchema } from './boardActionBar';
+import { updateSelectedStyle } from './styleCommands';
 import type {
   CursorMode,
   IActionBarSchema,
@@ -358,47 +359,10 @@ export class BoardSDK implements IBoardCommandHost {
     return buildActionBarSchema(this, () => this.commands.collectCollapsedParticipants().length);
   }
 
-  /** ActionBar 样式写入：一个事务覆盖全部选中（schema 字段经 zod strip 防越权） */
+  /** ActionBar 样式写入（实现在 styleCommands.ts，specs/api-surface Step 4 迁出；
+   *  不走 BoardCommands——避免给命令类加一个只有门面在用的方法） */
   updateSelectedStyle(patch: Record<string, unknown>): void {
-    const ids = this.selector?.selected$.value ?? [];
-    if (ids.length === 0 || !this.viewport?.editable$.value) return;
-    // 4.9：脑图节点级选中的样式写入分流（分支色走 MindService 落节点，
-    // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
-    if (
-      ids.length === 1 &&
-      typeof patch.lineColor === 'string' &&
-      patch.lineColor.startsWith('#')
-    ) {
-      const vm = this.vmEngine?.getVmById(ids[0]!);
-      if (vm?.type === 'MIND_MAP' && this.mindService?.isNodeFocused()) {
-        this.mindService.setFocusedNodeColor(patch.lineColor);
-        return;
-      }
-    }
-    // 排版档位数值化（option id 是数字串，schema 期望 number——同 lineColor
-    // hex 特判的 per-字段分流先例；per-字段条件覆写，不给 patch 引入不存在的键）
-    const patch2: Record<string, unknown> = { ...patch };
-    if (patch.fontSize !== undefined) patch2.fontSize = Number(patch.fontSize);
-    if (patch.strokeWidth !== undefined) patch2.strokeWidth = Number(patch.strokeWidth);
-    if (patch.lineHeight !== undefined) patch2.lineHeight = Number(patch.lineHeight);
-    this.engine!.transact(() => {
-      for (const id of ids) {
-        this.engine?.getModelById(id)?.update(patch2 as never);
-      }
-    });
-    if (
-      patch2.fontSize !== undefined ||
-      patch2.lineHeight !== undefined ||
-      patch2.shapeType !== undefined
-    ) {
-      // 高度重排：autoHeight 只在编辑提交路径触发，外部改字号/行高/切图形类型
-      // （内接几何变化，docs/17 §6 autoHeight）需显式重测——在主事务后、
-      // stopCapturing 前，reflowHeight 的事务并入同一撤销项
-      for (const id of ids) {
-        this.textService?.reflowHeight(id);
-      }
-    }
-    this.history?.stopCapturing();
+    return updateSelectedStyle(this, patch);
   }
 
   /** dev 调试用：渲染链各层数量（window.__spinth.__debug）——聚合在
