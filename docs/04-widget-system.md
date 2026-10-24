@@ -79,7 +79,8 @@ export const WIDGET_REGISTRY = {
 } as const;
 ```
 
-- `WIDGET_TOKENS` / `WIDGET_FACTORIES`：组合根装配 Model/Vm 工厂。
+- `WIDGET_RUNTIME`（widgetRuntime.ts）：组合根装配 Model/Vm 的 token + 工厂单源；
+  `WidgetDataUnion` 直接从 `WIDGET_REGISTRY` 派生（类型注册表 = schema 域 + 运行时域各一处）。
 - `BoardSDK.initialize` → `composeBoard` 显式注册 token、构造服务、接线事件。
 - 新增类型只扩展注册表与三件套，不改 dataEngine/vmEngine 的分发逻辑。
 - `BoardSDK` 携门面基类 `BoardFacade`（boardFacade.ts）：17 条输出流 getter 与

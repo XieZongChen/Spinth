@@ -125,10 +125,12 @@ Node >= 24，pnpm 11.28.5。
 多标签单写者/只读跟随（docs/21）、资产/图片生命周期（加载会话/纹理共享/重试/
 GC 分片预算，docs/19）、只读态收口（右键不建选区、呈现门禁、运行时降级序列，
 docs/21 §4）、可访问性与移动端收口批次 A（语义色 WCAG AA + 对比度护栏、共享
-错误态 role=alert、390px 九面布局矩阵、单机断网不变量，specs/a11y-mobile）。
-当前实测基线：`pnpm verify` 通过；895 单测（core 869 + react 26）；E2E 20 spec /
+错误态 role=alert、390px 九面布局矩阵、单机断网不变量，specs/a11y-mobile）、
+公共 API 收口与 P2 架构收口（`BoardPublicApi` allowlist + 分类编译锁、
+`boardCommands` 宿主契约类型化、`app.ts` 门面化 + `BoardFacade` 纯委托基类、
+`WIDGET_RUNTIME` 类型注册表单源，specs/api-surface）。
+当前实测基线：`pnpm verify` 通过；909 单测（core 883 + react 26）；E2E 20 spec /
 186 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9）。
 
-下一阶段重点是公共 API 收口与 P2 架构收口（`BoardPublicApi` allowlist、
-`boardCommands` 类型化、`app.ts` 拆分、类型注册表单源）；协同为后置能力，不属于
-本阶段。可访问性/平台/协同挂账见 docs/13 §2–§3。
+下一阶段重点是可访问性/平台挂账收口与 Linux 视觉基线（docs/13 §2）；协同为
+后置能力，不属于本阶段。可访问性/平台/协同挂账见 docs/13 §2–§3。

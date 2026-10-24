@@ -293,7 +293,9 @@ exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult>;
 importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult>;
 ```
 
-- `BoardSDK` 只做门面委托；`projectFile` 加入 `BoardPublicApi` 的 Omit 列表（实现字段不公开），并在 `dispose()` 中 `projectFile?.dispose()`。
+- `BoardSDK` 只做门面委托（boardProject.ts）；`projectFile` 不在 `BoardPublicApi`
+  allowlist（服务字段归 internal，分类锁见 boardPublicApi.ts），并在 `dispose()` 中
+  `projectFile?.dispose()`。
 - `spinthCommands` 增加同名薄转发；board 未绑定时返回 `null`（沿用现有命令的空操作语义）。
 - `SPINTH_VERSION` 移到 `packages/core/src/version.ts` 单一源，`index.ts` re-export，避免项目模块 import `index.ts` 形成环。
 - 不新增 zustand 状态：导出/导入的 busy/error 是组件本地状态。

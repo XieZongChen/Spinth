@@ -13,11 +13,11 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 895 单测（core 869 + react 26）、E2E 20 spec / 186 用例、视觉 4/4、图片/资产专项 10/10、`pnpm verify` 通过
+- [x] 909 单测（core 883 + react 26）、E2E 20 spec / 186 用例、视觉 4/4、图片/资产专项 10/10、`pnpm verify` 通过
 
 ## 2. 下一阶段优先级
 
-当前下一阶段：公共 API 收口与 P2 架构收口；协同为后置能力（docs/10）。
+当前下一阶段：可访问性/平台挂账收口与 Linux 视觉基线；协同为后置能力（docs/10）。
 
 ### P1 项目导出/导入
 
@@ -65,11 +65,16 @@
 
 ### P2 架构收口
 
-- `app.ts` 继续拆分（单文件超 400 行即拆，铁律 5）。
-- `boardCommands.ts` 的 `ctx: any` 类型化。
-- `BoardPublicApi` 从 blocklist 改 allowlist。
-- 类型注册表 union/tokens/factories 多源收口。
-- 先做不影响功能的收口，不为拆而拆。
+- [x] `app.ts` 收敛为门面（243 行，< 400）：查询/销毁/调试/项目门面/配置外移为
+      board* 系列文件，17 条流 getter + 31 条命令纯委托上移 `BoardFacade` 基类。
+- [x] `boardCommands.ts` 宿主契约类型化（`IBoardCommandHost`，core 源码零 `any`）；
+      对齐/分布/微移、PNG 导出、样式写入分块（alignCommands/exportCommand/styleCommands）。
+- [x] `BoardPublicApi` 为 Pick allowlist：`BOARD_PUBLIC_MEMBERS`（64 成员）+
+      编译期分类锁（未归类/重叠/幽灵键三条，boardPublicApi.ts）；桥/命令模块
+      经 `BoardPublicApi` 收窄消费。
+- [x] 类型注册表单源：`WIDGET_RUNTIME`（token + 工厂单源，widgetRuntime.ts），
+      `WidgetDataUnion` 从 `WIDGET_REGISTRY` 派生 + 派生等价锁。
+- 运行时收窄（不导出 internal 字段）需破坏性版本化——挂账。
 
 ### P2 CI / 视觉
 

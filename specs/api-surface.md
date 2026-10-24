@@ -1,8 +1,16 @@
 # 公共 API 收口与 P2 架构收口 — 技术设计
 
-> 状态：评审通过（§9 拍板项全部确认），待实施。实施方按 §5 顺序小步提交；§4 的成员分类表是照抄级契约，
-> 不得临场增删成员。本文属 `specs/` 过程文档：允许实施顺序、验收记录与提交哈希；
-> `docs/` 侧只写当前事实（§7.3 列了要改的段落）。
+> 状态：**已实施完成**（§5 八步全部落地，每步独立提交：4f9fe65 规格入库 →
+> eda5f20 Step1 宿主契约 → 824d2ad Step2 BoardOutputs → 383a5a9 Step3 ActionBar
+> → 4cf2c72 Step4 命令三分 → 8a2bea9 Step5 app.ts 门面化（BoardFacade 兜底
+> rung 2 生效，rung 1 未启用——rung 1 只省 ~15 行不达标且 §3.4 倾向写通道
+> 留 app.ts）→ b7ea3f6 Step6 allowlist → 7eeebc7 Step7 WIDGET_RUNTIME →
+> Step8 文档与实测数字）。
+> 实施中确认的两处规格勘误：`IBoardStreamHost` 补 `shapeService`
+> （defaultShapeType$ 读 shapeService）；§2.1 对 widget.ts L329 的「手写 union」
+> 描述已过时（现状本就逐键引用注册表，Step 7 只换 Object.values 派生 + 加锁）。
+> §4 的成员分类表是照抄级契约；本文属 `specs/` 过程文档：允许实施顺序、
+> 验收记录与提交哈希；`docs/` 侧只写当前事实（§7.3 列了要改的段落）。
 
 ## 0. 一句话
 

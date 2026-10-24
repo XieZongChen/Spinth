@@ -46,6 +46,10 @@ interface SpinthUiState {
 命令模块全部是 `sdk.xxx()` 薄转发：setCursorMode、setPageScale、zoomIn/Out/ToFit、
 undo/redo、removeSelected、copy/cut/paste、图层、ActionBar 样式、脑图节点、对齐/分布。
 
+桥与命令模块经 `BoardPublicApi` 收窄消费（公共面 = allowlist + 编译期分类锁，
+`BOARD_PUBLIC_MEMBERS` 见 core 的 boardPublicApi.ts）：allowlist 漏成员时这两个
+模块先编译红——它们是公开面的真实验证面。
+
 ## 3. DOM UI 与画布坐标同步
 
 ```
