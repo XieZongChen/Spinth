@@ -65,7 +65,7 @@
 
 ### P2 架构收口
 
-- [x] `app.ts` 收敛为门面（243 行，< 400）：查询/销毁/调试/项目门面/配置外移为
+- [x] `app.ts` 收敛为门面（< 400）：查询/销毁/调试/项目门面/配置外移为
       board* 系列文件，17 条流 getter + 31 条命令纯委托上移 `BoardFacade` 基类。
 - [x] `boardCommands.ts` 宿主契约类型化（`IBoardCommandHost`，core 源码零 `any`）；
       对齐/分布/微移、PNG 导出、样式写入分块（alignCommands/exportCommand/styleCommands）。
