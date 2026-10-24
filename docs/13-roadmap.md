@@ -17,6 +17,8 @@
 
 ## 2. 下一阶段优先级
 
+当前下一阶段：公共 API 收口与 P2 架构收口；协同为后置能力（docs/10）。
+
 ### P1 项目导出/导入
 
 - [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
@@ -59,12 +61,11 @@
 - [x] 移动端完整布局断言：390×844 九面矩阵（`mobile.spec.ts` M1–M9），工具坞
       防压缩、脑图按钮钳制、面板纵向兜底同批修复（specs/a11y-mobile A3）。
 - [x] 物理断网（editBlocked）单机不可达不变量：core 单测 + 断网 E2E
-      （specs/a11y-mobile A4）；协同模式下的交互面矩阵待 `wsUrl` 进入启动路径
-      后另行收口（docs/21 §4 边界说明）。
+      （specs/a11y-mobile A4）；单机不传 `wsUrl` → `editBlocked` 恒 false。
 
 ### P2 架构收口
 
-- `app.ts` 继续拆分（当前 1009 行）。
+- `app.ts` 继续拆分（单文件超 400 行即拆，铁律 5）。
 - `boardCommands.ts` 的 `ctx: any` 类型化。
 - `BoardPublicApi` 从 blocklist 改 allowlist。
 - 类型注册表 union/tokens/factories 多源收口。
@@ -92,6 +93,10 @@
 - 单机断网不做 editBlocked 矩阵：无 `wsUrl` 即无阻断路径，用「断言 OfflineBar
   不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
   路径时该测试先红，提醒补矩阵。
-- 可访问性挂账（本轮非目标）：右键菜单键盘协议（roving focus）、工具音色对
-  soft 底对比度八组、200% 文本缩放与安全区（`viewport-fit=cover`）、屏读全量
-  巡检、Linux 视觉基线（既有）。
+- 可访问性挂账：右键菜单键盘协议（roving focus）、工具音色对 soft 底对比度
+  八组、200% 文本缩放与安全区（`viewport-fit=cover` + `env(safe-area-inset-*)`）、
+  屏读全量巡检（画布替代文本、表单标签、焦点顺序、保存状态播报）。
+- 平台挂账：Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存
+  版本 + CSP）。
+- 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
+  docs/21 §4）。

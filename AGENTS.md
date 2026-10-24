@@ -129,5 +129,6 @@ docs/21 §4）、可访问性与移动端收口批次 A（语义色 WCAG AA + �
 当前实测基线：`pnpm verify` 通过；895 单测（core 869 + react 26）；E2E 20 spec /
 186 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9）。
 
-下一阶段重点是公共 API 收口与协同批（右键键盘协议、tool-soft 对比度、200% 缩放/
-安全区、Service Worker 等挂账见 docs/13 §3）。
+下一阶段重点是公共 API 收口与 P2 架构收口（`BoardPublicApi` allowlist、
+`boardCommands` 类型化、`app.ts` 拆分、类型注册表单源）；协同为后置能力，不属于
+本阶段。可访问性/平台/协同挂账见 docs/13 §2–§3。

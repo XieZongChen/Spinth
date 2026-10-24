@@ -54,11 +54,11 @@ export function relativeLuminance({ r, g, b }: Rgb): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-/** 对比度比值（1~21，取整到两位小数） */
+/** 对比度比值（1~21，两位小数）。向下取整：4.496 不能被进位成 4.50 越过阈值 */
 export function contrastRatio(fg: string, bg: string): number {
   const l1 = relativeLuminance(parseColor(fg));
   const l2 = relativeLuminance(parseColor(bg));
   const hi = Math.max(l1, l2);
   const lo = Math.min(l1, l2);
-  return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+  return Math.floor(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
 }

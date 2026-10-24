@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { MIND_ADD_BTN, buildMindAddSlots } from '../mindAddLayout';
+import { MIND_ADD_BTN, MIND_ADD_GAP, buildMindAddSlots } from '../mindAddLayout';
 
 /**
  * 脑图 +/- 槽位钳制（批次 A · D8）：四边钳制、根/非根、左/右/同级
- * 槽位数量、居中不位移。BTN=28、GAP=8、边距 4（magic number 单源在
- * mindAddLayout.ts）。
+ * 槽位数量、居中不位移。BTN/GAP/边距常量从 mindAddLayout.ts 导入——
+ * 单源，调整 GAP 时测试与实现一起走。
  */
 
 const AREA = { width: 390, height: 800 };
@@ -22,9 +22,9 @@ describe('buildMindAddSlots（批次 A · 脑图按钮视口钳制）', () => {
     });
     const left = slots.find((s) => s.key === 'left')!;
     const right = slots.find((s) => s.key === 'right')!;
-    expect(left.left).toBe(bounds.x - MIND_ADD_BTN - 8); // 150-28-8=114
+    expect(left.left).toBe(bounds.x - MIND_ADD_BTN - MIND_ADD_GAP);
     expect(left.top).toBe(bounds.y + bounds.height / 2 - MIND_ADD_BTN / 2);
-    expect(right.left).toBe(bounds.x + bounds.width + 8); // 248
+    expect(right.left).toBe(bounds.x + bounds.width + MIND_ADD_GAP);
     // 根节点无同级槽
     expect(slots.find((s) => s.key === 'sibling')).toBeUndefined();
     expect(slots.length).toBe(2);
