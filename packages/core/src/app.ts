@@ -14,15 +14,11 @@ import { LayerService } from './platform/layer/layerService';
 import { KeyboardService } from './platform/keyboard/keyboardService';
 import { ClipboardService } from './platform/clipboard/clipboardService';
 import { SHAPE_TYPE_OPTIONS, ShapeService } from './widgets/shape/shapeService';
-import { FONT_SIZE_OPTIONS } from './widgets/text/textVm';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
-import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 import { LineService } from './widgets/line/lineService';
-import { PEN_COLOR_PALETTE, PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { PenService } from './widgets/pen/penService';
 import { EraserService } from './widgets/eraser/eraserService';
-import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { StickyService } from './widgets/sticky/stickyService';
 import { ImageService } from './widgets/image/imageService';
 import { AssetStore } from './platform/dataEngine/assetStore';
@@ -37,7 +33,6 @@ import type {
   IProjectImportResult,
 } from './types/projectFile';
 import { MindService } from './widgets/mind/mindService';
-import { BRANCH_COLORS } from './widgets/mind/mindMapModel';
 import {
   ContextMenuService,
   type IContextMenuState,
@@ -51,10 +46,9 @@ import { CullingService } from './platform/spatial/cullingService';
 import { unionRects } from './common/geometry';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
 import type { IBoardCommandHost } from './boardHost';
+import { buildActionBarSchema } from './boardActionBar';
 import type {
   CursorMode,
-  IActionBarOption,
-  IActionBarItem,
   IActionBarSchema,
   IBaseWidgetVm,
   IHistoryService,
@@ -64,83 +58,6 @@ import type {
   IViewportService,
   IVmEngineService,
 } from './types';
-
-/** ActionBar 色板（视觉规格：与各控件 Service 默认色一致的语义色） */
-const SHAPE_PALETTE = ['#e8f0fb', '#d1fae5', '#fde8e8', '#fef3c7', '#ede9fe', '#f1f5f9'];
-/** 连线/画笔共用色板（与 PEN_COLOR_PALETTE 同源——2026-10-11 提名导出消内联双份） */
-const LINE_PALETTE: readonly string[] = PEN_COLOR_PALETTE;
-
-/** 连线箭头选项（起点/终点两个字段共用；icon = @spinth/react Icon 语义名） */
-const ARROW_BAR_OPTIONS: IActionBarOption[] = [
-  { id: 'none', label: '无箭头', icon: 'arrow-none' },
-  { id: 'arrow', label: '开箭头', icon: 'arrow-open' },
-  { id: 'solid', label: '实心箭头', icon: 'arrow-solid' },
-  { id: 'diamond', label: '菱形箭头', icon: 'arrow-diamond' },
-];
-
-/** 字号档位（docs/17 §4 排版打磨批 B：option.id 为数字串，updateSelectedStyle
- *  侧数值化；text 型选项——PopoverControl 文本渲染分支） */
-
-/** 行高档位（lineHeight per-实例批：倍数语义；TEXT/STICKY 专属，LINE 不暴露）。
- *  含各类型默认值（TEXT/SHAPE 1.5、STICKY 1.45）——默认档可显可选可切回；
- *  value 匹配不到 option 时触发钮会落 FALLBACK 圆点（2026-10-16 用户实测揪出） */
-const LINE_HEIGHT_OPTIONS: IActionBarOption[] = [1.2, 1.4, 1.45, 1.5, 1.6, 2.0].map((n) => ({
-  id: String(n),
-  label: `${n} 倍行高`,
-  text: String(n),
-}));
-
-/** 文字对齐三态（TEXT/STICKY） */
-const ALIGN_OPTIONS: IActionBarOption[] = [
-  { id: 'left', label: '左对齐', icon: 'align-left' },
-  { id: 'center', label: '居中', icon: 'align-center' },
-  { id: 'right', label: '右对齐', icon: 'align-right' },
-];
-
-/** 排版项工厂（value 显式带控件常量默认——触发钮显示当前档位/态）；
- *  行高与对齐同为 TEXT/STICKY 专属（LINE 单行居多不暴露，见批 3 同源化注记） */
-const typoItems = (
-  data: Record<string, unknown>,
-  def: { fontSize: number; align: 'left' | 'center' | 'right'; lineHeight: number },
-  withAlign: boolean,
-  withLineHeight: boolean,
-): IActionBarItem[] => {
-  const items: IActionBarItem[] = [
-    {
-      id: 'fontSize',
-      kind: 'popover',
-      label: '字号',
-      value: String(data.fontSize ?? def.fontSize),
-      options: FONT_SIZE_OPTIONS,
-    },
-    {
-      id: 'textColor',
-      kind: 'popover',
-      label: '文字颜色',
-      value: String(data.textColor ?? ''),
-      options: LINE_PALETTE.map((hex) => ({ id: hex, label: hex, swatch: hex })),
-    },
-  ];
-  if (withLineHeight) {
-    items.push({
-      id: 'lineHeight',
-      kind: 'popover',
-      label: '行高',
-      value: String(data.lineHeight ?? def.lineHeight),
-      options: LINE_HEIGHT_OPTIONS,
-    });
-  }
-  if (withAlign) {
-    items.push({
-      id: 'align',
-      kind: 'popover',
-      label: '对齐',
-      value: String(data.align ?? def.align),
-      options: ALIGN_OPTIONS,
-    });
-  }
-  return items;
-};
 
 export interface IBoardConfig {
   docId: string;
@@ -434,257 +351,11 @@ export class BoardSDK implements IBoardCommandHost {
     };
   }
 
-  /**
-   * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
-   * 控件类型出样式项，多选仅通用动作。schema 是纯数据（字段名 + 中文文案 +
-   * 选项图标/色块 + 当前值），@spinth/react 按 kind 渲染——多级形态：popover
-   * 字段一级只占「当前值图标 + ▾」一个按钮位，选项收进二级面板；文字说明
-   * 收进 tooltip（label）。**各类型只维护本函数内的 schema，样式与交互全部
-   * 由 @spinth/react 统一承载**。
-   */
+  /** ActionBar schema v2（docs/12 §4/§5）——构建器在 boardActionBar.ts
+   *  （specs/api-surface Step 3 迁出，逐字段语义不变）；多选参与数经回调注入
+   *  （只在多选分支计算，与迁移前调用时机一致） */
   getActionBarSchema(): IActionBarSchema | null {
-    const ids = this.selector?.selected$.value ?? [];
-    if (ids.length === 0) return null;
-    if (ids.length > 1) {
-      // 多选：几何命令八键（docs/05 §7）+ react 侧通用删除。禁用态按**可移动
-      // 参与数**（与命令参与集同源 resolver——锚定线不计，2026-10-10 审查处置：
-      // 按选中数会让「形状+锚定线」2 选时对齐键可点但 no-op 死点击）；分布键
-      // <3 参与者显示但禁用（参考同款）。参与数按组折叠后计（docs/18 §5）：
-      // 整组 = 1 个参与体
-      const participants = this.commands.collectCollapsedParticipants().length;
-      const alignDisabled = participants < 2;
-      const distDisabled = participants < 3;
-      // 组切换单钮（docs/18 §3.4）：恰一整组/兜底态显示「解组」，其余「编组」
-      // （合并/收编/改籍）；schema 随 widgetsChanged$ 重算——编组落库后选区
-      // 不变，按钮自动翻转
-      const g = this.group?.getGroupActionState() ?? { id: 'group' as const, disabled: true };
-      return {
-        type: '*',
-        items: [
-          {
-            id: 'align-left',
-            kind: 'action',
-            label: '左对齐',
-            icon: 'obj-align-left',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'align-hcenter',
-            kind: 'action',
-            label: '水平居中对齐',
-            icon: 'obj-align-hcenter',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'align-right',
-            kind: 'action',
-            label: '右对齐',
-            icon: 'obj-align-right',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'align-top',
-            kind: 'action',
-            label: '顶对齐',
-            icon: 'obj-align-top',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'align-vcenter',
-            kind: 'action',
-            label: '垂直居中对齐',
-            icon: 'obj-align-vcenter',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'align-bottom',
-            kind: 'action',
-            label: '底对齐',
-            icon: 'obj-align-bottom',
-            disabled: alignDisabled,
-          },
-          {
-            id: 'dist-h',
-            kind: 'action',
-            label: '横向分布',
-            icon: 'obj-dist-h',
-            disabled: distDisabled,
-          },
-          {
-            id: 'dist-v',
-            kind: 'action',
-            label: '纵向分布',
-            icon: 'obj-dist-v',
-            disabled: distDisabled,
-          },
-          {
-            id: g.id,
-            kind: 'action',
-            label: g.id === 'group' ? '编组' : '解组',
-            icon: g.id,
-            disabled: g.disabled,
-          },
-        ],
-      };
-    }
-    const vm = this.vmEngine?.getVmById(ids[0]!);
-    const model = vm ? this.engine?.getModelById(vm.id) : undefined;
-    if (!vm || !model) return null;
-    const data = model.toJSON() as unknown as Record<string, unknown>;
-    const swatches = (palette: readonly string[]): IActionBarOption[] =>
-      palette.map((hex) => ({ id: hex, label: hex, swatch: hex }));
-    switch (vm.type) {
-      case 'SHAPE':
-        return {
-          type: vm.type,
-          items: [
-            // 图形类型四态（身份属性放首位；切换几何不变、文字内接随型自动重排
-            // ——insetRectOf 渲染现成；解锁 ellipse/diamond 的 UI 入口）。
-            // 选项与工具坞二级菜单同源（SHAPE_TYPE_OPTIONS 单源，2026-10-11）
-            {
-              id: 'shapeType',
-              kind: 'popover',
-              label: '图形类型',
-              value: String(data.shapeType ?? 'rect'),
-              options: SHAPE_TYPE_OPTIONS,
-            },
-            {
-              id: 'color',
-              kind: 'popover',
-              label: '填充色',
-              value: String(data.color ?? ''),
-              options: swatches(SHAPE_PALETTE),
-            },
-            {
-              id: 'borderStyle',
-              kind: 'popover',
-              label: '边框',
-              value: String(data.borderStyle ?? 'solid'),
-              options: [
-                { id: 'solid', label: '实线', icon: 'border-solid' },
-                { id: 'dashed', label: '虚线', icon: 'border-dashed' },
-                { id: 'none', label: '无边框', icon: 'border-none' },
-              ],
-            },
-            // 图形内文字排版（docs/17 §6）：def.align 传 center——形状文字默认居中，
-            // 触发钮显示正确档位；字号/行高档后 reflowHeight 经 autoHeight 重排
-            ...typoItems(data, { fontSize: 16, align: 'center', lineHeight: 1.5 }, true, true),
-          ],
-        };
-      case 'LINE':
-        return {
-          type: vm.type,
-          items: [
-            // 选项与工具坞二级菜单同源（LINE_TYPE_OPTIONS 单源，2026-10-11）
-            {
-              id: 'lineType',
-              kind: 'popover',
-              label: '线型',
-              value: String(data.lineType ?? 'STRAIGHT'),
-              options: LINE_TYPE_OPTIONS,
-            },
-            {
-              id: 'strokeWidth',
-              kind: 'popover',
-              label: '线宽',
-              value: String(data.strokeWidth ?? 2),
-              options: LINE_WIDTH_OPTIONS,
-            },
-            {
-              id: 'dashed',
-              kind: 'toggle',
-              label: '虚线',
-              icon: 'select-all',
-              value: Boolean(data.dashed),
-            },
-            {
-              id: 'startArrow',
-              kind: 'popover',
-              label: '起点箭头',
-              value: String(data.startArrow ?? 'none'),
-              options: ARROW_BAR_OPTIONS,
-            },
-            {
-              id: 'endArrow',
-              kind: 'popover',
-              label: '终点箭头',
-              value: String(data.endArrow ?? 'arrow'),
-              options: ARROW_BAR_OPTIONS,
-            },
-            {
-              id: 'color',
-              kind: 'popover',
-              label: '颜色',
-              value: String(data.color ?? ''),
-              options: swatches(LINE_PALETTE),
-            },
-            ...typoItems(data, { fontSize: 12, align: 'left', lineHeight: 1.4 }, false, false),
-          ],
-        };
-      case 'PEN':
-        return {
-          type: vm.type,
-          items: [
-            {
-              id: 'strokeWidth',
-              kind: 'popover',
-              label: '笔宽',
-              value: String(data.strokeWidth ?? 4),
-              options: PEN_WIDTH_OPTIONS,
-            },
-            {
-              id: 'color',
-              kind: 'popover',
-              label: '颜色',
-              value: String(data.color ?? ''),
-              options: swatches(LINE_PALETTE),
-            },
-          ],
-        };
-      case 'STICKY':
-        return {
-          type: vm.type,
-          items: [
-            {
-              id: 'color',
-              kind: 'popover',
-              label: '便签色',
-              value: String(data.color ?? '#fff3b0'),
-              options: STICKY_COLOR_OPTIONS,
-            },
-            ...typoItems(data, { fontSize: 15, align: 'left', lineHeight: 1.45 }, true, true),
-          ],
-        };
-      case 'TEXT':
-        // 排版项（docs/17 §4：value 带控件常量默认——触发钮显示当前档位/态）
-        return {
-          type: vm.type,
-          items: typoItems(data, { fontSize: 16, align: 'left', lineHeight: 1.5 }, true, true),
-        };
-      case 'IMAGE':
-        return { type: vm.type, items: [] };
-      case 'MIND_MAP': {
-        // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色——自身落盘
-        // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）
-        if (this.mindService?.isNodeFocused()) {
-          return {
-            type: vm.type,
-            items: [
-              {
-                id: 'lineColor',
-                kind: 'popover',
-                label: '分支色',
-                value: this.mindService.getFocusedLineColor() ?? '',
-                options: swatches(BRANCH_COLORS),
-              },
-            ],
-          };
-        }
-        return { type: vm.type, items: [] };
-      }
-      default:
-        return { type: vm.type, items: [] };
-    }
+    return buildActionBarSchema(this, () => this.commands.collectCollapsedParticipants().length);
   }
 
   /** ActionBar 样式写入：一个事务覆盖全部选中（schema 字段经 zod strip 防越权） */
