@@ -490,7 +490,7 @@ await context.setOffline(false);
   容易被读成「断网刷新也能恢复」的歧义。
 - `docs/21 §4` 末尾：把「另行收口」改成上述事实 + 「`OfflineBar` 仅协同宿主可达」。
 - `docs/12 §4` 组件表 `OfflineBar` 行：注明「协同宿主用；单机不可达」。
-- `docs/13 §3` 决策台账加一条：单机 `editBlocked` 不可达，矩阵留到协同批。
+- `docs/13 §3` 决策台账加一条：单机 `editBlocked` 不可达，矩阵留到协同阶段（后置）。
 
 ### 8.5 部署边界（GitHub Pages）
 
@@ -581,7 +581,7 @@ npx playwright test --grep "@visual"
 | `docs/12`   | §5 令牌     | 三个新令牌 + `text-3` 新值 + 角色分工（danger 图形 / danger-ink 文字）                                     |
 | `docs/12`   | §6 启动链路 | 错误态第 4 步补语义（role/焦点/详情）与 390 行为                                                           |
 | `docs/12`   | 移动端段    | 390 矩阵覆盖范围与 `mobile.spec` 锚点                                                                      |
-| `docs/21`   | §4 末尾     | 单机 `editBlocked` 不可达；矩阵留到协同批                                                                  |
+| `docs/21`   | §4 末尾     | 单机 `editBlocked` 不可达；矩阵留到协同阶段（后置）                                                        |
 | `docs/10`   | §4          | `wsUrl` → `blockOnOffline` 机制与不变量；「刷新恢复」改为「有网刷新后从 IndexedDB 恢复（离线刷新不支持）」 |
 | `docs/15`   | §2 基线     | 单测/spec/用例数；新增 a11y/mobile 专项一行                                                                |
 | `docs/13`   | §2 P2       | 勾掉三项；§3 加两条决策（颜色角色、单机断网）                                                              |
