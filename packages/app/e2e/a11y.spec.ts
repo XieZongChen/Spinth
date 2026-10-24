@@ -198,3 +198,57 @@ test.describe('实际元素对比度（真实 DOM 计算样式）', () => {
     });
   }
 });
+
+test.describe('错误态（批次 A · A2：IndexedDB 不可用 → ErrorState）', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`${theme}：role=alert + 焦点落标题 + 390 无横滚 + 对比度`, async ({ page }) => {
+      // D6：注入生产路径真实失败源——indexedDB getter 抛错 → openDb reject →
+      // composeBoard reject → Board catch → initError；不加生产测试钩子
+      await page.addInitScript(() => {
+        Object.defineProperty(window, 'indexedDB', {
+          configurable: true,
+          get(): never {
+            throw new DOMException('IndexedDB blocked (e2e)', 'InvalidStateError');
+          },
+        });
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`/?doc=e2e-a11y-err-${theme}-${Date.now()}`);
+
+      const state = page.locator('[data-spinth-error-state]');
+      await expect(state).toBeVisible({ timeout: 20_000 });
+      await expect(state).toHaveAttribute('role', 'alert');
+      // 标题挂载即聚焦（D5：读屏先读标题）
+      await expect(page.getByRole('heading', { name: '画布初始化失败' })).toBeFocused();
+      await expect(page.locator('[data-spinth-error-detail]')).toContainText('IndexedDB blocked');
+      await expect(page.getByText('正在恢复画布…')).toHaveCount(0);
+
+      // 390×844：错误卡四边在视口内 + 文档不横向滚动
+      const box = await state.boundingBox();
+      expect(box, 'error-state boundingBox').not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(-0.5);
+      expect(box!.y).toBeGreaterThanOrEqual(-0.5);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390.5);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(844.5);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        390,
+      );
+
+      // 颜色断言（两主题各跑；深色切 data-theme 即时生效，DOM 计算样式）
+      await setTheme(page, theme);
+      await assertElementPairs(page, theme === 'light' ? '浅色' : '深色', [
+        {
+          label: '错误态标题 text-danger-ink / canvas',
+          selector: '[data-spinth-error-heading]',
+          bgSelector: '[data-spinth-error-state]',
+          min: 4.5,
+        },
+        {
+          label: '错误态主按钮 text-on-accent / accent-fill',
+          selector: '[data-spinth-error-state] button',
+          min: 4.5,
+        },
+      ]);
+    });
+  }
+});

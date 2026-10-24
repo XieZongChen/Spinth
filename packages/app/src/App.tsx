@@ -8,6 +8,7 @@ import {
   MindAddButtons,
   ToolGhost,
   OfflineBar,
+  ErrorState,
   Icon,
   useSpinthStore,
 } from '@spinth/react';
@@ -180,20 +181,18 @@ export function App() {
         <OfflineBar />
         {loading && initError ? (
           // 初始化失败出口（Batch 1 · 1.14）：IndexedDB 禁用/配额满等——
-          // 此前永远停在「正在恢复画布…」无提示无重试
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
-            <p className="text-sm font-semibold text-danger-ink">画布初始化失败</p>
-            <p className="max-w-md text-xs text-ink-3">{initError}</p>
-            <p className="max-w-md text-xs text-ink-3">
-              浏览器存储不可用（私密模式 / 配额满）时无法恢复本地画布，可清理站点数据后重试
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="rounded-md bg-accent-fill px-4 py-1.5 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover"
-            >
-              重试
-            </button>
+          // 此前永远停在「正在恢复画布…」无提示无重试。
+          // 呈现收敛到共享 ErrorState（批次 A · A2）：role=alert + 标题聚焦 +
+          // 详情可滚；文案顺序「标题→建议→详情」
+          <div className="absolute inset-0 z-10 bg-canvas">
+            <ErrorState
+              kind="init"
+              title="画布初始化失败"
+              description="浏览器存储不可用（私密模式 / 配额满）时无法恢复本地画布，可清理站点数据后重试"
+              detail={initError}
+              actionLabel="重试"
+              onAction={() => window.location.reload()}
+            />
           </div>
         ) : (
           loading && (
