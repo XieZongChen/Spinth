@@ -13,8 +13,8 @@
 export const MIND_ADD_BTN = 28;
 /** 按钮与节点边缘的间距 */
 export const MIND_ADD_GAP = 8;
-/** 视口边最小留白 */
-const MARGIN = 4;
+/** 视口边最小留白（测试同源导入，避免用例里再手写 4） */
+export const MIND_ADD_MARGIN = 4;
 
 export interface MindAddBounds {
   x: number;
@@ -30,8 +30,8 @@ export interface MindAddSlot {
 }
 
 function clamp(v: number, areaSize: number): number {
-  const max = areaSize - MIND_ADD_BTN - MARGIN;
-  return Math.min(Math.max(v, MARGIN), Math.max(MARGIN, max));
+  const max = areaSize - MIND_ADD_BTN - MIND_ADD_MARGIN;
+  return Math.min(Math.max(v, MIND_ADD_MARGIN), Math.max(MIND_ADD_MARGIN, max));
 }
 
 export function buildMindAddSlots(input: {
