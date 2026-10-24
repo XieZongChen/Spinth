@@ -13,6 +13,7 @@ export function OfflineBar() {
   return (
     <div
       role="status"
+      data-spinth-offline-bar=""
       className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-danger bg-danger-soft px-4 py-1.5 text-[12px] font-bold text-danger-ink shadow-pop"
     >
       网络已断开，编辑暂不可用

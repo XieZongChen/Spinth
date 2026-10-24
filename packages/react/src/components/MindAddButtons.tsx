@@ -74,6 +74,7 @@ export function MindAddButtons() {
           type="button"
           title={s.title}
           aria-label={s.title}
+          data-spinth-mind-add={s.key}
           onClick={s.onClick}
           onPointerDown={(e) => e.stopPropagation()}
           style={{ left: s.left, top: s.top, width: BTN, height: BTN }}

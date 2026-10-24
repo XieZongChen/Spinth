@@ -129,6 +129,7 @@ export function Toolbar() {
     <div
       role="toolbar"
       aria-label="画板工具"
+      data-spinth-toolbar=""
       className="absolute bottom-5 left-1/2 z-10 flex max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-0.5 overflow-x-visible rounded-full border border-edge bg-surface p-1.5 shadow-dock max-md:bottom-20 max-md:overflow-x-auto md:bottom-5 md:max-w-none"
     >
       {tools.map((t, i) => {

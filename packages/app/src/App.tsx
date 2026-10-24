@@ -166,7 +166,10 @@ export function App() {
             className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center"
             aria-hidden
           >
-            <div className="flex flex-col items-center gap-2 rounded-2xl bg-surface/80 px-6 py-4 text-center backdrop-blur-sm">
+            <div
+              data-spinth-empty-hint=""
+              className="flex flex-col items-center gap-2 rounded-2xl bg-surface/80 px-6 py-4 text-center backdrop-blur-sm"
+            >
               <p className="text-sm font-semibold text-ink-2">空画布</p>
               <p className="text-xs text-ink-3">R 拖出矩形 · S 便签 · M 脑图 · L 连线 · P 画笔</p>
             </div>

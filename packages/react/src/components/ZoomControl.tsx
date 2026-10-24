@@ -11,6 +11,7 @@ export function ZoomControl() {
     <div
       role="group"
       aria-label="缩放"
+      data-spinth-zoom=""
       className="absolute bottom-5 right-5 z-10 flex items-center gap-0.5 rounded-full border border-edge bg-surface p-1 shadow-dock text-ink-2"
     >
       <button
