@@ -23,7 +23,7 @@ export function ReadOnlyNotice() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white"
+          className="rounded-md bg-accent-fill px-3 py-1 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover"
         >
           刷新
         </button>

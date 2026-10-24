@@ -146,13 +146,13 @@ export function ContextMenu() {
             onClick={item.action}
             className={`group flex h-[34px] w-full items-center gap-2.5 px-2.5 text-[13px] font-semibold transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
               item.danger
-                ? 'text-danger hover:bg-danger-soft'
+                ? 'text-danger-ink hover:bg-danger-soft'
                 : 'text-ink-2 hover:bg-surface-hover hover:text-ink'
             }`}
           >
             <span
               className={`flex h-5 w-5 items-center justify-center ${
-                item.danger ? 'text-danger' : 'text-ink-3 group-hover:text-ink-2'
+                item.danger ? 'text-danger-ink' : 'text-ink-3 group-hover:text-ink-2'
               }`}
             >
               {item.icon && <Icon name={item.icon} size={15} strokeWidth={1.9} />}

@@ -168,7 +168,7 @@ export function ActionBar() {
           type="button"
           aria-label="删除"
           onClick={() => spinthCommands.removeSelected()}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-ink-2 transition-colors duration-100 hover:bg-danger-soft hover:text-danger"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-ink-2 transition-colors duration-100 hover:bg-danger-soft hover:text-danger-ink"
         >
           <Icon name="trash" size={15} strokeWidth={2} />
         </button>

@@ -27,16 +27,24 @@
   /* 墨色文本梯度 */
   --spinth-text-1: #1d1d24;
   --spinth-text-2: #5d5d6b;
-  --spinth-text-3: #6f6f7f; /* 1.22：白底 4.6:1（原 #9b9ba7 2.7:1 不达 WCAG AA） */
+  /* 三级文本按「最暗实际底 surface-hover」定值（WCAG 2.2 AA 4.5:1，批次 A）：
+     surface-hover 上 5.00、surface 上 5.53、canvas 上 5.25 */
+  --spinth-text-3: #67677a;
 
-  /* 火花紫（品牌强调，铬件中唯一的彩色） */
+  /* 火花紫（品牌强调，铬件中唯一的彩色）。
+     accent 是描边/焦点环/图标色（对 canvas ≥3:1 即可）；填充按钮一律走
+     accent-fill + on-accent（4.5:1 文字对比），不用品牌紫压白字 */
   --spinth-accent: #7c5cfc;
-  --spinth-accent-strong: #6a47f2;
+  --spinth-accent-strong: #6a47f2; /* 宿主兼容保留；仓内填充按钮已迁移 accent-fill */
   --spinth-accent-soft: #f0edff;
+  --spinth-accent-fill: #6a47f2;
+  --spinth-accent-fill-hover: #5b39e6;
   --spinth-on-accent: #ffffff;
 
-  /* 危险 */
+  /* 危险。danger 是图形色（圆点/进度/描边，≥3:1）；文字与图标一律
+     danger-ink（4.5:1）——按角色拆分而非深浅拆分（批次 A D1） */
   --spinth-danger: #e5484d;
+  --spinth-danger-ink: #b42318;
   --spinth-danger-soft: #fdecec;
 
   /* 警示（存储配额 warn 等：与 danger 分档，不拿工具色充当状态色） */
@@ -78,14 +86,18 @@
 
   --spinth-text-1: #ededf2;
   --spinth-text-2: #a6a6b3;
-  --spinth-text-3: #8b8b98; /* 1.22：#1b1b22 底 ≈4.6:1（原 #6e6e7b ≈3:1） */
+  /* surface-hover（最亮实际底）4.87、surface 5.53、canvas 6.31（批次 A） */
+  --spinth-text-3: #9c9ca9;
 
   --spinth-accent: #9d87ff;
   --spinth-accent-strong: #b3a1ff;
   --spinth-accent-soft: #2c2650;
+  --spinth-accent-fill: #9d87ff;
+  --spinth-accent-fill-hover: #b3a1ff;
   --spinth-on-accent: #17171e;
 
   --spinth-danger: #ff6369;
+  --spinth-danger-ink: #ff6369;
   --spinth-danger-soft: #3a2226;
 
   --spinth-warning: #fbbf24;

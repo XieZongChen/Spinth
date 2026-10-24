@@ -22,7 +22,7 @@ const SECTION_CLASS = 'mt-2 border-t border-edge pt-2 first:mt-0 first:border-t-
 const TITLE_CLASS = 'text-xs font-semibold text-ink-2';
 const BODY_CLASS = 'mt-1 text-xs leading-5 text-ink-3';
 const ACTION_CLASS =
-  'mt-1.5 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50';
+  'mt-1.5 rounded-md bg-accent-fill px-3 py-1 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover disabled:cursor-not-allowed disabled:opacity-50';
 
 /** 持久化授权文案（D8：只说「降低被清理的风险」，不承诺不丢） */
 function persistenceText(status: IStorageStatus): string {
@@ -82,14 +82,14 @@ export function StoragePanel(props: StoragePanelProps) {
         {persistState === 'failed' ? (
           <p
             role="alert"
-            className="mt-1 flex items-center gap-2 text-xs font-semibold text-danger"
+            className="mt-1 flex items-center gap-2 text-xs font-semibold text-danger-ink"
           >
             保存失败
             <button
               type="button"
               data-spinth-storage-retry=""
               onClick={props.onRetryPersist}
-              className="rounded-md bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger transition-colors duration-100 hover:text-danger"
+              className="rounded-md bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger-ink transition-colors duration-100 hover:text-danger-ink"
             >
               重试保存
             </button>
@@ -164,7 +164,7 @@ export function StoragePanel(props: StoragePanelProps) {
             {status.pressure === 'critical' && (
               <p
                 role="alert"
-                className="mt-1.5 rounded-md bg-danger-soft px-2 py-1 text-xs font-semibold text-danger"
+                className="mt-1.5 rounded-md bg-danger-soft px-2 py-1 text-xs font-semibold text-danger-ink"
               >
                 空间不足，请尽快导出备份。
               </p>

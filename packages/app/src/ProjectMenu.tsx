@@ -318,7 +318,7 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
               <button
                 type="button"
                 onClick={openPendingDoc}
-                className="mt-1.5 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white"
+                className="mt-1.5 rounded-md bg-accent-fill px-3 py-1 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover"
               >
                 打开新画布
               </button>
@@ -337,7 +337,7 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
           {error !== null && (
             <p
               role="alert"
-              className="mt-1.5 border-t border-edge px-2.5 py-2 text-xs leading-5 text-danger"
+              className="mt-1.5 border-t border-edge px-2.5 py-2 text-xs leading-5 text-danger-ink"
             >
               {error}
             </p>

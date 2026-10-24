@@ -28,9 +28,12 @@
   --color-accent: var(--spinth-accent);
   --color-accent-strong: var(--spinth-accent-strong);
   --color-accent-soft: var(--spinth-accent-soft);
+  --color-accent-fill: var(--spinth-accent-fill);
+  --color-accent-fill-hover: var(--spinth-accent-fill-hover);
   --color-on-accent: var(--spinth-on-accent);
 
   --color-danger: var(--spinth-danger);
+  --color-danger-ink: var(--spinth-danger-ink);
   --color-danger-soft: var(--spinth-danger-soft);
 
   --color-warning: var(--spinth-warning);

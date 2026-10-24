@@ -24,14 +24,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, IErrorBoun
     if (this.state.error) {
       return (
         <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
-          <p className="text-sm font-semibold text-danger">页面出现异常</p>
+          <p className="text-sm font-semibold text-danger-ink">页面出现异常</p>
           <p className="max-w-md text-xs text-ink-3">
             {String(this.state.error.message ?? this.state.error)}
           </p>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-white"
+            className="rounded-md bg-accent-fill px-4 py-1.5 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover"
           >
             重新加载
           </button>

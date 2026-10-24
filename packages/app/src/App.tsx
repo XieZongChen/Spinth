@@ -80,7 +80,10 @@ export function App() {
         <div className="flex min-w-0 items-center gap-2.5">
           <BrandMark className="h-7 w-auto" />
           <span className="text-[15px] font-extrabold tracking-tight">spinth</span>
-          <span className="ml-1 min-w-0 truncate rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3">
+          <span
+            data-spinth-doc-id=""
+            className="ml-1 min-w-0 truncate rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3"
+          >
             {docId}
           </span>
         </div>
@@ -179,7 +182,7 @@ export function App() {
           // 初始化失败出口（Batch 1 · 1.14）：IndexedDB 禁用/配额满等——
           // 此前永远停在「正在恢复画布…」无提示无重试
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
-            <p className="text-sm font-semibold text-danger">画布初始化失败</p>
+            <p className="text-sm font-semibold text-danger-ink">画布初始化失败</p>
             <p className="max-w-md text-xs text-ink-3">{initError}</p>
             <p className="max-w-md text-xs text-ink-3">
               浏览器存储不可用（私密模式 / 配额满）时无法恢复本地画布，可清理站点数据后重试
@@ -187,7 +190,7 @@ export function App() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-white"
+              className="rounded-md bg-accent-fill px-4 py-1.5 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover"
             >
               重试
             </button>
