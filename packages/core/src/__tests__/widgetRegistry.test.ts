@@ -1,8 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type * as z from 'zod';
 import { WIDGET_REGISTRY, WidgetDataUnion, type IWidgetData, ShapeSchema } from '../types/widget';
-import { WIDGET_TOKENS } from '../tokens';
-import { WIDGET_FACTORIES } from '../types/widgetFactories';
+import { WIDGET_RUNTIME } from '../widgetRuntime';
 import type { IRect } from '../common/geometry';
 
 /**
@@ -77,16 +76,26 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
   });
 });
 
-describe('WIDGET_TOKENS / WIDGET_FACTORIES 键集一致（第四刀护栏）', () => {
+describe('WIDGET_RUNTIME 单源（三表合一护栏，specs/api-surface Step 7）', () => {
   // 静态 import（P0 修复：测试体内动态 import 在并发/coverage 下拉全 widget/
   // PIXI 链路曾超默认 5s 超时——单测门禁可复现红）
-  it('三表键集 ≡（注册表/token 表/工厂表）', () => {
+  it('运行时表键集 ≡ 注册表；token 唯一；工厂可调用', () => {
     const reg = Object.keys(WIDGET_REGISTRY).sort();
-    expect(Object.keys(WIDGET_TOKENS).sort()).toEqual(reg);
-    expect(Object.keys(WIDGET_FACTORIES).sort()).toEqual(reg);
-    for (const f of Object.values(WIDGET_FACTORIES)) {
-      expect(typeof f.model).toBe('function');
-      expect(typeof f.vm).toBe('function');
+    expect(Object.keys(WIDGET_RUNTIME).sort()).toEqual(reg);
+    const modelKeys = Object.values(WIDGET_RUNTIME).map((e) => e.modelToken.key);
+    const vmKeys = Object.values(WIDGET_RUNTIME).map((e) => e.vmToken.key);
+    expect(new Set(modelKeys).size).toBe(modelKeys.length); // model token 互异
+    expect(new Set(vmKeys).size).toBe(vmKeys.length); // vm token 互异
+    expect(new Set([...modelKeys, ...vmKeys]).size).toBe(modelKeys.length + vmKeys.length);
+    for (const e of Object.values(WIDGET_RUNTIME)) {
+      expect(typeof e.createModel).toBe('function');
+      expect(typeof e.createVm).toBe('function');
     }
+  });
+
+  it('union 键锁（类型级）：WidgetDataUnion 判别键 ≡ 注册表键集', () => {
+    expectTypeOf<z.infer<typeof WidgetDataUnion>['type']>().toEqualTypeOf<
+      keyof typeof WIDGET_REGISTRY
+    >();
   });
 });

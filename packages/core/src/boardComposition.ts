@@ -2,9 +2,8 @@ import type { IBoardConfig } from './boardConfig';
 import type { Token } from './platform/registry/serviceRegistry';
 import type { IBaseModel, IBaseWidgetVm, IBaseWidgetVm as _IVm } from './types';
 import { Rectangle } from 'pixi.js';
-import { WIDGET_TOKENS } from './tokens';
 import { Tokens } from './tokens';
-import { WIDGET_FACTORIES } from './types/widgetFactories';
+import { WIDGET_RUNTIME } from './widgetRuntime';
 import { ViewportService } from './platform/viewport/viewportService';
 import { DataEngineService } from './platform/dataEngine/dataEngineService';
 import { VmEngineService } from './platform/vmEngine/vmEngineService';
@@ -64,14 +63,14 @@ export async function composeBoard(
 ): Promise<void> {
   // 1. 同步构造（vmEngine 必须先于 engine.initialize 订阅，否则 IndexedDB/ws
   //    恢复的数据事件在订阅前发出会被普通 Subject 丢失——刷新恢复失效）
-  // 控件 Model/Vm 装配走注册表单循环（Batch 2 第四刀）：加新类型只需
-  // WIDGET_FACTORIES/WIDGET_TOKENS 各加一项，此处零改动（原先 modelTokens/
-  // vmTokens 两个手写 Map + 14 项 register 链三点位重复登记）
+  // 控件 Model/Vm 装配走注册表单循环：加新类型只需 WIDGET_REGISTRY（schema 域）
+  // + widgetRuntime.ts 各加一项，此处零改动（specs/api-surface Step 7 三表合一，
+  // 此前 token 表/工厂表/手工 register 链多点位重复登记）
   const modelTokens = new Map<string, Token<IBaseModel>>(
-    Object.entries(WIDGET_TOKENS).map(([t, w]) => [t, w.model] as const),
+    Object.entries(WIDGET_RUNTIME).map(([t, e]) => [t, e.modelToken] as const),
   );
   const vmTokens = new Map<string, Token<IBaseWidgetVm>>(
-    Object.entries(WIDGET_TOKENS).map(([t, w]) => [t, w.vm] as const),
+    Object.entries(WIDGET_RUNTIME).map(([t, e]) => [t, e.vmToken] as const),
   );
   sdk.engine = new DataEngineService(sdk.registry, modelTokens);
   sdk.viewport = new ViewportService();
@@ -98,10 +97,10 @@ export async function composeBoard(
   sdk.registry
     .registerSingleton(Tokens.DataProcessor, () => sdk.engine!.processor)
     .registerSingleton(Tokens.TextRender, () => sdk.textRender!);
-  for (const [type, factories] of Object.entries(WIDGET_FACTORIES)) {
+  for (const entry of Object.values(WIDGET_RUNTIME)) {
     sdk.registry
-      .register(WIDGET_TOKENS[type as keyof typeof WIDGET_TOKENS].model, factories.model)
-      .register(WIDGET_TOKENS[type as keyof typeof WIDGET_TOKENS].vm, factories.vm);
+      .register(entry.modelToken, entry.createModel)
+      .register(entry.vmToken, entry.createVm);
   }
 
   sdk.vmEngine = new VmEngineService(

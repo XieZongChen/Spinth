@@ -325,16 +325,38 @@ export function TYPES_WHERE(
 }
 
 /** 注册表派生判别联合——schema 单源（ADR-2「schema 即类型唯一来源」的全量兑现面；
- *  与手写 IWidgetData 的等价由编译期等价锁单测防漂移） */
-export const WidgetDataUnion = z.discriminatedUnion('type', [
-  WIDGET_REGISTRY.SHAPE.schema,
-  WIDGET_REGISTRY.TEXT.schema,
-  WIDGET_REGISTRY.LINE.schema,
-  WIDGET_REGISTRY.PEN.schema,
-  WIDGET_REGISTRY.STICKY.schema,
-  WIDGET_REGISTRY.MIND_MAP.schema,
-  WIDGET_REGISTRY.IMAGE.schema,
-]);
+ *  加类型只在 WIDGET_REGISTRY 加一项，union 零改动（specs/api-surface §3.8 a：
+ *  此前逐键手列七个 schema 引用，注册表加项忘改此表即静默漏类）。
+ *  派生等价由本文件三条 `_Union*` 编译锁 + widgetRegistry.test 的类型锁防漂移 */
+type RegistrySchema = (typeof WIDGET_REGISTRY)[keyof typeof WIDGET_REGISTRY]['schema'];
+
+// z.discriminatedUnion 要求「非空 tuple」；Object.values 只能是数组，
+// 故此处一次断言。非空性由 widgetRegistry.test 的「注册表覆盖七类型」兜底。
+const REGISTRY_SCHEMAS = Object.values(WIDGET_REGISTRY).map(
+  (e) => e.schema,
+) as unknown as readonly [RegistrySchema, ...RegistrySchema[]];
+
+export const WidgetDataUnion = z.discriminatedUnion('type', REGISTRY_SCHEMAS);
+
+// —— 派生等价锁（编译期即红）：union 与注册表任一方向漂移都逃不掉 ——
+type AssertNever<T extends never> = T;
+type RegistryData = {
+  [K in keyof typeof WIDGET_REGISTRY]: z.infer<(typeof WIDGET_REGISTRY)[K]['schema']>;
+}[keyof typeof WIDGET_REGISTRY];
+
+/** 注册表里有、union 覆盖不到的数据形态（schema 漂移） */
+export type _UnionCoversRegistry = AssertNever<
+  Exclude<RegistryData, z.infer<typeof WidgetDataUnion>>
+>;
+/** union 里有、注册表给不出的数据形态 */
+export type _RegistryCoversUnion = AssertNever<
+  Exclude<z.infer<typeof WidgetDataUnion>, RegistryData>
+>;
+/** 判别键双向对齐（注册表键集 ≡ union type 键集） */
+export type _UnionTypeKeys = AssertNever<
+  | Exclude<keyof typeof WIDGET_REGISTRY, z.infer<typeof WidgetDataUnion>['type']>
+  | Exclude<z.infer<typeof WidgetDataUnion>['type'], keyof typeof WIDGET_REGISTRY>
+>;
 
 // ---------------------------------------------------------------------------
 // ActionBar schema v2（docs/12 §4/§5：选中浮动操作栏，schema 驱动动态渲染；
