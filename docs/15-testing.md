@@ -13,7 +13,7 @@
 
 ## 2. 当前基线
 
-- 单测：895 passed（core 869 + react 26，104 文件）。
+- 单测：909 passed（core 883 + react 26，106 文件）。
 - E2E：20 个 spec、186 例（分层：fast 177 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。

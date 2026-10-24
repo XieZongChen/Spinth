@@ -10,7 +10,7 @@
  * （铁律 4）：工厂体内 r.resolve 即原手工装配的同款依赖表达。
  * **Service 不在此注册**：七个 Service 构造签名异构、初始化时序敏感
  * （selector 先于 refLine、editingService 先于 textService 等）——手工装配
- * 的显式时序是语义，强行注册化是伪收益（docs/16 §8）。
+ * 的显式时序是语义，强行注册化是伪收益（docs/04 §3）。
  */
 import { token, type ServiceRegistry, type Token } from './platform/registry/serviceRegistry';
 import type { IBaseModel, IBaseWidgetVm } from './types';

@@ -849,15 +849,15 @@ grep -rn "Omit<BoardSDK" packages/core/src     # 0 行
 
 ### 7.2 数字
 
-| 指标               | 基线           | 目标                                  |
-| ------------------ | -------------- | ------------------------------------- |
-| `app.ts`           | 1026 行        | < 400                                 |
-| `boardCommands.ts` | 465 行         | < 400                                 |
-| 新增源文件         | —              | 均 ≤ 400                              |
-| core 单测          | 869            | 不下降（新增 ~13 例，总数以实测为准） |
-| react 单测         | 26             | 不变                                  |
-| E2E                | 20 spec/186 例 | 全绿；用例数不变                      |
-| 公开面             | 46 个 Omit 键  | 64 个 Pick 成员 + 39 个 internal 分类 |
+| 指标               | 基线           | 目标                                                                        |
+| ------------------ | -------------- | --------------------------------------------------------------------------- |
+| `app.ts`           | 1026 行        | < 400                                                                       |
+| `boardCommands.ts` | 465 行         | < 400                                                                       |
+| 新增源文件         | —              | 均 ≤ 400                                                                    |
+| core 单测          | 869            | 不下降（复审实测新增 14 例 → 883，ActionBar 10 + PublicApi 3 + Registry 1） |
+| react 单测         | 26             | 不变                                                                        |
+| E2E                | 20 spec/186 例 | 全绿；用例数不变                                                            |
+| 公开面             | 46 个 Omit 键  | 64 个 Pick 成员 + 39 个 internal 分类                                       |
 
 ### 7.3 文档同步
 
@@ -928,3 +928,25 @@ grep -rn "Omit<BoardSDK" packages/core/src     # 0 行
 - 禁止在 `types/` 里 import `widgets/`（Step 7 后应删除该类依赖）。
 - 禁止用 `--no-verify` 绕过门禁。
 - 禁止把本文的实施流水账写进 `docs/`（docs 只写当前事实）。
+
+## 11. 复审记录（2026-10-25，独立复跑门禁）
+
+复审范围 `b95a05c..758bb9d`（本文全部实施提交）。复跑结果：`pnpm verify` 通过、
+单测 909（core 883 + react 26，106 文件）、coverage 阈值不破、E2E 186 例全绿、
+app.ts/boardCommands.ts 243/265 行、四条 grep（ctx:any / WIDGET_TOKENS /
+WIDGET_FACTORIES / Omit<BoardSDK）源码零残留、allowlist 与 §4 成员表逐项一致。
+行为保真逐字核对通过：dispose 32 步顺序、17 条流兜底、`__debug` 18 字段、
+ActionBar 分支、align/export/style 事务时序。
+
+发现与处置（无阻断项，全部已修）：
+
+| 级别 | 位置                  | 发现                                                                               | 处置                                                              |
+| ---- | --------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| P2   | docs/15 §2            | 基线仍写 895/869/104 文件                                                          | 改 909/883/106                                                    |
+| P2   | types/README.md       | 引用已删除的 widgetFactories 与已合并的 token/工厂表                               | 改 WIDGET_REGISTRY（schema 域）+ widgetRuntime.ts（运行时域）     |
+| P3   | core/README.md        | 「token 登记（tokens.ts）」不完整（漏控件 token 新位置）                           | 补「服务 token 在 tokens.ts，控件 token/工厂在 widgetRuntime.ts」 |
+| P3   | widgetRuntime.ts 头注 | 「Service 不在此注册」误指 docs/16 §8（性能篇，继承自 widgetFactories 的失效引用） | 改指 docs/04 §3                                                   |
+| P3   | boardCommands.ts      | 委托方法名与模块导入同名，靠「方法名不进词法作用域」解析，未来重构有误递归风险     | 导入改 `xxxImpl` 别名（app.ts 同款 6 处顺带一致修复）             |
+| P3   | 本文 §7.2             | 「新增 ~13 例」与实测 +14 不符                                                     | 改实测 14 例                                                      |
+
+运行时收窄按 A9 继续挂账；`window.__spinth` 保持 BoardSDK 类型（A7），E2E 162 处探针不受影响。

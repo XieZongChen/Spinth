@@ -6,7 +6,8 @@
 - **控件三件套**：`widgets/<type>/` 各含 Model（zod schema）+ Vm（PIXI）+ Service
   （交互）——规格见 docs/04。
 - **平台服务域**：`platform/` 每子目录一个服务域（dataEngine / vmEngine / viewport /
-  selector / textEngine 等），组合根（app.ts）显式装配，token 登记（tokens.ts）。
+  selector / textEngine 等），组合根（app.ts）显式装配；服务 token 在 tokens.ts，
+  控件 token/工厂在 widgetRuntime.ts。
 - **统一编辑会话**：`platform/textEngine/editingService`（双内核 descriptor 协议，
   docs/17）服务 TEXT/STICKY/SHAPE/LINE/mind 五类文字编辑。
 - **资产层**：`platform/dataEngine/assetStore` 内容寻址存储图片，文档只存
