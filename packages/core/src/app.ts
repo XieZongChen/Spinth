@@ -6,6 +6,7 @@ import { DataEngineService } from './platform/dataEngine/dataEngineService';
 import { GroupService } from './platform/selector/groupService';
 import { buildDebugSnapshot } from './debugSnapshot';
 import { BoardCommands } from './boardCommands';
+import { BoardOutputs } from './boardStreams';
 import { composeBoard } from './boardComposition';
 import { RectEditorService } from './platform/rectEditor/rectEditorService';
 import { RefLineService } from './platform/refLine/refLineService';
@@ -29,7 +30,6 @@ import { ImageTextureCache } from './widgets/image/imageTextureCache';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
 import { ProjectFileError } from './platform/projectFile/projectFileError';
 import { StorageStatusService } from './platform/storage/storageStatusService';
-import { INITIAL_STORAGE_STATUS, type IStorageStatus } from './types/storage';
 import type {
   IProjectExportOptions,
   IProjectExportResult,
@@ -164,6 +164,9 @@ export class BoardSDK implements IBoardCommandHost {
   registry = new ServiceRegistry();
   /** 命令区实现（批 A 三分）——门面方法单行委托至此 */
   commands = new BoardCommands(this);
+  /** 输出流区实现（specs/api-surface Step 2）——流 getter 一行委托至此；
+   *  构造器只存宿主引用（类字段初始化顺序 = 声明顺序，此刻服务字段尚 null） */
+  private readonly outputs = new BoardOutputs(this);
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   viewport: IViewportService | null = null;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
@@ -258,40 +261,16 @@ export class BoardSDK implements IBoardCommandHost {
   }
 
   // ---------- 输出流（react 胶水层只读消费） ----------
-
-  /** 组装前输出流兜底（批 B：bridge 订阅早于 composeBoard 完成——null 服务
-   *  读 getter 曾整树崩（ghostSuppressed/editBlocked 实锤族）；各流返回与
-   *  真实初值同源的 BehaviorSubject，组装完成后真值流接管（订阅方拿到的是
-   *  fallback 实例的消费者在组装完成前已存在的极早期 bridge 订阅——react
-   *  connectBoard 在 onReady 后才挂，实际无消费者，兜底仅防初始化窗口崩溃） */
-  private fallbacks = {
-    cursorMode: null as BehaviorSubject<CursorMode> | null,
-    shapeType: null as BehaviorSubject<ShapeType> | null,
-    vpScale: null as BehaviorSubject<number> | null,
-    vpBounds: null as BehaviorSubject<IRect> | null,
-    editable: null as BehaviorSubject<boolean> | null,
-    docState: null as BehaviorSubject<'idle'> | null,
-    wsState: null as BehaviorSubject<'off'> | null,
-    persistState: null as BehaviorSubject<'saved'> | null,
-    storageStatus: null as BehaviorSubject<IStorageStatus> | null,
-    selected: null as BehaviorSubject<string[]> | null,
-    canUndo: null as BehaviorSubject<boolean> | null,
-    canRedo: null as BehaviorSubject<boolean> | null,
-  };
+  // 实现在 boardStreams.ts 的 BoardOutputs（specs/api-surface Step 2 迁出）：
+  // 组装前兜底的惰性单例语义由其唯一持有，此处一行委托——语义零变化。
 
   get cursorMode$(): BehaviorSubject<CursorMode> {
-    return (
-      this.viewport?.cursorMode$ ??
-      (this.fallbacks.cursorMode ??= new BehaviorSubject<CursorMode>('cursor'))
-    );
+    return this.outputs.cursorMode$;
   }
 
   /** 形状工具默认创建型（会话级，docs/04 §2 形状默认型小节；工具坞二级菜单消费） */
   get defaultShapeType$(): BehaviorSubject<ShapeType> {
-    return (
-      this.shapeService?.defaultShapeType$ ??
-      (this.fallbacks.shapeType ??= new BehaviorSubject<ShapeType>('rect'))
-    );
+    return this.outputs.defaultShapeType$;
   }
 
   get defaultShapeType(): ShapeType {
@@ -318,49 +297,35 @@ export class BoardSDK implements IBoardCommandHost {
   }
 
   get vpScale$(): BehaviorSubject<number> {
-    return this.viewport?.vpScale$ ?? (this.fallbacks.vpScale ??= new BehaviorSubject<number>(1));
+    return this.outputs.vpScale$;
   }
 
   get vpBounds$(): BehaviorSubject<IRect> {
-    return (
-      this.viewport?.vpBounds$ ??
-      (this.fallbacks.vpBounds ??= new BehaviorSubject<IRect>({ x: 0, y: 0, width: 0, height: 0 }))
-    );
+    return this.outputs.vpBounds$;
   }
 
   get editable$(): BehaviorSubject<boolean> {
-    return (
-      this.viewport?.editable$ ?? (this.fallbacks.editable ??= new BehaviorSubject<boolean>(true))
-    );
+    return this.outputs.editable$;
   }
 
   get docState$() {
-    return (
-      this.engine?.docState$ ?? (this.fallbacks.docState ??= new BehaviorSubject<'idle'>('idle'))
-    );
+    return this.outputs.docState$;
   }
 
   /** ws 连接态（docs/10 §2；本地模式恒 'off'） */
   get wsState$() {
-    return this.engine?.wsState$ ?? (this.fallbacks.wsState ??= new BehaviorSubject<'off'>('off'));
+    return this.outputs.wsState$;
   }
 
-  /** 物理断网（阻断编辑；ws 断连仅提示不阻断——docs/10 §4）。组装前兜底
-   *  false（批 B：bridge 订阅早于 boardCompletion 完成） */
+  /** 物理断网（阻断编辑；ws 断连仅提示不阻断——docs/10 §4）。组装前兜底 false */
   get editBlocked$() {
-    if (this.network) return this.network.editBlocked$;
-    this.editBlockedFallback ??= new BehaviorSubject<boolean>(false);
-    return this.editBlockedFallback;
+    return this.outputs.editBlocked$;
   }
-  private editBlockedFallback: BehaviorSubject<boolean> | null = null;
 
   /** 本地落盘态（Batch 1 · 1.15）：failed=写失败退避中（配额满等），
    *  UI 顶栏「已同步」不得再与 wsState 混同 */
   get persistState$() {
-    return (
-      this.engine?.persistState$ ??
-      (this.fallbacks.persistState ??= new BehaviorSubject<'saved'>('saved'))
-    );
+    return this.outputs.persistState$;
   }
 
   /** 画布件数（Batch 1 · 1.23 空态引导用——react 层不得读 __debug） */
@@ -375,10 +340,7 @@ export class BoardSDK implements IBoardCommandHost {
 
   /** 浏览器持久化授权 + 站点配额（docs/02 §6.1——与 persistState$ 不混同） */
   get storageStatus$() {
-    return (
-      this.storageStatus?.status$ ??
-      (this.fallbacks.storageStatus ??= new BehaviorSubject<IStorageStatus>(INITIAL_STORAGE_STATUS))
-    );
+    return this.outputs.storageStatus$;
   }
 
   /** 刷新存储状态（面板打开/窗口可见/写失败时由宿主调用；并发合并） */
@@ -392,63 +354,35 @@ export class BoardSDK implements IBoardCommandHost {
   }
 
   get selected$() {
-    return (
-      this.selector?.selected$ ?? (this.fallbacks.selected ??= new BehaviorSubject<string[]>([]))
-    );
+    return this.outputs.selected$;
   }
 
   get canUndo$() {
-    return (
-      this.history?.canUndo$ ?? (this.fallbacks.canUndo ??= new BehaviorSubject<boolean>(false))
-    );
+    return this.outputs.canUndo$;
   }
 
   get canRedo$() {
-    return (
-      this.history?.canRedo$ ?? (this.fallbacks.canRedo ??= new BehaviorSubject<boolean>(false))
-    );
+    return this.outputs.canRedo$;
   }
 
   get contextMenuOptions$(): BehaviorSubject<IContextMenuState> {
-    // 组装前兜底（批 B 输出流族最后一员）：静止菜单
-    if (this.contextMenu) return this.contextMenu.options$;
-    this.ctxMenuFallback ??= new BehaviorSubject<IContextMenuState>({
-      show: false,
-      x: 0,
-      y: 0,
-      onWidget: false,
-      canPaste: false,
-    });
-    return this.ctxMenuFallback;
+    return this.outputs.contextMenuOptions$;
   }
 
   /** 拖拽进行中通知（ActionBar 隐藏跟随） */
   get dragMove$(): Subject<void> {
-    if (this.selector) return this.selector.dragMove$;
-    this.dragMoveFallback ??= new Subject<void>();
-    return this.dragMoveFallback;
+    return this.outputs.dragMove$;
   }
 
-  /** mind 幽灵抑制（指针悬停已有脑图）——ToolGhost 消费（2026-09-22 幽灵 DOM 化）。
-   *  批 B 三分后组装在 boardComposition、bridge 订阅可能早于组装完成——
-   *  BehaviorSubject(false) 兜底（mindService 就绪后返回真值流） */
+  /** mind 幽灵抑制（指针悬停已有脑图）——ToolGhost 消费（2026-09-22 幽灵 DOM 化） */
   get mindGhostSuppressed$(): import('rxjs').BehaviorSubject<boolean> {
-    if (this.mindService) return this.mindService.ghostSuppressed$;
-    this.mindGhostFallback ??= new BehaviorSubject<boolean>(false);
-    return this.mindGhostFallback;
+    return this.outputs.mindGhostSuppressed$;
   }
-  private mindGhostFallback: BehaviorSubject<boolean> | null = null;
 
-  /** 脑图焦点节点变化（导航/建删/点击落点——AddButtons 重算触发器之一）。
-   *  组装前兜底 dead Subject（批 B 同 mindGhostSuppressed） */
+  /** 脑图焦点节点变化（导航/建删/点击落点——AddButtons 重算触发器之一） */
   get mindFocusChanged$(): Subject<void> {
-    if (this.mindService) return this.mindService.focusChanged$;
-    this.mindFocusFallback ??= new Subject<void>();
-    return this.mindFocusFallback;
+    return this.outputs.mindFocusChanged$;
   }
-  private mindFocusFallback: Subject<void> | null = null;
-  private ctxMenuFallback: BehaviorSubject<IContextMenuState> | null = null;
-  private dragMoveFallback: Subject<void> | null = null;
 
   /** 选中元素世界坐标外接矩形（无选中返回 null） */
   getSelectionBounds(): IRect | null {
