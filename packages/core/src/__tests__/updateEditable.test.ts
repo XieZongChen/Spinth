@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import type { CursorMode } from '../types';
+import type { IBoardCommandHost } from '../boardHost';
 import { BoardCommands } from '../boardCommands';
 
 /**
@@ -33,7 +34,8 @@ describe('BoardCommands.updateEditable 降级序列', () => {
       contextMenu: { close: vi.fn(() => order.push('menuClose')) },
       engine: { setWriteEnabled: vi.fn((v: boolean) => order.push(`write:${v}`)) },
     };
-    return { commands: new BoardCommands(ctx), order, ...ctx };
+    // 桩只覆盖用到的字段——显式 cast 声明不完整性，不伪装成合法契约
+    return { commands: new BoardCommands(ctx as unknown as IBoardCommandHost), order, ...ctx };
   }
 
   it('写工具（pen）在途：exitActive → rectCancel → setCursorMode(cursor) → 翻闸门 → setSelected → menuClose → write:false，且不额外 cancel', () => {
@@ -124,7 +126,12 @@ describe('BoardCommands.setCursorMode 只读钳制', () => {
         setSelected: vi.fn(),
       },
     };
-    return { commands: new BoardCommands(ctx), viewport, selector: ctx.selector };
+    // 桩只覆盖用到的字段——显式 cast 声明不完整性，不伪装成合法契约
+    return {
+      commands: new BoardCommands(ctx as unknown as IBoardCommandHost),
+      viewport,
+      selector: ctx.selector,
+    };
   }
 
   it('只读 + 写工具（pen）→ 落为 cursor', () => {

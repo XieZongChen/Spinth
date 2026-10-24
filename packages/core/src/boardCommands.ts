@@ -1,5 +1,6 @@
 import type { ShapeType, LineType, CursorMode } from './types';
 import type { IRect } from './common/geometry';
+import type { IBoardCommandHost } from './boardHost';
 import { Rectangle } from 'pixi.js';
 import { setTextTheme } from './platform/textEngine/theme';
 import {
@@ -45,10 +46,9 @@ function canvasTokenColor(): string {
 }
 
 export class BoardCommands {
-  /** 宿主窄引用（BoardSDK 的服务字段——批 B 组装完成后非空；宽松 any 桥
-   *  避免 app.ts ↔ boardCommands.ts 循环 import，字段名即契约） */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private ctx: any) {}
+  /** 宿主窄契约（IBoardCommandHost——字段名即契约；type-only import，
+   *  避免 app.ts ↔ boardCommands.ts 值环） */
+  constructor(private ctx: IBoardCommandHost) {}
 
   /** 主题切换（app 壳 theme.ts 的 applyTheme 时机调用——core 默认文字色随之；
    *  refreshAll 强制重画，textVm 以主题版本守卫判定全量重建，docs/17 C2） */

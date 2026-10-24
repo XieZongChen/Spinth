@@ -50,6 +50,7 @@ import { SpatialIndex } from './platform/spatial/spatialIndex';
 import { CullingService } from './platform/spatial/cullingService';
 import { unionRects } from './common/geometry';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
+import type { IBoardCommandHost } from './boardHost';
 import type {
   CursorMode,
   IActionBarOption,
@@ -158,7 +159,7 @@ export interface IBoardConfig {
  * 对外只暴露「rxjs 输出流（读）+ 命令方法（写）」，UI 框架通过胶水层消费。
  */
 
-export class BoardSDK {
+export class BoardSDK implements IBoardCommandHost {
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   registry = new ServiceRegistry();
   /** 命令区实现（批 A 三分）——门面方法单行委托至此 */
