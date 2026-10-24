@@ -101,14 +101,29 @@ disabled）/ 主题切换。
 follower 角色渲染，说明本页只读与接管行为，提供「刷新」与会话内「知道了」。只读下
 选择与复制受写门禁限制，右键不建选区（完整矩阵见 [21-multi-tab](21-multi-tab.md) §4）。
 
-移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞横向
-滚动，二级菜单与存储面板 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
-锚点按钮的测量）；只读态保留缩放/平移，选择与复制受写门禁限制。
+移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞
+`w-max + shrink-0` 保按钮 40×40、坞内横向滚动（文档不滚）；二级菜单 / 存储面板 /
+项目菜单 / 右键菜单 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
+锚点按钮的测量；项目菜单与存储面板另有 maxHeight 纵向兜底）；选中操作栏
+`max-w` 钳制、Popover 面板 `w-max + flex-wrap` 换行收纳；脑图 +/- 按钮经
+`mindAddLayout.ts` 纯函数钳进容器；触控目标 ≥24（WCAG 2.2 AA 2.5.8）。九个面的
+390 布局矩阵回归在 `e2e/mobile.spec.ts`（M1–M9，helpers/layoutE2e.ts）；只读态
+保留缩放/平移，选择与复制受写门禁限制。
 
 ## 5. 主题与样式架构
 
 - 语义令牌唯一色源：`packages/app/src/styles/tokens.css`，以 CSS 自定义属性定义
   canvas/surface/edge/ink/accent/danger/warning/工具色/阴影；组件只消费语义类。
+- 颜色按**角色**拆分（WCAG 2.2 AA）：
+  - `danger` 是图形色（圆点/进度/描边，≥3:1）；文字与图标一律 `danger-ink`
+    （≥4.5:1，浅 `#b42318` / 深 `#ff6369`）。填充按钮不白字压红底——
+    危险提示走 soft 底 + ink 字 + danger 描边。
+  - `accent` 是品牌色（焦点环/描边/图标，≥3:1）；填充按钮一律
+    `accent-fill` + `on-accent`（含 hover `accent-fill-hover`），不用品牌紫压白字；
+    组件禁止 `text-white`。
+  - `text-3` 按最暗实际底（surface-hover）定值：浅 `#67677a` / 深 `#9c9ca9`。
+  - 对比度护栏：`e2e/a11y.spec.ts` 从浏览器计算样式取色断言（13 组令牌配对 ×
+    浅/深 + 实际元素），不在测试里持有颜色字面量。
 - `index.css` 的 `@theme inline` 把令牌映射为 Tailwind 工具类；
   `data-theme` 切换 `:root` 变量即整站换肤。
 - 首绘由 index.html 内联脚本预置 `data-theme`（防暗色白屏闪烁）；
@@ -127,7 +142,11 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 2. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”。
 3. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导（只读态不显示——
    引导全是写指令，docs/21 §4）。
-4. 初始化失败 → 错误卡 + 重试按钮（IndexedDB 禁用/配额满等），不永久卡 loading。
+4. 初始化失败 → 共享 `ErrorState`（IndexedDB 禁用/配额满等），不永久卡 loading：
+   容器唯一 `role="alert"`，标题挂载即聚焦（读屏先读标题），详情为错误 message
+   （非堆栈）且 `overflow-wrap:anywhere` + 内部滚动（390px 长串不撑破布局），
+   主按钮 `accent-fill` ≥4.5:1；文案顺序「标题→建议→详情」。渲染异常走同款
+   `ErrorBoundary`（class 组件，React 唯一 error boundary 形态）。
 
 ## 7. app 层
 

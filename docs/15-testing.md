@@ -13,10 +13,22 @@
 
 ## 2. 当前基线
 
-- 单测：881 passed（core 865 + react 16，102 文件）。
-- E2E：18 个 spec、170 例（分层：fast 161 / timing+bench 5 / visual 4；混跑不作门禁，
+- 单测：895 passed（core 869 + react 26，104 文件）。
+- E2E：20 个 spec、186 例（分层：fast 177 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
+- 可访问性专项：a11y.spec 6 例（对比度护栏：13 组令牌配对 × 浅/深 + 实际元素 ×2
+  ——从浏览器计算样式取色，不在测试里持有颜色字面量；错误态 ×2：IndexedDB 注入 →
+  role=alert/标题聚焦/390 无横滚/两主题对比度。helper `a11yE2e.ts` 为 WCAG 对比度
+  纯函数，遇 alpha 直接红）。
+- 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
+  内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
+  脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
+  24 下限、intersects、noDocHScroll；断言只用 `data-spinth-*` 标记，坐标从 canvas
+  box / `__spinth` 探针推导）。
+- 单机断网不变量：core `networkService`（默认离线不阻断/blockOnOffline 三态翻转/
+  构造即离线/dispose 摘监听）+ smoke 断网 E2E（断言 `navigator.onLine===false` 前置
+  → 创建/撤销/落盘照常 → OfflineBar 与只读 pill 均 0；断网中不 reload）。
 - 图片/资产专项：10/10（image.spec——创建入口、资产引用、存量迁移、objectURL
   配平、GC 清孤儿，以及生命周期专项：纹理共享 refs 递减、切 src 计数配平、
   http 自动重试（route 前两次 abort）、missing 双击手动重试）。
