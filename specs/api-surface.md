@@ -933,7 +933,7 @@ grep -rn "Omit<BoardSDK" packages/core/src     # 0 行
 
 复审范围 `b95a05c..758bb9d`（本文全部实施提交）。复跑结果：`pnpm verify` 通过、
 单测 909（core 883 + react 26，106 文件）、coverage 阈值不破、E2E 186 例全绿、
-app.ts/boardCommands.ts 243/265 行、四条 grep（ctx:any / WIDGET_TOKENS /
+app.ts/boardCommands.ts 复审时 243/265 行、四条 grep（ctx:any / WIDGET_TOKENS /
 WIDGET_FACTORIES / Omit<BoardSDK）源码零残留、allowlist 与 §4 成员表逐项一致。
 行为保真逐字核对通过：dispose 32 步顺序、17 条流兜底、`__debug` 18 字段、
 ActionBar 分支、align/export/style 事务时序。
