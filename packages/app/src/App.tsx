@@ -168,7 +168,7 @@ export function App() {
           >
             <div
               data-spinth-empty-hint=""
-              className="flex flex-col items-center gap-2 rounded-2xl bg-surface/80 px-6 py-4 text-center backdrop-blur-sm"
+              className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2 rounded-2xl bg-surface/80 px-6 py-4 text-center backdrop-blur-sm"
             >
               <p className="text-sm font-semibold text-ink-2">空画布</p>
               <p className="text-xs text-ink-3">R 拖出矩形 · S 便签 · M 脑图 · L 连线 · P 画笔</p>

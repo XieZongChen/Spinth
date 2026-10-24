@@ -130,12 +130,12 @@ export function Toolbar() {
       role="toolbar"
       aria-label="画板工具"
       data-spinth-toolbar=""
-      className="absolute bottom-5 left-1/2 z-10 flex max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-0.5 overflow-x-visible rounded-full border border-edge bg-surface p-1.5 shadow-dock max-md:bottom-20 max-md:overflow-x-auto md:bottom-5 md:max-w-none"
+      className="absolute bottom-5 left-1/2 z-10 flex w-max max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-0.5 overflow-x-visible rounded-full border border-edge bg-surface p-1.5 shadow-dock max-md:bottom-20 max-md:overflow-x-auto md:bottom-5 md:max-w-none"
     >
       {tools.map((t, i) => {
         const active = cursorMode === t.mode;
         return (
-          <div key={t.mode} className="relative" ref={active ? activeBtnRef : undefined}>
+          <div key={t.mode} className="relative shrink-0" ref={active ? activeBtnRef : undefined}>
             <button
               type="button"
               title={t.title}
@@ -167,7 +167,7 @@ export function Toolbar() {
         );
       })}
 
-      <div className="mx-1.5 h-6 w-px bg-edge" aria-hidden />
+      <div className="mx-1.5 h-6 w-px shrink-0 bg-edge" aria-hidden />
 
       {(
         [
@@ -200,7 +200,7 @@ export function Toolbar() {
           disabled={a.disabled}
           onClick={a.onClick}
           style={{ '--i': tools.length + i } as React.CSSProperties}
-          className="dock-in flex h-10 w-10 items-center justify-center rounded-[14px] text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+          className="dock-in flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink disabled:pointer-events-none disabled:opacity-40"
         >
           <Icon name={a.icon} size={18} strokeWidth={1.9} />
         </button>

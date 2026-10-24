@@ -122,7 +122,7 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
         aria-live="polite"
         data-spinth-storage-button=""
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold transition-colors duration-100 ${
+        className={`flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold transition-colors duration-100 ${
           failed
             ? 'bg-danger-soft text-danger-ink hover:text-danger-ink'
             : 'text-ink-2 hover:bg-surface-hover hover:text-ink'

@@ -114,16 +114,21 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
   const ready = docState === 'synced';
   const disabled = !ready || busy !== null;
 
-  // 面板定位（§9.4）：fixed 右对齐锚点按钮、顶栏下方，钳制在视口内（390px 不溢出）
+  // 面板定位（§9.4）：fixed 右对齐锚点按钮、顶栏下方，钳制在视口内（390px 不溢出）。
+  // maxHeight + overflowY 纵向兜底（同 StorageStatusButton 既有做法）：warning/
+  // 导入确认叠加使内容增长时面板内部滚动，小高度（390×480）不越界
   useLayoutEffect(() => {
     if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
+    const top = rect.bottom + 6;
     setPanelStyle({
       position: 'fixed',
-      top: rect.bottom + 6,
+      top,
       right: Math.max(8, window.innerWidth - rect.right),
       width: 'min(320px, calc(100vw - 16px))',
+      maxHeight: `calc(100dvh - ${Math.round(top) + 8}px)`,
+      overflowY: 'auto',
     });
   }, [open]);
 

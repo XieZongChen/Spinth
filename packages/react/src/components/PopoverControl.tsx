@@ -56,7 +56,10 @@ export function PopoverControl({
   }, [open]);
 
   // 面板 x 视口钳制：跟随触发钮居中，出界时夹回（两侧留 8px）。
-  // useLayoutEffect 在绘制前完成校正（与 ActionBar 宽度实测同款手法）
+  // useLayoutEffect 在绘制前完成校正（与 ActionBar 宽度实测同款手法）。
+  // 先 min 上界再 max 下界：面板比视口-16 还宽时（390 色板），上界为负、
+  // 旧顺序的 min(desired, 负) 会取到负坐标（实测 -272）——夹到下限 8，
+  // 超宽由面板自身 max-w + flex-wrap 消化
   useLayoutEffect(() => {
     if (!open) return;
     const root = rootRef.current;
@@ -65,7 +68,7 @@ export function PopoverControl({
     const rb = root.getBoundingClientRect();
     const pw = panel.offsetWidth;
     const cxViewport = rb.left + rb.width / 2;
-    const clamped = Math.min(Math.max(cxViewport - pw / 2, 8), window.innerWidth - pw - 8);
+    const clamped = Math.max(8, Math.min(cxViewport - pw / 2, window.innerWidth - pw - 8));
     setPanelLeft(clamped + pw / 2 - rb.left); // 面板中心相对 root 的 x
   }, [open, item.id]);
   // 收起时复位（下次展开先用 CSS 居中初值，避免闪旧位移）
@@ -117,7 +120,7 @@ export function PopoverControl({
           role="menu"
           aria-label={item.label}
           data-spinth-popover-panel=""
-          className="absolute left-1/2 top-full z-50 mt-2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1.5 shadow-pop"
+          className="absolute left-1/2 top-full z-50 mt-2 flex w-max max-w-[calc(100vw-16px)] flex-wrap items-center justify-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1.5 shadow-pop -translate-x-1/2"
           style={panelLeft === null ? undefined : { left: panelLeft }}
         >
           {item.options?.map((opt) => {

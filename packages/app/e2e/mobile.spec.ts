@@ -63,18 +63,20 @@ test('M2 工具坞：四边在视口内、按钮 40×40、坞内横滚、文档�
   // 坞整体在视口内（max-w 封顶）
   await boxWithin(dock, MOBILE, 0);
 
-  // 每个工具按钮 40×40（flex 默认 shrink 在 390 下会把 ~20 个 40px 按钮压扁）
+  // 每个工具按钮 40×40（flex 默认 shrink 在 390 下会把 ~20 个 40px 按钮压扁）。
+  // dock-in 入场动画（scale）会短暂缩小 boundingBox——poll 等动画播完
   const btns = dock.locator('button');
   const n = await btns.count();
   expect(n).toBeGreaterThanOrEqual(11);
   for (let i = 0; i < n; i += 1) {
     const box = await btns.nth(i).boundingBox();
     expect(box, `工具坞按钮 #${i}`).not.toBeNull();
-    expect(
-      box!.width,
-      `工具坞按钮 #${i} 宽 ${box!.width} < 40（被 flex 压缩）`,
-    ).toBeGreaterThanOrEqual(39.5);
-    expect(box!.height, `工具坞按钮 #${i} 高 ${box!.height} < 40`).toBeGreaterThanOrEqual(39.5);
+    await expect
+      .poll(async () => (await btns.nth(i).boundingBox())?.width, { timeout: 2_000 })
+      .toBeGreaterThanOrEqual(39.5);
+    await expect
+      .poll(async () => (await btns.nth(i).boundingBox())?.height, { timeout: 2_000 })
+      .toBeGreaterThanOrEqual(39.5);
   }
 
   // 390 横滚是 docs/12 的口径：坞内部横向滚动，文档不动
@@ -216,8 +218,8 @@ test('M7 操作栏 + Popover：画布右下选中后都收在视口内', async (
   await expect(bar).toBeVisible();
   await boxWithin(bar, MOBILE);
 
-  // 第一个 Popover 触发钮（颜色等）→ 面板在视口内
-  const popTrigger = bar.locator('[data-spinth-popover] > button').first();
+  // 第一个 Popover 触发钮（颜色等；Tooltip 有 span 包裹层，用后代选择器）
+  const popTrigger = bar.locator('[data-spinth-popover] button').first();
   await popTrigger.click();
   const popPanel = page.locator('[data-spinth-popover-panel]');
   await expect(popPanel).toBeVisible();
@@ -229,7 +231,9 @@ test('M7 操作栏 + Popover：画布右下选中后都收在视口内', async (
 test('M8 脑图 +/-：靠右根节点的按钮钳制在视口内、28×28', async ({ page }) => {
   const docId = docIdOf('m8');
   await openBoard(page, docId);
-  // 画布右缘左侧约 90px 建根：右槽按钮天然冲出右缘（钳制的主缺陷面）
+  // 画布右缘左侧约 90px 建根：右槽按钮天然冲出右缘（钳制的主缺陷面）。
+  // 建根即自动聚焦根节点（探针实证：mindFocus=根）→ +/- 按钮随之出现；
+  // 不再补点根——单击已聚焦的根是 toggle，会把聚焦点掉
   const canvasBox = await page.locator('canvas').first().boundingBox();
   expect(canvasBox).not.toBeNull();
   const rootX = canvasBox!.x + canvasBox!.width - 90;
@@ -238,30 +242,7 @@ test('M8 脑图 +/-：靠右根节点的按钮钳制在视口内、28×28', asyn
   await page.mouse.move(rootX, rootY);
   await page.mouse.down();
   await page.mouse.up();
-  await page.waitForTimeout(250);
-
-  // 点根聚焦 → mindAddButtons 出现（根节点：左右两槽）
-  const rootC = await page.evaluate(() => {
-    const d = (
-      window as unknown as {
-        __spinth: {
-          __debug: {
-            mindNodes: Array<{
-              worldRect: { x: number; y: number; width: number; height: number };
-            }>;
-          };
-        };
-      }
-    ).__spinth.__debug;
-    const r = d.mindNodes[0]!;
-    const c = document.querySelector('canvas')!.getBoundingClientRect();
-    return {
-      x: r.worldRect.x + r.worldRect.width / 2 + c.left,
-      y: r.worldRect.y + r.worldRect.height / 2 + c.top,
-    };
-  });
-  await page.mouse.click(rootC.x, rootC.y);
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(300);
 
   const addBtns = page.locator('[data-spinth-mind-add]');
   const n = await addBtns.count();
