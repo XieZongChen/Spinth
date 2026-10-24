@@ -82,8 +82,9 @@ ActionBar / MindAddButtons：纯算术定位
 | `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                              |
 | `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态） |
 | `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                 |
-| `OfflineBar`     | 离线提示条                                                                                                       |
-| `MindAddButtons` | 脑图节点 +/− 按钮（纯算术定位）                                                                                  |
+| `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                   |
+| `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                     |
+| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                              |
 | `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                    |
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                      |
 

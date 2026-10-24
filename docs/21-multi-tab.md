@@ -82,8 +82,10 @@ cursor（宿主可编程入口不得让 UI 宣称「可以画」而指针已被�
 ViewportService 内部直调，不经此闸门）。空画布引导（app 壳）只读不显示——引导全是
 写指令，只读不可执行。
 
-物理断网（`editBlocked`）是与只读相互独立的另一条闸门（docs/10 §4），其交互面矩阵
-另行收口，不并入本表。
+物理断网（`editBlocked`）是与只读相互独立的另一条闸门（docs/10 §4）。单机不传
+`wsUrl` → `blockOnOffline=false` → `editBlocked` 恒 false：断网仍可编辑、撤销、
+落盘，`OfflineBar` 不可达（仅协同宿主可达）。`editBlocked` 交互面矩阵留到协同
+批次，不并入本表。
 
 UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文案）+ 只读提示条
 （`ReadOnlyNotice`，`data-spinth-readonly-notice`，follower 专属，可会话内关闭）。

@@ -38,12 +38,17 @@ new WebsocketProvider(wsUrl, 'spinth/<docId>', yDoc);
 ## 4. NetworkService 与离线守卫
 
 - `NetworkService` 监听浏览器在线状态；`editBlocked$` 仅表示物理断网（阻断编辑）。
+  `blockOnOffline` 由组合根按 `!!config.wsUrl` 决定——**仅协同宿主开启**。
 - ws 断连只提示，不阻断编辑。
-- 守卫矩阵：
+- 协同模式守卫矩阵（`blockOnOffline=true` 时）：
   - 断网：工具/删除/undo 被拦；视图类缩放键、适应屏幕、Esc 可用；
   - 只读：写工具、删除、undo/redo 被拦；选择/复制/视图可用；
   - 右键菜单打开：剪贴板写操作被拦。
-- 单机模式无远端写入，断网仍可编辑、撤销、刷新恢复。
+- 单机不变量：不传 `wsUrl` → `blockOnOffline=false` → `editBlocked` 恒 false。
+  断网仍可编辑、撤销，写入照常落 IndexedDB；**有网刷新后**从 IndexedDB 恢复
+  （无 Service Worker，断网首开/刷新不在支持范围）。有 core 单测
+  （`networkService.test.ts`）与 E2E 回归（smoke 断网用例）锁死；
+  `OfflineBar` 仅协同宿主可达，单机不可达。
 
 ## 5. Undo / Redo 保护
 

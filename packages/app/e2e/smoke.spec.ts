@@ -294,3 +294,39 @@ test('单机启动：wsState=off、无 wsProvider、无外部网络请求', asyn
   await expect(logo).toBeVisible();
   expect(await logo.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(169);
 });
+
+test('单机断网不变量（批次 A · A4）：断网仍可创建/撤销/落盘，无阻断提示', async ({
+  context,
+  page,
+}) => {
+  const docId = `e2e-offline-edit-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitBoardReady(page);
+
+  // 物理断网（模拟的不是 ws 断连）：先断言前置条件成立，避免测了个寂寞
+  await context.setOffline(true);
+  expect(await page.evaluate(() => navigator.onLine)).toBe(false);
+
+  // 单机 blockOnOffline=false → editBlocked 恒 false：断网仍可创建 + 撤销
+  await page.keyboard.press('r');
+  const canvas = page.locator('canvas').first();
+  await canvas.hover({ position: { x: 500, y: 300 } });
+  await page.mouse.down();
+  await page.mouse.move(660, 420, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await debug(page)).modelCount, { timeout: 5_000 }).toBe(1);
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => (await debug(page)).modelCount, { timeout: 5_000 }).toBe(0);
+
+  // 撤销也是一次写入：断网下照样落盘（IndexedDB 与网络无关）
+  await persisted(page);
+
+  // 阻断提示与只读降级都不可达（OfflineBar 仅协同宿主；readonly pill 与断网无关）
+  await expect(page.locator('[data-spinth-offline-bar]')).toHaveCount(0);
+  await expect(page.locator('[data-spinth-readonly-pill]')).toHaveCount(0);
+
+  // 不在断网时 reload：无 Service Worker，刷新测的是网络不是产品（spec §8.3）
+  await context.setOffline(false);
+  await page.evaluate((id) => indexedDB.deleteDatabase(`spinth-doc:${id}`), docId);
+});
