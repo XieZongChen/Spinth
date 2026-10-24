@@ -3,7 +3,6 @@
  * 唯一组合根：BoardSDK（docs/04 §3）。UI 框架经胶水层消费输出流与命令。
  */
 
-import type { BoardSDK } from './app';
 export { BoardSDK } from './app';
 export type { IBoardConfig } from './boardConfig';
 
@@ -106,61 +105,16 @@ export {
 } from './widgets/mind/mindNodeVm';
 
 /**
- * BoardSDK 的窄公开面（Batch 2 · 类型层收窄，2026-10-18）：宿主集成契约 =
- * 输出流 getter + 查询 + 命令 + 生命周期——@internal 服务字段（组装/命令层
+ * BoardSDK 的窄公开面（Batch 2 · 类型层收窄）：宿主集成契约 = 生命周期 +
+ * 输出流 + 查询 + 命令——由 boardPublicApi.ts 的 `BOARD_PUBLIC_MEMBERS`
+ * allowlist 显式列举（新增公开成员必须手动加表，未归类成员令 typecheck 红，
+ * 分类编译锁见彼处三条 `_BoardKeys*`）。@internal 服务字段（组装/命令层
  * 共享面）与 debug 探针不在此面。BoardSDK 类导出保留（组合根与既有宿主
  * 兼容）；宿主可用 `const board: BoardPublicApi = sdk` 收窄依赖防漂移。
  * 运行时收窄（不导出 internal 字段）需破坏性版本化——挂账。
  */
-export type BoardPublicApi = Omit<
-  BoardSDK,
-  | 'viewport'
-  | 'engine'
-  | 'vmEngine'
-  | 'history'
-  | 'selector'
-  | 'shapeService'
-  | 'rectEditor'
-  | 'refLine'
-  | 'layer'
-  | 'group'
-  | 'textService'
-  | 'editingService'
-  | 'lineService'
-  | 'penService'
-  | 'eraserService'
-  | 'stickyService'
-  | 'imageService'
-  | 'assetStore'
-  | 'imageTextures'
-  | 'projectFile'
-  | 'storageStatus'
-  | 'mindService'
-  | 'contextMenu'
-  | 'keyboard'
-  | 'clipboard'
-  | 'textRender'
-  | 'spatial'
-  | 'culling'
-  | 'awareness'
-  | 'awarenessVm'
-  | 'network'
-  | 'registry'
-  | 'commands'
-  | 'syncToolOption'
-  | 'cullingForgetSub'
-  | 'initialized'
-  | 'disposed'
-  | 'mindGhostFallback'
-  | 'mindFocusFallback'
-  | 'editBlockedFallback'
-  | 'ctxMenuFallback'
-  | 'dragMoveFallback'
-  | 'fallbacks'
-  | 'snapshotCompute'
-  | 'compactWorkerUsed'
-  | '__debug'
->;
+export type { BoardPublicApi, BoardPublicMember } from './boardPublicApi';
+export { BOARD_PUBLIC_MEMBERS } from './boardPublicApi';
 
 // 产品身份常量单一源在 version.ts（docs/20 §5.3：项目文件模块需要版本号，
 // 从 index.ts import 会成环）——此处仅 re-export，公共面不变

@@ -1,6 +1,6 @@
 import type {
   AlignMode,
-  BoardSDK,
+  BoardPublicApi,
   CursorMode,
   DistributeAxis,
   IProjectExportOptions,
@@ -10,12 +10,13 @@ import type {
 } from '@spinth/core';
 
 /**
- * 命令模块（docs/12 §2）：纯转发 BoardSDK 方法，不产生本地状态、不进 store。
- * Board 组件挂载时 bindBoard，卸载时置空。
+ * 命令模块（docs/12 §2）：纯转发 BoardSDK 公共面方法，不产生本地状态、不进
+ * store。Board 组件挂载时 bindBoard，卸载时置空。经 `BoardPublicApi` 收窄
+ * 依赖（specs/api-surface Step 6）——allowlist 漏成员会在此先编译红。
  */
-let board: BoardSDK | null = null;
+let board: BoardPublicApi | null = null;
 
-export function bindBoard(sdk: BoardSDK): void {
+export function bindBoard(sdk: BoardPublicApi): void {
   board = sdk;
 }
 

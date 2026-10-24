@@ -1,5 +1,4 @@
 import type { BoardPublicApi } from '@spinth/core';
-import type { BoardSDK } from '@spinth/core'; // 类保留（dispose 等实现面）
 import { useSpinthStore } from './spinthStore';
 
 /**
@@ -15,11 +14,11 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
   // 每帧全新 getActionBarSchema()（选中态重算 + React 树 diff），选中态平移掉帧。
   // 失效由订阅点显式驱动（selected$/widgetsChanged$——选中内容或数据变化），
   // vp 流命中缓存 → zustand 浅比较（schema 引用不变）跳过 ActionBar 重渲
-  let schemaCache: ReturnType<BoardSDK['getActionBarSchema']> | undefined;
+  let schemaCache: ReturnType<BoardPublicApi['getActionBarSchema']> | undefined;
   const invalidateSchema = (): void => {
     schemaCache = undefined;
   };
-  const getSchema = (): ReturnType<BoardSDK['getActionBarSchema']> => {
+  const getSchema = (): ReturnType<BoardPublicApi['getActionBarSchema']> => {
     if (schemaCache !== undefined) return schemaCache;
     schemaCache = sdk.getActionBarSchema();
     return schemaCache;
