@@ -42,7 +42,7 @@ async function waitControlled(page: Page): Promise<void> {
 
 /** 等待 registration 进入 waiting——横幅缺席断言必须以此为前提才不平凡（§17.4 P2-5）。
  *
- * 隐含约束（§17.4 第二轮 P2-2）：waiting 之所以停留，是因为同 scope 还有旧
+ * 隐含约束（§17.4 第二轮 P2-3）：waiting 之所以停留，是因为同 scope 还有旧
  * 客户端开着（P6 里是 tab A）——最后一个旧客户端消失时浏览器会自动激活
  * waiting，届时本轮询会超时。调整用例顺序/关闭标签前先想清楚这条依赖。 */
 async function waitWaiting(page: Page): Promise<void> {
