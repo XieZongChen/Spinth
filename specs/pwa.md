@@ -353,8 +353,8 @@ manifest 关键字段：`name/short_name: "spinth"`、`lang: "zh-CN"`、`start_u
   横幅不渲染（单机不可达，留给协同宿主）。
 - 动作：主按钮「刷新」（`accent-fill` + `on-accent`）、次按钮「稍后」（幽灵）；不放 `×`（与「稍后」重复）。
 - 文案：一行「新版本可用」。不写版本号——版本是构建细节，对用户无意义。
-- 「稍后」= 本会话不再提示：把当前 waiting 的标识记进 `sessionStorage`；不清 waiting、不阻止更新，
-  下次打开仍会提示（D9）。
+- 「稍后」= 本会话不再提示：`sessionStorage` 记会话级标志（不区分同一会话内先后多个
+  waiting）；不清 waiting、不阻止更新，重开（新会话）仍会提示（D9）。
 - 语义：`role="status"`（polite），出现不抢焦点；Tab 可到达两个按钮；关闭后若焦点曾在横幅内，
   归还到触发元素，否则不动焦点。
 - 尺寸：按钮 ≥24px（移动端 ≥44px 触控目标），390px 下 `max-w-[calc(100vw-16px)]` 不换行不溢出。
@@ -498,7 +498,8 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 
 ## 17. 复审记录
 
-实施于 2026-10-25 完成（8f57cb1…1f4eb44 及文档收口批次），设计方按 §1 完成定义与 §15 清单复审。
+实施于 2026-10-25 完成（8f57cb1 起的提交链）。§17.1–17.3 为**实施自检**；
+设计方独立复审（含负向验证）见 §17.4。
 
 ### 17.1 实测数字
 
@@ -534,12 +535,49 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
    （`new Function`）在严格 CSP 下触发 securitypolicyviolation——此前所有 E2E 都跑
    dev（无 CSP），Pages 又从未真正部署，故从未暴露。修复 = core 入口
    `z.config({ jitless: true })`（上游注释明示该路径），PIXI 侧批次 B 已有的
-   `pixi.js/unsafe-eval` 覆写不受影响。
+   `pixi.js/unsafe-eval` 覆写不受影响。dist 里仍残留 5 处 `new Function`（全在 pixi
+   chunk），经该覆写后运行时不执行——P4 的 0 violation 即为证；未来在产物里搜到
+   勿重复排查。
+
+8. **E2E 拆为独立 playwright 配置**（D14 表述为「新增 project pwa」）：webServer
+   是全局配置，挂在主配置会让 nightly（visual/timing/multitab）三层各多付一次
+   ~25s 的子路径构建。pwa project 连同 preview webServer 独立进
+   `playwright.pwa.config.ts`；gate 与 `pnpm test:e2e` 走双命令（主配置 +
+   `--config playwright.pwa.config.ts`）。D14 的「不接受环境变量默认跳过」不受
+   影响——pwa 层永远真跑。
 
 ### 17.3 遗留项
 
 - **iOS / Android 真机「添加到主屏幕」的启动形态与图标裁切**：无法自动化（§14 尾注），待人工验证。
 - **CI 双路径实跑**：六断言本地验证（含删侧车条目负向红）；gate/pages 两条路径在推送后
   由既有步骤自动执行，以 CI 结果为准。
-- **P6「已就绪」断言曾出现一次时序 flaky（retry 过）**：claim 修复后未复现；如 nightly
-  再现，优先排查 B 标签 updatefound 与 controllerchange 的到达顺序。
+- ~~P6「已就绪」断言曾出现一次时序 flaky（retry 过）~~：已按 §17.4 P2-5 把两处
+  固定等待（`waitForTimeout` 1500/500）换成 `registration.waiting` 轮询，缺席断言
+  以「waiting 已在场」为前提，不再依赖时序运气。
+
+### 17.4 设计方复审记录
+
+独立复审于实施合入后进行：verify / pwa E2E / Pages 校验 / 用例清点均复跑，另做了
+两项**负向验证**——① 从侧车删 3 个 icons 条目 → check 退出 1 且精确报缺失文件；
+② 注释掉 `import './common/zodRuntime'` → P4 变红（Expected 0, Received 1，retry
+仍红）。后者同时证明「zod JIT 确实触发 violation」与「P4 不是装饰性断言」。
+结论：**通过（Approved）**，两项实质修复（zod jitless、首装 claim 区分）成立。
+
+复审发现与本轮处置（全部落地，含被标记「可遗留」的 P3）：
+
+| #   | 发现                                                                   | 级别 | 处置                                                                                                               |
+| --- | ---------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | §17 署名写作「设计方复审」实为实施自检                                 | P1   | §17.1–17.3 改标实施自检，本节为设计方复审                                                                          |
+| 2   | §17.1 coverage 行/函数颠倒；单测拆分 12+8+13≠37（实际 cachePolicy 16） | P1   | 两处数字已改（16+8+13=37）                                                                                         |
+| 3   | §10「waiting 的标识记 sessionStorage」与实现（会话级布尔）不一致       | P1   | §10 正文改写为会话级语义；偏差仍见 §17.2.4                                                                         |
+| 4   | `?e2e=1` 探针进生产 bundle，与「SDK 调试句柄生产剥离」约定相逆         | P2   | 改构建期开关 `__E2E_PROBE__`（`SPINTH_E2E=1` 的构建才携带，Pages 产物零暴露）；webServer 与 `rebuild()` 均带该 env |
+| 5   | P6 两处 `waitForTimeout`（1500/500）是 flake 源                        | P2   | 换 `registration.waiting` 的 `expect.poll`，缺席断言以 waiting 在场为前提                                          |
+| 6   | `checkForUpdate` 把失败也计入 60min 节流——离线恰是最该重试的时候       | P2   | 失败改 5min 重试（`SW_UPDATE_RETRY_MS`），成功才回 60min 档；单测含交叠链排空                                      |
+| 7   | webServer 全局：nightly 三层各多 ~25s preview 构建                     | P3   | pwa 拆独立配置 `playwright.pwa.config.ts`（§17.2 偏差 8），gate/test:e2e 双命令                                    |
+| 8   | installShell 失败留半成品 cache 占配额                                 | P3   | 失败即 `caches.delete(SHELL_CACHE)` 再 throw                                                                       |
+| 9   | `withTimeout` 超时不 abort 底层导航 fetch                              | P3   | `AbortController` 超时回调先中断再拒绝                                                                             |
+| 10  | `useServiceWorker.ts` 两条 react import                                | P3   | 已合并                                                                                                             |
+| 11  | zod 声明 `^4.1.12`、实装 4.6.7——降级安装会让 jitless 静默失效          | P3   | 下限对齐 `^4.6.7`（lockfile specifier 已刷），理由注在 `zodRuntime.ts`                                             |
+
+复审方备注的「dist 残留 5 处 `new Function`（全在 pixi chunk，覆写后不执行）」
+已并入 §17.2.7，防未来重复排查。
