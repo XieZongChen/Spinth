@@ -75,22 +75,29 @@ ActionBar / MindAddButtons：纯算术定位
 
 ## 4. 组件清单
 
-| 组件             | 职责                                                                                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御）+ 主题注入                                          |
-| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                    |
-| `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数                                                             |
-| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）                                                          |
-| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；边缘翻转                                                                           |
-| `ZoomControl`    | 缩放胶囊（−/百分比/＋）                                                                                          |
-| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                              |
-| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态） |
-| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                 |
-| `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                   |
-| `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                     |
-| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                              |
-| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                    |
-| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                      |
+| 组件             | 职责                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御）+ 主题注入；画布宿主语义（`role=application` + 白板描述 + 快捷键帮助文本 + canvas aria-hidden，specs/a11y-closeout §8）             |
+| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                                                                                                    |
+| `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数；roving 焦点（单 Tab 停靠，方向键在按钮间移动）                                                                                             |
+| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）                                                                                                                     |
+| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                   |
+| `ZoomControl`    | 缩放胶囊（−/百分比/＋）；三钮 aria-label（适应屏幕钮名称带当前百分比）                                                                                                                           |
+| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                                                                                                              |
+| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态）；面板 roving + 关闭回焦触发钮                                                   |
+| `Announcer`      | 唯一 polite live region（sr-only 常驻，role=status + aria-atomic）：store 六字段差分播报（加载完成/选中变化/工具切换/保存失败/只读切换），200ms 防抖合并；文案源在 `a11y/announcement.ts` 纯函数 |
+| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                                                                                                 |
+| `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                                                                                                   |
+| `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                                                                                                     |
+| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                                                                                                              |
+| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                                                                                                    |
+| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                                                                                                      |
+
+Roving 焦点协议（specs/a11y-closeout §5）：纯函数 `a11y/rovingFocus.ts`（方向键步进/
+跳禁用/wrap）+ hook `a11y/useRovingFocus`（容器级 keydown/focusin，单 Tab 停靠）；
+五个消费者（ContextMenu/Toolbar/ToolFlyout/PopoverControl/ProjectMenu）共用同一协议。
+菜单语义统一 role=menu + menuitem(menuitemradio)/separator；ContextMenu 打开聚焦
+首个非禁用项，Esc/Tab/选项三路关闭统一归还焦点（点外部不归还——指针语义是去别处）。
 
 顶栏（app 壳，44px）：品牌标 + `spinth` 字标 + docId 胶囊（390px 截断）；右侧只读徽标
 （`data-spinth-readonly-pill`，按标签角色区分提示文案——多标签口径见
@@ -114,6 +121,12 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 390 布局矩阵回归在 `e2e/mobile.spec.ts`（M1–M9，helpers/layoutE2e.ts）；只读态
 保留缩放/平移，选择与复制受写门禁限制。
 
+重排与缩放（specs/a11y-closeout §7）：`max-[379px]` 紧凑顶栏（内边距/间距减半、
+字标隐藏、存储按钮仅圆点、胶囊加 title/aria-label——390 及以上逐像素不变，
+断点必须避开 M1 截断基线）；320×640 重排与 720×450（200% 缩放代理）布局矩阵在
+`e2e/a11yLayout.spec.ts`（Z1/Z2/R1/S1 八例，页面级无二维滚动；工具坞内部横滚
+属工具栏自身滚动区，#stage-container 豁免）。
+
 ## 5. 主题与样式架构
 
 - 语义令牌唯一色源：`packages/app/src/styles/tokens.css`，以 CSS 自定义属性定义
@@ -126,8 +139,15 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
     `accent-fill` + `on-accent`（含 hover `accent-fill-hover`），不用品牌紫压白字；
     组件禁止 `text-white`。
   - `text-3` 按最暗实际底（surface-hover）定值：浅 `#67677a` / 深 `#9c9ca9`。
-  - 对比度护栏：`e2e/a11y.spec.ts` 从浏览器计算样式取色断言（13 组令牌配对 ×
-    浅/深 + 实际元素），不在测试里持有颜色字面量。
+  - 工具主题色按角色拆 `-ink`（specs/a11y-closeout §6）：本体 = 画布图形/色点/
+    幽灵预览；`tool-*-ink` = soft 底上的前景（图标/文字）——flyout 选中项含纯文本
+    （字号/线宽数字），统一按文字 4.5:1 定值；深色本体已达标，`-ink` 别名本体。
+  - 安全区变量四条（`--spinth-safe-top/right/bottom/left`）包一层 `env()`：
+    E2E 覆盖这层变量注入测试值（env 本身不可伪造）；顶栏/工具坞/缩放胶囊/只读
+    提示/面板定位/右键菜单夹取均计入。
+  - 对比度护栏：`e2e/a11y.spec.ts` 从浏览器计算样式取色断言（21 组令牌配对 ×
+    浅/深 + 实际元素，含 tool-*-ink 八组与激活工具钮/flyout 选中项元素面），
+    不在测试里持有颜色字面量。
 - `index.css` 的 `@theme inline` 把令牌映射为 Tailwind 工具类；
   `data-theme` 切换 `:root` 变量即整站换肤。
 - 首绘由 index.html 内联脚本预置 `data-theme`（防暗色白屏闪烁）；

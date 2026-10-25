@@ -589,10 +589,9 @@ npx playwright test --grep "@visual"
 
 ## 14. 挂账（本批不做，写进 docs/13）
 
-- 右键菜单键盘协议（方向键/roving focus/焦点归还）。
-- 工具主题色图标对 soft 底的对比度（八组 tool tone）。
-- 200% 文本缩放与安全区（`viewport-fit=cover` + `env(safe-area-inset-*)`）。
+- ~~右键菜单键盘协议（方向键/roving focus/焦点归还）~~、~~工具主题色对 soft 底
+  对比度八组~~、~~200% 缩放与安全区~~、~~屏读巡检~~——可访问性四项已在批次 B
+  收口（specs/a11y-closeout，2026-10-25）。
 - Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存版本 + CSP）。
 - 协同宿主下的 `editBlocked` 交互面矩阵（等 `wsUrl` 进入启动路径）。
-- 屏读全量巡检（表单/画布可访问名、画布内容替代文本）。
 - Linux 视觉基线（既有挂账，不在本批）。

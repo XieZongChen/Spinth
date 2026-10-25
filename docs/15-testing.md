@@ -13,14 +13,18 @@
 
 ## 2. 当前基线
 
-- 单测：909 passed（core 883 + react 26，106 文件）。
-- E2E：20 个 spec、186 例（分层：fast 177 / timing+bench 5 / visual 4；混跑不作门禁，
+- 单测：945 passed（core 894 + react 51）。
+- E2E：22 个 spec、202 例（分层：fast 193 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
-- 可访问性专项：a11y.spec 6 例（对比度护栏：13 组令牌配对 × 浅/深 + 实际元素 ×2
-  ——从浏览器计算样式取色，不在测试里持有颜色字面量；错误态 ×2：IndexedDB 注入 →
-  role=alert/标题聚焦/390 无横滚/两主题对比度。helper `a11yE2e.ts` 为 WCAG 对比度
-  纯函数，遇 alpha 直接红）。
+- 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
+  （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
+  持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
+  对比度。helper `a11yE2e.ts` 为 WCAG 对比度纯函数，遇 alpha 直接红）。
+- 可访问性键盘/布局专项（specs/a11y-closeout）：a11yKeyboard.spec 8 例（菜单键盘
+  协议遍历与触发/Esc 不清选区/Shift+F10/菜单期闸门/Tab 序单停靠/画布语义与播报/
+  五组控件可访问名扫描）+ a11yLayout.spec 8 例（Z1 720×450 缩放代理 ×2、Z2 rem
+  200%、R1 320×640 重排 ×3、S1 安全区注入 ×2）。
 - 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget

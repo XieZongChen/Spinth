@@ -62,6 +62,16 @@
       防压缩、脑图按钮钳制、面板纵向兜底同批修复（specs/a11y-mobile A3）。
 - [x] 物理断网（editBlocked）单机不可达不变量：core 单测 + 断网 E2E
       （specs/a11y-mobile A4）；单机不传 `wsUrl` → `editBlocked` 恒 false。
+- [x] 右键菜单键盘协议（批次 B W1）：role=menu + roving 焦点（五消费者共享
+      `a11y/rovingFocus`）、Shift+F10/Menu 键打开、菜单期快捷键全静默闸门、
+      焦点归还矩阵；E2E `a11yKeyboard.spec.ts`。
+- [x] 工具主题色对 soft 底对比度八组（W2）：`tool-*-ink` 按角色拆分（soft 底
+      前景统一 4.5:1，本体色留给画布图形）；a11y.spec 配对 13 → 21 组。
+- [x] 200% 缩放与安全区（W3）：320×640 重排（紧凑顶栏 `max-[379px]`）+ 720×450
+      缩放代理矩阵 `a11yLayout.spec.ts`；`viewport-fit=cover` + 四条 safe 变量
+      （E2E 覆盖注入路径）。
+- [x] 屏读巡检（W4）：画布 role=application + 帮助文本、Announcer 唯一播报源
+      （六字段差分）、五组控件可访问名扫描、焦点顺序契约（工具坞单停靠）。
 
 ### P2 架构收口
 
@@ -98,10 +108,10 @@
 - 单机断网不做 editBlocked 矩阵：无 `wsUrl` 即无阻断路径，用「断言 OfflineBar
   不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
   路径时该测试先红，提醒补矩阵。
-- 可访问性挂账：右键菜单键盘协议（roving focus）、工具主题色对 soft 底对比度
-  八组、200% 文本缩放与安全区（`viewport-fit=cover` + `env(safe-area-inset-*)`）、
-  屏读全量巡检（画布替代文本、表单标签、焦点顺序、保存状态播报）。
 - 平台挂账：Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存
   版本 + CSP）。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
+- 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
+  px→rem 全量字号迁移（1.4.4 由页面缩放代理覆盖）、ToolGhost/画布图形对比度
+  （幽灵预览非文本图形，是否抬 3:1 需产品判断）——specs/a11y-closeout §13.5。

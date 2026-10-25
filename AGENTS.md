@@ -128,9 +128,14 @@ docs/21 §4）、可访问性与移动端收口批次 A（语义色 WCAG AA + �
 错误态 role=alert、390px 九面布局矩阵、单机断网不变量，specs/a11y-mobile）、
 公共 API 收口与 P2 架构收口（`BoardPublicApi` allowlist + 分类编译锁、
 `boardCommands` 宿主契约类型化、`app.ts` 门面化 + `BoardFacade` 纯委托基类、
-`WIDGET_RUNTIME` 类型注册表单源，specs/api-surface）。
-当前实测基线：`pnpm verify` 通过；909 单测（core 883 + react 26）；E2E 20 spec /
-186 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9）。
+`WIDGET_RUNTIME` 类型注册表单源，specs/api-surface）、可访问性挂账收口批次 B
+（右键菜单键盘协议 roving + Shift+F10 + 菜单期快捷键闸门、工具主题色 `-ink`
+按角色拆分 4.5:1、320 重排/200% 缩放/安全区矩阵、画布 role=application +
+Announcer 播报器，specs/a11y-closeout）。
+当前实测基线：`pnpm verify` 通过；945 单测（core 894 + react 51）；E2E 22 spec /
+201 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9；
+a11yKeyboard 8/8；a11yLayout 8/8）。
 
-下一阶段重点是可访问性/平台挂账收口与 Linux 视觉基线（docs/13 §2）；协同为
-后置能力，不属于本阶段。可访问性/平台/协同挂账见 docs/13 §2–§3。
+下一阶段重点是 PWA/Service Worker 平台挂账与 Linux 视觉基线（docs/13 §2–§3）；
+协同为后置能力，不属于本阶段。可访问性遗留（画布内容朗读/px→rem/幽灵对比度）
+见 docs/13 §3 与 specs/a11y-closeout §13.5。
