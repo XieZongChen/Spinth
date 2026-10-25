@@ -23,6 +23,12 @@
     </script>
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS「添加到主屏幕」（specs/pwa §7.1/Q4）：状态栏用 default——
+         black-translucent 会把状态栏文字刷白压在浅色画布上，对比度不合格 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="spinth" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>spinth — 让想法擦出火花</title>
   </head>
   <body>
