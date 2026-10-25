@@ -32,8 +32,9 @@ export {
   type ITabSessionState,
 } from '@spinth/core';
 // 可访问性公共面（specs/a11y-closeout）：app 壳面板定位读安全区；
-// useRovingFocus/Announcer（批次 B W1/W4）随后续步骤导出
+// useRovingFocus 供 app 包菜单（ProjectMenu）与仓内五消费者共用（W1）
 export { readSafeInsets, parseInsetPx, type ISafeInsets } from './a11y/safeArea';
+export { useRovingFocus, type IUseRovingFocusOptions } from './a11y/useRovingFocus';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';

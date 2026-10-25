@@ -1,5 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRovingFocus } from '../a11y/useRovingFocus';
 import { Icon, type IconName } from './Icon';
 import { Tooltip } from './Tooltip';
 import type { IActionBarOption } from '@spinth/core';
@@ -41,6 +42,14 @@ export function ToolFlyout({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  // roving（specs/a11y-closeout §5.7）：常驻面板不抢焦点（autoFocus=false，
+  // 焦点仍在工具坞按钮），Tab 进入后方向键在选项间移动；Tooltip 包裹不改
+  // DOM 层级，按钮仍是容器直接查询后代
+  const { onKeyDown, onFocus } = useRovingFocus({
+    containerRef: hostRef,
+    orientation: 'both',
+    wrap: true,
+  });
   useLayoutEffect(() => {
     const place = (): void => {
       const el = hostRef.current;
@@ -62,6 +71,8 @@ export function ToolFlyout({
       ref={hostRef}
       role="menu"
       data-spinth-tool-flyout=""
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
       style={{
         position: 'fixed',
         left: pos?.left ?? -9999,
@@ -91,6 +102,8 @@ export function ToolFlyout({
                     role="menuitemradio"
                     aria-checked={checked}
                     aria-label={o.label}
+                    data-roving-item=""
+                    tabIndex={-1}
                     onClick={() => grp.onPick(o.id)}
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-100 ${
                       checked ? checkedClass : 'text-ink-2 hover:bg-surface-hover hover:text-ink'

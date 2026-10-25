@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { IActionBarItem } from '@spinth/core';
+import { useRovingFocus } from '../a11y/useRovingFocus';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { Tooltip } from './Tooltip';
@@ -27,8 +28,24 @@ export function PopoverControl({
   const [panelLeft, setPanelLeft] = useState<number | null>(null); // 相对 root 的中心 x（null = 未校正，用 CSS 居中）
   const rootRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const current = typeof item.value === 'string' ? item.value : '';
   const curOpt = item.options?.find((o) => o.id === current);
+
+  // 关闭即回焦触发钮（specs/a11y-closeout §5.7：选项/外点/Esc 三路一致——
+  // 面板收起即卸载，焦点不落地会掉到 body）
+  const closeAndRefocus = (): void => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // roving（specs/a11y-closeout §5.7）：面板 both 方向 + wrap；面板仅在 open
+  // 时挂载，收起时容器为 null——hook 对空容器不做任何事
+  const { onKeyDown, onFocus } = useRovingFocus({
+    containerRef: panelRef,
+    orientation: 'both',
+    wrap: true,
+  });
 
   // Esc 收起（capture 相 + stopPropagation 独占：面板开着时 Esc 只收面板、
   // 不再触发全局「Esc 清选区」——参考同款层级语义；hotkeys-js 挂 document
@@ -38,7 +55,7 @@ export function PopoverControl({
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        setOpen(false);
+        closeAndRefocus();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -49,7 +66,7 @@ export function PopoverControl({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent): void => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) closeAndRefocus();
     };
     window.addEventListener('pointerdown', onDown);
     return () => window.removeEventListener('pointerdown', onDown);
@@ -80,6 +97,7 @@ export function PopoverControl({
     <div ref={rootRef} className="relative" data-spinth-popover={item.id}>
       <Tooltip label={item.label} disabled={open}>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={item.label}
           aria-haspopup="menu"
@@ -120,6 +138,8 @@ export function PopoverControl({
           role="menu"
           aria-label={item.label}
           data-spinth-popover-panel=""
+          onKeyDown={onKeyDown}
+          onFocus={onFocus}
           className="absolute left-1/2 top-full z-50 mt-2 flex w-max max-w-[calc(100vw-16px)] flex-wrap items-center justify-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1.5 shadow-pop -translate-x-1/2"
           style={panelLeft === null ? undefined : { left: panelLeft }}
         >
@@ -132,9 +152,11 @@ export function PopoverControl({
                   role="menuitemradio"
                   aria-checked={active}
                   aria-label={opt.label}
+                  data-roving-item=""
+                  tabIndex={-1}
                   onClick={() => {
                     onPick(item.id, opt.id);
-                    setOpen(false);
+                    closeAndRefocus();
                   }}
                   className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-100 ${
                     active

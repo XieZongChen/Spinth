@@ -42,7 +42,7 @@ export const BOARD_PUBLIC_MEMBERS = [
   'toScreenPoint',
   'getMindAddButtons',
   'getActionBarSchema',
-  // 命令（37）
+  // 命令（38）
   'setTheme',
   'setCursorMode',
   'setDefaultShapeType',
@@ -73,6 +73,7 @@ export const BOARD_PUBLIC_MEMBERS = [
   'pasteAt',
   'pasteAtScreenCenter',
   'closeContextMenu',
+  'openContextMenuFromKeyboard',
   'updateSelectedStyle',
   'exportPNG',
   'exportProject',

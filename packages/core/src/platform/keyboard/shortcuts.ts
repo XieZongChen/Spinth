@@ -32,10 +32,11 @@ export interface IShortcutHandlers {
   nudge(dx: number, dy: number, shift: boolean): void;
   /** 橡皮大小调整（方括号；仅 eraser 模式生效，服务内自查） */
   eraserSize(delta: number): void;
-  /** 脑图 Tab 建子节点 */
-  mindAddChild(): void;
-  /** 脑图 Enter 建同级节点 */
-  mindAddSibling(): void;
+  /** 脑图 Tab 建子节点；返回 false = 无脑图焦点未消费（键盘层放行原生 Tab，
+   *  specs/a11y-closeout §5.9 键盘陷阱修复——body 焦点下 Tab 原先被吞死） */
+  mindAddChild(): boolean;
+  /** 脑图 Enter 建同级节点；返回 false 语义同上 */
+  mindAddSibling(): boolean;
   /** 脑图方向键焦点导航；返回 true = 已被脑图消费（跳过 1px 微移） */
   mindNavigate(key: string): boolean;
   /** 编组（docs/18 §3.1）：≥2 全可组才建 */
@@ -149,3 +150,28 @@ export const NATIVE_UI_KEYS = new Set([
   'arrowleft',
   'arrowright',
 ]);
+
+/** hotkeys.filter 的纯函数输入（specs/a11y-closeout §5.5）——抽出来可单测 */
+export interface IShortcutGateInput {
+  /** capture 相输入态快照（见 KeyboardService.editableAtCapture 注释） */
+  editableAtCapture: boolean;
+  /** UI 模态浮层开着（右键菜单）：全静默（D3——菜单内容基于打开瞬间的选中集，
+   *  撤销/删除会让它指向已失效对象；菜单内操作走菜单项） */
+  menuOpen: boolean;
+  target: EventTarget | null;
+  key: string;
+}
+
+/**
+ * 快捷键总闸门（顺序即优先级）：输入态 → false；菜单开着 → false；
+ * 单独修饰键 → true（不干扰组合键判定）；其余 → true（只读白名单由
+ * bindAll 的 handler 守卫兜底，docs/09 §2）。抽纯函数的唯一动机：
+ * 闸门规则真值表可单测（specs/a11y-closeout §5.8）。
+ */
+export function shortcutGateAllows(input: IShortcutGateInput): boolean {
+  if (input.editableAtCapture) return false;
+  if (isEditableTarget(input.target)) return false;
+  if (input.menuOpen) return false;
+  if (['control', 'meta', 'alt', 'shift'].includes(input.key)) return true;
+  return true;
+}

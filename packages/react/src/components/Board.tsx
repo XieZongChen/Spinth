@@ -79,9 +79,12 @@ export function Board({
     // 层序用显式 z-index 而非 DOM 顺序：core 命令式追加的 canvas 与 React 子节点
     // （DotGrid）的相对顺序在重渲染后不可保证（实测 React 会把重渲染的子节点插到
     // canvas 之后）。canvas z-[1]：高于点阵（z-auto），低于 App 层浮层（z-10+）。
+    // tabIndex=0（specs/a11y-closeout §5.9，批次 B W1 先行）：右键菜单的焦点
+    // 归还目标 + 键盘可达画布入口；role/可访问名/帮助文本在 W4 补
     <div
       id="stage-container"
       ref={ref}
+      tabIndex={0}
       className="absolute inset-0 overflow-hidden [&>canvas]:absolute [&>canvas]:top-0 [&>canvas]:left-0 [&>canvas]:z-[1]"
     >
       <DotGrid />

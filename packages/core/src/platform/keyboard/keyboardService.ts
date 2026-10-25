@@ -6,6 +6,7 @@ import {
   isEditableTarget,
   isInteractiveUiTarget,
   NATIVE_UI_KEYS,
+  shortcutGateAllows,
   type IShortcutDef,
   type IShortcutHandlers,
 } from './shortcuts';
@@ -23,6 +24,10 @@ export class KeyboardService extends Disposable {
 
   /** 物理断网判定（组合根注入 NetworkService.editBlocked$——两态语义单源，docs/10 §4） */
   isBlocked: () => boolean = () => (typeof navigator !== 'undefined' ? !navigator.onLine : false);
+
+  /** UI 模态浮层判定（组合根注入右键菜单开合，specs/a11y-closeout §5.5）：
+   *  菜单开着时快捷键全静默（D3）——菜单期 hotkeys 不命中画布命令 */
+  isUiModalOpen: () => boolean = () => false;
 
   /** capture 相输入态快照：富文本编辑器的 Esc 处理器在冒泡中途 detach 编辑器
    *  （setEditable(false)+blur），event.target 的 isContentEditable 到 document
@@ -43,17 +48,15 @@ export class KeyboardService extends Disposable {
   }
 
   initialize(): void {
-    hotkeys.filter = (event): boolean => {
-      if (this.editableAtCapture) return false;
-      const target = event.target as EventTarget | null;
-      if (isEditableTarget(target)) return false;
-      // 修饰键单独按下放行（不干扰组合键判定）
-      const key = (event.key ?? '').toLowerCase();
-      if (['control', 'meta', 'alt', 'shift'].includes(key)) return true;
-      // 只读模式：仅放行声明 allowInReadonly 的快捷键（按 keys 匹配当前事件难以可靠，
-      // 简化：只读模式下 handler 内自查——此处统一放行，由 bindAll 的守卫兜底）
-      return true;
-    };
+    // 总闸门走纯函数 shortcutGateAllows（specs/a11y-closeout §5.5，真值表单测在彼）：
+    // 输入态/菜单期全静默、单独修饰键放行；只读白名单由 bindAll 守卫兜底（docs/09 §2）
+    hotkeys.filter = (event): boolean =>
+      shortcutGateAllows({
+        editableAtCapture: this.editableAtCapture,
+        menuOpen: this.isUiModalOpen(),
+        target: event.target,
+        key: (event.key ?? '').toLowerCase(),
+      });
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this.captureKeyDown, true);
       this.addDisposable(() => window.removeEventListener('keydown', this.captureKeyDown, true));
@@ -72,7 +75,7 @@ export class KeyboardService extends Disposable {
   private bindAll(): void {
     const bind = (
       keys: string,
-      handler: (e: KeyboardEvent) => void,
+      handler: (e: KeyboardEvent) => void | boolean,
       allowInReadonly = false,
     ): void => {
       hotkeys(keys, (event) => {
@@ -91,8 +94,11 @@ export class KeyboardService extends Disposable {
           if (!this.viewport.editable$.value) return;
           if (this.isBlocked()) return;
         }
-        event.preventDefault();
-        handler(event);
+        // handler 返回 false = 未消费（脑图 tab/enter 无焦点态，specs/a11y-closeout
+        // §5.9 键盘陷阱修复）：不 preventDefault，Tab/Enter 走原生焦点序列；
+        // void/true = 消费，维持吞键。preventDefault 在 dispatch 完成前仍生效
+        const acted = handler(event);
+        if (acted !== false) event.preventDefault();
       });
     };
 

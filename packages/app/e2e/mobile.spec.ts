@@ -180,7 +180,7 @@ test('M6 右键菜单：右下/左上边缘翻转都不出视口、可点适应�
   await page.mouse.click(390 - 10, 844 - 10, { button: 'right' });
   await expect(menu).toBeVisible();
   await boxWithin(menu, MOBILE);
-  await menu.getByRole('button', { name: '适应屏幕' }).click();
+  await menu.getByRole('menuitem', { name: '适应屏幕' }).click();
   await expect(menu).toBeHidden();
 
   // 左上画布角右键（10, 顶栏 +10）：不出上边、不钻顶栏
@@ -189,7 +189,7 @@ test('M6 右键菜单：右下/左上边缘翻转都不出视口、可点适应�
   const box = await boxWithin(menu, MOBILE);
   expect(box.x).toBeGreaterThanOrEqual(-0.5);
   expect(box.y).toBeGreaterThanOrEqual(44);
-  await menu.getByRole('button', { name: '适应屏幕' }).click();
+  await menu.getByRole('menuitem', { name: '适应屏幕' }).click();
   await expect(menu).toBeHidden();
   await cleanupDoc(page, docId);
 });

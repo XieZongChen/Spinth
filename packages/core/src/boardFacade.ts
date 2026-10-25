@@ -226,4 +226,9 @@ export abstract class BoardFacade {
   closeContextMenu(): void {
     return this.commands.closeContextMenu();
   }
+
+  /** 键盘打开右键菜单（Shift+F10/Menu 键路径，specs/a11y-closeout §5.6） */
+  openContextMenuFromKeyboard(): void {
+    return this.commands.openContextMenuFromKeyboard();
+  }
 }

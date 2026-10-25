@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SHORTCUTS, isEditableTarget } from '../platform/keyboard/shortcuts';
+import {
+  DEFAULT_SHORTCUTS,
+  isEditableTarget,
+  shortcutGateAllows,
+} from '../platform/keyboard/shortcuts';
 
 /**
  * 快捷键注册表结构守卫（2026-10-10 审计补测——b6980b9 产品级修复的回归窗）：
@@ -63,5 +67,78 @@ describe('isEditableTarget（filter 闸门地基）', () => {
   it('普通元素与空 target 不是输入态', () => {
     expect(isEditableTarget(el('DIV'))).toBe(false);
     expect(isEditableTarget(null)).toBe(false);
+  });
+});
+
+describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级即顺序）', () => {
+  const inputTarget = { tagName: 'INPUT' } as unknown as EventTarget;
+  const plainTarget = {} as EventTarget;
+
+  it('capture 输入态快照 → false（优先于一切）', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: true,
+        menuOpen: false,
+        target: plainTarget,
+        key: 'z',
+      }),
+    ).toBe(false);
+  });
+
+  it('target 是输入元素 → false', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        menuOpen: false,
+        target: inputTarget,
+        key: 'z',
+      }),
+    ).toBe(false);
+  });
+
+  it('菜单开着 → 全静默（含修饰组合，D3）', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        menuOpen: true,
+        target: plainTarget,
+        key: 'z',
+      }),
+    ).toBe(false);
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        menuOpen: true,
+        target: plainTarget,
+        key: 'meta',
+      }),
+    ).toBe(false);
+  });
+
+  it('单独修饰键 → true（不干扰组合键判定）', () => {
+    for (const key of ['control', 'meta', 'alt', 'shift']) {
+      expect(
+        shortcutGateAllows({ editableAtCapture: false, menuOpen: false, target: plainTarget, key }),
+      ).toBe(true);
+    }
+  });
+
+  it('其余普通键 → true（只读白名单由 bindAll 守卫兜底）', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        menuOpen: false,
+        target: plainTarget,
+        key: 'v',
+      }),
+    ).toBe(true);
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        menuOpen: false,
+        target: null,
+        key: 'delete',
+      }),
+    ).toBe(true);
   });
 });

@@ -336,7 +336,16 @@ export class ViewportService extends Disposable implements IViewportService {
         metaKey: boolean;
         ctrlKey: boolean;
         altKey: boolean;
-      }): void => dispatch(kind, e);
+        button?: number;
+      }): void => {
+        // 主键过滤（specs/a11y-closeout §5.3 派生修复，批次 B W1）：右键的
+        // down/up 不进模式 handlers——此前右键点已选中件会走「单击激活」路径
+        // 异步开出内联编辑器，其挂载焦点抢走右键菜单的首项聚焦；右键语境 =
+        // contextmenu 菜单（rightdown 通道与 DOM contextmenu 均不受影响）。
+        // touch/pen 由 PIXI 归一为 button 0
+        if ((kind === 'down' || kind === 'up' || kind === 'upoutside') && e.button !== 0) return;
+        dispatch(kind, e);
+      };
       stage.on(event, handler);
       disposers.push(() => stage.off(event, handler));
     }

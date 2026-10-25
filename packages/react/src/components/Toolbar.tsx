@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
+import { useRovingFocus } from '../a11y/useRovingFocus';
 import { Icon, type IconName } from './Icon';
 import { ToolFlyout } from './ToolFlyout';
 import {
@@ -114,6 +115,15 @@ export function Toolbar() {
   const selectedCount = useSpinthStore((s) => s.selectedCount);
   /** 激活工具按钮（ToolFlyout 的 portal 定位锚点） */
   const activeBtnRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  // roving（specs/a11y-closeout §5.7，W1/2.4.3）：工具坞单 Tab 停靠，
+  // 方向键在按钮间移动；wrap=false——工具序两端即语义尽头。ToolFlyout 是
+  // portal 到 body 的，不在本容器内，不被选择器命中
+  const { onKeyDown, onFocus } = useRovingFocus({
+    containerRef: dockRef,
+    orientation: 'horizontal',
+    wrap: false,
+  });
 
   // 形状条目动态生成：图标/标题随当前默认型（SHAPE_TYPE_OPTIONS 单源；current 读聚合表）
   const shapeCur = toolOptions['shape']?.type ?? 'rect';
@@ -132,6 +142,9 @@ export function Toolbar() {
       role="toolbar"
       aria-label="画板工具"
       data-spinth-toolbar=""
+      ref={dockRef}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
       className="absolute bottom-[calc(1.25rem+var(--spinth-safe-bottom))] left-1/2 z-10 flex w-max max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-0.5 overflow-x-visible rounded-full border border-edge bg-surface p-1.5 shadow-dock max-md:bottom-[calc(5rem+var(--spinth-safe-bottom))] max-md:overflow-x-auto md:bottom-[calc(1.25rem+var(--spinth-safe-bottom))] md:max-w-none"
     >
       {tools.map((t, i) => {
@@ -142,6 +155,8 @@ export function Toolbar() {
               type="button"
               title={t.title}
               aria-pressed={active}
+              data-roving-item=""
+              tabIndex={-1}
               disabled={!editable && t.mode !== 'cursor' && t.mode !== 'hand'}
               onClick={() => spinthCommands.setCursorMode(t.mode)}
               style={{ '--i': i } as React.CSSProperties}
@@ -199,6 +214,8 @@ export function Toolbar() {
           key={a.icon}
           type="button"
           title={a.title}
+          data-roving-item=""
+          tabIndex={-1}
           disabled={a.disabled}
           onClick={a.onClick}
           style={{ '--i': tools.length + i } as React.CSSProperties}

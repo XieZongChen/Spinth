@@ -262,4 +262,9 @@ export class BoardCommands {
   closeContextMenu(): void {
     this.ctx.contextMenu?.close();
   }
+
+  /** 键盘打开右键菜单（specs/a11y-closeout §5.6——Shift+F10/Menu 的命令面） */
+  openContextMenuFromKeyboard(): void {
+    this.ctx.contextMenu?.openFromKeyboard();
+  }
 }

@@ -252,15 +252,15 @@ test('右键菜单：元素菜单就地选中、粘贴守卫（无缓冲禁用�
   await page.mouse.click(460, 340, { button: 'right' });
   await expect(menu).toBeVisible();
   expect(await probe(page).then((p) => p.selectedIds)).toHaveLength(1);
-  await expect(menu.getByRole('button', { name: '粘贴' })).toBeDisabled();
+  await expect(menu.getByRole('menuitem', { name: '粘贴' })).toBeDisabled();
 
   // 复制 → 菜单关 → 空白右键出画布菜单 → 粘贴已启用 → 点击 = pasteAtCenter
-  await menu.getByRole('button', { name: '复制' }).click();
+  await menu.getByRole('menuitem', { name: '复制' }).click();
   await expect(menu).toHaveCount(0);
   await page.mouse.click(900, 500, { button: 'right' }); // 空白处
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button', { name: '粘贴' })).toBeEnabled();
-  await menu.getByRole('button', { name: '粘贴' }).click();
+  await expect(menu.getByRole('menuitem', { name: '粘贴' })).toBeEnabled();
+  await menu.getByRole('menuitem', { name: '粘贴' }).click();
   await page.waitForTimeout(200);
   expect((await probe(page)).modelCount).toBe(2); // 粘贴件落视口中心
 
@@ -273,7 +273,7 @@ test('右键菜单：元素菜单就地选中、粘贴守卫（无缓冲禁用�
   // 右键删除：菜单删除按钮走 removeSelected
   await page.mouse.click(460, 340, { button: 'right' });
   await expect(menu).toBeVisible();
-  await menu.getByRole('button', { name: '删除' }).click();
+  await menu.getByRole('menuitem', { name: '删除' }).click();
   await page.waitForTimeout(150);
   expect((await probe(page)).modelCount).toBe(1); // 两件删一件（右键就地单选语义）
 });

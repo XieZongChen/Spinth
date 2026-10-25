@@ -84,6 +84,10 @@ export const spinthCommands = {
   closeContextMenu(): void {
     board?.closeContextMenu();
   },
+  /** 键盘打开右键菜单（Shift+F10/Menu，specs/a11y-closeout §5.6） */
+  openContextMenuFromKeyboard(): void {
+    board?.openContextMenuFromKeyboard();
+  },
   /** ActionBar 样式写入（schema 字段；一个事务覆盖全部选中） */
   updateSelectedStyle(patch: Record<string, unknown>): void {
     board?.updateSelectedStyle(patch);

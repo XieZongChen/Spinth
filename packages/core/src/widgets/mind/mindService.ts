@@ -209,14 +209,22 @@ export class MindService extends Disposable {
     return this.focusCtl.getFocusedState();
   }
 
-  /** Tab / AddButtons：建子节点并聚焦（树写域在 MindTreeOps，批刀 1 拆出） */
-  addChild(direction?: 'left' | 'right'): void {
+  /** Tab / AddButtons：建子节点并聚焦（树写域在 MindTreeOps，批刀 1 拆出）。
+   *  返回 false = 无脑图可建（键盘层不吞 Tab——原生焦点序列放行，
+   *  specs/a11y-closeout §5.9 键盘陷阱修复）。谓词与 treeOps 同源
+   *  getFocused()（focusedNodeId 空时回退根——有图即建根子），不用
+   *  getFocusedState()（其快照依赖几何，桩环境恒 null） */
+  addChild(direction?: 'left' | 'right'): boolean {
+    if (!this.focusCtl.getFocused()) return false;
     this.treeOps.addChild(direction);
+    return true;
   }
 
-  /** Enter / AddButtons：建同级节点（根上退化建子） */
-  addSibling(): void {
+  /** Enter / AddButtons：建同级节点（根上退化建子）。返回 false 语义同 addChild */
+  addSibling(): boolean {
+    if (!this.focusCtl.getFocused()) return false;
     this.treeOps.addSibling();
+    return true;
   }
 
   /** Delete / AddButtons：删节点（删根 = 删整图） */

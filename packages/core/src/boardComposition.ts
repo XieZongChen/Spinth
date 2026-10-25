@@ -327,6 +327,7 @@ export async function composeBoard(
     sdk.vmEngine,
     () => sdk.clipboard !== null && sdk.clipboard.hasBuffer,
     () => sdk.viewport?.cursorMode$.value ?? 'cursor',
+    () => sdk.editingService?.exitActive(),
   );
   sdk.contextMenu.initialize();
   // 物理断网守卫（docs/10 §4 两态拆分：editBlocked 与 wsState 无关）。
@@ -374,11 +375,15 @@ export async function composeBoard(
     },
     nudge: (dx, dy, shift) => sdk.commands.nudgeSelected(dx, dy, shift),
     eraserSize: (delta) => sdk.eraserService?.adjustRadius(delta),
-    mindAddChild: () => sdk.mindService?.addChild(),
-    mindAddSibling: () => sdk.mindService?.addSibling(),
+    mindAddChild: () => sdk.mindService?.addChild() ?? false,
+    mindAddSibling: () => sdk.mindService?.addSibling() ?? false,
     mindNavigate: (key) => sdk.mindService?.navigate(key) ?? false,
   });
   sdk.keyboard.isBlocked = () => sdk.network?.editBlocked$.value ?? false;
+  // 菜单期快捷键闸门（specs/a11y-closeout §5.5）：菜单开着时 hotkeys 全静默
+  // （D3——菜单内容基于打开瞬间的选中集，撤销/删除会让它指向已失效对象）。
+  // 闭包惰性引用 contextMenu（L324 先于此构造，顺序已有注释）
+  sdk.keyboard.isUiModalOpen = () => sdk.contextMenu?.options$.value.show ?? false;
   (sdk.viewport as ViewportService).isEditBlocked = () => sdk.network?.editBlocked$.value ?? false;
   sdk.keyboard.initialize();
   sdk.clipboard = new ClipboardService(

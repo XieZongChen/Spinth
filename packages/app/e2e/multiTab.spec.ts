@@ -255,9 +255,9 @@ test('follower 右键：不建选区、无操作栏、菜单只读降级（画�
   // 菜单降级为画布菜单：无元素项（删除），读操作保留（导出 PNG），粘贴禁用
   const menu = pageB.locator('[data-spinth-context-menu]');
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button', { name: '删除' })).toHaveCount(0);
-  await expect(menu.getByRole('button', { name: '导出画布 PNG' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: '粘贴' })).toBeDisabled();
+  await expect(menu.getByRole('menuitem', { name: '删除' })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: '导出画布 PNG' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: '粘贴' })).toBeDisabled();
 
   // 关菜单后文档纹丝不动
   await pageB.keyboard.press('Escape');

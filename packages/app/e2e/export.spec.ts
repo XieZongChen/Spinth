@@ -57,7 +57,7 @@ test('导出画布 PNG：右键菜单入口 → download 事件 + 文件非空�
   await page.mouse.click(100, 500, { button: 'right' });
   await expect(menu).toBeVisible();
   const dlPromise = page.waitForEvent('download', { timeout: 10_000 });
-  await menu.getByRole('button', { name: '导出画布 PNG' }).click();
+  await menu.getByRole('menuitem', { name: '导出画布 PNG' }).click();
   const download = await dlPromise;
   expect(download.suggestedFilename()).toBe('spinth-board.png');
   const path = await download.path();
