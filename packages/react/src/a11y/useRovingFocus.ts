@@ -11,7 +11,7 @@
  * effect 无依赖数组（每次渲染后同步 tabIndex）：菜单内容是动态的（禁用态/
  * 分支切换），逐渲染对齐比订阅 DOM 变更简单可靠，且只是属性写，代价可忽略。
  */
-import { useEffect, type FocusEvent, type KeyboardEvent, type RefObject } from 'react';
+import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type RefObject } from 'react';
 import {
   edgeEnabledIndex,
   nextEnabledIndex,
@@ -58,11 +58,20 @@ export function useRovingFocus(o: IUseRovingFocusOptions): {
     if (focus) items[idx]?.focus();
   };
 
-  // 每次渲染后：保证恰好一个 tabIndex=0（挂载/动态内容/卸载残留兜底）；
-  // autoFocus 时聚焦首/尾可用项（打开菜单的语义）
+  // 每次渲染后：保证恰好一个 tabIndex=0（挂载/动态内容/卸载残留兜底）。
+  // autoFocus 只在挂载（含 StrictMode 双跑的首个真实挂载沿）聚焦一次——重渲染
+  // 不再抢焦点（复审 P2：ProjectMenu busy/warning 重渲染曾把焦点从「打开新
+  // 画布/稍后」等非 roving 按钮拉回菜单项）；后续焦点跟随全靠 focusin
+  const autoFocusedRef = useRef(false);
   useEffect(() => {
     const items = itemsOf();
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      // 容器清空（面板条件卸载，如 ProjectMenu open=false）→ 重置一次性标记：
+      // 内容重新出现视为一次新的「挂载」，autoFocus 再次生效（否则第二次打开
+      // 菜单不聚焦首项）。常驻容器（Toolbar）不为空，标记不会被重置
+      autoFocusedRef.current = false;
+      return;
+    }
     const disabled = items.map(isItemDisabled);
     const marked = items.findIndex((el) => el.tabIndex === 0 && !isItemDisabled(el));
     const active =
@@ -71,7 +80,13 @@ export function useRovingFocus(o: IUseRovingFocusOptions): {
         : autoFocus === 'last'
           ? edgeEnabledIndex(disabled, 'last')
           : edgeEnabledIndex(disabled, 'first');
-    if (active >= 0) setActive(items, active, autoFocus !== false);
+    if (active < 0) return;
+    const shouldFocus = autoFocus !== false && !autoFocusedRef.current;
+    // 标记放在 focus 前：StrictMode 双跑的第二沿是「重挂载」，焦点已在容器内
+    // （onFocus 已同步停靠位）——再聚焦是幂等的；标记保证它不发生在之后的
+    // 普通重渲染
+    if (shouldFocus) autoFocusedRef.current = true;
+    setActive(items, active, shouldFocus);
   });
 
   const onFocus = (e: FocusEvent<HTMLElement>): void => {

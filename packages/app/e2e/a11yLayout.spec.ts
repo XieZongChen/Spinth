@@ -204,4 +204,48 @@ test.describe('S1-b 横屏左右 inset', () => {
     );
     await noDocHScroll(page);
   });
+
+  // 复审 P2：面板/右键菜单/操作栏都改了安全区 clamp——注入后逐一断言不进
+  // 安全区（「改了没测」收口）
+  test('S1-c 浮层不进左右安全区：项目菜单/存储面板/右键菜单/操作栏', async ({ page }) => {
+    await openBoard(page, `e2e-s1c-${Date.now()}`);
+    await applySafeArea(page, { left: 44, right: 44 });
+    await page.waitForTimeout(100);
+    const SAFE_L = 44;
+    const SAFE_R = 844 - 44;
+    // 项目菜单：打开后左缘不进左安全区
+    await page.click('[data-spinth-project-menu]');
+    const pm = page.locator('[data-spinth-project-menu-panel]');
+    await expect(pm).toBeVisible();
+    const pmBox = await pm.boundingBox();
+    expect(pmBox!.x, `项目菜单进左安全区（x=${pmBox!.x}）`).toBeGreaterThanOrEqual(SAFE_L - 0.5);
+    await page.keyboard.press('Escape');
+    // 存储面板同口径
+    await page.click('[data-spinth-storage-button]');
+    const sp = page.locator('#spinth-storage-panel');
+    await expect(sp).toBeVisible();
+    const spBox = await sp.boundingBox();
+    expect(spBox!.x, `存储面板进左安全区（x=${spBox!.x}）`).toBeGreaterThanOrEqual(SAFE_L - 0.5);
+    expect(spBox!.x + spBox!.width).toBeLessThanOrEqual(SAFE_R + 0.5);
+    await page.keyboard.press('Escape');
+    // 右键菜单：贴右缘开（clamp 含 safe-right）
+    await page.mouse.click(844 - 6, 200, { button: 'right' });
+    const cm = page.locator('[data-spinth-context-menu]');
+    await expect(cm).toBeVisible();
+    const cmBox = await cm.boundingBox();
+    expect(cmBox!.x + cmBox!.width).toBeLessThanOrEqual(SAFE_R + 0.5);
+    await page.keyboard.press('Escape');
+    // 操作栏：选中形状后左右夹取计入 inset（贴左缘画件）
+    await page.keyboard.press('r');
+    await page.mouse.move(SAFE_L + 30, 120);
+    await page.mouse.down();
+    await page.mouse.move(SAFE_L + 120, 180, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const ab = page.locator('[data-spinth-action-bar]');
+    await expect(ab).toBeVisible();
+    const abBox = await ab.boundingBox();
+    expect(abBox!.x, `操作栏进左安全区（x=${abBox!.x}）`).toBeGreaterThanOrEqual(SAFE_L + 8 - 0.5);
+    expect(abBox!.x + abBox!.width).toBeLessThanOrEqual(SAFE_R + 8 + 0.5);
+  });
 });

@@ -149,12 +149,20 @@ export function Toolbar() {
     >
       {tools.map((t, i) => {
         const active = cursorMode === t.mode;
+        // aria-label 逐字保留 title（specs/a11y-closeout §8.4——可访问名不依赖
+        // title 回退，toolbar.spec 的名称断言不变）；带二级菜单的工具声明
+        // haspopup/expanded/controls（flyout 容器固定 id，同一时刻仅一工具激活）
+        const hasFlyout = !!t.subMenuGroups;
         return (
           <div key={t.mode} className="relative shrink-0" ref={active ? activeBtnRef : undefined}>
             <button
               type="button"
               title={t.title}
+              aria-label={t.title}
               aria-pressed={active}
+              aria-haspopup={hasFlyout ? 'menu' : undefined}
+              aria-expanded={hasFlyout ? active : undefined}
+              aria-controls={hasFlyout && active ? 'spinth-tool-flyout' : undefined}
               data-roving-item=""
               tabIndex={-1}
               disabled={!editable && t.mode !== 'cursor' && t.mode !== 'hand'}
@@ -214,6 +222,7 @@ export function Toolbar() {
           key={a.icon}
           type="button"
           title={a.title}
+          aria-label={a.title}
           data-roving-item=""
           tabIndex={-1}
           disabled={a.disabled}

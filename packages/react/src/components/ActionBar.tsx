@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
+import { readSafeInsets } from '../a11y/safeArea';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { PopoverControl } from './PopoverControl';
@@ -130,10 +131,14 @@ export function ActionBar() {
 
   const barW = measured?.barW ?? BAR_WIDTH_FALLBACK;
   const areaW = measured?.areaW ?? window.innerWidth;
-  // 以选区水平中心居中，画布区域内钳制（两侧最小留白 8px）
+  // 以选区水平中心居中，画布区域内钳制——左右留白计入安全区（specs/a11y-closeout
+  // §7.4：横屏刘海下操作栏不压 inset；桌面 inset=0 时与原 8px 逐像素一致）
+  const safe = readSafeInsets();
+  const padL = 8 + safe.left;
+  const padR = 8 + safe.right;
   const left = Math.min(
-    Math.max(bounds.x + bounds.width / 2 - barW / 2, 8),
-    Math.max(areaW - barW - 8, 8),
+    Math.max(bounds.x + bounds.width / 2 - barW / 2, padL),
+    Math.max(areaW - barW - padR, padL),
   );
   // 上方放得下则悬于选区上方；否则翻到下方（main 区域内最小留白 4px）。
   // 可快速创建的类型（选中态有外置连接点 + 快捷按钮，形状外 ~24px）→

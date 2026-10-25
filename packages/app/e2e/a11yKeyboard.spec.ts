@@ -163,7 +163,7 @@ test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
     await expect(page.locator('main')).toHaveAttribute('aria-label', '画布区域');
   });
 
-  test('可访问名扫描：五组控件逐个非空（§8.4）', async ({ page }) => {
+  test('可访问名扫描：五组控件逐个非空 + 显式 aria-label（§8.4）', async ({ page }) => {
     await openBoard(page, `e2e-w4b-${Date.now()}`);
     await drawShape(page); // 选中出 ActionBar（结束后回 cursor，flyout 已卸载）
     const groups = [
@@ -172,12 +172,26 @@ test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
       '[data-spinth-zoom] button',
       '[data-spinth-action-bar] button',
     ];
+    // 显式 aria-label 断言限定规格 §8.4 点名的三组（顶栏/工具坞/缩放）——
+    // 复审 P1：title 回退会让裸 title 按钮在名称断言里假绿；ActionBar 的
+    // 控件名走 schema label（PopoverControl/ActionControl 自带），不在点名表
+    const needsLabel = new Set([
+      'header button',
+      '[data-spinth-toolbar] button',
+      '[data-spinth-zoom] button',
+    ]);
     for (const sel of groups) {
       const loc = page.locator(sel);
       const n = await loc.count();
       expect(n, `${sel} 无按钮`).toBeGreaterThan(0);
       for (let i = 0; i < n; i++) {
         await expect(loc.nth(i), `${sel}[${i}]`).toHaveAccessibleName(/\S/);
+        if (needsLabel.has(sel)) {
+          await expect(loc.nth(i), `${sel}[${i}] 缺 aria-label`).toHaveAttribute(
+            'aria-label',
+            /\S/,
+          );
+        }
       }
     }
     // flyout 常驻面板最后扫：按 r 激活形状即出现
@@ -201,4 +215,24 @@ test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
     await page.keyboard.press('p');
     await expect(announcer).toContainText('当前工具：画笔');
   });
+});
+
+test('右键已选中件不开内联编辑器（指针主键过滤显式断言，复审 P2）', async ({ page }) => {
+  await openBoard(page, `e2e-kb6-${Date.now()}`);
+  await drawShape(page); // 建件并保持选中——建件路径自动开的内联编辑器正开着，
+  // 右键路径必须先收口它（ContextMenuService.exitEdit）且不再经「单击激活」重开
+  await page.mouse.click(460, 315, { button: 'right' });
+  const menu = page.locator('[data-spinth-context-menu]');
+  await expect(menu).toBeVisible();
+  // 右键不再走「单击激活」路径：无 contenteditable 获得焦点（此前右键会异步
+  // 开出 TipTap 编辑器并抢走菜单首项聚焦，probe 实锤）
+  await page.waitForTimeout(250);
+  const state = await page.evaluate(() => ({
+    editableFocused: !!document.activeElement?.closest?.('[contenteditable]'),
+    menuitemFocused: !!document.activeElement?.closest?.('[data-spinth-context-menu]'),
+  }));
+  expect(state.editableFocused, '右键不应打开内联编辑器').toBe(false);
+  expect(state.menuitemFocused, '焦点应在菜单首项上').toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
 });

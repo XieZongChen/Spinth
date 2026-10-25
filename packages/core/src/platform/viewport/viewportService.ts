@@ -342,8 +342,14 @@ export class ViewportService extends Disposable implements IViewportService {
         // down/up 不进模式 handlers——此前右键点已选中件会走「单击激活」路径
         // 异步开出内联编辑器，其挂载焦点抢走右键菜单的首项聚焦；右键语境 =
         // contextmenu 菜单（rightdown 通道与 DOM contextmenu 均不受影响）。
-        // touch/pen 由 PIXI 归一为 button 0
-        if ((kind === 'down' || kind === 'up' || kind === 'upoutside') && e.button !== 0) return;
+        // `button != null` 防卫：pixi 事件对象可能缺省 button（touch/pen 归一
+        // 路径），undefined !== 0 会把合法指针误挡（复审 P2 实锤）
+        if (
+          (kind === 'down' || kind === 'up' || kind === 'upoutside') &&
+          e.button != null &&
+          e.button !== 0
+        )
+          return;
         dispatch(kind, e);
       };
       stage.on(event, handler);

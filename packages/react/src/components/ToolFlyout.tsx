@@ -70,6 +70,7 @@ export function ToolFlyout({
     <div
       ref={hostRef}
       role="menu"
+      id="spinth-tool-flyout"
       data-spinth-tool-flyout=""
       onKeyDown={onKeyDown}
       onFocus={onFocus}
