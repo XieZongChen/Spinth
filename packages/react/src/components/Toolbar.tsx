@@ -16,7 +16,7 @@ import {
   type IActionBarOption,
 } from '@spinth/core';
 
-/** 工具音色：激活态点亮的颜色（记号笔托盘隐喻，tokens.css 工具色板） */
+/** 工具主题色：激活态点亮的颜色（记号笔托盘隐喻，tokens.css 工具色板） */
 type ToolTone = 'ink' | 'hand' | 'shape' | 'text' | 'line' | 'pen' | 'sticky' | 'mind';
 
 interface ToolSubMenuGroup {
@@ -86,7 +86,7 @@ const BASE_TOOLS: ToolDef[] = [
 /** shape 在工具序中的槽位（cursor/hand 之后——图标与 title 随默认型动态变化） */
 const SHAPE_SLOT = 2;
 
-/** 激活态按音色染色；完整类名字符串保证被 Tailwind 扫描到 */
+/** 激活态按主题色染色；完整类名字符串保证被 Tailwind 扫描到 */
 const TONE_ACTIVE: Record<ToolTone, string> = {
   ink: 'bg-surface-active text-ink',
   hand: 'bg-tool-hand-soft text-tool-hand',

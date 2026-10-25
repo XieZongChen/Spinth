@@ -20,7 +20,7 @@ export interface IToolFlyoutGroup {
   options: IActionBarOption[];
   /** 当前默认值（选项 id）——选中点亮 + aria-checked */
   current: string;
-  /** 激活态音色类（Toolbar 的 TONE_ACTIVE 条目——选中项点亮同工具色） */
+  /** 激活态主题色类（Toolbar 的 TONE_ACTIVE 条目——选中项点亮同工具色） */
   activeClass: string;
   onPick: (id: string) => void;
 }
@@ -81,7 +81,7 @@ export function ToolFlyout({
           <div className={twoRow ? 'contents' : 'flex items-center gap-0.5'}>
             {grp.options.map((o) => {
               const checked = o.id === grp.current;
-              // 选中态按选项型分流（PopoverControl 三分支先例）：icon/text 点亮工具音色背景；
+              // 选中态按选项型分流（PopoverControl 三分支先例）：icon/text 点亮工具主题色背景；
               // swatch 不吃 tone 背景（会污染色点观感）——改为色点 ring 描边（ring-current 走文字色）
               const checkedClass = o.swatch ? 'bg-surface-hover text-ink' : grp.activeClass;
               return (

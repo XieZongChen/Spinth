@@ -98,7 +98,7 @@
 - 单机断网不做 editBlocked 矩阵：无 `wsUrl` 即无阻断路径，用「断言 OfflineBar
   不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
   路径时该测试先红，提醒补矩阵。
-- 可访问性挂账：右键菜单键盘协议（roving focus）、工具音色对 soft 底对比度
+- 可访问性挂账：右键菜单键盘协议（roving focus）、工具主题色对 soft 底对比度
   八组、200% 文本缩放与安全区（`viewport-fit=cover` + `env(safe-area-inset-*)`）、
   屏读全量巡检（画布替代文本、表单标签、焦点顺序、保存状态播报）。
 - 平台挂账：Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存

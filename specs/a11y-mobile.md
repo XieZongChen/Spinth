@@ -39,7 +39,7 @@
 
 - 右键菜单的键盘协议（方向键 / roving focus）。现状刻意不设 `role="menu"`
   （`ContextMenu.tsx:129` 注释已说明），本轮不改这个取舍。
-- 工具音色图标对 `tool-*-soft` 底的对比度审计（`TONE_ACTIVE` 八组）。属独立的
+- 工具主题色图标对 `tool-*-soft` 底的对比度审计（`TONE_ACTIVE` 八组）。属独立的
   视觉可读性问题，另行排期。
 - 200% 文本缩放、`viewport-fit=cover` / 安全区、屏幕阅读器全量巡检。
 - Service Worker / PWA / 离线首开与刷新：A4 只锁「页面已加载后断网可编辑」；
@@ -590,7 +590,7 @@ npx playwright test --grep "@visual"
 ## 14. 挂账（本批不做，写进 docs/13）
 
 - 右键菜单键盘协议（方向键/roving focus/焦点归还）。
-- 工具音色图标对 soft 底的对比度（八组 tool tone）。
+- 工具主题色图标对 soft 底的对比度（八组 tool tone）。
 - 200% 文本缩放与安全区（`viewport-fit=cover` + `env(safe-area-inset-*)`）。
 - Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存版本 + CSP）。
 - 协同宿主下的 `editBlocked` 交互面矩阵（等 `wsUrl` 进入启动路径）。

@@ -7,7 +7,7 @@ Tailwind 源扫描五项契约（docs/12 §5「react 包的宿主契约」）。
   AbortController 的 StrictMode 双挂载防御）+ 主题态注入（theme prop →
   sdk.setTheme，docs/17 C2）+ `window.__spinth` 调试句柄（DEV）
 - `Toolbar.tsx`：底部悬浮工具坞——纯点击切工具 + 常驻二级菜单（工具激活即显示变体面板）
-- `ToolFlyout.tsx`：工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态；横向图标排 + 音色点亮选中 + Tooltip）
+- `ToolFlyout.tsx`：工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态；横向图标排 + 主题色点亮选中 + Tooltip）
 - `ActionBar.tsx`：选中浮动操作栏——schema v2 驱动多级化（PopoverControl 承载
   popover 项 + Tooltip 中文文案）；**纯算术定位**（选区屏幕矩形 + 固定偏移 +
   视口钳制 + 下方翻转，不引入 floating-ui——决策记录 docs/12 §5）；**禁止在

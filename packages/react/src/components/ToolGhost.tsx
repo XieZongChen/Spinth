@@ -25,7 +25,7 @@ const OFFSET_Y = 14;
 
 interface GhostToolDef {
   icon: IconName;
-  /** 工具音色类（与工具坞激活色同源） */
+  /** 工具主题色类（与工具坞激活色同源） */
   tone: string;
 }
 
