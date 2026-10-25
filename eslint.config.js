@@ -100,4 +100,25 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ---- Service Worker：独立全局（specs/pwa.md D1/D2）----
+  // SW 无 DOM、无框架、无 Node——只允许相对导入纯函数（cachePolicy 等）。
+  // 包内相对导入不受 patterns 限制，被禁的是框架/SDK/Node 内建。
+  {
+    files: ['packages/app/src/pwa/sw/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@spinth/*', 'react', 'react-dom', 'react-*', 'node:*'],
+              message:
+                'Service Worker 是独立全局：禁止依赖框架 / SDK / Node 内建（specs/pwa.md D1/D2）',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -14,3 +14,6 @@ playwright-report/
 HANDOFF*
 *handoff*.md
 .hygiene.local.json
+
+# SW 构建期侧车（specs/pwa.md D5，只给校验脚本用）
+.sw-manifest.json
