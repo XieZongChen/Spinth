@@ -506,7 +506,7 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 | 项         | 设计预估         | 实测                                                                                                         |
 | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------ |
 | 预缓存     | ~1.94 MB         | **2.06 MB**（18 条目；差值 = icons/manifest 等 public 根产物，预算 3 MB 内）                                 |
-| sw.js 体积 | —                | 3.47 kB（gzip 1.59 kB），IIFE 单文件无 sourcemap                                                             |
+| sw.js 体积 | —                | 3.59 kB（gzip 1.65 kB），IIFE 单文件无 sourcemap                                                             |
 | latin 字体 | 40 KB            | 恰好 1 个 `nunito-latin-wght-normal-*.woff2` 进清单，其余 4 个子集走 SWR                                     |
 | app 单测   | ≥ 25 例          | **37 例**（cachePolicy 16 + precacheManifest 8 + 控制器 13）；复审后 +1 失败重试用例 = **38 例**             |
 | E2E        | pwa.spec + P1–P7 | 6 例 pwa project + 1 例 dev（S7 落 smoke.spec），23 spec / 211 例全绿                                        |
