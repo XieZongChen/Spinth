@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import process from 'node:process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,18 +10,11 @@ import { buildPrecacheManifest, type IPrecacheFile } from './src/pwa/precacheMan
  * `define` 注入 sw.js，并在包根写侧车 `.sw-manifest.json` 供 check-pages-build
  * 校验（纯 Node 脚本不能 import TS，侧车免复制算法，D5）。
  * 顺序铁律：主构建（vite build）先产出 dist，本配置启动时缺 index.html 直接抛错
- * ——禁止产出「没有 SW 的绿色构建」。
+ * ——禁止产出「没有 SW 的绿色构建」。SW 运行时 base 从自身脚本位置推导（§6.1），
+ * 本配置不注入 base。
  */
 
 const DIST_DIR = fileURLToPath(new URL('./dist', import.meta.url));
-
-function resolveBase(): string {
-  // 与 vite.config.ts 的 resolveBase 同规则（两份配置无法共享非导出函数）
-  const raw = process.env.SPINTH_BASE?.trim();
-  if (!raw) return '/';
-  const withLeading = raw.startsWith('/') ? raw : `/${raw}`;
-  return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
-}
 
 /** 递归收集 dist 全量文件（'/' 分隔相对路径；跳过 dotfile）。 */
 function listDistFiles(dir: string, out: string[] = []): string[] {
