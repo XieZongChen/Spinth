@@ -103,6 +103,9 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
   持续失败的 `wait` 组成高频循环）。写者离开后仍可自动接管，不需手动刷新。
 - `pagehide` 主动 `release()` 让锁（否则跳到新文档后旧页面进 bfcache 仍持旧 doc 的锁，
   另一标签永久只读）；`pageshow(persisted)`（bfcache 恢复，内存状态必然过期）整页刷新。
+- Service Worker 版本更新（specs/pwa.md §9）：只有点击「刷新」横幅的标签 reload，
+  其他标签 `controllerchange` 后仅把横幅转为「已就绪」状态，不自动刷新、不抢
+  Web Lock；刷新后的标签照常重新判定角色（写者仍在则继续只读），本节语义不变。
 
 ## 6. 已知限制
 

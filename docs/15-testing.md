@@ -13,8 +13,8 @@
 
 ## 2. 当前基线
 
-- 单测：945 passed（core 894 + react 51）。
-- E2E：22 个 spec、204 例（分层：fast 195 / timing+bench 5 / visual 4；混跑不作门禁，
+- 单测：982 passed（core 894 + react 51 + app 37）。
+- E2E：23 个 spec、211 例（分层：fast 202 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
@@ -53,7 +53,11 @@
   复位 + 只读态宿主直调写工具被钳回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：67.76 / 59.1 / 69.73 / 58.55（语句/分支/行/函数），阈值 61/51/63/52。
+- PWA 专项（specs/pwa.md）：pwa.spec 6 例（pwa project——子路径生产构建 + preview
+  第二 webServer：首装即受控/断网冷启动编辑撤销恢复/断网另一文档/CSP 0 violation/
+  真重建更新流程含横幅 a11y/多标签只刷新点击方）+ smoke 1 例（dev 不注册）。
+  生产探针经 `?e2e=1` 门控只读桥（`src/e2eProbe.ts`，镜像 zustand 形状）。
+- coverage：67.48 / 59.04 / 69.4 / 58.19（语句/分支/行/函数），阈值 66/58/68/57。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTab.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`

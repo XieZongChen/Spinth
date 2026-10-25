@@ -137,7 +137,8 @@ abstract class BaseModel<D extends IWidgetData> {
 - `requestPersist()` 单飞；结果 `persistOutcome`（granted/denied/failed）随流到达，
   UI 提供用户手势重试，不自动反复申请。
 - 配额压力阈值固定：warn ≥ 80%、critical ≥ 95%（storageMath 单源，随 pressure 输出）。
-  `estimate()` 是站点总量估算（含图片资产），不是单个文档用量；`quota` 缺失或为 0
+  `estimate()` 是站点总量估算（含图片资产与 Service Worker 预缓存，
+  specs/pwa.md），不是单个文档用量；`quota` 缺失或为 0
   视为未知（不参与百分比/压力判断）。
 - 不轮询：只在启动、面板打开、窗口 focus/重新可见、persistState 转 failed 时 refresh；
   并发调用合并为一次查询。

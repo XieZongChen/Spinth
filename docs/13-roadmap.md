@@ -108,8 +108,8 @@
 - 单机断网不做 editBlocked 矩阵：无 `wsUrl` 即无阻断路径，用「断言 OfflineBar
   不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
   路径时该测试先红，提醒补矩阵。
-- 平台挂账：Service Worker / PWA 离线首开与刷新（Pages 子路径 scope + 缓存
-  版本 + CSP）。
+- PWA/Service Worker 已落地：manifest + 子路径 SW + 预缓存清单 + 可控更新横幅
+  （specs/pwa.md）；平台侧剩余挂账即 §2 的 Linux 视觉基线。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、

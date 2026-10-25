@@ -45,9 +45,9 @@ new WebsocketProvider(wsUrl, 'spinth/<docId>', yDoc);
   - 只读：写工具、删除、undo/redo 被拦；选择/复制/视图可用；
   - 右键菜单打开：剪贴板写操作被拦。
 - 单机不变量：不传 `wsUrl` → `blockOnOffline=false` → `editBlocked` 恒 false。
-  断网仍可编辑、撤销，写入照常落 IndexedDB；**有网刷新后**从 IndexedDB 恢复
-  （无 Service Worker，断网首开/刷新不在支持范围）。有 core 单测
-  （`networkService.test.ts`）与 E2E 回归（smoke 断网用例）锁死；
+  断网仍可编辑、撤销，写入照常落 IndexedDB；断网刷新/冷启动由 Service Worker
+  预缓存承担（specs/pwa.md，`OfflineBar` 语义不变）。有 core 单测
+  （`networkService.test.ts`）与 E2E 回归（smoke 断网用例 + pwa.spec 断网专项）锁死；
   `OfflineBar` 仅协同宿主可达，单机不可达。
 
 ## 5. Undo / Redo 保护

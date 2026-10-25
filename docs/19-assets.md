@@ -61,6 +61,8 @@ src = "spinth-asset:<sha256>"
 - 资产入库失败（配额满、隐私模式、IndexedDB 禁用、非安全上下文）时回退
   data URL 创建图片，保证用户不会「贴了没反应」。`persistState` 继续反映
   本地文档写入状态；配额/持久化状态见 [02-data-engine](02-data-engine.md) §6.1。
+- 离线时外链图片仍走同一占位 + 重试语义：Service Worker 只接管同源静态资源，
+  跨源请求一律直通不缓存（specs/pwa.md D8）。
 
 ## 5. GC 与安全
 

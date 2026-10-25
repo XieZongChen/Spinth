@@ -47,14 +47,15 @@ export default defineConfig({
         'packages/app/src/pwa/**/*.ts',
       ],
       exclude: ['**/__tests__/**', '**/*.test.*', '**/index.ts', '**/*.md'],
-      // 回退门禁：2026-10-20 实测 Stmts 62.95 / Branch 52.21 / Funcs 54.39 /
-      // Lines 64.81，阈值在基线下方留余量——只降不升即红。
+      // 回退门禁：2026-10-25 实测（并入 app pwa 单测后）Stmts 67.48 / Branch
+      // 59.04 / Funcs 58.19 / Lines 69.4；按 specs/pwa §11.1 规则取实测下浮
+      // 1.5% 且不低于旧阈值（61/51/63/52）。
       // 只在 coverage 启用时生效；CI 也跑 pnpm test:coverage（.github/workflows/ci.yml）。
       thresholds: {
-        statements: 61,
-        branches: 51,
-        lines: 63,
-        functions: 52,
+        statements: 66,
+        branches: 58,
+        lines: 68,
+        functions: 57,
       },
     },
   },

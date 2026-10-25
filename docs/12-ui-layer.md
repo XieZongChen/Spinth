@@ -164,10 +164,17 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 ## 6. 启动链路
 
 1. index.html 静态首帧（品牌标 + 背景色，无 JS）。
-2. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”。
-3. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导（只读态不显示——
+2. 生产构建注册 Service Worker（`src/pwa/serviceWorker.ts`，注册 URL 与 scope 走
+   `publicAsset()`/`SITE_BASE`，`updateViaCache:'none'`；SW 激活即 `claim()`，
+   首装无需二次刷新即受控）。**dev 不注册**——HMR 与 React refresh 不受影响；
+   注册失败（隐私模式/CSP）吞错降级为在线使用。
+3. React 挂载 `Board`；`docState !== 'synced'` 时显示“正在恢复画布…”。
+4. SDK 初始化完成 → onReady → 隐藏 loading；空画布显示快捷键引导（只读态不显示——
    引导全是写指令，docs/21 §4）。
-4. 初始化失败 → 共享 `ErrorState`（IndexedDB 禁用/配额满等），不永久卡 loading：
+5. 新版本送达：`waiting` 出现时顶部居中横幅「新版本可用」（`PwaUpdateBanner`，
+   `role=status`、与 OfflineBar 同锚点且互斥）；用户点击「刷新」→ `SKIP_WAITING`
+   → 仅点击方 reload；「稍后」= 本会话不再提示（specs/pwa.md）。
+6. 初始化失败 → 共享 `ErrorState`（IndexedDB 禁用/配额满等），不永久卡 loading：
    容器唯一 `role="alert"`，标题挂载即聚焦（读屏先读标题），详情为错误 message
    （非堆栈）且 `overflow-wrap:anywhere` + 内部滚动（390px 长串不撑破布局），
    主按钮 `accent-fill` ≥4.5:1；文案顺序「标题→建议→详情」。渲染异常走同款
@@ -178,3 +185,6 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 - 无路由：单编辑页，URL 参数 `?doc=xxx`；默认 docId 随机 8 位并稳定在 sessionStorage。
 - 单机版不读取远端地址或协同参数；不传 `wsUrl`。
 - 主题、顶栏、错误边界、空态属于 app 壳；画布 UI 由 react 包提供。
+- PWA 设施全部在 app 壳 `src/pwa/`（注册控制器、更新横幅、SW 与构建期清单）；
+  SW 是独立全局：源码禁依赖框架/SDK/Node 内建（eslint 强制），缓存策略纯函数化
+  （`cachePolicy`/`precacheManifest`，单测覆盖），版本由 dist 产物实算（specs/pwa.md）。

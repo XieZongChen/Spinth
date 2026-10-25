@@ -132,10 +132,18 @@ docs/21 §4）、可访问性与移动端收口批次 A（语义色 WCAG AA + �
 （右键菜单键盘协议 roving + Shift+F10 + 菜单期快捷键闸门、工具主题色 `-ink`
 按角色拆分 4.5:1、320 重排/200% 缩放/安全区矩阵、画布 role=application +
 Announcer 播报器，specs/a11y-closeout）。
-当前实测基线：`pnpm verify` 通过；945 单测（core 894 + react 51）；E2E 22 spec /
-204 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9；
-a11yKeyboard 9/9；a11yLayout 9/9）。
+PWA/Service Worker 平台能力已落地（specs/pwa.md）：manifest + 192/512/maskable
+图标、子路径 SW（scope=base，注册经 `publicAsset()`）、构建期实算预缓存清单
+（含懒加载 chunk，latin 字体白名单）、导航 network-first + shell 回退、字体 SWR、
+跨源/非 GET/Range 直通、waiting + 用户确认的可控更新（横幅只刷新点击方）、
+`check-pages-build` 六断言、`__BUILD_TAG__` 构建标记；dev 不注册 SW；附带修复
+zod JIT 探测在生产 CSP 下触发 securitypolicyviolation 的存量缺陷（jitless）。
 
-下一阶段重点是 PWA/Service Worker 平台挂账与 Linux 视觉基线（docs/13 §2–§3）；
-协同为后置能力，不属于本阶段。可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）
-见 docs/13 §3 与 specs/a11y-closeout §13.5。
+当前实测基线：`pnpm verify` 通过；982 单测（core 894 + react 51 + app 37）；
+E2E 23 spec / 211 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9；
+a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
+
+下一阶段重点是 Linux 视觉基线（docs/13 §2–§3）；协同为后置能力，不属于本阶段。
+可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
+specs/a11y-closeout §13.5；PWA 待人工项（iOS/Android 真机添加到主屏幕的启动
+形态与图标裁切）见 specs/pwa.md §14。

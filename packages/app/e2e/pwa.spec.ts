@@ -235,6 +235,26 @@ test('P6 多标签不互踩：A 点刷新只 reload A，B 转已就绪且仍可�
     timeout: 10_000,
   });
 
+  // 「稍后」= 本会话不再提示（§10）。A 已激活后无 waiting——再真重建一次制造
+  // 新 waiting，验证三点：点「稍后」即隐 / 跨 reload（同会话）仍隐 /
+  // 清掉会话存储后重开仍会提示
+  await tabB.locator('[data-spinth-pwa-banner]').getByRole('button', { name: '稍后' }).click();
+  await expect(tabB.locator('[data-spinth-pwa-banner]')).toHaveCount(0);
+
+  const tag3 = `pwa-p6b-${Date.now()}`;
+  rebuild(tag3);
+  await tabB.evaluate(async () => void (await navigator.serviceWorker.getRegistration())?.update());
+  await tabB.waitForTimeout(1500); // updatefound → waiting（dismissed 拦住横幅）
+  await expect(tabB.locator('[data-spinth-pwa-banner]')).toHaveCount(0);
+  await tabB.reload();
+  await ready(tabB);
+  await tabB.waitForTimeout(500); // 启动 waiting 检查已跑完
+  await expect(tabB.locator('[data-spinth-pwa-banner]')).toHaveCount(0); // 同会话仍隐
+  await tabB.evaluate(() => sessionStorage.clear());
+  await tabB.reload();
+  await ready(tabB);
+  await expect(tabB.locator('[data-spinth-pwa-banner]')).toBeVisible({ timeout: 10_000 });
+
   for (const p of [page, tabB]) {
     await p.evaluate(
       ([id]) => {
