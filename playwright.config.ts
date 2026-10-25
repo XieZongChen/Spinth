@@ -10,7 +10,10 @@ import { defineConfig } from '@playwright/test';
  *   本地 reuseExistingServer（调试连常驻 dev server）；
  * - 每次运行用随机 docId，IndexedDB 从零开始（用例间零耦合）；
  * - 用例 tag（CI 三层，prompt §2.2）：@timing（画笔/键盘缩放/时延）、@bench、
- *   @visual——gate 层 --grep-invert 排除、nightly 层 --grep 承接。
+ *   @visual——gate 层 --grep-invert 排除、nightly 层 --grep 承接；
+ * - **pwa.spec 不在本配置**（归 playwright.pwa.config.ts 的 preview 形态）——
+ *   裸跑 `npx playwright test` 只有 205 例；pwa 6 例需另跑
+ *   `npx playwright test --config playwright.pwa.config.ts`（`pnpm test:e2e` 已含双命令）。
  */
 
 const PORT = Number(process.env.E2E_PORT ?? 5199);
