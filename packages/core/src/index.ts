@@ -3,6 +3,9 @@
  * 唯一组合根：BoardSDK（docs/04 §3）。UI 框架经胶水层消费输出流与命令。
  */
 
+// zod 运行时配置（jitless）必须先于任何 schema parse 执行（common/zodRuntime.ts）
+import './common/zodRuntime';
+
 export { BoardSDK } from './app';
 export type { IBoardConfig } from './boardConfig';
 
