@@ -139,7 +139,7 @@ PWA/Service Worker 平台能力已落地（specs/pwa.md）：manifest + 192/512/
 `check-pages-build` 六断言、`__BUILD_TAG__` 构建标记；dev 不注册 SW；附带修复
 zod JIT 探测在生产 CSP 下触发 securitypolicyviolation 的存量缺陷（jitless）。
 
-当前实测基线：`pnpm verify` 通过；982 单测（core 894 + react 51 + app 37）；
+当前实测基线：`pnpm verify` 通过；983 单测（core 894 + react 51 + app 38）；
 E2E 23 spec / 211 用例全绿（视觉 4/4；图片/资产专项 10/10；a11y 6/6；mobile 9/9；
 a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 

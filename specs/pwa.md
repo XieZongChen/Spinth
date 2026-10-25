@@ -469,7 +469,7 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 - [x] `main.tsx` 仅 PROD 注册；smoke S7 断言 dev `getRegistrations()` 为空。
 - [x] install 的 index.html 先 `clone()` 再双键 put；SWR 后台更新 `res.clone()` 后 put；其余 fetch→put 单次消费。
 - [x] `navigationKey` 归一化；P3 离线开另一文档通过。
-- [x] cachePolicy 单测 12 例覆盖（含非法 URL、根路径部署）。
+- [x] cachePolicy 单测 16 例覆盖（含非法 URL、根路径部署、导航键与 toManifestPath）。
 - [x] 单测（apply 单发/单次 reload/3s 兜底/首装 claim 静默）+ P6 双标签实证。
 - [x] precacheManifest 单测（无变更版本不变/任一文件变更版本变/仅排除项变更不变）。
 - [x] 六断言落地；本地删侧车条目实测红；两条 CI 路径（gate/pages）按既有步骤自动执行。
@@ -480,7 +480,7 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 - [x] execSync 真重建（SPINTH_BUILD_TAG）；setOffline 真断网。
 - [x] P5 断言（role/两按钮可访问名/minTarget 24 与 390px 下 44/boxWithin 8px/两对对比度 ≥4.5）。
 - [x] P4 为 0（实施中揪出并修复 zod JIT 探测的存量 violation，`zodRuntime.ts` jitless）。
-- [x] verify 0 退出；E2E 23 spec / 211 例全绿；单测 982（core 894 + react 51 + app 37）。
+- [x] verify 0 退出；E2E 23 spec / 211 例全绿；单测 983（core 894 + react 51 + app 38——复审后补 update 失败重试用例）。
 - [x] §16 八处全部直接改写（含表外补充的 docs/10 断网边界行）。
 
 ## 16. 文档同步
@@ -508,10 +508,10 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 | 预缓存     | ~1.94 MB         | **2.06 MB**（18 条目；差值 = icons/manifest 等 public 根产物，预算 3 MB 内）                                 |
 | sw.js 体积 | —                | 3.47 kB（gzip 1.59 kB），IIFE 单文件无 sourcemap                                                             |
 | latin 字体 | 40 KB            | 恰好 1 个 `nunito-latin-wght-normal-*.woff2` 进清单，其余 4 个子集走 SWR                                     |
-| app 单测   | ≥ 25 例          | **37 例**（cachePolicy 12 + precacheManifest 8 + 控制器 13 + 侧车路径断言并入）                              |
+| app 单测   | ≥ 25 例          | **37 例**（cachePolicy 16 + precacheManifest 8 + 控制器 13）；复审后 +1 失败重试用例 = **38 例**             |
 | E2E        | pwa.spec + P1–P7 | 6 例 pwa project + 1 例 dev（S7 落 smoke.spec），23 spec / 211 例全绿                                        |
-| 单测总数   | —                | 982（core 894 + react 51 + app 37）                                                                          |
-| coverage   | 阈值重测         | 实测 67.48 / 59.04 / 58.19 / 69.4，阈值按规则（下浮 1.5% 且不低于旧值）调为 66/58/68/57（语句/分支/行/函数） |
+| 单测总数   | —                | 983（core 894 + react 51 + app 38——复审后补 update 失败重试用例）                                            |
+| coverage   | 阈值重测         | 实测 67.48 / 59.04 / 69.4 / 58.19（语句/分支/行/函数），阈值按规则（下浮 1.5% 且不低于旧值）调为 66/58/68/57 |
 
 ### 17.2 与设计的偏差（均已接受）
 
@@ -551,9 +551,6 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 - **iOS / Android 真机「添加到主屏幕」的启动形态与图标裁切**：无法自动化（§14 尾注），待人工验证。
 - **CI 双路径实跑**：六断言本地验证（含删侧车条目负向红）；gate/pages 两条路径在推送后
   由既有步骤自动执行，以 CI 结果为准。
-- ~~P6「已就绪」断言曾出现一次时序 flaky（retry 过）~~：已按 §17.4 P2-5 把两处
-  固定等待（`waitForTimeout` 1500/500）换成 `registration.waiting` 轮询，缺席断言
-  以「waiting 已在场」为前提，不再依赖时序运气。
 
 ### 17.4 设计方复审记录
 
@@ -563,21 +560,44 @@ App 根节点输出 `data-spinth-build`。用途：更新流程与多标签用�
 仍红）。后者同时证明「zod JIT 确实触发 violation」与「P4 不是装饰性断言」。
 结论：**通过（Approved）**，两项实质修复（zod jitless、首装 claim 区分）成立。
 
-复审发现与本轮处置（全部落地，含被标记「可遗留」的 P3）：
+复审发现与本轮处置（全部落地，含被标记「可遗留」的 P3）。处置列一律附可验证锚点
+（文件 / 用例名 / 命令）——「已改」不可复核的教训见第二轮复核第 1 条：
 
-| #   | 发现                                                                   | 级别 | 处置                                                                                                               |
-| --- | ---------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------ |
-| 1   | §17 署名写作「设计方复审」实为实施自检                                 | P1   | §17.1–17.3 改标实施自检，本节为设计方复审                                                                          |
-| 2   | §17.1 coverage 行/函数颠倒；单测拆分 12+8+13≠37（实际 cachePolicy 16） | P1   | 两处数字已改（16+8+13=37）                                                                                         |
-| 3   | §10「waiting 的标识记 sessionStorage」与实现（会话级布尔）不一致       | P1   | §10 正文改写为会话级语义；偏差仍见 §17.2.4                                                                         |
-| 4   | `?e2e=1` 探针进生产 bundle，与「SDK 调试句柄生产剥离」约定相逆         | P2   | 改构建期开关 `__E2E_PROBE__`（`SPINTH_E2E=1` 的构建才携带，Pages 产物零暴露）；webServer 与 `rebuild()` 均带该 env |
-| 5   | P6 两处 `waitForTimeout`（1500/500）是 flake 源                        | P2   | 换 `registration.waiting` 的 `expect.poll`，缺席断言以 waiting 在场为前提                                          |
-| 6   | `checkForUpdate` 把失败也计入 60min 节流——离线恰是最该重试的时候       | P2   | 失败改 5min 重试（`SW_UPDATE_RETRY_MS`），成功才回 60min 档；单测含交叠链排空                                      |
-| 7   | webServer 全局：nightly 三层各多 ~25s preview 构建                     | P3   | pwa 拆独立配置 `playwright.pwa.config.ts`（§17.2 偏差 8），gate/test:e2e 双命令                                    |
-| 8   | installShell 失败留半成品 cache 占配额                                 | P3   | 失败即 `caches.delete(SHELL_CACHE)` 再 throw                                                                       |
-| 9   | `withTimeout` 超时不 abort 底层导航 fetch                              | P3   | `AbortController` 超时回调先中断再拒绝                                                                             |
-| 10  | `useServiceWorker.ts` 两条 react import                                | P3   | 已合并                                                                                                             |
-| 11  | zod 声明 `^4.1.12`、实装 4.6.7——降级安装会让 jitless 静默失效          | P3   | 下限对齐 `^4.6.7`（lockfile specifier 已刷），理由注在 `zodRuntime.ts`                                             |
+| #   | 发现                                                                   | 级别 | 处置                                                                                                                            |
+| --- | ---------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | §17 署名写作「设计方复审」实为实施自检                                 | P1   | §17 头部与 17.1–17.3 标题改「实施自检」；本节为复审                                                                             |
+| 2   | §17.1 coverage 行/函数颠倒；单测拆分 12+8+13≠37（实际 cachePolicy 16） | P1   | **第一轮声称已改、实际未改**（见第二轮复核 1）；三处现已在 §17.1「app 单测/coverage」行与 §15「cachePolicy 单测 16 例」条目落实 |
+| 3   | §10「waiting 的标识记 sessionStorage」与实现（会话级布尔）不一致       | P1   | §10 正文改写为会话级语义；偏差仍见 §17.2.4                                                                                      |
+| 4   | `?e2e=1` 探针进生产 bundle，与「SDK 调试句柄生产剥离」约定相逆         | P2   | 改构建期开关 `__E2E_PROBE__`（`SPINTH_E2E=1` 的构建才携带，Pages 产物零暴露）；webServer 与 `rebuild()` 均带该 env              |
+| 5   | P6 两处 `waitForTimeout`（1500/500）是 flake 源                        | P2   | 换 `registration.waiting` 的 `expect.poll`，缺席断言以 waiting 在场为前提                                                       |
+| 6   | `checkForUpdate` 把失败也计入 60min 节流——离线恰是最该重试的时候       | P2   | 失败改 5min 重试（`SW_UPDATE_RETRY_MS`），成功才回 60min 档；单测含交叠链排空                                                   |
+| 7   | webServer 全局：nightly 三层各多 ~25s preview 构建                     | P3   | pwa 拆独立配置 `playwright.pwa.config.ts`（§17.2 偏差 8），gate/test:e2e 双命令                                                 |
+| 8   | installShell 失败留半成品 cache 占配额                                 | P3   | 失败即 `caches.delete(SHELL_CACHE)` 再 throw                                                                                    |
+| 9   | `withTimeout` 超时不 abort 底层导航 fetch                              | P3   | `AbortController` 超时回调先中断再拒绝                                                                                          |
+| 10  | `useServiceWorker.ts` 两条 react import                                | P3   | 已合并                                                                                                                          |
+| 11  | zod 声明 `^4.1.12`、实装 4.6.7——降级安装会让 jitless 静默失效          | P3   | 下限对齐 `^4.6.7`（lockfile specifier 已刷），理由注在 `zodRuntime.ts`                                                          |
 
 复审方备注的「dist 残留 5 处 `new Function`（全在 pixi chunk，覆写后不执行）」
 已并入 §17.2.7，防未来重复排查。
+
+#### 第二轮复核（复审修复批 6b5ebbd…d42dc5b 之后）
+
+复核方实测：verify 通过、pwa 配置 6 例 exit 0、双配置清点 205+6=211、生产包探针
+字节级归零（`__spinth` 与 `get('e2e')` 均 0 处，常量折叠 + DCE 整段删除）、
+`pnpm install --frozen-lockfile --offline` 成功。**11 条处置 10 条落实；第 2 条
+（§17.1 两处数字）为假陈述**——记录声称已改，文件仍是旧数。
+
+根因（实施方自查）：上一轮的批量文本替换用的是「记忆中的原文」，而 prettier 已
+重排过表格行（列宽填充），`str.replace` 静默未命中、且未做命中断言。同一失误曾
+导致 docs/19 一处替换落空（当时复查发现）；本轮把它升级为规则：**specs/docs 的
+批量替换必须先 grep 当前原文并断言命中数，改完 grep 复核**。
+
+第二轮发现与本轮处置（锚点同上）：
+
+| #   | 发现                                                                             | 级别 | 处置                                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | §17.1 数字三处未改（12→16 ×2、行/函数颠倒），§17.4 却写「已改」                  | P1   | 已改：§17.1「app 单测/coverage」行、§15「cachePolicy 单测 16 例」条目（grep 校验 0 残留）；单测总数同步 983/38（复审补的失败重试用例使 docs 的 982 过期） |
+| 2   | 裸跑 `npx playwright test` 只跑 205 例，无提示                                   | P2   | `playwright.config.ts` 头部注释写明「pwa 6 例需 `--config playwright.pwa.config.ts`（`pnpm test:e2e` 已含双命令）」                                       |
+| 3   | `waitWaiting` 隐含依赖「tab A 仍开着」（最后一个旧客户端消失会自动激活 waiting） | P2   | `pwa.spec.ts` `waitWaiting` doc 注明该约束与调整顺序的后果                                                                                                |
+| 4   | §17.3 用删除线留历史，违背「历史由 git 承载」                                    | P3   | 该条已删（结论在 §17.4 第一轮表第 5 行）                                                                                                                  |
+| 5   | pwa 配置继承全局 `retries: 1`——真重建用例重试会掩盖 flake                        | P3   | `playwright.pwa.config.ts` 显式 `retries: 0`（对齐 multitab 压力 `--retries=0` 精神），头部注明继承项清单                                                 |
