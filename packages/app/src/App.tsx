@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Announcer,
   Board,
   Toolbar,
   ZoomControl,
@@ -76,6 +77,10 @@ export function App() {
       className="flex h-dvh w-screen flex-col bg-canvas text-ink"
       data-spinth-tab-role={tab.role}
     >
+      {/* 页面标题（specs/a11y-closeout §8.1，W4）：视觉标识在顶栏品牌，
+          h1 sr-only 供屏读页面级定位 */}
+      <h1 className="sr-only">spinth 白板</h1>
+      <Announcer />
       {/* 安全区（批次 B W3）：pt 垫高 safe-top（内容区仍 44，M1 不回归）、
           左右内边距计 safe-left/right；<380 紧凑变体（max-[379px]，不用 419——
           390 的 M1 依赖胶囊截断，断点覆盖 390 基线即漂，specs/a11y-closeout §7.3） */}
@@ -141,6 +146,7 @@ export function App() {
           <button
             type="button"
             title={theme === 'light' ? '切换到深色' : '切换到浅色'}
+            aria-label={theme === 'light' ? '切换到深色' : '切换到浅色'}
             onClick={() => {
               const next = toggleTheme(theme);
               setTheme(next);
@@ -152,7 +158,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="relative flex-1 overflow-hidden">
+      <main className="relative flex-1 overflow-hidden" aria-label="画布区域">
         {/* 角色未定（pending）不挂画布（docs/21 §3）——loading 覆盖层在场 */}
         {tab.role !== 'pending' && (
           <Board

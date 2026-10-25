@@ -9,9 +9,12 @@ export function ReadOnlyNotice() {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return (
+    // role=region（specs/a11y-closeout §8.3，W4/D9）：live region 内不放交互
+    // 控件——只读切换由 Announcer 播报（editable 跃迁），本条只做可见呈现；
+    // aria-label 让 region 在 landmarks 巡航时可命名到达
     <div
-      role="status"
-      aria-live="polite"
+      role="region"
+      aria-label="只读提示"
       data-spinth-readonly-notice=""
       className="absolute left-1/2 top-[calc(0.75rem+var(--spinth-safe-top))] z-30 flex max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-3 rounded-xl border border-edge bg-surface px-4 py-2.5 shadow-pop"
     >

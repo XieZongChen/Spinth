@@ -5,6 +5,9 @@ import { connectBoard } from '../store/bridge';
 import { useSpinthStore } from '../store/spinthStore';
 import { DotGrid } from './DotGrid';
 
+/** sr-only 快捷键帮助的 id（stage aria-describedby 指向） */
+const STAGE_HELP_ID = 'spinth-stage-help';
+
 /**
  * 画板容器（docs/12 §4）：挂载点 + 生命周期。
  * StrictMode 双挂载防御：异步 initialize 完成前被卸载则立即 dispose。
@@ -41,6 +44,11 @@ export function Board({
         }
         bindBoard(sdk);
         disconnect = connectBoard(sdk);
+        // 纯渲染面对屏读隐藏（specs/a11y-closeout §8.1）：画布语义在宿主 div
+        //（role=application + 帮助文本），canvas 本体不可达
+        ref.current
+          ?.querySelectorAll('canvas')
+          .forEach((c) => c.setAttribute('aria-hidden', 'true'));
         // dev 调试句柄（对齐既有设计 window.app 约定；生产构建剥离）
         if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
           (window as unknown as Record<string, unknown>).__spinth = sdk;
@@ -79,15 +87,26 @@ export function Board({
     // 层序用显式 z-index 而非 DOM 顺序：core 命令式追加的 canvas 与 React 子节点
     // （DotGrid）的相对顺序在重渲染后不可保证（实测 React 会把重渲染的子节点插到
     // canvas 之后）。canvas z-[1]：高于点阵（z-auto），低于 App 层浮层（z-10+）。
-    // tabIndex=0（specs/a11y-closeout §5.9，批次 B W1 先行）：右键菜单的焦点
-    // 归还目标 + 键盘可达画布入口；role/可访问名/帮助文本在 W4 补
+    // 屏读语义（specs/a11y-closeout §8.2，W4/D8）：role=application——单字母键/
+    // 方向键/Esc 需透传给应用（group 会被浏览模式吞）；代价是必须给出说明与
+    // 退出路径：tabIndex=0 Tab 进出 + aria-describedby 快捷键摘要（人工清单
+    // 不通过则回退 role=group，决策 D8）
     <div
       id="stage-container"
+      data-spinth-stage=""
       ref={ref}
       tabIndex={0}
+      role="application"
+      aria-roledescription="白板"
+      aria-label="白板画布"
+      aria-describedby={STAGE_HELP_ID}
       className="absolute inset-0 overflow-hidden [&>canvas]:absolute [&>canvas]:top-0 [&>canvas]:left-0 [&>canvas]:z-[1]"
     >
       <DotGrid />
+      <p id={STAGE_HELP_ID} className="sr-only">
+        方向键微移选中元素，Shift 加速；V H R T L P E S M 切换工具；Cmd 或 Ctrl 加 Z 撤销；Delete
+        删除选中；Esc 取消；Shift 加 F10 打开右键菜单；按 Tab 离开画布。
+      </p>
     </div>
   );
 }

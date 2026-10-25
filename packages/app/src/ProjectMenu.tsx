@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Icon, readSafeInsets, useSpinthStore } from '@spinth/react';
+import { Icon, readSafeInsets, useRovingFocus, useSpinthStore } from '@spinth/react';
 import { spinthCommands } from '@spinth/react';
 import {
   ProjectFileError,
@@ -148,14 +148,15 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
     setExportWarnings([]);
   }, [open]);
 
-  // 打开后焦点移入首个可用菜单项（键盘用户不必回 tab；Escape 仍回按钮）。
-  // 依赖含 panelStyle：面板「先定位后挂载」，首次打开时面板在 panelStyle 就绪后
-  // 才挂载——只依赖 open 会在挂载前跑一次空聚焦（复审 #1）
-  useEffect(() => {
-    if (!open) return;
-    const first = panelRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
-    first?.focus();
-  }, [open, panelStyle]);
+  // 打开后焦点移入首个可用菜单项：由 useRovingFocus 的 autoFocus='first' 承担
+  // （specs/a11y-closeout §5.7——本地聚焦 effect 删除，协议与 ContextMenu 同源；
+  //  hook 的逐渲染 effect 在面板「先定位后挂载」后必然跑到）
+  const { onKeyDown, onFocus } = useRovingFocus({
+    containerRef: panelRef,
+    orientation: 'vertical',
+    wrap: true,
+    autoFocus: 'first',
+  });
 
   // Escape 关闭并把焦点还给按钮（§9.3；capture 相独占——不冒泡到全局清选区）
   useEffect(() => {
@@ -275,6 +276,8 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
           aria-label="项目"
           aria-busy={busy !== null}
           data-spinth-project-menu-panel=""
+          onKeyDown={onKeyDown}
+          onFocus={onFocus}
           className="z-30 rounded-xl border border-edge bg-surface px-2 py-1.5 shadow-pop"
           style={panelStyle ?? undefined}
         >
@@ -282,6 +285,8 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
             <button
               type="button"
               role="menuitem"
+              data-roving-item=""
+              tabIndex={-1}
               disabled={disabled}
               onClick={() => void handleExport()}
               className={itemClass}
@@ -294,6 +299,8 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
             <button
               type="button"
               role="menuitem"
+              data-roving-item=""
+              tabIndex={-1}
               disabled={disabled || !editable}
               title={!editable ? '只读时无法导入（另一标签正在编辑）' : undefined}
               onClick={() => inputRef.current?.click()}
@@ -361,6 +368,7 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
         ref={inputRef}
         type="file"
         accept=".zip,.spinth.zip,application/zip"
+        aria-label="导入项目文件"
         data-spinth-project-import=""
         className="hidden"
         onChange={(e) => {

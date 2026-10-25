@@ -135,3 +135,70 @@ test('Tab 序：8 次内达 stage；工具坞单停靠；ProjectMenu 方向键�
   await page.keyboard.press('Escape');
   await expect(pm).toBeHidden();
 });
+
+test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
+  test('画布宿主语义：application + 白板描述 + 帮助文本；canvas 隐藏；菜单关后无残留 menuitem', async ({
+    page,
+  }) => {
+    await openBoard(page, `e2e-w4a-${Date.now()}`);
+    const stage = page.locator('#stage-container');
+    await expect(stage).toHaveAttribute('role', 'application');
+    await expect(stage).toHaveAttribute('aria-roledescription', '白板');
+    await expect(stage).toHaveAttribute('aria-label', '白板画布');
+    await expect(stage).toHaveAccessibleName('白板画布');
+    // 帮助文本存在且被引用（aria-describedby 指向的节点非空）
+    const helpId = await stage.getAttribute('aria-describedby');
+    expect(helpId).toBeTruthy();
+    expect(
+      await page.evaluate((id) => (document.getElementById(id)?.textContent ?? '').length, helpId!),
+    ).toBeGreaterThan(10);
+    // 纯渲染面：canvas 对 AT 隐藏
+    expect(await page.locator('canvas[aria-hidden="true"]').count()).toBeGreaterThan(0);
+    // 菜单关闭后 [role=menuitem] 不留在 Tab 序（§8.5）
+    await page.mouse.click(500, 300, { button: 'right' });
+    await page.keyboard.press('Escape');
+    expect(await page.locator('[role="menuitem"]').count()).toBe(0);
+    // 页面 h1 + main 语义
+    await expect(page.locator('h1.sr-only')).toHaveText('spinth 白板');
+    await expect(page.locator('main')).toHaveAttribute('aria-label', '画布区域');
+  });
+
+  test('可访问名扫描：五组控件逐个非空（§8.4）', async ({ page }) => {
+    await openBoard(page, `e2e-w4b-${Date.now()}`);
+    await drawShape(page); // 选中出 ActionBar（结束后回 cursor，flyout 已卸载）
+    const groups = [
+      'header button',
+      '[data-spinth-toolbar] button',
+      '[data-spinth-zoom] button',
+      '[data-spinth-action-bar] button',
+    ];
+    for (const sel of groups) {
+      const loc = page.locator(sel);
+      const n = await loc.count();
+      expect(n, `${sel} 无按钮`).toBeGreaterThan(0);
+      for (let i = 0; i < n; i++) {
+        await expect(loc.nth(i), `${sel}[${i}]`).toHaveAccessibleName(/\S/);
+      }
+    }
+    // flyout 常驻面板最后扫：按 r 激活形状即出现
+    await page.keyboard.press('r');
+    const flyout = page.locator('[data-spinth-tool-flyout] button');
+    const fn = await flyout.count();
+    expect(fn, 'flyout 无按钮').toBeGreaterThan(0);
+    for (let i = 0; i < fn; i++) {
+      await expect(flyout.nth(i)).toHaveAccessibleName(/\S/);
+    }
+  });
+
+  test('播报器：选中变化播「已选中 N 个元素」；工具切换播「当前工具」', async ({ page }) => {
+    await openBoard(page, `e2e-w4c-${Date.now()}`);
+    const announcer = page.locator('[data-spinth-announcer]');
+    await expect(announcer).toHaveAttribute('role', 'status');
+    // 首载播报（live region 常驻先于内容）
+    await expect(announcer).toContainText('画布已加载');
+    await drawShape(page);
+    await expect(announcer).toContainText('已选中 1 个元素');
+    await page.keyboard.press('p');
+    await expect(announcer).toContainText('当前工具：画笔');
+  });
+});

@@ -46,5 +46,6 @@ export { ToolGhost } from './components/ToolGhost';
 export { OfflineBar } from './components/OfflineBar';
 export { ErrorBoundary } from './components/ErrorBoundary';
 export { ErrorState, type IErrorStateProps } from './components/ErrorState';
+export { Announcer } from './components/Announcer';
 export { Icon, type IconName, type IconProps } from './components/Icon';
 export { Tooltip } from './components/Tooltip';

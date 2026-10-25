@@ -121,7 +121,6 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? 'spinth-storage-panel' : undefined}
-        aria-live="polite"
         data-spinth-storage-button=""
         onClick={() => setOpen((v) => !v)}
         className={`flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold transition-colors duration-100 max-[379px]:min-w-6 max-[379px]:justify-center max-[379px]:px-1.5 max-[379px]:gap-0 ${

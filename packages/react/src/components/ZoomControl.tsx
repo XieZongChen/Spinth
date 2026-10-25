@@ -2,7 +2,9 @@ import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
 import { Icon } from './Icon';
 
-/** 缩放胶囊（docs/12 §4）：右下角悬浮，与工具坞同族表面（白胶囊 + 停靠投影） */
+/** 缩放胶囊（docs/12 §4）：右下角悬浮，与工具坞同族表面（白胶囊 + 停靠投影）。
+ *  三钮均带 aria-label（specs/a11y-closeout §8.4——title 回退的 AT 兼容面窄；
+ *  适应屏幕钮的名称带当前百分比 = Name,Role,Value 的 value 面） */
 export function ZoomControl() {
   const pageScale = useSpinthStore((s) => s.pageScale);
   const percent = Math.round(pageScale * 100);
@@ -17,6 +19,7 @@ export function ZoomControl() {
       <button
         type="button"
         title="缩小 (Cmd+-)"
+        aria-label="缩小"
         onClick={() => spinthCommands.zoomOut()}
         className="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 hover:bg-surface-hover hover:text-ink"
       >
@@ -25,6 +28,7 @@ export function ZoomControl() {
       <button
         type="button"
         title="适应屏幕 (F)"
+        aria-label={`适应屏幕（当前 ${percent}%）`}
         onClick={() => spinthCommands.zoomToFit()}
         className="h-8 min-w-14 rounded-full text-xs font-bold tabular-nums transition-colors duration-150 hover:bg-surface-hover hover:text-ink"
       >
@@ -33,6 +37,7 @@ export function ZoomControl() {
       <button
         type="button"
         title="放大 (Cmd+=)"
+        aria-label="放大"
         onClick={() => spinthCommands.zoomIn()}
         className="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 hover:bg-surface-hover hover:text-ink"
       >
