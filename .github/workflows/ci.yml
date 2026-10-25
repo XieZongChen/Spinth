@@ -82,7 +82,11 @@ jobs:
 
       # fast 层：排除时敏/视觉/性能（nightly 承接，workers=2）
       - name: E2E（fast：--grep-invert "@timing|@bench|@visual"）
-        run: npx playwright test --grep-invert "@timing|@bench|@visual"
+        # 主配置（dev server）+ pwa 专用配置（preview 子路径）双命令
+        # （specs/pwa D14/§17.2-8）：nightly 三层只用主配置，不付 preview 构建成本
+        run: |
+          npx playwright test --grep-invert "@timing|@bench|@visual"
+          npx playwright test --config playwright.pwa.config.ts
 
       - name: 上传失败现场
         if: failure()

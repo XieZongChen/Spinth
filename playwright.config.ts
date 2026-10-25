@@ -14,9 +14,6 @@ import { defineConfig } from '@playwright/test';
  */
 
 const PORT = Number(process.env.E2E_PORT ?? 5199);
-// pwa project：真实 Pages 形态（子路径 + 生产构建 + preview，specs/pwa D14）。
-// build 与 preview 必须同 env（SPINTH_BASE），否则 preview 以 '/' 提供而产物按子路径生成。
-const PWA_PORT = 5198;
 
 export default defineConfig({
   testDir: 'packages/app/e2e',
@@ -26,16 +23,12 @@ export default defineConfig({
   retries: 1,
   workers: 2,
   reporter: [['line']],
-  // pwa.spec 只归 pwa project（preview 环境专用）；其余 spec 在 dev server 跑
+  // pwa.spec 只归 playwright.pwa.config.ts 的 pwa project（preview 形态，
+  // specs/pwa D14/§17.2-8）——主配置 ignore 防止它打到 dev server 上跑
   projects: [
     {
       name: 'chromium',
       testIgnore: '**/pwa.spec.ts',
-    },
-    {
-      name: 'pwa',
-      testMatch: '**/pwa.spec.ts',
-      use: { baseURL: `http://localhost:${PWA_PORT}/spinth/` },
     },
   ],
   // 视觉快照（docs/15 §4）：容差 2%；基线按平台分目录（darwin/linux 各自
@@ -70,15 +63,6 @@ export default defineConfig({
       // CI 每次全新起（复用会连到旧代码）；本地复用常驻 dev server 调试
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-    },
-    {
-      // pwa 专用：先按子路径构建再 preview（specs/pwa D14）。
-      // 命令行内联 env 而不用 webServer.env——后者整体替换会丢 PATH；
-      // reuse 恒 false：本地常驻 preview 会端着旧 dist 造成假结果
-      command: `SPINTH_BASE=/spinth/ pnpm --filter @spinth/app build && SPINTH_BASE=/spinth/ pnpm --filter @spinth/app preview --port ${PWA_PORT} --strictPort`,
-      url: `http://localhost:${PWA_PORT}/spinth/`,
-      reuseExistingServer: false,
-      timeout: 240_000,
     },
   ],
 });
