@@ -51,21 +51,31 @@
   --spinth-warning: #b45309;
   --spinth-warning-soft: #fef3c7;
 
-  /* 工具色（记号笔托盘：激活态点亮） */
+  /* 工具主题色（记号笔托盘：激活态点亮）。按角色拆分（批次 B W2，沿用
+     danger/danger-ink 先例）：本体 = 图形/色点/幽灵预览/画布绘制色；
+     -ink = soft 底上的前景（图标/文字）——flyout 选中项含纯文本（字号/
+     线宽数字），统一按文字 4.5:1 定值（1.4.3 与 1.4.11 双合规） */
   --spinth-tool-hand: #e8843c;
   --spinth-tool-hand-soft: #fdf1e7;
+  --spinth-tool-hand-ink: #a9571a;
   --spinth-tool-shape: #3e8bff;
   --spinth-tool-shape-soft: #e9f2ff;
+  --spinth-tool-shape-ink: #1a63cc;
   --spinth-tool-text: #7c5cfc;
   --spinth-tool-text-soft: #f0edff;
+  --spinth-tool-text-ink: #5b3ad6;
   --spinth-tool-line: #0fb5a6;
   --spinth-tool-line-soft: #e4f7f5;
+  --spinth-tool-line-ink: #08786d;
   --spinth-tool-pen: #2fa96e;
   --spinth-tool-pen-soft: #e7f6ee;
+  --spinth-tool-pen-ink: #1b7047;
   --spinth-tool-sticky: #efa424;
   --spinth-tool-sticky-soft: #fdf3e0;
+  --spinth-tool-sticky-ink: #8f6200;
   --spinth-tool-mind: #e0559c;
   --spinth-tool-mind-soft: #fdeaf4;
+  --spinth-tool-mind-ink: #b03574;
 
   /* 悬浮投影（铬件浮在画布上的凭据） */
   --spinth-shadow-dock: 0 6px 24px rgba(24, 22, 44, 0.1), 0 1px 3px rgba(24, 22, 44, 0.06);
@@ -117,6 +127,15 @@
   --spinth-tool-sticky-soft: #3a2f1c;
   --spinth-tool-mind: #e879b4;
   --spinth-tool-mind-soft: #3a2230;
+
+  /* 深色本体已对 soft ≥4.89（批次 B 实测）：-ink 别名本体，单源不双份漂移 */
+  --spinth-tool-hand-ink: var(--spinth-tool-hand);
+  --spinth-tool-shape-ink: var(--spinth-tool-shape);
+  --spinth-tool-text-ink: var(--spinth-tool-text);
+  --spinth-tool-line-ink: var(--spinth-tool-line);
+  --spinth-tool-pen-ink: var(--spinth-tool-pen);
+  --spinth-tool-sticky-ink: var(--spinth-tool-sticky);
+  --spinth-tool-mind-ink: var(--spinth-tool-mind);
 
   --spinth-shadow-dock: 0 6px 24px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --spinth-shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);

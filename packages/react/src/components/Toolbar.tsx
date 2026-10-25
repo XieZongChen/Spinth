@@ -86,16 +86,18 @@ const BASE_TOOLS: ToolDef[] = [
 /** shape 在工具序中的槽位（cursor/hand 之后——图标与 title 随默认型动态变化） */
 const SHAPE_SLOT = 2;
 
-/** 激活态按主题色染色；完整类名字符串保证被 Tailwind 扫描到 */
+/** 激活态按工具主题色染色；完整类名字符串保证被 Tailwind 扫描到。
+ *  前景用 -ink（soft 底 4.5:1，批次 B W2——flyout 选中项含纯文本，图标与
+ *  文字统一按文字对比度定值）；本体色留给画布图形/色点/幽灵预览 */
 const TONE_ACTIVE: Record<ToolTone, string> = {
   ink: 'bg-surface-active text-ink',
-  hand: 'bg-tool-hand-soft text-tool-hand',
-  shape: 'bg-tool-shape-soft text-tool-shape',
-  text: 'bg-tool-text-soft text-tool-text',
-  line: 'bg-tool-line-soft text-tool-line',
-  pen: 'bg-tool-pen-soft text-tool-pen',
-  sticky: 'bg-tool-sticky-soft text-tool-sticky',
-  mind: 'bg-tool-mind-soft text-tool-mind',
+  hand: 'bg-tool-hand-soft text-tool-hand-ink',
+  shape: 'bg-tool-shape-soft text-tool-shape-ink',
+  text: 'bg-tool-text-soft text-tool-text-ink',
+  line: 'bg-tool-line-soft text-tool-line-ink',
+  pen: 'bg-tool-pen-soft text-tool-pen-ink',
+  sticky: 'bg-tool-sticky-soft text-tool-sticky-ink',
+  mind: 'bg-tool-mind-soft text-tool-mind-ink',
 };
 
 /**

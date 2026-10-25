@@ -41,18 +41,25 @@
 
   --color-tool-hand: var(--spinth-tool-hand);
   --color-tool-hand-soft: var(--spinth-tool-hand-soft);
+  --color-tool-hand-ink: var(--spinth-tool-hand-ink);
   --color-tool-shape: var(--spinth-tool-shape);
   --color-tool-shape-soft: var(--spinth-tool-shape-soft);
+  --color-tool-shape-ink: var(--spinth-tool-shape-ink);
   --color-tool-text: var(--spinth-tool-text);
   --color-tool-text-soft: var(--spinth-tool-text-soft);
+  --color-tool-text-ink: var(--spinth-tool-text-ink);
   --color-tool-line: var(--spinth-tool-line);
   --color-tool-line-soft: var(--spinth-tool-line-soft);
+  --color-tool-line-ink: var(--spinth-tool-line-ink);
   --color-tool-pen: var(--spinth-tool-pen);
   --color-tool-pen-soft: var(--spinth-tool-pen-soft);
+  --color-tool-pen-ink: var(--spinth-tool-pen-ink);
   --color-tool-sticky: var(--spinth-tool-sticky);
   --color-tool-sticky-soft: var(--spinth-tool-sticky-soft);
+  --color-tool-sticky-ink: var(--spinth-tool-sticky-ink);
   --color-tool-mind: var(--spinth-tool-mind);
   --color-tool-mind-soft: var(--spinth-tool-mind-soft);
+  --color-tool-mind-ink: var(--spinth-tool-mind-ink);
 
   --shadow-dock: var(--spinth-shadow-dock);
   --shadow-pop: var(--spinth-shadow-pop);

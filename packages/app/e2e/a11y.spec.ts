@@ -48,6 +48,59 @@ const TOKEN_PAIRS: TokenPair[] = [
   },
   { name: 'accent / canvas（图形）', fg: '--spinth-accent', bg: '--spinth-canvas', min: 3 },
   { name: 'danger / surface（图形）', fg: '--spinth-danger', bg: '--spinth-surface', min: 3 },
+  // 工具主题色对 soft 底（批次 B W2）：TONE_ACTIVE 八组——flyout 选中项含
+  // 纯文本（字号/线宽数字），统一按文字 4.5:1 定值（1.4.3 与 1.4.11 双合规）；
+  // 'ink' 组即 TONE_ACTIVE.ink（surface-active 底）。修前实测（浅色本体色）：
+  // hand 2.42 / shape 2.93 / text 3.80 / line 2.31 / pen 2.67 / sticky 1.90 /
+  // mind 3.06——七组全红，故 soft 底前景一律换 -ink（本体色留给画布图形）
+  {
+    name: '工具 ink 组 text-1 / surface-active',
+    fg: '--spinth-text-1',
+    bg: '--spinth-surface-active',
+    min: 4.5,
+  },
+  {
+    name: 'tool-hand-ink / hand-soft',
+    fg: '--spinth-tool-hand-ink',
+    bg: '--spinth-tool-hand-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-shape-ink / shape-soft',
+    fg: '--spinth-tool-shape-ink',
+    bg: '--spinth-tool-shape-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-text-ink / text-soft',
+    fg: '--spinth-tool-text-ink',
+    bg: '--spinth-tool-text-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-line-ink / line-soft',
+    fg: '--spinth-tool-line-ink',
+    bg: '--spinth-tool-line-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-pen-ink / pen-soft',
+    fg: '--spinth-tool-pen-ink',
+    bg: '--spinth-tool-pen-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-sticky-ink / sticky-soft',
+    fg: '--spinth-tool-sticky-ink',
+    bg: '--spinth-tool-sticky-soft',
+    min: 4.5,
+  },
+  {
+    name: 'tool-mind-ink / mind-soft',
+    fg: '--spinth-tool-mind-ink',
+    bg: '--spinth-tool-mind-soft',
+    min: 4.5,
+  },
 ];
 
 async function openBoard(page: Page, docId: string): Promise<void> {
@@ -171,6 +224,25 @@ test.describe('实际元素对比度（真实 DOM 计算样式）', () => {
 
       // 建矩形（拖出后保持选中），右键形状 → widget 菜单（删除项只在选区菜单里）
       await page.keyboard.press('r');
+      // W2 元素面（批次 B）：激活工具钮与 flyout 选中项的前景即 TONE_ACTIVE 的
+      // text-* 类——令牌对只能证明色值，元素面证明类名真的接上了
+      const flyout = page.locator('[data-spinth-tool-flyout]');
+      await expect(flyout).toBeVisible();
+      // 与 setTheme 同因：按 R 换工具后按钮 150ms transition-colors 插值中，
+      // 直接读计算样式会拿到半透明过渡色（alpha 断言面拒绝）——等动画走完
+      await page.waitForTimeout(250);
+      await assertElementPairs(page, theme === 'light' ? '浅色' : '深色', [
+        {
+          label: '激活工具按钮（工具主题色 / soft 底）',
+          selector: '[data-spinth-toolbar] button[aria-pressed="true"]',
+          min: 4.5,
+        },
+        {
+          label: 'flyout 选中项（工具主题色 / soft 底）',
+          selector: '[data-spinth-tool-flyout] [role="menuitemradio"][aria-checked="true"]',
+          min: 4.5,
+        },
+      ]);
       const canvas = page.locator('canvas').first();
       await canvas.hover({ position: { x: 500, y: 300 } });
       await page.mouse.down();
