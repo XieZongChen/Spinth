@@ -22,6 +22,16 @@ export default defineConfig({
           include: ['src/__tests__/*.render.test.tsx'],
         },
       },
+      // app 单元（specs/pwa §11.1）：PWA 纯逻辑与 SW 控制器桩测（node 环境）。
+      // 包内另有 vitest.config.ts 供 `pnpm --filter @spinth/app test` 单独运行。
+      {
+        root: 'packages/app',
+        test: {
+          name: 'app',
+          environment: 'node',
+          include: ['src/pwa/**/*.test.ts'],
+        },
+      },
     ],
     rootDir: '.',
     // coverage 仅由根 `pnpm test:coverage` 按需启用；日常 `pnpm test` 不付插桩成本。
@@ -34,6 +44,7 @@ export default defineConfig({
         'packages/core/src/**/*.ts',
         'packages/react/src/**/*.ts',
         'packages/react/src/**/*.tsx',
+        'packages/app/src/pwa/**/*.ts',
       ],
       exclude: ['**/__tests__/**', '**/*.test.*', '**/index.ts', '**/*.md'],
       // 回退门禁：2026-10-20 实测 Stmts 62.95 / Branch 52.21 / Funcs 54.39 /
