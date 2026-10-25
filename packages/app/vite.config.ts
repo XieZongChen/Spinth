@@ -63,9 +63,12 @@ function resolveBase(): string {
  */
 export default defineConfig({
   base: resolveBase(),
-  // 构建标记（specs/pwa §11.3）：E2E 用 SPINTH_BUILD_TAG 证明版本确实更替
+  // 构建标记（specs/pwa §11.3）：E2E 用 SPINTH_BUILD_TAG 证明版本确实更替。
+  // E2E 探针构建期开关（specs/pwa §17.4 P2-4）：仅 SPINTH_E2E=1 的构建携带
+  // 只读探针，Pages 产物零暴露——与「SDK 调试句柄生产剥离」约定同向。
   define: {
     __BUILD_TAG__: JSON.stringify(process.env.SPINTH_BUILD_TAG ?? ''),
+    __E2E_PROBE__: JSON.stringify(process.env.SPINTH_E2E === '1'),
   },
   plugins: [react(), tailwindcss(), cspInject()],
   resolve: {

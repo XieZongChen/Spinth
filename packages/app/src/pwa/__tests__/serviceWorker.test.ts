@@ -3,6 +3,7 @@ import {
   createSwController,
   DISMISS_STORAGE_KEY,
   SW_RELOAD_FALLBACK_MS,
+  SW_UPDATE_RETRY_MS,
   SW_UPDATE_THROTTLE_MS,
   type ISwInstallingWorker,
   type ISwRegistration,
@@ -37,6 +38,7 @@ interface IHarness {
   storage: Map<string, string>;
   setWaiting(on: boolean): void;
   setHasController(on: boolean): void;
+  setUpdateFails(on: boolean): void;
   advanceNow(ms: number): void;
   emitUpdatefound(): void;
   installing: ReturnType<typeof fakeInstallingWorker>;
@@ -57,6 +59,7 @@ function harness(waitingAtStart = false): IHarness {
   let updatefoundListener: (() => void) | undefined;
   let controllerChangeListener: (() => void) | undefined;
   let updateCallCount = 0;
+  let updateFails = false;
 
   const registration: ISwRegistration = {
     get waiting() {
@@ -67,6 +70,7 @@ function harness(waitingAtStart = false): IHarness {
     },
     update: async () => {
       updateCallCount += 1;
+      if (updateFails) throw new Error('offline');
     },
     addEventListener: (type: 'updatefound', listener: () => void) => {
       if (type === 'updatefound') updatefoundListener = listener;
@@ -101,6 +105,9 @@ function harness(waitingAtStart = false): IHarness {
     },
     setHasController(on: boolean) {
       hasController = on;
+    },
+    setUpdateFails(on: boolean) {
+      updateFails = on;
     },
     advanceNow(ms: number) {
       fakeNow += ms;
@@ -280,6 +287,37 @@ describe('createSwController 更新状态机', () => {
     h.advanceNow(1);
     c.checkForUpdate();
     expect(h.updateCalls()).toBe(2);
+  });
+
+  it('update 失败后 5min 即重试；成功后回到 60min 节流（§17.4 P2-6）', async () => {
+    const h = harness();
+    h.setUpdateFails(true);
+    const c = createSwController(h.deps);
+    c.init();
+    await flush();
+    c.checkForUpdate(); // 失败一次
+    await flush(); // update() 的 catch 置 lastUpdateFailed（微任务）
+    expect(h.updateCalls()).toBe(1);
+    c.checkForUpdate();
+    expect(h.updateCalls()).toBe(1); // 节流窗内
+    h.advanceNow(SW_UPDATE_RETRY_MS - 1);
+    c.checkForUpdate();
+    expect(h.updateCalls()).toBe(1); // 5min 未到
+    h.advanceNow(1);
+    c.checkForUpdate();
+    expect(h.updateCalls()).toBe(2); // 失败窗口到点即重试
+    await flush(); // 排空该次失败的 catch，避免与下一次成功链交叠翻转标志
+    h.setUpdateFails(false);
+    h.advanceNow(SW_UPDATE_RETRY_MS + 1);
+    c.checkForUpdate(); // 这次成功
+    await flush(); // then 清 lastUpdateFailed
+    expect(h.updateCalls()).toBe(3);
+    h.advanceNow(SW_UPDATE_THROTTLE_MS - 1);
+    c.checkForUpdate();
+    expect(h.updateCalls()).toBe(3); // 成功后回到 60min 档
+    h.advanceNow(1);
+    c.checkForUpdate();
+    expect(h.updateCalls()).toBe(4);
   });
 
   it('状态镜像通知 subscribe（useSyncExternalStore 数据源）', async () => {

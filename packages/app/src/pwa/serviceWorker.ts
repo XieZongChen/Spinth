@@ -26,6 +26,9 @@ export const DISMISS_STORAGE_KEY = 'spinth.pwa.update-dismissed';
 
 /** visibilitychange 触发 update() 的节流下限（§6.4） */
 export const SW_UPDATE_THROTTLE_MS = 60 * 60 * 1000;
+/** update() 失败后的重试间隔（§17.4 P2-6）：离线/抖动恰是最该重试的时候，
+ * 不与成功节流同档——否则一次失败要空等整整一小时 */
+export const SW_UPDATE_RETRY_MS = 5 * 60 * 1000;
 /** 点击后无 controllerchange 的兜底 reload（§6.4：避免用户点了没反应） */
 export const SW_RELOAD_FALLBACK_MS = 3000;
 
@@ -52,7 +55,8 @@ export interface ISwController {
   init(): void;
   apply(): void;
   dismiss(): void;
-  /** visibilitychange（转可见）调用；内部节流 ≥ SW_UPDATE_THROTTLE_MS */
+  /** visibilitychange（转可见）调用；成功后节流 ≥ SW_UPDATE_THROTTLE_MS，
+   * 上次失败 SW_UPDATE_RETRY_MS 后即重试 */
   checkForUpdate(): void;
 }
 
@@ -71,6 +75,7 @@ export function createSwController(deps: IServiceWorkerDeps): ISwController {
   let pendingReload = false;
   let reloaded = false;
   let lastUpdateAt = Number.NEGATIVE_INFINITY;
+  let lastUpdateFailed = false;
 
   function readDismissed(d: IServiceWorkerDeps): boolean {
     try {
@@ -170,11 +175,19 @@ export function createSwController(deps: IServiceWorkerDeps): ISwController {
 
     checkForUpdate() {
       if (!registration) return;
-      if (deps.now() - lastUpdateAt < SW_UPDATE_THROTTLE_MS) return;
-      lastUpdateAt = deps.now();
-      void registration.update().catch(() => {
-        /* update 失败（离线等）静默：横幅只在 waiting 时出现 */
-      });
+      // 成功后 60min 节流；上次失败 5min 即重试（横幅只在 waiting 时出现，失败静默）
+      const gap = lastUpdateFailed ? SW_UPDATE_RETRY_MS : SW_UPDATE_THROTTLE_MS;
+      const now = deps.now();
+      if (now - lastUpdateAt < gap) return;
+      lastUpdateAt = now;
+      void registration
+        .update()
+        .then(() => {
+          lastUpdateFailed = false;
+        })
+        .catch(() => {
+          lastUpdateFailed = true;
+        });
     },
   };
 

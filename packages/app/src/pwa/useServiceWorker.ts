@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { getPwaController, type ISwController, type ISwState } from './serviceWorker';
 
 /**

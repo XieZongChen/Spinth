@@ -58,25 +58,31 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   }
 });
 
-/** install：按清单全量填充 shell 缓存；任一失败即 throw——旧 SW 保留（§6.3）。 */
+/** install：按清单全量填充 shell 缓存；任一失败即删半成品缓存再 throw——
+ * 旧 SW 保留（§6.3），配额不留残骸（§17.4 P3-8）。 */
 async function installShell(): Promise<void> {
   const cache = await caches.open(SHELL_CACHE);
-  await Promise.all(
-    MANIFEST.entries.map(async (entry) => {
-      const url = new URL(entry.url, BASE).href;
-      // index.html 强制绕 HTTP 缓存重取（防 Pages 600s 陈旧页）；其余资产带 hash
-      // 天然 immutable，走默认缓存避免首装流量翻倍
-      const res = await fetch(url, entry.url === 'index.html' ? { cache: 'reload' } : undefined);
-      if (!res.ok) throw new Error(`[spinth-sw] 预缓存失败 ${entry.url}: HTTP ${res.status}`);
-      if (entry.url === 'index.html') {
-        // 同一份响应存两键（原件 + 归一化导航键）：put 消费响应体，先 clone 再存
-        await cache.put(url, res.clone());
-        await cache.put(NAV_KEY, res);
-      } else {
-        await cache.put(url, res);
-      }
-    }),
-  );
+  try {
+    await Promise.all(
+      MANIFEST.entries.map(async (entry) => {
+        const url = new URL(entry.url, BASE).href;
+        // index.html 强制绕 HTTP 缓存重取（防 Pages 600s 陈旧页）；其余资产带 hash
+        // 天然 immutable，走默认缓存避免首装流量翻倍
+        const res = await fetch(url, entry.url === 'index.html' ? { cache: 'reload' } : undefined);
+        if (!res.ok) throw new Error(`[spinth-sw] 预缓存失败 ${entry.url}: HTTP ${res.status}`);
+        if (entry.url === 'index.html') {
+          // 同一份响应存两键（原件 + 归一化导航键）：put 消费响应体，先 clone 再存
+          await cache.put(url, res.clone());
+          await cache.put(NAV_KEY, res);
+        } else {
+          await cache.put(url, res);
+        }
+      }),
+    );
+  } catch (err) {
+    await caches.delete(SHELL_CACHE); // 半成品不留配额；delete 对不存在的缓存安全返回 false
+    throw err;
+  }
 }
 
 /** activate：删除所有非当前版本的 spinth-* 缓存（D10 不做跨代保留）+ claim（D11）。 */
@@ -90,8 +96,14 @@ async function activateCleanup(): Promise<void> {
 
 /** 导航 network-first（no-cache）→ 3s 超时 → shell 回退；网络响应不回写缓存（D6）。 */
 async function handleNavigation(request: Request): Promise<Response> {
+  // 超时即中断底层 fetch：继续跑完再丢弃是浪费，也可能与回退竞态（§17.4 P3-9）
+  const abort = new AbortController();
   try {
-    return await withTimeout(fetch(request, { cache: 'no-cache' }), NAV_TIMEOUT_MS);
+    return await withTimeout(
+      fetch(request, { cache: 'no-cache', signal: abort.signal }),
+      NAV_TIMEOUT_MS,
+      () => abort.abort(),
+    );
   } catch {
     const cache = await caches.open(SHELL_CACHE);
     const shell = await cache.match(NAV_KEY);
@@ -122,9 +134,12 @@ async function handleRuntimeRevalidate(request: Request): Promise<Response> {
   return (await network) ?? new Response('', { status: 504, statusText: 'Offline' });
 }
 
-function withTimeout(p: Promise<Response>, ms: number): Promise<Response> {
+function withTimeout(p: Promise<Response>, ms: number, onTimeout: () => void): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('navigation timeout')), ms);
+    const timer = setTimeout(() => {
+      onTimeout(); // 先中断底层 fetch 再拒绝（§17.4 P3-9）
+      reject(new Error('navigation timeout'));
+    }, ms);
     p.then(
       (res) => {
         clearTimeout(timer);

@@ -40,10 +40,26 @@ async function waitControlled(page: Page): Promise<void> {
   });
 }
 
+/** 等待 registration 进入 waiting——横幅缺席断言必须以此为前提才不平凡（§17.4 P2-5）。 */
+async function waitWaiting(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () => page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+}
+
 function rebuild(tag: string): void {
   execSync('pnpm --filter @spinth/app build', {
     cwd: process.cwd(), // playwright 从仓库根启动（pnpm test:e2e / npx playwright test）
-    env: { ...process.env, SPINTH_BASE: '/spinth/', SPINTH_BUILD_TAG: tag },
+    // SPINTH_E2E=1：重建也要带只读探针，否则 P5/P6 重载后 helper 失效（§17.4 P2-4）
+    env: {
+      ...process.env,
+      SPINTH_BASE: '/spinth/',
+      SPINTH_BUILD_TAG: tag,
+      SPINTH_E2E: '1',
+    },
     stdio: 'pipe',
   });
 }
@@ -244,11 +260,11 @@ test('P6 多标签不互踩：A 点刷新只 reload A，B 转已就绪且仍可�
   const tag3 = `pwa-p6b-${Date.now()}`;
   rebuild(tag3);
   await tabB.evaluate(async () => void (await navigator.serviceWorker.getRegistration())?.update());
-  await tabB.waitForTimeout(1500); // updatefound → waiting（dismissed 拦住横幅）
+  await waitWaiting(tabB); // waiting 已在场（dismissed 拦住横幅——缺席断言不平凡）
   await expect(tabB.locator('[data-spinth-pwa-banner]')).toHaveCount(0);
   await tabB.reload();
   await ready(tabB);
-  await tabB.waitForTimeout(500); // 启动 waiting 检查已跑完
+  await waitWaiting(tabB); // reload 后 registration 仍持 waiting，启动检查已能提示
   await expect(tabB.locator('[data-spinth-pwa-banner]')).toHaveCount(0); // 同会话仍隐
   await tabB.evaluate(() => sessionStorage.clear());
   await tabB.reload();
