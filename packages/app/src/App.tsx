@@ -19,6 +19,7 @@ import { StorageStatusButton } from './StorageStatusButton';
 import { ReadOnlyNotice } from './ReadOnlyNotice';
 import { useTabRole } from './tabSession';
 import { PwaUpdateBanner } from './pwa/PwaUpdateBanner';
+import { attachE2eProbe } from './e2eProbe';
 import { docUrl, publicAsset } from './siteBase';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
@@ -68,6 +69,9 @@ export function App() {
     window.addEventListener(THEME_CHANGE_EVENT, onSystemChange);
     return () => window.removeEventListener(THEME_CHANGE_EVENT, onSystemChange);
   }, []);
+
+  // 生产 E2E 只读探针（specs/pwa §11.2）：?e2e=1 门控，正常流量零暴露
+  useEffect(() => attachE2eProbe(), []);
 
   const handleBoardReady = () => {
     setBoardReady(true);

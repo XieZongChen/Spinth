@@ -155,12 +155,25 @@ describe('createSwController 更新状态机', () => {
 
   it('不点击 apply 就不 reload（不自动接管，D9）', async () => {
     const h = harness(true);
+    h.setHasController(true); // 受控页面（claim 已完成，D11 语境）
     const c = createSwController(h.deps);
     c.init();
     await flush();
     h.fireControllerChange(); // 他页激活
     expect(h.reloads).toHaveLength(0);
     expect(c.getState().ready).toBe(true); // 只转「已就绪」状态
+  });
+
+  it('首装 claim 的 controllerchange 静默——不弹横幅（D11）', async () => {
+    const h = harness();
+    const c = createSwController(h.deps);
+    c.init();
+    await flush();
+    h.fireControllerChange(); // claim()：页面从无控→受控
+    expect(c.getState().available).toBe(false);
+    expect(c.getState().ready).toBe(false);
+    h.fireControllerChange(); // 之后他页激活新版本：才转「已就绪」
+    expect(c.getState().ready).toBe(true);
   });
 
   it('apply 只发一次 SKIP_WAITING（重复点击幂等）', async () => {
@@ -223,9 +236,10 @@ describe('createSwController 更新状态机', () => {
     await flush();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(c.getState().available).toBe(false);
-    // controllerchange 监听 inert：无 pendingReload 时绝不 reload
+    // controllerchange 监听 inert：未受控页（首装语境）静默、绝不 reload
     controllerListener?.();
-    expect(c.getState().ready).toBe(true); // 只转状态（与真实 SW 一致）
+    expect(c.getState().ready).toBe(false);
+    expect(c.getState().available).toBe(false);
   });
 
   it('dismiss：写 sessionStorage 标志 + 本会话不再可见', async () => {

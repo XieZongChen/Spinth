@@ -115,6 +115,15 @@ export function createSwController(deps: IServiceWorkerDeps): ISwController {
     },
 
     init() {
+      // 首装 claim() 也会触发 controllerchange（页面从无控→受控）——
+      // 必须与「他页激活新版本」区分（D11），否则每次首装都误弹横幅
+      let hadController = deps.getController() !== null;
+      deps.addControllerChangeListener(() => {
+        if (pendingReload) doReload();
+        else if (!hadController)
+          hadController = true; // 首装接管：静默
+        else if (!reloaded) set({ available: true, ready: true }); // 他页激活：不自动刷新
+      });
       deps
         .register(publicAsset('sw.js'), { scope: SITE_BASE, updateViaCache: 'none' })
         .then((reg) => {
@@ -134,10 +143,6 @@ export function createSwController(deps: IServiceWorkerDeps): ISwController {
             console.warn('[spinth-pwa] Service Worker 注册失败（降级为在线使用）', err);
           }
         });
-      deps.addControllerChangeListener(() => {
-        if (pendingReload) doReload();
-        else if (!reloaded) set({ available: true, ready: true }); // 他页激活：不自动刷新
-      });
     },
 
     apply() {

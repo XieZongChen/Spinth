@@ -326,7 +326,22 @@ test('单机断网不变量（批次 A · A4）：断网仍可创建/撤销/落�
   await expect(page.locator('[data-spinth-offline-bar]')).toHaveCount(0);
   await expect(page.locator('[data-spinth-readonly-pill]')).toHaveCount(0);
 
-  // 不在断网时 reload：无 Service Worker，刷新测的是网络不是产品（spec §8.3）
+  // 不在断网时 reload：dev 不注册 SW（specs/pwa D2），断网刷新测的是网络不是产品
   await context.setOffline(false);
   await page.evaluate((id) => indexedDB.deleteDatabase(`spinth-doc:${id}`), docId);
+});
+
+test('S7 dev 不注册 Service Worker', async ({ page }) => {
+  // specs/pwa D2/D6：SW 注册仅生产构建；dev 下 HMR / React refresh 不受影响
+  const docId = `e2e-sm-devsw-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length),
+      {
+        timeout: 5_000,
+      },
+    )
+    .toBe(0);
 });

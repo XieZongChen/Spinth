@@ -1,0 +1,246 @@
+import { execSync } from 'node:child_process';
+import { expect, test, type Page } from '@playwright/test';
+import { contrastRatio } from './helpers/a11yE2e';
+import { minTarget, boxWithin } from './helpers/layoutE2e';
+import { modelCount, placeText, ready } from './helpers/projectFileE2e';
+
+/**
+ * PWA 专项（specs/pwa §11.2，project=pwa）：子路径生产构建 + vite preview 的
+ * 真实 Pages 形态。P5/P6 用 execSync 真重建（SPINTH_BUILD_TAG 变更产物），
+ * 不 mock SW——mock 只能证明 mock 自洽（D15）。
+ * 本文件测试串行同 worker（默认文件内顺序执行）：两次重建不可并发。
+ */
+
+const BASE = '/spinth/';
+
+function docIdOf(tag: string): string {
+  return `e2e-pwa-${tag}-${Date.now()}`;
+}
+
+async function openPreview(page: Page, docId: string): Promise<void> {
+  // &e2e=1：挂生产只读探针（src/e2eProbe.ts），ready/modelCount 等 helper 可用
+  await page.goto(`${BASE}?doc=${docId}&e2e=1`);
+  await ready(page);
+}
+
+/** 矩形落件（'r' + 单击）：一个撤销单元——文字建件+输入是两个单元，
+ * 撤销断言用矩形流（specs/pwa P2）。 */
+async function placeRect(page: Page): Promise<void> {
+  await page.keyboard.press('r');
+  await page
+    .locator('canvas')
+    .first()
+    .click({ position: { x: 480, y: 300 } });
+  await page.waitForTimeout(150);
+}
+
+async function waitControlled(page: Page): Promise<void> {
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
+    timeout: 20_000,
+  });
+}
+
+function rebuild(tag: string): void {
+  execSync('pnpm --filter @spinth/app build', {
+    cwd: process.cwd(), // playwright 从仓库根启动（pnpm test:e2e / npx playwright test）
+    env: { ...process.env, SPINTH_BASE: '/spinth/', SPINTH_BUILD_TAG: tag },
+    stdio: 'pipe',
+  });
+}
+
+test('P1 首装即受控：scope=子路径、manifest link 带 base', async ({ page }) => {
+  await openPreview(page, docIdOf('p1'));
+  await waitControlled(page);
+  const scope = await page.evaluate(
+    async () => (await navigator.serviceWorker.getRegistration())?.scope,
+  );
+  expect(scope).toBe('http://localhost:5198/spinth/');
+  const href = await page.locator('link[rel="manifest"]').getAttribute('href');
+  expect(href).toContain('/spinth/manifest.webmanifest');
+});
+
+test('P2 离线冷启动：可开、可编辑、可撤销、再刷新数据仍在、latin 字体不回退', async ({ page }) => {
+  const docId = docIdOf('p2');
+  await openPreview(page, docId);
+  await waitControlled(page);
+
+  await page.context().setOffline(true);
+  await page.reload();
+  await ready(page);
+
+  // 可编辑 + 可撤销：矩形是一个撤销单元（文字建件+输入是两个）
+  await placeRect(page);
+  await expect.poll(async () => modelCount(page)).toBe(1);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => modelCount(page)).toBe(0);
+  await placeText(page, '离线恢复');
+  await expect.poll(async () => modelCount(page)).toBe(1);
+
+  await page.reload(); // 再刷新：数据仍在
+  await ready(page);
+  await expect.poll(async () => modelCount(page)).toBe(1);
+
+  // D16：latin 子集已预缓存——离线首屏字体与在线一致，不回退系统字体
+  expect(await page.evaluate(() => document.fonts.check('16px "Nunito Variable"'))).toBe(true);
+
+  await page.context().setOffline(false);
+  await page.evaluate((id) => indexedDB.deleteDatabase(`spinth-doc:${id}`), docId);
+});
+
+test('P3 离线另一文档：shell 键归一化，?doc= 不同值都能开', async ({ page }) => {
+  const first = docIdOf('p3a');
+  await openPreview(page, first);
+  await waitControlled(page);
+
+  await page.context().setOffline(true);
+  const second = docIdOf('p3b');
+  await page.goto(`${BASE}?doc=${second}&e2e=1`);
+  await ready(page);
+  await expect.poll(async () => modelCount(page)).toBe(0); // 新文档空画布可编辑
+  await page.context().setOffline(false);
+  for (const id of [first, second]) {
+    await page.evaluate((d) => indexedDB.deleteDatabase(`spinth-doc:${d}`), id);
+  }
+});
+
+test('P4 无策略破坏：CSP violation 为 0、console 无 SW 报错', async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', () => {
+      (window as unknown as { __cspViolations?: number }).__cspViolations =
+        ((window as unknown as { __cspViolations?: number }).__cspViolations ?? 0) + 1;
+    });
+  });
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+
+  const docId = docIdOf('p4');
+  await openPreview(page, docId);
+  await waitControlled(page);
+  await page.context().setOffline(true);
+  await page.reload();
+  await ready(page);
+  await page.context().setOffline(false);
+
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __cspViolations?: number }).__cspViolations ?? 0,
+    ),
+  ).toBe(0);
+  const swErrors = errors.filter((e) => /service ?worker|sw\.js/i.test(e));
+  expect(swErrors).toEqual([]);
+  // 无更新时横幅不出现（离线可用 ≠ 需要提示，§3 现状核对）
+  await expect(page.locator('[data-spinth-pwa-banner]')).toHaveCount(0);
+  await page.evaluate((id) => indexedDB.deleteDatabase(`spinth-doc:${id}`), docId);
+});
+
+test('P5 更新流程：真重建 → 横幅 → 点击恰好刷新一次（含横幅 a11y）', async ({ page }) => {
+  test.setTimeout(150_000);
+  const docId = docIdOf('p5');
+  await openPreview(page, docId);
+  await waitControlled(page);
+  const banner = page.locator('[data-spinth-pwa-banner]');
+  await expect(banner).toHaveCount(0);
+
+  const tag = `pwa-p5-${Date.now()}`;
+  rebuild(tag);
+  await page.evaluate(async () => void (await navigator.serviceWorker.getRegistration())?.update());
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+  await expect(banner).toHaveAttribute('role', 'status');
+  await expect(banner).toContainText('新版本可用');
+
+  // 横幅 a11y（specs/pwa §10；banner 只在本环境出现，断言收口在此）
+  const refresh = banner.getByRole('button', { name: '刷新' });
+  const later = banner.getByRole('button', { name: '稍后' });
+  await minTarget(refresh);
+  await minTarget(later);
+  const colors = await page.evaluate(() => {
+    const el = document.querySelector('[data-spinth-pwa-banner]')!;
+    const span = el.querySelector('span')!;
+    const button = el.querySelector('button')!;
+    const elStyle = getComputedStyle(el);
+    const spanStyle = getComputedStyle(span);
+    const btnStyle = getComputedStyle(button);
+    return {
+      textFg: spanStyle.color,
+      textBg: elStyle.backgroundColor,
+      btnFg: btnStyle.color,
+      btnBg: btnStyle.backgroundColor,
+    };
+  });
+  expect(contrastRatio(colors.textFg, colors.textBg)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(colors.btnFg, colors.btnBg)).toBeGreaterThanOrEqual(4.5);
+
+  // 390px：按钮触控目标 44px、横幅不溢出（§10）
+  await page.setViewportSize({ width: 390, height: 844 });
+  await minTarget(refresh, 44);
+  await minTarget(later, 44);
+  await boxWithin(banner, { width: 390, height: 844 }, 8);
+
+  const oldSrc = await page.locator('script[type="module"]').first().getAttribute('src');
+  await refresh.click();
+  // 点击方恰好刷新一次：新版本生效（build tag + module src 哈希变化）
+  await expect
+    .poll(() => page.locator('#root > div').getAttribute('data-spinth-build'), { timeout: 20_000 })
+    .toBe(tag);
+  const newSrc = await page.locator('script[type="module"]').first().getAttribute('src');
+  expect(newSrc).not.toBe(oldSrc);
+  await page.evaluate((id) => indexedDB.deleteDatabase(`spinth-doc:${id}`), docId);
+});
+
+test('P6 多标签不互踩：A 点刷新只 reload A，B 转已就绪且仍可编辑', async ({ page }) => {
+  test.setTimeout(150_000);
+  const docA = docIdOf('p6a');
+  const docB = docIdOf('p6b');
+  const context = page.context();
+  const tabB = await context.newPage();
+
+  await openPreview(page, docA);
+  await openPreview(tabB, docB);
+  await waitControlled(page);
+  await waitControlled(tabB);
+
+  // 预热 B 的文本编辑链路（tiptap 懒 chunk 提前加载，规避旧页面 chunk 缺口 D10）；
+  // 文字两段撤销清回 0，保证后续 modelCount 断言从 0 起算
+  await placeText(tabB, 'warm');
+  await tabB.keyboard.press('ControlOrMeta+z');
+  await tabB.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => modelCount(tabB)).toBe(0);
+
+  // B 装导航哨兵：reload 会丢 window 状态
+  await tabB.evaluate(() => {
+    (window as unknown as Record<string, unknown>).__pwaSentinel = performance.now();
+  });
+
+  const tag = `pwa-p6-${Date.now()}`;
+  rebuild(tag);
+  await page.evaluate(async () => void (await navigator.serviceWorker.getRegistration())?.update());
+
+  const bannerA = page.locator('[data-spinth-pwa-banner]');
+  await expect(bannerA).toBeVisible({ timeout: 20_000 });
+  await bannerA.getByRole('button', { name: '刷新' }).click();
+  await expect
+    .poll(() => page.locator('#root > div').getAttribute('data-spinth-build'), { timeout: 20_000 })
+    .toBe(tag);
+
+  // B 未重载（哨兵仍在）且仍可编辑；横幅转「已就绪」不自动刷新（D11）
+  const sentinel = await tabB.evaluate(
+    () => (window as unknown as Record<string, unknown>).__pwaSentinel,
+  );
+  expect(sentinel).toBeDefined();
+  await placeText(tabB, 'still-editable');
+  await expect.poll(async () => modelCount(tabB)).toBe(1);
+  await expect(tabB.locator('[data-spinth-pwa-banner]')).toContainText('新版本已就绪', {
+    timeout: 10_000,
+  });
+
+  for (const p of [page, tabB]) {
+    await p.evaluate(
+      ([id]) => {
+        indexedDB.deleteDatabase(`spinth-doc:${id}`);
+      },
+      [p === page ? docA : docB],
+    );
+  }
+});
