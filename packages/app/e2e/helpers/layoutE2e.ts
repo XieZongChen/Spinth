@@ -8,6 +8,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export const MOBILE = { width: 390, height: 844 } as const;
 
+/** 320×640：WCAG 1.4.10 Reflow 断言面（specs/a11y-closeout §7.2） */
+export const COMPACT = { width: 320, height: 640 } as const;
+
+/** 720×450：1440×900 页面缩放 200% 的等价视口（WCAG 1.4.4 代理，§3.2） */
+export const ZOOM_200 = { width: 720, height: 450 } as const;
+
 /** 顶栏高度（h-11，M1 会实测断言） */
 export const HEADER_H = 44;
 
@@ -81,4 +87,46 @@ export async function minTarget(locator: Locator, min = 24): Promise<void> {
   const name = String(locator);
   expect(box.width, `${name} 宽 ${box.width} < ${min}`).toBeGreaterThanOrEqual(min - 0.5);
   expect(box.height, `${name} 高 ${box.height} < ${min}`).toBeGreaterThanOrEqual(min - 0.5);
+}
+
+/**
+ * 注入安全区 inset（specs/a11y-closeout §7.4）：env() 不可伪造，但 app 壳把
+ * env 包在 --spinth-safe-* 自定义属性里——覆盖这层变量即可在 CI 断言
+ * 安全区行为（S1 用例的注入路径，不是只断言默认 0）。
+ */
+export async function applySafeArea(
+  page: Page,
+  inset: Partial<{ top: number; right: number; bottom: number; left: number }>,
+): Promise<void> {
+  const v = { top: 0, right: 0, bottom: 0, left: 0, ...inset };
+  await page.addStyleTag({
+    content: `:root {
+      --spinth-safe-top: ${v.top}px !important;
+      --spinth-safe-right: ${v.right}px !important;
+      --spinth-safe-bottom: ${v.bottom}px !important;
+      --spinth-safe-left: ${v.left}px !important;
+    }`,
+  });
+}
+
+/**
+ * 断言叶子文本容器不裁字/不自滚动（scroll ≤ client + 1px 容差）。
+ * 只用于「不应滚动」的面（顶栏标签/菜单项/面板行）；显式滚动容器
+ * （工具坞/面板本体）排除在外，否则误红。
+ */
+export async function assertNoTextClip(locator: Locator): Promise<void> {
+  const m = await locator.evaluate((n) => ({
+    sw: n.scrollWidth,
+    cw: n.clientWidth,
+    sh: n.scrollHeight,
+    ch: n.clientHeight,
+  }));
+  const name = String(locator);
+  expect(m.sw, `${name} 横向裁字（scrollWidth ${m.sw} > clientWidth ${m.cw}）`).toBeLessThanOrEqual(
+    m.cw + 1,
+  );
+  expect(
+    m.sh,
+    `${name} 纵向裁字（scrollHeight ${m.sh} > clientHeight ${m.ch}）`,
+  ).toBeLessThanOrEqual(m.ch + 1);
 }

@@ -31,6 +31,9 @@ export {
   createBrowserLockPort,
   type ITabSessionState,
 } from '@spinth/core';
+// 可访问性公共面（specs/a11y-closeout）：app 壳面板定位读安全区；
+// useRovingFocus/Announcer（批次 B W1/W4）随后续步骤导出
+export { readSafeInsets, parseInsetPx, type ISafeInsets } from './a11y/safeArea';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';

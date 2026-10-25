@@ -76,19 +76,26 @@ export function App() {
       className="flex h-dvh w-screen flex-col bg-canvas text-ink"
       data-spinth-tab-role={tab.role}
     >
-      <header className="z-20 flex h-11 shrink-0 items-center justify-between border-b border-edge bg-surface px-4">
+      {/* 安全区（批次 B W3）：pt 垫高 safe-top（内容区仍 44，M1 不回归）、
+          左右内边距计 safe-left/right；<380 紧凑变体（max-[379px]，不用 419——
+          390 的 M1 依赖胶囊截断，断点覆盖 390 基线即漂，specs/a11y-closeout §7.3） */}
+      <header className="z-20 flex h-[calc(2.75rem+var(--spinth-safe-top))] shrink-0 items-center justify-between border-b border-edge bg-surface pt-[var(--spinth-safe-top)] pl-[calc(1rem+var(--spinth-safe-left))] pr-[calc(1rem+var(--spinth-safe-right))] max-[379px]:pl-[calc(0.5rem+var(--spinth-safe-left))] max-[379px]:pr-[calc(0.5rem+var(--spinth-safe-right))]">
         {/* min-w-0 + truncate：390px 下长 docId 截断（docs/12 移动端），顶栏不换行不横滚 */}
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5 max-[379px]:gap-1.5">
           <BrandMark className="h-7 w-auto" />
-          <span className="text-[15px] font-extrabold tracking-tight">spinth</span>
+          <span className="text-[15px] font-extrabold tracking-tight max-[379px]:hidden">
+            spinth
+          </span>
           <span
             data-spinth-doc-id=""
-            className="ml-1 min-w-0 truncate rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3"
+            title={docId}
+            aria-label={`文档 ${docId}`}
+            className="ml-1 min-w-0 truncate rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-bold text-ink-3 max-[379px]:ml-0"
           >
             {docId}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-[379px]:gap-1">
           {!editable && (
             <span
               className="rounded-md bg-surface-hover px-2 py-0.5 text-xs font-semibold text-ink-2"

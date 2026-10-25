@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { spinthCommands, useSpinthStore } from '@spinth/react';
+import { readSafeInsets, spinthCommands, useSpinthStore } from '@spinth/react';
 import { StoragePanel } from './StoragePanel';
 
 /**
@@ -16,23 +16,25 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // 面板定位：fixed 右对齐锚点按钮、顶栏下方，钳制视口内；垂直方向 maxHeight 兜底滚动
+  // 面板定位：fixed 右对齐锚点按钮、顶栏下方，钳制视口内；垂直方向 maxHeight 兜底滚动。
+  // 安全区计入（批次 B W3）：宽度/左缘/底部留白都让出 inset
   useLayoutEffect(() => {
     if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const top = rect.bottom + 6;
     // 左缘也要钳制（390px：存储按钮在顶栏按钮组中段，只右对齐会让 320px 面板溢出左缘）
+    const inset = readSafeInsets();
     const vw = window.innerWidth;
-    const width = Math.min(320, vw - 16);
+    const width = Math.min(320, vw - 16 - inset.left - inset.right);
     const desiredRight = vw - rect.right;
-    const maxRight = vw - 8 - width; // 左缘最小留白 8px
+    const maxRight = vw - (8 + inset.left) - width; // 左缘最小留白 8px + safe-left
     setPanelStyle({
       position: 'fixed',
       top,
-      right: Math.max(8, Math.min(desiredRight, maxRight)),
-      width: 'min(320px, calc(100vw - 16px))',
-      maxHeight: `calc(100dvh - ${Math.round(top) + 8}px)`,
+      right: Math.max(8 + inset.right, Math.min(desiredRight, maxRight)),
+      width: `${width}px`,
+      maxHeight: `calc(100dvh - ${Math.round(top) + 8 + inset.bottom}px)`,
       overflowY: 'auto',
     });
   }, [open]);
@@ -122,14 +124,16 @@ export function StorageStatusButton({ onOpenProjectMenu }: { onOpenProjectMenu: 
         aria-live="polite"
         data-spinth-storage-button=""
         onClick={() => setOpen((v) => !v)}
-        className={`flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold transition-colors duration-100 ${
+        className={`flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold transition-colors duration-100 max-[379px]:min-w-6 max-[379px]:justify-center max-[379px]:px-1.5 max-[379px]:gap-0 ${
           failed
             ? 'bg-danger-soft text-danger-ink hover:text-danger-ink'
             : 'text-ink-2 hover:bg-surface-hover hover:text-ink'
         }`}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} aria-hidden />
-        {label}
+        {/* <380 仅圆点（紧凑顶栏，批次 B W3）：aria-label 已含「已保存/保存失败」
+            状态，可访问名不随文本隐藏丢失 */}
+        <span className="max-[379px]:hidden">{label}</span>
       </button>
 
       {/* 先定位后挂载：面板首帧若为 static 会挤歪按钮位置（useLayoutEffect 量到负坐标）；

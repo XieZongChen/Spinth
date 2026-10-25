@@ -1,4 +1,5 @@
 import { spinthCommands, useSpinthStore } from '../index';
+import { readSafeInsets } from '../a11y/safeArea';
 import { Icon, type IconName } from './Icon';
 
 const MENU_W = 216;
@@ -113,15 +114,26 @@ export function ContextMenu() {
   ];
   const items = options.onWidget ? widgetItems : stageItems;
 
-  // 同步翻转计算（常量尺寸，无 effect 二次绘制）
-  const menuH = items.reduce((h, i) => h + (i === 'divider' ? DIVIDER_H : ITEM_H), 12); // + py-1.5 上下 12px
+  // 四面夹取（批次 B W3 §7.5）：先按常量尺寸同步翻转（跨菜单残留旧翻转实测
+  // 揪出，见顶部注释），再 clamp 进含安全区的可视矩形——同时收口 450px 高
+  // （Z1）与 320px 宽（R1）两类越界；菜单比可视区高时贴 minY + 自身滚动兜底。
+  // 高度含上下边框各 1px（R1-c 实测：漏算 2px 会底边越界 2px）
+  const menuH = items.reduce((h, i) => h + (i === 'divider' ? DIVIDER_H : ITEM_H), 12) + 2; // + py-1.5 上下 12px + 边框 2px
   const flipX = options.x + MENU_W > window.innerWidth;
   const flipY = options.y + menuH > window.innerHeight;
+  const inset = readSafeInsets();
+  const minX = inset.left + 8;
+  const maxX = Math.max(minX, window.innerWidth - inset.right - 8 - MENU_W);
+  const minY = inset.top + 8;
+  const maxY = Math.max(minY, window.innerHeight - inset.bottom - 8 - menuH);
+  const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
+  const left = clamp(flipX ? options.x - MENU_W : options.x, minX, maxX);
+  const top = clamp(flipY ? options.y - menuH : options.y, minY, maxY);
 
   const style: React.CSSProperties = {
     position: 'fixed',
-    left: flipX ? options.x - MENU_W : options.x,
-    top: flipY ? options.y - menuH : options.y,
+    left,
+    top,
     zIndex: 500,
   };
 
@@ -132,7 +144,7 @@ export function ContextMenu() {
     <div
       data-spinth-context-menu
       style={style}
-      className="w-[216px] overflow-hidden rounded-xl border border-edge bg-surface py-1.5 shadow-pop"
+      className="max-h-[calc(100dvh-16px)] w-[216px] overflow-y-auto rounded-xl border border-edge bg-surface py-1.5 shadow-pop"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item, i) =>

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Icon, useSpinthStore } from '@spinth/react';
+import { Icon, readSafeInsets, useSpinthStore } from '@spinth/react';
 import { spinthCommands } from '@spinth/react';
 import {
   ProjectFileError,
@@ -122,12 +122,19 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const top = rect.bottom + 6;
+    // 安全区计入 + 左缘钳制（批次 B W3）：此前只右对齐，320px 视口下 320px
+    // 面板溢出左缘实测 -40px（a11yLayout R1-b 红证据）
+    const inset = readSafeInsets();
+    const vw = window.innerWidth;
+    const width = Math.min(320, vw - 16 - inset.left - inset.right);
+    const desiredRight = vw - rect.right;
+    const maxRight = vw - (8 + inset.left) - width; // 左缘最小留白 8px + safe-left
     setPanelStyle({
       position: 'fixed',
       top,
-      right: Math.max(8, window.innerWidth - rect.right),
-      width: 'min(320px, calc(100vw - 16px))',
-      maxHeight: `calc(100dvh - ${Math.round(top) + 8}px)`,
+      right: Math.max(8 + inset.right, Math.min(desiredRight, maxRight)),
+      width: `${width}px`,
+      maxHeight: `calc(100dvh - ${Math.round(top) + 8 + inset.bottom}px)`,
       overflowY: 'auto',
     });
   }, [open]);

@@ -71,6 +71,15 @@
 }
 
 @layer base {
+  /* 安全区（specs/a11y-closeout §7.4）：env 包一层自定义属性——E2E 可覆盖
+     这层变量注入测试值（env() 本身不可伪造）；默认桌面 0，布局与无安全区一致 */
+  :root {
+    --spinth-safe-top: env(safe-area-inset-top, 0px);
+    --spinth-safe-right: env(safe-area-inset-right, 0px);
+    --spinth-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --spinth-safe-left: env(safe-area-inset-left, 0px);
+  }
+
   html {
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
