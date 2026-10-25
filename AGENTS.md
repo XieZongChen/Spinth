@@ -137,5 +137,5 @@ Announcer 播报器，specs/a11y-closeout）。
 a11yKeyboard 9/9；a11yLayout 9/9）。
 
 下一阶段重点是 PWA/Service Worker 平台挂账与 Linux 视觉基线（docs/13 §2–§3）；
-协同为后置能力，不属于本阶段。可访问性遗留（画布内容朗读/px→rem/幽灵对比度）
+协同为后置能力，不属于本阶段。可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）
 见 docs/13 §3 与 specs/a11y-closeout §13.5。
