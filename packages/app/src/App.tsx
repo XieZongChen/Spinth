@@ -18,6 +18,7 @@ import { ProjectMenu } from './ProjectMenu';
 import { StorageStatusButton } from './StorageStatusButton';
 import { ReadOnlyNotice } from './ReadOnlyNotice';
 import { useTabRole } from './tabSession';
+import { PwaUpdateBanner } from './pwa/PwaUpdateBanner';
 import { docUrl, publicAsset } from './siteBase';
 
 /** 品牌图标（packages/app/public/spinth-mark.png）——顶栏/加载态共用；
@@ -76,6 +77,7 @@ export function App() {
     <div
       className="flex h-dvh w-screen flex-col bg-canvas text-ink"
       data-spinth-tab-role={tab.role}
+      data-spinth-build={__BUILD_TAG__}
     >
       {/* 页面标题（specs/a11y-closeout §8.1，W4）：视觉标识在顶栏品牌，
           h1 sr-only 供屏读页面级定位 */}
@@ -195,6 +197,7 @@ export function App() {
         <MindAddButtons />
         <ToolGhost />
         <OfflineBar />
+        <PwaUpdateBanner />
         {loading && initError ? (
           // 初始化失败出口（Batch 1 · 1.14）：IndexedDB 禁用/配额满等——
           // 此前永远停在「正在恢复画布…」无提示无重试。

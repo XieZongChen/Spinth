@@ -63,6 +63,10 @@ function resolveBase(): string {
  */
 export default defineConfig({
   base: resolveBase(),
+  // 构建标记（specs/pwa §11.3）：E2E 用 SPINTH_BUILD_TAG 证明版本确实更替
+  define: {
+    __BUILD_TAG__: JSON.stringify(process.env.SPINTH_BUILD_TAG ?? ''),
+  },
   plugins: [react(), tailwindcss(), cspInject()],
   resolve: {
     alias: {
