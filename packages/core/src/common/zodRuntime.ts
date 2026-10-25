@@ -7,4 +7,6 @@ import { z } from 'zod';
  * 下的性能差异不可测。pwa.spec P4 以 0 violation 锁死该回归
  * （specs/pwa.md §7.3）。
  */
+// 依赖下限：探测跳过（jitless 分支）需 zod ≥4.6（package.json 已对齐 ^4.6.7）——
+// 降级安装会让这份配置静默失效，P4 的 0 violation 断言即红。
 z.config({ jitless: true });
