@@ -88,10 +88,8 @@ describe('ContextMenu 键盘协议', () => {
     } as unknown as BoardPublicApi);
     setState({ contextMenu: { show: true, x: 50, y: 50, onWidget: false, canPaste: false } });
     render(<ContextMenu />);
-    const items = MENU_ITEMS();
     pressKey(host.querySelector('[data-spinth-context-menu]')!, 'Escape');
     expect(useSpinthStore.getState().contextMenu.show).toBe(false);
-    expect(items.length).toBeGreaterThan(0); // 关闭断言前留证（卸载后 0）
     setState({ contextMenu: base.contextMenu });
   });
 

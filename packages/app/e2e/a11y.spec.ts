@@ -103,6 +103,16 @@ const TOKEN_PAIRS: TokenPair[] = [
   },
 ];
 
+/** 对比度断言只关心**终值**：全局禁用过渡/动画，读计算样式即得终态。此前靠
+ *  固定 250ms 等待是结构性脆弱——复审实测 1s transition 在本环境约 700ms 才
+ *  起跳，等待窗口内会读到「浅色起始帧 + 深色底」混色（dark 2.31 假红）或
+ *  半透明插值（alpha 断言面直接抛错） */
+async function disableTransitions(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+  });
+}
+
 async function openBoard(page: Page, docId: string): Promise<void> {
   await page.goto(`/?doc=${docId}`);
   await page.waitForFunction(
@@ -113,15 +123,16 @@ async function openBoard(page: Page, docId: string): Promise<void> {
     undefined,
     { timeout: 20_000 },
   );
+  await disableTransitions(page);
 }
 
 async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
   await page.evaluate((t) => {
     document.documentElement.dataset.theme = t;
   }, theme);
-  // 变量切换会触发组件的 transition-colors（150ms）——等动画走完再读计算样式，
-  // 否则读到插值起始值（旧主题色）假红
-  await page.waitForTimeout(250);
+  // transition 已禁用（openBoard/disableTransitions）——切主题即时到终值；
+  // 50ms 只让变量重算落帧，不再等动画
+  await page.waitForTimeout(50);
 }
 
 async function assertTokenPairs(page: Page, theme: '浅色' | '深色'): Promise<void> {
@@ -228,9 +239,7 @@ test.describe('实际元素对比度（真实 DOM 计算样式）', () => {
       // text-* 类——令牌对只能证明色值，元素面证明类名真的接上了
       const flyout = page.locator('[data-spinth-tool-flyout]');
       await expect(flyout).toBeVisible();
-      // 与 setTheme 同因：按 R 换工具后按钮 150ms transition-colors 插值中，
-      // 直接读计算样式会拿到半透明过渡色（alpha 断言面拒绝）——等动画走完
-      await page.waitForTimeout(250);
+      // transition 已全局禁用（openBoard 注入）——即时读终值
       await assertElementPairs(page, theme === 'light' ? '浅色' : '深色', [
         {
           label: '激活工具按钮（工具主题色 / soft 底）',
@@ -286,6 +295,7 @@ test.describe('错误态（批次 A · A2：IndexedDB 不可用 → ErrorState�
       });
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`/?doc=e2e-a11y-err-${theme}-${Date.now()}`);
+      await disableTransitions(page);
 
       const state = page.locator('[data-spinth-error-state]');
       await expect(state).toBeVisible({ timeout: 20_000 });
