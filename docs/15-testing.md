@@ -14,17 +14,18 @@
 ## 2. 当前基线
 
 - 单测：945 passed（core 894 + react 51）。
-- E2E：22 个 spec、202 例（分层：fast 193 / timing+bench 5 / visual 4；混跑不作门禁，
+- E2E：22 个 spec、204 例（分层：fast 195 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（macOS 系统 Chrome）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
   对比度。helper `a11yE2e.ts` 为 WCAG 对比度纯函数，遇 alpha 直接红）。
-- 可访问性键盘/布局专项（specs/a11y-closeout）：a11yKeyboard.spec 8 例（菜单键盘
+- 可访问性键盘/布局专项（specs/a11y-closeout）：a11yKeyboard.spec 9 例（菜单键盘
   协议遍历与触发/Esc 不清选区/Shift+F10/菜单期闸门/Tab 序单停靠/画布语义与播报/
-  五组控件可访问名扫描）+ a11yLayout.spec 8 例（Z1 720×450 缩放代理 ×2、Z2 rem
-  200%、R1 320×640 重排 ×3、S1 安全区注入 ×2）。
+  五组控件可访问名扫描（点名三组另断言显式 aria-label）/右键不开内联编辑器）
+  - a11yLayout.spec 9 例（Z1 720×450 缩放代理 ×2、Z2 rem 200%、R1 320×640 重排 ×3、
+    S1 安全区注入 ×3：竖屏 notch / 横屏顶栏 / 浮层不进 inset）。
 - 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
@@ -52,7 +53,7 @@
   复位 + 只读态宿主直调写工具被钳回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- coverage：65.81 / 55.38 / 56.68 / 67.83，阈值 61/51/52/63。
+- coverage：67.74 / 59.06 / 69.71 / 58.55（语句/分支/行/函数），阈值 61/51/63/52。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTab.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`
@@ -79,7 +80,7 @@
 
 ## 5. 覆盖率与已知缺口
 
-- coverage include 收窄到 TS/TSX；阈值 61/51/52/63，低于基线即红。
+- coverage include 收窄到 TS/TSX；阈值 61/51/63/52（语句/分支/行/函数），低于基线即红。
 - 资产 GC Web Locks 单写者已修复并有回归测试。
 - 多标签单写者/只读/接管由 `multiTab.spec` E2E + tabSession 单测覆盖
   （[21-multi-tab](21-multi-tab.md)）；跨标签实时同步未实现（非目标）。
