@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "1.64.1",
     "@vitest/coverage-v8": "5.0.0",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^6.0.0",
