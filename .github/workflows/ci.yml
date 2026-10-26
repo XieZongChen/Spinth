@@ -50,6 +50,11 @@ jobs:
       - name: 版本日志
         run: node --version && pnpm --version
 
+      # 视觉基线齐全护栏（specs/linux-visual §6.2）：纯 node stdlib 脚本，
+      # 先于 install 快速失败——push/PR 提交即拦截缺基线/残留 -actual 文件
+      - name: 视觉基线齐全检查
+        run: node scripts/check-visual-baselines.mjs
+
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
@@ -165,8 +170,6 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # 基线就位且首轮验证后撤（specs/linux-visual §11 步骤 6）
-    continue-on-error: true
     permissions:
       contents: read
     steps:
