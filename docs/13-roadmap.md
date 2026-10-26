@@ -13,11 +13,11 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 983 单测（core 894 + react 51 + app 38）、E2E 23 spec / 211 用例、视觉 4/4、图片/资产专项 10/10、`pnpm verify` 通过
+- [x] 983 单测（core 894 + react 51 + app 38）、E2E 23 spec / 211 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 10/10、`pnpm verify` 通过
 
 ## 2. 下一阶段优先级
 
-当前下一阶段：可访问性/平台挂账收口与 Linux 视觉基线；协同为后置能力（docs/10）。
+当前下一阶段：协同前置能力评估（docs/10）；可访问性遗留见 §3。
 
 ### P1 项目导出/导入
 
@@ -88,7 +88,9 @@
 
 ### P2 CI / 视觉
 
-- visual 基线目前只有 darwin；Linux 基线缺失，CI visual 非阻塞。
+- [x] Linux 视觉基线已落地（specs/linux-visual）：容器固定环境生成（双跑 SHA-256
+      全等 + 人工审图），CI visual 为真门禁；基线齐全护栏接入 verify 与 gate。
+- CI 实证挂账：Actions 恢复可用后一次 dispatch 补验（specs/linux-visual §14.4）。
 - 新项目不保留“靠未跟踪 actuals 假绿”的做法。
 
 ## 3. 决策与挂账
@@ -109,7 +111,8 @@
   不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
   路径时该测试先红，提醒补矩阵。
 - PWA/Service Worker 已落地：manifest + 子路径 SW + 预缓存清单 + 可控更新横幅
-  （specs/pwa.md）；平台侧剩余挂账即 §2 的 Linux 视觉基线。
+  （specs/pwa.md）。Linux 视觉基线已落地（specs/linux-visual），平台侧剩余
+  挂账为 CI 实证（Actions 恢复后一次 dispatch 补验）。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、

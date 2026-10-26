@@ -1,6 +1,8 @@
 # Linux 视觉基线：技术方案与架构设计
 
-> 状态：**设计已审查（自审 + 对抗式），待实施**（审查记录见 §14）。
+> 状态：**已实施（本地全链验证，2026-10）**——实施档案与偏差见 §14.5；CI 实证
+> 挂账（Actions 因私有仓库计费不可用，恢复后一次 dispatch 补验）。
+> 审查记录见 §14。
 > 范围：为现有 4 个 `@visual` 用例生成并校验 Linux 基线，把 CI visual 层从「试运行挂账」升为真门禁；不改产品渲染、交互与数据流。
 > 关联：[docs/13](../docs/13-roadmap.md) §2–§3、[docs/15](../docs/15-testing.md) §4、[docs/01](../docs/01-conventions.md)、[specs/pwa](pwa.md) 的 CI/构建门禁先例。
 > 基线：`main @ cfed9f2`（撰写时）；实施后以代码与实测为准。
@@ -508,6 +510,63 @@ Phase 1 接受「最迟 24 小时发现回归」的窗口；是否进 PR 需要�
 - macOS 4/4 与 `pnpm verify` 结果。
 - 任何与设计的偏差及原因（写入本文新增小节，不散落到 docs）。
 
+### 14.5 实施档案（2026-10，本地 colima 容器生成）
+
+提交序列：`dadaf09`（pin）→ `8a680ad`（容器+执行器）→ `2b2fc9c`（CI 容器化，
+暂留 continue-on-error）→ `3679fa3`（5 张基线）→ `2fece76`（护栏入 verify）→
+`6fd9263`（撤 continue-on-error + gate 基线检查）→ 文档同步（本笔）。
+步骤 8（PR path-filter）为 Phase 2 未启动。
+
+环境与版本：
+
+- base 镜像 `mcr.microsoft.com/playwright:v1.64.1-noble`，RepoDigest
+  `sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea`
+  （与 §3.4 核实值一致；弱网环境经镜像源拉取后按 digest 校验等值）。
+- 容器内 node v24.22.1 / pnpm 11.28.5（corepack）/ `@playwright/test` 1.64.1。
+- `fonts-noto-cjk=1:20230817+repack1-3`；构建期断言通过：
+  `fc-match sans-serif` → `NotoSansCJK-Regular.ttc: "Noto Sans CJK SC"`，
+  `fc-list :lang=zh` family 含 `Noto Sans CJK SC`。
+- WebGL：`ready()` 环境断言（离屏 canvas 上下文非空）通过；快照非空白由人工
+  审图确认（SwiftShader 软光栅生效）。
+
+5 张基线 SHA-256（stability 双跑与 update 落盘一致）：
+
+```
+8afaf87145106f0f465d2f6b688f38f08e6f8e834d7f58b34b02546e1266dd11  delay-tall-linux.png
+a615edce7dc0cdfe6929e14366de1b089185a164e9e6bc328691f9ccd4874202  marks-render-linux.png
+556991fa5481f7894461fc498c8cadc081901093278dfc490a788e9fb1f068d5  rotate-45-linux.png
+81c211e42af9172466e02995ca48b8940d4e2b9eb49dffc7dd07a714a5ac9838  theme-dark-linux.png
+b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-linux.png
+```
+
+验证结果：
+
+- stability：两轮 fresh（各自新 work + 新容器）SHA-256 逐字节全等；
+  update 落盘后新容器复验 4/4 通过；store 预热后单轮约 75s。
+- 人工审图门（§14.3）：5 张逐张过——theme 双态中文「浅色态主题探针粗」
+  简体字形正确（末字加粗生效）；marks 粗/斜/下划线/红/蓝与粘贴 HTML 逐字
+  吻合；delay 竖笔迹平滑连续；rotate 45° 无裁切；全部非空白。
+- 负向 N1–N5 全部实测红（本地等价）：
+  N1 删 `theme-dark-linux.png` → 护栏 exit 1；N4 放 `foo-actual.png` → 护栏
+  exit 1；N2 换图跑 `pnpm visual:linux` → exit 1 且 `last-failure/` 导出
+  actual/expected/diff/trace；N3 `package.json` 改 1.64.0 → 版本契约 exit 2；
+  N5 Dockerfile 移除 fonts conf COPY → 构建期 fc 断言红 exit 2。
+- macOS：darwin 基线零字节变化，visual 4/4 复跑两轮通过；`pnpm verify`
+  （含新护栏）全绿，且每次 push 的 pre-push 钩子全量复跑通过。
+- CI 实证（普通 dispatch 绿 / update artifact）：**挂账**——Actions 不可用；
+  ci.yml 已静态目检 + hygiene，job 逻辑与本地等价（同脚本同镜像）。
+
+与设计的偏差（三条）：
+
+1. **容器编排用 `docker cp` 双向拷贝**（源码拷入、基线拷回、失败现场导出），
+   替代 §7.2 的卷挂载方案：colima 卷挂载对 vite 冷启动是 IO 瓶颈。结果等价
+   ——fresh work 副本 + 容器本地 fs + 持久化 store/corepack 两卷，稳定性由
+   双跑哈希证明。
+2. **`ready()` 环境预检提前到步骤 2**（§11 原排在步骤 5）：基线必须生成于
+   最终 flags/断言形态下，否则步骤 4 生成的基线与后续断言形态不可证一致。
+3. **CI 实证挂账**（用户决策：Actions 因私有仓库计费限制不可用）：本地等价
+   验证替代，恢复后一次 dispatch 即可补验普通绿与 update artifact 两条。
+
 ## 15. 附录
 
 ### A. 文件地图
@@ -572,16 +631,16 @@ macOS 基线更新仍走原路径：`npx playwright test --grep @visual --update
 ### E. 实施档案清单
 
 ```
-[ ] 镜像 digest / base tag
-[ ] Node / pnpm / Playwright 版本
-[ ] fonts-noto-cjk 版本；fc-match；fc-list :lang=zh family
-[ ] WebGL renderer/version
-[ ] 5 张 PNG SHA-256
-[ ] stability 两次结果
-[ ] 普通 CI run / update CI run
-[ ] N1–N5 负向结果
-[ ] macOS 4/4 / pnpm verify
-[ ] 与设计的偏差
+[x] 镜像 digest / base tag（§14.5）
+[x] Node / pnpm / Playwright 版本（§14.5）
+[x] fonts-noto-cjk 版本；fc-match；fc-list :lang=zh family（§14.5）
+[x] WebGL renderer/version（ready 断言非空 + 人工审图非空白，§14.5）
+[x] 5 张 PNG SHA-256（§14.5）
+[x] stability 两次结果（全等，§14.5）
+[ ] 普通 CI run / update CI run（挂账：Actions 不可用，§14.5 偏差 3）
+[x] N1–N5 负向结果（本地等价，§14.5）
+[x] macOS 4/4 / pnpm verify（§14.5）
+[x] 与设计的偏差（三条，§14.5）
 ```
 
 ### F. 参考

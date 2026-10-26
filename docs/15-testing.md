@@ -16,7 +16,7 @@
 - 单测：983 passed（core 894 + react 51 + app 38）。
 - E2E：23 个 spec、211 例（分层：fast 202 / timing+bench 5 / visual 4；混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
-- 视觉：4/4（macOS 系统 Chrome）。
+- 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
@@ -79,10 +79,21 @@
 - 定位：数据探针的补充层，不是替代。探针能证数据，证不了像素。
 - 适用：主题双态整帧、marks 粗细/颜色、旋转/形变。
 - 禁用：动画/光标/时间敏感、外部资源依赖、高频 DOM 文本。
-- 基线：`packages/app/e2e/visual.spec.ts-snapshots/`，按平台分文件；当前只有
-  `-darwin.png`。容差 `maxDiffPixelRatio: 0.02`。
-- 视觉基线按平台分文件；容差 0.02；不得用未跟踪截图代替基线。
-- CI visual job 仅 nightly/手动；Linux 基线待补，当前 `continue-on-error`。
+- 基线：`packages/app/e2e/visual.spec.ts-snapshots/`，按平台分文件（`-darwin.png`
+  与 `-linux.png` 各 5 张）。容差 `maxDiffPixelRatio: 0.02`；不得用未跟踪截图
+  代替基线。
+- darwin：系统 Chrome（`channel: chrome`）本地直接跑；`@visual` 用例另带 DPR=1 /
+  WebGL / 字体就绪三项环境断言（只影响失败信息，不改像素）。
+- linux：容器固定环境生成与校验（specs/linux-visual）——`pnpm visual:linux`
+  校验、`--stability` 双跑 SHA-256 全等后才可 `--update` 落盘（内建新容器复验）。
+  镜像 = 官方 playwright noble 派生（fonts-noto-cjk 版本必传 + fontconfig
+  prefer Noto Sans CJK SC + 构建期 fc 断言）；视觉 flags 只在
+  `E2E_VISUAL_CHANNEL=bundled` 时注入，不影响 darwin 路径。
+- 护栏：`scripts/check-visual-baselines.mjs`（stem × 双平台存在/非空/PNG 头 +
+  目录白名单）接入 `pnpm verify` 与 CI gate；CI visual job 为真门禁（容器校验，
+  失败即红，diff 现场上传 artifact）。
+- 版本纪律：`@playwright/test` 精确 pin，且与 `docker/visual.Dockerfile` base
+  tag 原子同改（执行器构建前断言，不符 exit 2）。
 
 ## 5. 覆盖率与已知缺口
 
@@ -94,4 +105,3 @@
   （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
 - 大测试文件（lineMath、mindService）可按域拆分，降低阅读成本。
-- Linux 视觉基线缺失；CI visual 非阻塞。
