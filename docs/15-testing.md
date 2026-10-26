@@ -86,7 +86,7 @@
 
 ## 5. 覆盖率与已知缺口
 
-- coverage include 收窄到 TS/TSX；阈值 61/51/63/52（语句/分支/行/函数），低于基线即红。
+- coverage include 收窄到 TS/TSX；阈值 66/58/68/57（语句/分支/行/函数），低于基线即红。
 - 资产 GC Web Locks 单写者已修复并有回归测试。
 - 多标签单写者/只读/接管由 `multiTab.spec` E2E + tabSession 单测覆盖
   （[21-multi-tab](21-multi-tab.md)）；跨标签实时同步未实现（非目标）。
