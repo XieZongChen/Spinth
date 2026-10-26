@@ -3,8 +3,9 @@ name: ci
 # 质量门禁三层（2026-10-17 prompt §2.2，docs/15 同步）：
 # - gate：push/PR 跑 static+unit+build+fast E2E（--grep-invert 排 @timing/@bench/@visual）
 # - timing：nightly/手动，--workers=1 跑 @timing/@bench（flake 记录，连续绿后可升 gate）
-# - visual：nightly/手动，bundled Chromium 固定环境跑 @visual（{platform} 分基线；
-#   linux 基线待容器生成——试运行收集 diff，continue-on-error 挂账中）
+# - visual：nightly/手动，容器化固定环境（specs/linux-visual）校验 @visual 的
+#   linux 基线——浏览器/字体/Node 全在 docker/visual.Dockerfile 派生镜像内，
+#   宿主不装依赖；手动 dispatch 可选 visual_update 生成基线 artifact。
 # - multitab：nightly/手动，接管用例 20× 不重试压测（flake 取证层，一次红即红）。
 # 另有 static-node22 轻量 matrix（engines 下限覆盖）。
 # 缘起：2026-09-27 外部审查揪出「全绿声明漏跑 lint」——门禁必须机器化。
@@ -16,6 +17,11 @@ on:
   schedule:
     - cron: '0 19 * * *' # UTC 19:00（本地凌晨）nightly：timing/visual
   workflow_dispatch:
+    inputs:
+      visual_update:
+        description: 'visual job：生成 Linux 基线（update 模式，产物走 artifact 人工提交）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -158,32 +164,34 @@ jobs:
   visual:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # 挂账（prompt §2.3.4）：linux 基线需固定容器生成后提交——本 job 先试运行
-    # 收集 diff artifact，基线就位后撤 continue-on-error 升门禁
+    timeout-minutes: 30
+    # 基线就位且首轮验证后撤（specs/linux-visual §11 步骤 6）
     continue-on-error: true
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.28.5
+      # 只为跑编排脚本；浏览器/字体/Node 全在镜像内（宿主不 install，避免第二版本源）
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # 固定浏览器：自带 Chromium（版本随 @playwright/test pin），不用系统 Chrome
-      - run: npx playwright install --with-deps chromium
-      - name: E2E（visual，bundled Chromium）
-        run: npx playwright test --grep "@visual"
-        env:
-          E2E_VISUAL_CHANNEL: bundled
+      - name: 构建镜像并校验 Linux 基线
+        run: node scripts/visual-linux.mjs
+      # 手动 update：产出可审计 artifact，人工下载提交（权限只读，不自动入库）
+      - name: 生成 Linux 基线（update）
+        if: github.event_name == 'workflow_dispatch' && inputs.visual_update
+        run: node scripts/visual-linux.mjs --update
+      - name: 上传基线产物（PNG + environment.txt + sha256sum.txt）
+        if: github.event_name == 'workflow_dispatch' && inputs.visual_update
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-linux-baselines
+          path: .cache/visual-linux/artifact/
+          retention-days: 14
       - name: 上传 diff 现场（expected/actual/diff）
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: visual-diff
-          path: |
-            test-results/
-            playwright-report/
+          path: .cache/visual-linux/last-failure/
           retention-days: 7
