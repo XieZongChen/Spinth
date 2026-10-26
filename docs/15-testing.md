@@ -59,7 +59,7 @@
   smoke 1 例（dev 不注册）。跑法 = 主配置 + pwa 配置双命令（gate 与 `test:e2e`），
   nightly 三层只用主配置不付 preview 构建成本。生产探针为构建期开关（`SPINTH_E2E=1`）
   - `?e2e=1` 双门控的只读桥（`src/e2eProbe.ts`），Pages 产物零暴露。
-- coverage：67.48 / 59.04 / 69.4 / 58.19（语句/分支/行/函数），阈值 66/58/68/57。
+- coverage：67.47 / 59.05 / 69.37 / 58.22（语句/分支/行/函数），阈值 66/58/68/57。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTab.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`
