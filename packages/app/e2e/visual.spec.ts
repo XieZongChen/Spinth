@@ -16,6 +16,24 @@ async function ready(page: Page): Promise<void> {
     undefined,
     { timeout: 20_000 },
   );
+  // 环境预检（specs/linux-visual §5.5/§10.1）：只影响失败信息，不改变像素。
+  // WebGL 用离屏 canvas 探测环境能力——复用 app 的 canvas 会因上下文类型不同拿到 null。
+  const env = await page.evaluate(() => {
+    const probe = document.createElement('canvas');
+    const gl = probe.getContext('webgl2') ?? probe.getContext('webgl');
+    return { dpr: window.devicePixelRatio, webgl: !!gl };
+  });
+  if (env.dpr !== 1) {
+    throw new Error(
+      `视觉环境断言失败：devicePixelRatio 应为 1，实际 ${env.dpr}（specs/linux-visual §10.1）`,
+    );
+  }
+  if (!env.webgl) {
+    throw new Error(
+      '视觉环境断言失败：WebGL 不可用——容器内检查 E2E_VISUAL_CHANNEL=bundled 的 SwiftShader flags（specs/linux-visual §5.5）',
+    );
+  }
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 const canvasClip = { x: 0, y: 44, width: 1440, height: 856 };

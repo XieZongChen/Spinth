@@ -24,7 +24,8 @@
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm hygiene && pnpm lint && prettier --check . && pnpm typecheck && pnpm -r test && pnpm build",
     "verify:log": "bash scripts/verify-log.sh",
-    "test:e2e": "NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test && NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test --config playwright.pwa.config.ts"
+    "test:e2e": "NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test && NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test --config playwright.pwa.config.ts",
+    "visual:linux": "node scripts/visual-linux.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

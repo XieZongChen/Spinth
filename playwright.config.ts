@@ -18,6 +18,21 @@ import { defineConfig } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT ?? 5199);
 
+// Linux 视觉基线 flags（specs/linux-visual §5.4）：只在 E2E_VISUAL_CHANNEL=bundled
+// （容器/自带 Chromium）时追加——系统 Chrome 的 darwin 基线不受影响。色彩 profile、
+// 灰度 AA、无 hinting 消除宿主渲染差异；ANGLE+SwiftShader 强制软件光栅消除有/无
+// GPU 差异（不加 --disable-gpu：有断 WebGL 风险，specs D5）。
+const VISUAL_BUNDLED = process.env.E2E_VISUAL_CHANNEL === 'bundled';
+const VISUAL_FLAGS = [
+  '--force-color-profile=srgb',
+  '--disable-lcd-text',
+  '--font-render-hinting=none',
+  '--use-gl=angle',
+  '--use-angle=swiftshader',
+  '--enable-unsafe-swiftshader',
+  '--disable-dev-shm-usage',
+];
+
 export default defineConfig({
   testDir: 'packages/app/e2e',
   timeout: 30_000,
@@ -50,12 +65,15 @@ export default defineConfig({
     browserName: 'chromium',
     // visual 固定环境：E2E_VISUAL_CHANNEL=bundled 时用自带 Chromium（版本随
     // @playwright/test pin），否则系统 Chrome
-    channel: process.env.E2E_VISUAL_CHANNEL === 'bundled' ? undefined : 'chrome',
+    channel: VISUAL_BUNDLED ? undefined : 'chrome',
     headless: true,
     viewport: { width: 1440, height: 900 },
+    // 视觉基线按 1x 像素生成（specs/linux-visual §10.1：默认即 1，显式声明意图）
+    deviceScaleFactor: 1,
     baseURL: `http://localhost:${PORT}`,
-    // 本环境有全局 HTTP_PROXY（会劫持 localhost 就绪探测）——浏览器直连
-    launchOptions: { args: ['--no-proxy-server'] },
+    // 本环境有全局 HTTP_PROXY（会劫持 localhost 就绪探测）——浏览器直连；
+    // bundled 时叠加视觉 flags（见上）
+    launchOptions: { args: ['--no-proxy-server', ...(VISUAL_BUNDLED ? VISUAL_FLAGS : [])] },
     // 失败即留全量证据（retain：非 retry 也留——nightly flake 排障）
     trace: 'retain-on-failure',
   },

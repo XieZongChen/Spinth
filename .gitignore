@@ -10,6 +10,9 @@ playwright-report/
 .idea/
 *.log
 
+# Linux 视觉基线执行器工作区（specs/linux-visual §7.3：源码副本 + 安装缓存）
+.cache/visual-linux/
+
 # 本地交接 / 代理工作区（不提交；其余代理目录写 .git/info/exclude）
 HANDOFF*
 *handoff*.md

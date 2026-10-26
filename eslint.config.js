@@ -12,7 +12,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
  *  - packages/app    应用壳：只消费 @spinth/react，禁止触碰 PIXI / Yjs
  */
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/public/__spinth-recorder.js'] },
+  // .cache/**：本地工具工作区（如 visual-linux 执行器的源码副本），不是仓库代码
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/public/__spinth-recorder.js', '.cache/**'] },
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
