@@ -90,7 +90,7 @@
 
 - [x] Linux 视觉基线已落地（specs/linux-visual）：容器固定环境生成（双跑 SHA-256
       全等 + 人工审图），CI visual 为真门禁；基线齐全护栏接入 verify 与 gate。
-- CI 实证挂账：Actions 恢复可用后一次 dispatch 补验（specs/linux-visual §14.4）。
+- CI 实证挂账：Actions 恢复可用后一次 dispatch 补验（specs/linux-visual §14.5）。
 - 新项目不保留“靠未跟踪 actuals 假绿”的做法。
 
 ## 3. 决策与挂账

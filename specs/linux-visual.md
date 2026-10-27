@@ -554,7 +554,8 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
 - macOS：darwin 基线零字节变化，visual 4/4 复跑两轮通过；`pnpm verify`
   （含新护栏）全绿，且每次 push 的 pre-push 钩子全量复跑通过。
 - CI 实证（普通 dispatch 绿 / update artifact）：**挂账**——Actions 不可用；
-  ci.yml 已静态目检 + hygiene，job 逻辑与本地等价（同脚本同镜像）。
+  ci.yml 已静态目检 + hygiene。本地等价指容器内命令一致（同脚本同镜像）；
+  CI 侧另有条件化编排（update dispatch 跳过校验/gate 基线检查，见返工记录）。
 
 与设计的偏差（三条）：
 
@@ -565,7 +566,41 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
 2. **`ready()` 环境预检提前到步骤 2**（§11 原排在步骤 5）：基线必须生成于
    最终 flags/断言形态下，否则步骤 4 生成的基线与后续断言形态不可证一致。
 3. **CI 实证挂账**（用户决策：Actions 因私有仓库计费限制不可用）：本地等价
-   验证替代，恢复后一次 dispatch 即可补验普通绿与 update artifact 两条。
+   验证替代（含基线过期 → update 恢复场景，见返工记录），恢复后一次 dispatch
+   即可补验普通绿与 update artifact 两条。
+
+### 14.6 审查返工记录（2026-10）
+
+首轮落地后的对抗式审查发现 P1–P3 共 12 项，全部修复（提交 `3441eac` →
+`81d6379` → `cf0cb5c` → 文档笔）：
+
+- **P1 CI update 被前置校验挡住**：gate 基线检查与 visual 校验步骤无条件执行，
+  基线过期时 update dispatch 跑不起来。两处加
+  `${{ !(dispatch && visual_update) }}` 跳过（裸 `!` 开头的 if 会被 YAML 解析
+  为自定义 tag，必须包 `${{ }}`）。本地等价补测：改坏一张基线（theme-light
+  覆盖为 theme-dark 内容）→ `--update` → 恢复为正确哈希 b2144ef4…、复验 4/4、
+  artifact 产出、`git status` 干净（重生成与已提交基线逐字节一致）。
+- **镜像 tag 加环境指纹**：`spinth-visual:<pw版本>-<sha256(字体版本+Dockerfile
++fonts.conf) 前 12 位>`——环境任一变动自动换 tag 重建（层缓存命中），本地
+  不再静默复用旧镜像；实测新指纹 tag `1.64.1-8eed00e0dd28` 构建通过。
+- **artifact 字段补齐 §8.2**：environment.txt 增 node / pnpm / base_digest /
+  fc_match / fc_list_zh（容器存活时采集；base_digest 实测两条 RepoDigest 均
+  为 §3.4 核实的 47b510dd…）。
+- **stability 集合断言**：两轮产物集合必须恰好等于 spec 全部 stem（原实现只
+  比对 round1 的键，skip 少一张也绿）；stem 提取抽为共享模块
+  `scripts/visual-linux/stems.mjs`，护栏与执行器单源。
+- **die 清理收口**：makeCleanup 注册进模块级 CLEANUPS，die 先同步清理再
+  exit（幂等）——process.exit 绕过 try/finally 的失败路径不留孤儿容器；
+  chownVolumes 补 `--platform linux/amd64`；宿主 rsync 缺失预检（明确报错
+  替代 ENOENT 裸崩）；readDockerfileVersion 兼容 FROM digest pin 形态。
+- **执行器拆分**：单文件 685 行超「目标 <400 行」约定，拆为
+  scripts/visual-linux/{config,util,docker,run,artifact,stems}.mjs（最大
+  242 行），行为零变化（N3 与护栏拆分后复测通过）。
+- **文档修正**：§14.4→§14.5 引用（AGENTS/docs13）；stability 措辞改为事实
+  （update 自带复验，stability 是提交前仪式，脚本打印提醒不强制）；
+  visual.spec.ts 头注释「CI 跳过」改为当前门禁事实。
+- **返工后复测全绿**：校验 4/4（35s）/ 坏基线 update 恢复（77s）/ stability
+  5 张全等（77s）/ macOS visual 4/4 / pnpm verify（pre-push）。
 
 ## 15. 附录
 
@@ -576,7 +611,13 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
 ```
 docker/visual.Dockerfile
 docker/visual-fonts.conf
-scripts/visual-linux.mjs
+scripts/visual-linux.mjs                 入口（模式分发 + main）
+scripts/visual-linux/config.mjs          常量与 CLI 模式
+scripts/visual-linux/util.mjs            子进程/日志/die+清理注册/哈希
+scripts/visual-linux/docker.mjs          版本契约/镜像构建/work 同步/容器编排
+scripts/visual-linux/run.mjs             安装预检/执行/runOnce/runStability
+scripts/visual-linux/artifact.mjs        哈希清单/审计采集/update 产物
+scripts/visual-linux/stems.mjs           基线清单单源提取
 scripts/check-visual-baselines.mjs
 packages/app/e2e/visual.spec.ts-snapshots/*-linux.png   (5 张)
 specs/linux-visual.md                                   (本文)

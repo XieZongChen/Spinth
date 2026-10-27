@@ -85,7 +85,10 @@
 - darwin：系统 Chrome（`channel: chrome`）本地直接跑；`@visual` 用例另带 DPR=1 /
   WebGL / 字体就绪三项环境断言（只影响失败信息，不改像素）。
 - linux：容器固定环境生成与校验（specs/linux-visual）——`pnpm visual:linux`
-  校验、`--stability` 双跑 SHA-256 全等后才可 `--update` 落盘（内建新容器复验）。
+  校验、`--update` 生成回写（内建新容器复验）、`--stability` 双跑 SHA-256
+  全等；提交基线前先跑 `--stability`（specs §10.3 仪式，脚本不强制）。
+  宿主要求 docker + rsync；镜像 tag 含环境指纹（字体版本/Dockerfile/fonts.conf
+  任一变动自动重建）。
   镜像 = 官方 playwright noble 派生（fonts-noto-cjk 版本必传 + fontconfig
   prefer Noto Sans CJK SC + 构建期 fc 断言）；视觉 flags 只在
   `E2E_VISUAL_CHANNEL=bundled` 时注入，不影响 darwin 路径。

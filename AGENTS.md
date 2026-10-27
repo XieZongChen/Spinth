@@ -140,9 +140,10 @@ PWA/Service Worker 平台能力已落地（specs/pwa.md）：manifest + 192/512/
 zod JIT 探测在生产 CSP 下触发 securitypolicyviolation 的存量缺陷（jitless）。
 Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 pin、
 官方 playwright 镜像派生（fonts-noto-cjk 版本必传 + Noto Sans CJK SC 定档 +
-构建期 fc 断言）、`pnpm visual:linux` 容器执行器（stability 双跑全等才可
-update）、基线齐全护栏接入 verify 与 CI gate、visual job 真门禁；darwin/linux
-双平台各 5 张基线。
+构建期 fc 断言，镜像 tag 含环境指纹）、`pnpm visual:linux` 容器执行器
+（`--update` 自带新容器复验，提交前先跑 `--stability` 双跑全等——specs §10.3
+仪式，脚本不强制）、基线齐全护栏接入 verify 与 CI gate、visual job 真门禁
+（update dispatch 跳过校验直接生成）；darwin/linux 双平台各 5 张基线。
 
 当前实测基线：`pnpm verify` 通过；983 单测（core 894 + react 51 + app 38）；
 E2E 23 spec / 211 用例全绿（视觉 4/4 双平台；图片/资产专项 10/10；a11y 6/6；
@@ -152,4 +153,4 @@ mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 待人工项（iOS/Android 真机添加到主屏幕的启动
 形态与图标裁切）见 specs/pwa.md §14；Linux 视觉 CI 实证（Actions 恢复后一次
-dispatch 补验）见 specs/linux-visual §14.4。
+dispatch 补验）见 specs/linux-visual §14.5。

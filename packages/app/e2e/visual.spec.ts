@@ -4,7 +4,8 @@ import { expect, test, type Page } from '@playwright/test';
  * 视觉快照回归（docs/15 §4，盘点 P3——此前像素级视觉验证为零）：
  * 只收「稳定可重现」场景——主题双态整帧、marks 富文本渲染、连线镂空。
  * 数据探针优先的纪律不变（docs/15 §3），本篇是补充层：颜色/粗细/镂空等
- * 纯视觉行为数据探针天然测不到。CI 跳过（runner 渲染差异，本地护栏）。
+ * 纯视觉行为数据探针天然测不到。gate fast 层 grep-invert 跳过；视觉由
+ * nightly/手动 visual job 容器校验（specs/linux-visual），darwin 本地直接跑。
  */
 
 async function ready(page: Page): Promise<void> {
