@@ -14,6 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractVisualStems } from './visual-linux/stems.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SPEC = path.join(ROOT, 'packages/app/e2e/visual.spec.ts');
@@ -24,17 +25,9 @@ const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const failures = [];
 const fail = (msg) => failures.push(msg);
 
-// 1. 从测试源码提取名称（specs D11：不维护第二份列表）
-const source = fs.readFileSync(SPEC, 'utf8');
-const callCount = [...source.matchAll(/toHaveScreenshot\(/g)].length;
-const literalMatches = [...source.matchAll(/toHaveScreenshot\(\s*'([^']+)'/g)];
-if (callCount !== literalMatches.length) {
-  fail(
-    `visual.spec.ts 存在 ${callCount - literalMatches.length} 处非字面量（动态）快照名称——` +
-      '本脚本无法推导基线清单，请改为字面量或更新脚本（specs/linux-visual §6.2）',
-  );
-}
-const stems = [...new Set(literalMatches.map((m) => m[1].replace(/\.png$/, '')))];
+// 1. 从测试源码提取名称（specs D11：不维护第二份列表，提取逻辑与执行器共享）
+const { stems, error: stemsError } = extractVisualStems(SPEC);
+if (stemsError) fail(stemsError);
 if (stems.length === 0) fail('visual.spec.ts 未提取到任何 toHaveScreenshot 字面量');
 
 // 2. 每 stem × 每平台：存在、非空、PNG 头

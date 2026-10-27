@@ -5,15 +5,16 @@
  * Linux 视觉基线执行器（specs/linux-visual §7）。
  *
  * 在固定容器环境（docker/visual.Dockerfile，官方 Playwright 镜像 + Noto Sans CJK SC）
- * 里安装、预检并运行 @visual 用例，校验/生成 5 张 -linux.png 基线。
- * 宿主源码只读（work 是副本）；只有 update 模式把 PNG 显式复制回基线目录。
+ * 里安装、预检并运行 @visual 用例，校验/生成全部 -linux.png 基线（数量由
+ * visual.spec.ts 的快照名称推导）。宿主源码只读（work 是副本）；只有 update
+ * 模式把 PNG 显式复制回基线目录。
  *
  * 源码用 docker cp 拷入容器本地 fs 而非卷挂载：macOS 容器运行时的卷透传
- * 对 vite 冷启动是 IO 瓶颈，拷贝编排与挂载语义等价（specs §14.4 偏差记录）。
+ * 对 vite 冷启动是 IO 瓶颈，拷贝编排与挂载语义等价（specs §14.5 偏差记录）。
  *
  * 用法：
  *   pnpm visual:linux                 构建镜像（如需）+ 校验当前 Linux 基线
- *   pnpm visual:linux --update        生成并回写 5 张基线，随后立即复验
+ *   pnpm visual:linux --update        生成并回写基线，随后立即复验
  *   pnpm visual:linux --stability     两次独立生成比对 SHA-256（不写宿主基线）
  *   pnpm visual:linux --rebuild       强制重建镜像
  *   pnpm visual:linux --debug         保留容器与工作区、打印完整输出
@@ -25,10 +26,12 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractVisualStems } from './visual-linux/stems.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CACHE = path.join(ROOT, '.cache', 'visual-linux');
 const WORK_SRC = path.join(CACHE, 'work', 'src');
+const SPEC = path.join(ROOT, 'packages/app/e2e/visual.spec.ts');
 const SNAPSHOTS_REL = 'packages/app/e2e/visual.spec.ts-snapshots';
 const DOCKERFILE = path.join(ROOT, 'docker', 'visual.Dockerfile');
 const STORE_VOLUME = 'spinth-visual-store';
@@ -69,8 +72,13 @@ function log(...msgs) {
   console.log(`[visual-linux] ${msgs.join(' ')}`);
 }
 
+// die 前统一收口已注册的容器清理：process.exit 会绕过 try/finally，
+// 失败路径（install/预检/复验红）不靠调用方自觉也能不留孤儿容器
+const CLEANUPS = [];
+
 function die(code, ...msgs) {
   for (const m of msgs) console.error(`[visual-linux] ${m}`);
+  while (CLEANUPS.length > 0) CLEANUPS.pop()();
   process.exit(code);
 }
 
@@ -88,10 +96,17 @@ function readPlaywrightVersion() {
 
 function readDockerfileVersion() {
   // Dockerfile 用 ARG 变量引用 base tag（构建时由脚本显式注入），版本核对读
-  // ARG 默认值——它必须与 package.json 一致；FROM 未引用变量则直接拒绝
+  // ARG 默认值——它必须与 package.json 一致；FROM 未引用变量也未 digest pin 则拒绝
   const dockerfile = fs.readFileSync(DOCKERFILE, 'utf8');
-  if (!/FROM mcr\.microsoft\.com\/playwright:v\$\{PLAYWRIGHT_VERSION\}-noble/.test(dockerfile)) {
-    die(2, 'Dockerfile 的 FROM 必须引用 ${PLAYWRIGHT_VERSION} 变量（版本单源，specs §4）');
+  const usesVar = /FROM mcr\.microsoft\.com\/playwright:v\$\{PLAYWRIGHT_VERSION\}-noble/.test(
+    dockerfile,
+  );
+  const usesDigest = /FROM mcr\.microsoft\.com\/playwright@sha256:[0-9a-f]{64}/.test(dockerfile);
+  if (!usesVar && !usesDigest) {
+    die(
+      2,
+      'Dockerfile 的 FROM 必须引用 ${PLAYWRIGHT_VERSION} 变量或 digest pin（版本单源，specs §4）',
+    );
   }
   const m = dockerfile.match(/^ARG PLAYWRIGHT_VERSION=(\S+)/m);
   if (!m) die(2, 'Dockerfile 未找到 ARG PLAYWRIGHT_VERSION 默认值');
@@ -102,8 +117,18 @@ function sha256(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+/** 环境指纹：字体版本 + Dockerfile + fonts.conf 任一变动 → 新 tag → 自动重建 */
+function imageFingerprint() {
+  const parts = [
+    NOTO_CJK_VERSION,
+    fs.readFileSync(DOCKERFILE, 'utf8'),
+    fs.readFileSync(path.join(ROOT, 'docker', 'visual-fonts.conf'), 'utf8'),
+  ];
+  return createHash('sha256').update(parts.join('\0')).digest('hex').slice(0, 12);
+}
+
 function buildImage(version) {
-  const tag = `spinth-visual:${version}`;
+  const tag = `spinth-visual:${version}-${imageFingerprint()}`;
   let needBuild = MODE.rebuild;
   if (!needBuild) {
     try {
@@ -180,6 +205,8 @@ function chownVolumes(tag) {
   sh('docker', [
     'run',
     '--rm',
+    '--platform',
+    'linux/amd64',
     '-v',
     `${STORE_VOLUME}:/s`,
     '-v',
@@ -253,7 +280,12 @@ function execIn(name, script, env = {}) {
 }
 
 function makeCleanup(name) {
-  return () => {
+  let done = false;
+  const cleanup = () => {
+    if (done) return;
+    done = true;
+    const i = CLEANUPS.indexOf(cleanup);
+    if (i >= 0) CLEANUPS.splice(i, 1);
     if (MODE.debug) {
       log(`--debug：保留容器 ${name}（手动清理：docker rm -f ${name}）`);
     } else {
@@ -264,6 +296,8 @@ function makeCleanup(name) {
       }
     }
   };
+  CLEANUPS.push(cleanup);
+  return cleanup;
 }
 
 /** 尾部输出摘要（playwright 结果行；失败时给足排障信息而不刷屏） */
@@ -293,6 +327,14 @@ async function main() {
     sh('docker', ['info', '--format', '{{.ServerVersion}}'], { capture: true });
   } catch {
     die(2, 'docker daemon 不可用——本地需先启动容器运行时（如 colima start）');
+  }
+  try {
+    sh('rsync', ['--version'], { capture: true });
+  } catch {
+    die(2, '宿主缺 rsync（源码副本同步依赖）——Linux 发行版用包管理器安装');
+  }
+  if (MODE.update) {
+    log('update 模式：提交前须先过 --stability 双跑全等（specs §10.3 仪式，本命令不强制）');
   }
 
   const tag = buildImage(pkgVersion);
@@ -427,8 +469,9 @@ async function runOnce(tag, pkgVersion, { update }) {
     fs.mkdirSync(staged, { recursive: true });
     sh('docker', ['cp', `${name}:${path.posix.join('/work/src', SNAPSHOTS_REL)}/.`, `${staged}/`]);
     const linuxPngs = fs.readdirSync(staged).filter((f) => f.endsWith('-linux.png'));
-    if (linuxPngs.length !== 5) {
-      fail(3, `update 产物异常：期望 5 张 -linux.png，实际 ${linuxPngs.length} 张`);
+    const expectedCount = extractVisualStems(SPEC).stems.length;
+    if (linuxPngs.length !== expectedCount) {
+      fail(3, `update 产物异常：期望 ${expectedCount} 张 -linux.png，实际 ${linuxPngs.length} 张`);
     }
     const trackedBefore = new Map(
       linuxPngs.map((f) => {
@@ -450,6 +493,7 @@ async function runOnce(tag, pkgVersion, { update }) {
     const verifyName = `spinth-visual-reverify-${Date.now()}`;
     containerCreate(verifyName, tag);
     const verifyCleanup = makeCleanup(verifyName);
+    let env;
     try {
       installDeps(verifyName);
       preflight(verifyName, pkgVersion);
@@ -461,11 +505,12 @@ async function runOnce(tag, pkgVersion, { update }) {
         }
         fail(3, '复验失败：已回滚本次回写的基线——先排查环境或截图稳定性，再重试 update');
       }
+      env = collectEnvironment(verifyName);
     } finally {
       verifyCleanup();
     }
 
-    writeArtifact(pkgVersion);
+    writeArtifact(tag, pkgVersion, env);
     printPngHashes(hostSnap, 'linux');
     log('update 完成：人工审图（3 张含中文）后方可提交（specs §9 纪律）');
     return 0;
@@ -475,6 +520,9 @@ async function runOnce(tag, pkgVersion, { update }) {
 }
 
 async function runStability(tag, pkgVersion) {
+  const { stems, error } = extractVisualStems(SPEC);
+  if (error) die(3, error);
+  const expected = stems.map((s) => `${s}-linux.png`).sort();
   const rounds = {};
   for (const round of [1, 2]) {
     log(`── stability 第 ${round}/2 轮（fresh work + 新容器）──`);
@@ -503,8 +551,18 @@ async function runStability(tag, pkgVersion) {
       cleanup();
     }
   }
-  const files = Object.keys(rounds[1]);
-  const mismatch = files.filter((f) => rounds[1][f] !== rounds[2][f]);
+  // 集合断言：两轮产物恰好覆盖 spec 全部 stem——防用例被 skip 时少比一张也绿
+  for (const round of [1, 2]) {
+    const names = Object.keys(rounds[round]).sort();
+    if (JSON.stringify(names) !== JSON.stringify(expected)) {
+      die(
+        3,
+        `第 ${round} 轮产物集合与 spec 不符（期望 ${expected.length} 张：${expected.join(', ')}；`,
+        `实际 ${names.length} 张：${names.join(', ') || '(空)'}）——检查是否有用例被 skip`,
+      );
+    }
+  }
+  const mismatch = expected.filter((f) => rounds[1][f] !== rounds[2][f]);
   if (mismatch.length > 0) {
     for (const f of mismatch) {
       console.error(`[visual-linux] SHA-256 不一致 ${f}：`);
@@ -517,7 +575,7 @@ async function runStability(tag, pkgVersion) {
       '按 specs §10.3 排查（不得提交基线）',
     );
   }
-  log(`stability 通过：${files.length} 张 SHA-256 逐字节全等`);
+  log(`stability 通过：${expected.length} 张 SHA-256 逐字节全等`);
 }
 
 function printPngHashes(dir, platform) {
@@ -533,8 +591,32 @@ function printPngHashes(dir, platform) {
   return map;
 }
 
+/** §8.2 审计字段：容器存活时采集运行时与字体事实（node/pnpm/fc-match/fc-list） */
+function collectEnvironment(name) {
+  const out = execIn(
+    name,
+    [
+      'set -e',
+      'node_v=$(node -v)',
+      'pnpm_v=$(corepack pnpm -v)',
+      'fc_m=$(fc-match sans-serif)',
+      'fc_zh=$(fc-list :lang=zh family | sort -u | paste -sd ";" -)',
+      'echo "node_v=$node_v"',
+      'echo "pnpm_v=$pnpm_v"',
+      'echo "fc_m=$fc_m"',
+      'echo "fc_zh=$fc_zh"',
+    ].join('\n'),
+  );
+  const map = {};
+  for (const line of out.trim().split('\n')) {
+    const i = line.indexOf('=');
+    if (i > 0) map[line.slice(0, i)] = line.slice(i + 1);
+  }
+  return map;
+}
+
 /** CI update 模式的可审计产物（specs §8.2）：PNG + environment.txt + sha256sum.txt */
-function writeArtifact(pkgVersion) {
+function writeArtifact(tag, pkgVersion, env = {}) {
   const dir = path.join(CACHE, 'artifact');
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
@@ -555,19 +637,36 @@ function writeArtifact(pkgVersion) {
   } catch {
     /* 非 git 环境留空 */
   }
-  const imageId = sh(
-    'docker',
-    ['image', 'inspect', `spinth-visual:${pkgVersion}`, '--format', '{{.Id}}'],
-    {
-      capture: true,
-    },
-  ).trim();
+  const imageId = sh('docker', ['image', 'inspect', tag, '--format', '{{.Id}}'], {
+    capture: true,
+  }).trim();
+  let baseDigest = '';
+  try {
+    baseDigest = sh(
+      'docker',
+      [
+        'image',
+        'inspect',
+        `mcr.microsoft.com/playwright:v${pkgVersion}-noble`,
+        '--format',
+        '{{json .RepoDigests}}',
+      ],
+      { capture: true },
+    ).trim();
+  } catch {
+    /* base 元数据缺失留空 */
+  }
   fs.writeFileSync(
     path.join(dir, 'environment.txt'),
     [
       `playwright=${pkgVersion}`,
+      `node=${env.node_v || '(unknown)'}`,
+      `pnpm=${env.pnpm_v || '(unknown)'}`,
       `noto_cjk=${NOTO_CJK_VERSION}`,
+      `base_digest=${baseDigest || '(unknown)'}`,
       `image=${imageId}`,
+      `fc_match=${env.fc_m || '(unknown)'}`,
+      `fc_list_zh=${env.fc_zh || '(unknown)'}`,
       `git=${gitSha || '(unknown)'}`,
       ...lines,
       '',
