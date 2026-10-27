@@ -5,7 +5,8 @@ name: ci
 # - timing：nightly/手动，--workers=1 跑 @timing/@bench（flake 记录，连续绿后可升 gate）
 # - visual：nightly/手动，容器化固定环境（specs/linux-visual）校验 @visual 的
 #   linux 基线——浏览器/字体/Node 全在 docker/visual.Dockerfile 派生镜像内，
-#   宿主不装依赖；手动 dispatch 可选 visual_update 生成基线 artifact。
+#   宿主不装依赖；手动 dispatch 可选 visual_update：跳过校验直接生成基线
+#   artifact（基线过期/缺失时的重新生成入口）。
 # - multitab：nightly/手动，接管用例 20× 不重试压测（flake 取证层，一次红即红）。
 # 另有 static-node22 轻量 matrix（engines 下限覆盖）。
 # 缘起：2026-09-27 外部审查揪出「全绿声明漏跑 lint」——门禁必须机器化。
@@ -51,8 +52,10 @@ jobs:
         run: node --version && pnpm --version
 
       # 视觉基线齐全护栏（specs/linux-visual §6.2）：纯 node stdlib 脚本，
-      # 先于 install 快速失败——push/PR 提交即拦截缺基线/残留 -actual 文件
+      # 先于 install 快速失败——push/PR 提交即拦截缺基线/残留 -actual 文件。
+      # update dispatch 跳过：其目的正是基线缺失/过期时重新生成，此时该检查必然红
       - name: 视觉基线齐全检查
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.visual_update) }}
         run: node scripts/check-visual-baselines.mjs
 
       - name: 安装依赖
@@ -178,7 +181,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      # 校验模式：update dispatch 时跳过——基线过期/缺失时校验必然红，
+      # 而 update dispatch 的目的正是重新生成（specs/linux-visual §8）
       - name: 构建镜像并校验 Linux 基线
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.visual_update) }}
         run: node scripts/visual-linux.mjs
       # 手动 update：产出可审计 artifact，人工下载提交（权限只读，不自动入库）
       - name: 生成 Linux 基线（update）
