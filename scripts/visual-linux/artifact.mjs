@@ -6,7 +6,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execIn } from './docker.mjs';
+import { dockerfileBaseRef, execIn } from './docker.mjs';
 import { CACHE, NOTO_CJK_VERSION, ROOT, SNAPSHOTS_REL } from './config.mjs';
 import { log, sha256, sh } from './util.mjs';
 
@@ -74,17 +74,16 @@ export function writeArtifact(tag, pkgVersion, env = {}) {
   }).trim();
   let baseDigest = '';
   try {
-    baseDigest = sh(
-      'docker',
-      [
-        'image',
-        'inspect',
-        `mcr.microsoft.com/playwright:v${pkgVersion}-noble`,
-        '--format',
-        '{{json .RepoDigests}}',
-      ],
-      { capture: true },
-    ).trim();
+    const repoDigests = JSON.parse(
+      sh(
+        'docker',
+        ['image', 'inspect', dockerfileBaseRef(pkgVersion), '--format', '{{json .RepoDigests}}'],
+        { capture: true },
+      ).trim(),
+    );
+    // 归一化：优先取官方 MCR 那条、只留 sha256 摘要——本地镜像源别名不进 artifact
+    const preferred = repoDigests.find((r) => r.startsWith('mcr.microsoft.com/')) ?? repoDigests[0];
+    baseDigest = preferred?.match(/sha256:[0-9a-f]{64}/)?.[0] ?? '';
   } catch {
     /* base 元数据缺失留空 */
   }

@@ -32,15 +32,25 @@ export function readPlaywrightVersion() {
   return spec;
 }
 
+/** 解析 Dockerfile FROM 行的 base 引用（供 base digest 审计）。变量 tag 展开
+ *  为实际版本；digest pin / tag+digest 形态原样返回。 */
+export function dockerfileBaseRef(version) {
+  const from = fs
+    .readFileSync(DOCKERFILE, 'utf8')
+    .match(/^FROM (mcr\.microsoft\.com\/playwright\S*)/m)?.[1];
+  if (!from) die(2, 'Dockerfile 未找到 mcr playwright base 的 FROM 行');
+  return from.replace('v${PLAYWRIGHT_VERSION}-noble', `v${version}-noble`);
+}
+
 export function readDockerfileVersion() {
-  // Dockerfile 用 ARG 变量引用 base tag（构建时由脚本显式注入），版本核对读
-  // ARG 默认值——它必须与 package.json 一致；FROM 未引用变量也未 digest pin 则拒绝
+  // 版本核对读 ARG 默认值——它必须与 package.json 一致（digest pin 形态下
+  // 版本单源同样是 ARG）；FROM 引用必须是变量 tag 或 digest pin 两种合法形态
   const dockerfile = fs.readFileSync(DOCKERFILE, 'utf8');
-  const usesVar = /FROM mcr\.microsoft\.com\/playwright:v\$\{PLAYWRIGHT_VERSION\}-noble/.test(
-    dockerfile,
-  );
-  const usesDigest = /FROM mcr\.microsoft\.com\/playwright@sha256:[0-9a-f]{64}/.test(dockerfile);
-  if (!usesVar && !usesDigest) {
+  const from = dockerfile.match(/^FROM (mcr\.microsoft\.com\/playwright\S*)/m)?.[1];
+  const refOk =
+    from === 'mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble' ||
+    /^mcr\.microsoft\.com\/playwright(:v\S+)?@sha256:[0-9a-f]{64}$/.test(from ?? '');
+  if (!refOk) {
     die(
       2,
       'Dockerfile 的 FROM 必须引用 ${PLAYWRIGHT_VERSION} 变量或 digest pin（版本单源，specs §4）',
@@ -51,7 +61,11 @@ export function readDockerfileVersion() {
   return m[1];
 }
 
-/** 环境指纹：字体版本 + Dockerfile + fonts.conf 任一变动 → 新 tag → 自动重建 */
+/**
+ * 环境指纹：字体版本 + Dockerfile 全文 + fonts.conf 任一变动 → 新 tag → 自动重建。
+ * Dockerfile 全文入指纹意味着 base 引用（含 digest pin）变化时指纹必然变化，
+ * 不需要单独把 base digest 纳入。
+ */
 function imageFingerprint() {
   const parts = [
     NOTO_CJK_VERSION,

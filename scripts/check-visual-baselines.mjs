@@ -31,6 +31,7 @@ if (stemsError) fail(stemsError);
 if (stems.length === 0) fail('visual.spec.ts 未提取到任何 toHaveScreenshot 字面量');
 
 // 2. 每 stem × 每平台：存在、非空、PNG 头
+const missing = { darwin: [], linux: [] };
 for (const stem of stems) {
   for (const platform of PLATFORMS) {
     const file = path.join(SNAP_DIR, `${stem}-${platform}.png`);
@@ -41,7 +42,10 @@ for (const stem of stems) {
     } catch {
       /* 缺文件走下面统一报缺 */
     }
-    if (!ok) fail(`缺失或损坏：${path.relative(ROOT, file)}`);
+    if (!ok) {
+      fail(`缺失或损坏：${path.relative(ROOT, file)}`);
+      missing[platform].push(stem);
+    }
   }
 }
 
@@ -55,9 +59,17 @@ for (const name of fs.readdirSync(SNAP_DIR)) {
 if (failures.length > 0) {
   console.error(`[visual-baselines] 发现 ${failures.length} 个基线问题：`);
   for (const f of failures) console.error(`  - ${f}`);
-  console.error(
-    '修复指引：缺 linux 基线跑 pnpm visual:linux --update；勿提交 -actual 改名文件（specs §6.1）',
-  );
+  // 修复指引按缺失平台给（specs §6.1；勿提交 -actual 改名文件）
+  if (missing.linux.length > 0) {
+    console.error(`  指引：缺 linux 基线 ${missing.linux.length} 张 → pnpm visual:linux --update`);
+  }
+  if (missing.darwin.length > 0) {
+    console.error(
+      `  指引：缺 darwin 基线 ${missing.darwin.length} 张 → macOS 宿主执行 ` +
+        'npx playwright test --grep @visual --update-snapshots',
+    );
+  }
+  console.error('  指引：目录内未纳管文件（-actual 等）请删除，勿改名顶替基线');
   process.exitCode = 1;
 } else {
   console.log(
