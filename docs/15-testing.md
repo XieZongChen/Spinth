@@ -107,4 +107,5 @@
 - 存储状态：StorageStatusService 10 单测 + storageMath 6 单测 + E2E 8 例
   （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
-- 大测试文件（lineMath、mindService）可按域拆分，降低阅读成本。
+- 大测试文件（lineMath、mindService 等单测；widgets、mind 等 E2E spec）最大千行级，
+  尚未按域拆分；排期见 docs/13 阶段 1.1。
