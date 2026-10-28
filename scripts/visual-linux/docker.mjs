@@ -134,6 +134,21 @@ export function rsyncWork() {
   ]);
 }
 
+/**
+ * 生成轮前置：删掉 work 副本带入的旧 `-linux.png`（保留 darwin）。
+ * rsync 会把宿主已提交的 linux 基线带进容器——若某用例被 skip，旧图会顶替
+ * 「本轮应生成」的产物，集合/计数断言与双跑哈希全部假绿。清空后容器内
+ * 只会留下本轮真实生成的文件，skip 即缺张，断言才能红。
+ * 只用于 update/stability 生成轮；校验轮与 update 复验轮需要宿主基线，禁止调用。
+ */
+export function stripLinuxBaselines() {
+  const snapDir = path.join(WORK_SRC, 'packages/app/e2e/visual.spec.ts-snapshots');
+  if (!fs.existsSync(snapDir)) return;
+  for (const f of fs.readdirSync(snapDir)) {
+    if (f.endsWith('-linux.png')) fs.rmSync(path.join(snapDir, f));
+  }
+}
+
 export function chownVolumes(tag) {
   // docker volume 初建属 root；只 chown 顶层让非 root 用户可写（不走 -R，store 大时递归太慢）
   sh('docker', [

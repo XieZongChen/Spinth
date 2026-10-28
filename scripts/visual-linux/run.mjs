@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { CACHE, ROOT, SNAPSHOTS_REL, SPEC, WORK_SRC } from './config.mjs';
-import { containerCreate, execIn, makeCleanup, rsyncWork } from './docker.mjs';
+import { containerCreate, execIn, makeCleanup, rsyncWork, stripLinuxBaselines } from './docker.mjs';
 import { collectEnvironment, printPngHashes, writeArtifact } from './artifact.mjs';
 import { extractVisualStems } from './stems.mjs';
 import { die, log, sh, tailOf } from './util.mjs';
@@ -108,6 +108,9 @@ export function playwrightRun(name, update) {
  * 返回退出码（0/1/2/3）。
  */
 export async function runOnce(tag, pkgVersion, { update }) {
+  // 生成轮前置：清掉 work 副本带入的旧 linux 基线（见 docker.mjs 注释）；
+  // 校验轮与后续复验轮需要宿主基线，不 strip
+  if (update) stripLinuxBaselines();
   const name = `spinth-visual-${update ? 'update' : 'verify'}-${Date.now()}`;
   containerCreate(name, tag);
   const cleanup = makeCleanup(name);
@@ -132,7 +135,9 @@ export async function runOnce(tag, pkgVersion, { update }) {
     fs.mkdirSync(staged, { recursive: true });
     sh('docker', ['cp', `${name}:${path.posix.join('/work/src', SNAPSHOTS_REL)}/.`, `${staged}/`]);
     const linuxPngs = fs.readdirSync(staged).filter((f) => f.endsWith('-linux.png'));
-    const expectedCount = extractVisualStems(SPEC).stems.length;
+    const { stems, error: stemsError } = extractVisualStems(SPEC);
+    if (stemsError) fail(3, stemsError);
+    const expectedCount = stems.length;
     if (linuxPngs.length !== expectedCount) {
       fail(3, `update 产物异常：期望 ${expectedCount} 张 -linux.png，实际 ${linuxPngs.length} 张`);
     }
@@ -190,6 +195,7 @@ export async function runStability(tag, pkgVersion) {
   for (const round of [1, 2]) {
     log(`── stability 第 ${round}/2 轮（fresh work + 新容器）──`);
     rsyncWork();
+    stripLinuxBaselines(); // 生成轮：容器内只留本轮真实产物（skip 即缺张）
     const name = `spinth-visual-stab${round}-${Date.now()}`;
     containerCreate(name, tag);
     const cleanup = makeCleanup(name);
