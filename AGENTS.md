@@ -152,5 +152,5 @@ mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 下一阶段重点是协同前置能力评估（docs/10）；不属于当前阶段。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 待人工项（iOS/Android 真机添加到主屏幕的启动
-形态与图标裁切）见 specs/pwa.md §14；Linux 视觉 CI 实证（Actions 恢复后一次
-dispatch 补验）见 specs/linux-visual §14.5。
+形态与图标裁切）见 specs/pwa.md §14；Linux 视觉 CI 实证（Actions 恢复后
+普通 + update 两次 dispatch 补验）见 specs/linux-visual §14.7。

@@ -90,7 +90,8 @@
 
 - [x] Linux 视觉基线已落地（specs/linux-visual）：容器固定环境生成（双跑 SHA-256
       全等 + 人工审图），CI visual 为真门禁；基线齐全护栏接入 verify 与 gate。
-- CI 实证挂账：Actions 恢复可用后一次 dispatch 补验（specs/linux-visual §14.5）。
+- CI 实证挂账：Actions 恢复可用后普通 + update 两次 dispatch 补验
+  （specs/linux-visual §14.7）。
 - 新项目不保留“靠未跟踪 actuals 假绿”的做法。
 
 ## 3. 决策与挂账
@@ -112,7 +113,7 @@
   路径时该测试先红，提醒补矩阵。
 - PWA/Service Worker 已落地：manifest + 子路径 SW + 预缓存清单 + 可控更新横幅
   （specs/pwa.md）。Linux 视觉基线已落地（specs/linux-visual），平台侧剩余
-  挂账为 CI 实证（Actions 恢复后一次 dispatch 补验）。
+  挂账为 CI 实证（Actions 恢复后普通 + update 两次 dispatch 补验）。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、

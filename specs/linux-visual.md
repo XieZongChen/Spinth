@@ -1,7 +1,8 @@
 # Linux 视觉基线：技术方案与架构设计
 
-> 状态：**已实施（本地全链验证，2026-10）**——实施档案与偏差见 §14.5；CI 实证
-> 挂账（Actions 因私有仓库计费不可用，恢复后一次 dispatch 补验）。
+> 状态：**已实施（本地全链验证，2026-10）**——实施档案与偏差见 §14.5，两轮
+> 返工见 §14.6–§14.7；CI 实证挂账（Actions 因私有仓库计费不可用，恢复后
+> 普通 + update 两次 dispatch 补验，见 §14.7）。
 > 审查记录见 §14。
 > 范围：为现有 4 个 `@visual` 用例生成并校验 Linux 基线，把 CI visual 层从「试运行挂账」升为真门禁；不改产品渲染、交互与数据流。
 > 关联：[docs/13](../docs/13-roadmap.md) §2–§3、[docs/15](../docs/15-testing.md) §4、[docs/01](../docs/01-conventions.md)、[specs/pwa](pwa.md) 的 CI/构建门禁先例。
@@ -566,8 +567,9 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
 2. **`ready()` 环境预检提前到步骤 2**（§11 原排在步骤 5）：基线必须生成于
    最终 flags/断言形态下，否则步骤 4 生成的基线与后续断言形态不可证一致。
 3. **CI 实证挂账**（用户决策：Actions 因私有仓库计费限制不可用）：本地等价
-   验证替代（含基线过期 → update 恢复场景，见返工记录），恢复后一次 dispatch
-   即可补验普通绿与 update artifact 两条。
+   验证替代（含基线过期 → update 恢复场景，见返工记录）；普通校验步骤与
+   update 步骤在 CI 条件上互斥，恢复后需两次 dispatch 分别补验（普通绿 +
+   update artifact），见 §14.7。
 
 ### 14.6 审查返工记录（2026-10）
 
@@ -601,6 +603,39 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
   visual.spec.ts 头注释「CI 跳过」改为当前门禁事实。
 - **返工后复测全绿**：校验 4/4（35s）/ 坏基线 update 恢复（77s）/ stability
   5 张全等（77s）/ macOS visual 4/4 / pnpm verify（pre-push）。
+
+### 14.7 第二轮审查返工（2026-10）
+
+复审确认 P1/P2 已修、无阻断项；余七条 P3 边缘全部收口（提交 `6d705ff` →
+`e986d33` → `4947bb0` → 文档笔）：
+
+- **skip 假绿（核心）**：work 副本经 rsync 带入宿主已提交的旧 `-linux.png`，
+  用例被 skip 时旧图顶替本轮产物——集合/计数断言与双跑哈希全部假绿。新增
+  `stripLinuxBaselines()`：update/stability 生成轮前置删除 work 内
+  `*-linux.png`（校验轮与复验轮需要宿主基线，不删）。负向实测：rotate 用例
+  临时 `test.skip` → `--stability` exit 3「期望 5 张实际 4 张（rotate-45 缺）」
+  ——旧实现该场景为绿；恢复后 5 张全等。
+- **containerCreate 孤儿容器**：makeCleanup 改按容器名幂等（Map），docker run
+  成功后立即注册——exec/chown/cp 中途失败时 die 也能清理。
+- **update 事务化**：抽 `rollback()`，复验失败 / 环境采集异常 / writeArtifact
+  失败统一回滚宿主基线，不再出现「基线已改而产物缺失」的半成品状态。
+- **runOnce 提取 error**：`extractVisualStems` 的 error 与 runStability 一致
+  走 fail(3)，不再忽略。
+- **digest pin 前向兼容**：新增 `dockerfileBaseRef()` 解析 FROM 实际引用
+  （变量 tag / 纯 digest / tag+digest 三形态），版本断言与 artifact 的 base
+  inspect 都基于它——未来按 §5.1 换 digest pin 时链路不断；指纹已含 Dockerfile
+  全文，base 引用变化指纹必变（注释写明）。
+- **base_digest 归一化**：RepoDigests 优先取官方 `mcr.microsoft.com/` 那条、
+  只留 `sha256:` 摘要——本地镜像源别名不进 artifact（实测输出单值
+  `sha256:47b510dd…`，与 §3.4 一致）。
+- **护栏按平台指引**：缺 linux → `pnpm visual:linux --update`；缺 darwin →
+  macOS 宿主 `--update-snapshots`（负向实测缺 darwin 场景指引正确）。
+- **返工后复测全绿**：校验 4/4（35s）/ stability 5 张全等 / 坏基线 update
+  恢复（base_digest 单值）/ macOS visual 4/4 / pnpm verify（pre-push ×3）。
+
+CI 实证验收口径（Actions 恢复后）：**两次 dispatch**——普通 dispatch 验
+gate 基线检查 + visual 校验分支；带坏基线的 update dispatch 验「跳过校验 →
+生成 → artifact」整条路径（两步骤条件互斥，一次 dispatch 覆盖不了两条）。
 
 ## 15. 附录
 
