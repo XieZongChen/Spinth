@@ -156,6 +156,16 @@ export async function runOnce(tag, pkgVersion, { update }) {
     for (const f of linuxPngs) fs.copyFileSync(path.join(staged, f), path.join(hostSnap, f));
     log(`已回写 ${linuxPngs.length} 张基线到 ${SNAPSHOTS_REL}/，开始复验……`);
 
+    // 回写后任何一步失败（复验/环境采集/artifact 落盘）都回滚宿主基线：
+    // 不允许「基线已改而产物/复验缺失」的半成品状态
+    const rollback = () => {
+      for (const [f, state] of trackedBefore) {
+        const target = path.join(hostSnap, f);
+        if (state === 'tracked') sh('git', ['checkout', '--', target]);
+        else fs.rmSync(target, { force: true });
+      }
+    };
+
     // 复验用全新 work + 新容器：确保读的是宿主回写后的基线
     rsyncWork();
     const verifyName = `spinth-visual-reverify-${Date.now()}`;
@@ -166,11 +176,7 @@ export async function runOnce(tag, pkgVersion, { update }) {
       installDeps(verifyName);
       preflight(verifyName, pkgVersion);
       if (playwrightRun(verifyName, false) !== 0) {
-        for (const [f, state] of trackedBefore) {
-          const target = path.join(hostSnap, f);
-          if (state === 'tracked') sh('git', ['checkout', '--', target]);
-          else fs.rmSync(target, { force: true });
-        }
+        rollback();
         fail(3, '复验失败：已回滚本次回写的基线——先排查环境或截图稳定性，再重试 update');
       }
       env = collectEnvironment(verifyName);
@@ -178,7 +184,12 @@ export async function runOnce(tag, pkgVersion, { update }) {
       verifyCleanup();
     }
 
-    writeArtifact(tag, pkgVersion, env);
+    try {
+      writeArtifact(tag, pkgVersion, env);
+    } catch (err) {
+      rollback();
+      fail(3, `update 产物写入失败（${String(err?.message ?? err)}）：已回滚本次回写的基线`);
+    }
     printPngHashes(hostSnap, 'linux');
     log('update 完成：人工审图（3 张含中文）后方可提交（specs §9 纪律）');
     return 0;

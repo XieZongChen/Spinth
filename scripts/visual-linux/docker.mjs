@@ -206,6 +206,8 @@ export function containerCreate(name, tag) {
   }
   runArgs.push(tag, 'sleep', 'infinity');
   sh('docker', runArgs);
+  // run 成功即注册清理：后续 exec/chown/cp 任一步失败，die 也不会留下孤儿容器
+  makeCleanup(name);
   sh('docker', ['exec', '-u', '0:0', name, 'mkdir', '-p', '/work/src', '/tmp/home']);
   sh('docker', [
     'exec',
@@ -228,11 +230,17 @@ export function execIn(name, script, env = {}) {
   return sh('docker', args, { capture: true });
 }
 
+// 按容器名幂等：containerCreate 在 docker run 成功后立即注册（中途失败 die 也能
+// 清理），调用方再次 makeCleanup 拿到同一实例，不会重复登记
+const CLEANUP_BY_NAME = new Map();
+
 export function makeCleanup(name) {
+  if (CLEANUP_BY_NAME.has(name)) return CLEANUP_BY_NAME.get(name);
   let done = false;
   const cleanup = () => {
     if (done) return;
     done = true;
+    CLEANUP_BY_NAME.delete(name);
     const i = CLEANUPS.indexOf(cleanup);
     if (i >= 0) CLEANUPS.splice(i, 1);
     if (MODE.debug) {
@@ -245,6 +253,7 @@ export function makeCleanup(name) {
       }
     }
   };
+  CLEANUP_BY_NAME.set(name, cleanup);
   CLEANUPS.push(cleanup);
   return cleanup;
 }
