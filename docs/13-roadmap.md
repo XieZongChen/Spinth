@@ -15,93 +15,170 @@
       （docs/21 §4 只读可交互面矩阵）
 - [x] 983 单测（core 894 + react 51 + app 38）、E2E 23 spec / 211 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 10/10、`pnpm verify` 通过
 
-## 2. 下一阶段优先级
+当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
 
-当前下一阶段：协同前置能力评估（docs/10）；可访问性遗留见 §3。
+## 2. 阶段路线
 
-### P1 项目导出/导入
+当前执行顺序固定为四段：
 
-- [x] 导出：Yjs 文档快照 + 被引用图片资产 + manifest（`.spinth.zip`，fflate 异步 chunk）。
-- [x] 导入：校验版本/哈希/限额 → 写资产 → `createDocFromSnapshot` 新建画布；全失败路径零写入。
-- [x] round-trip 测试（含图片资产、Yjs 无 base64）：68 单测 + 7 E2E（含外链 warning 到达用户）。
-- 后续可选：拖放 `.spinth.zip` 到画布导入（docs/20 §1.2 非目标）。
-- 规格：[20-project-file](20-project-file.md)。
+| 阶段 | 主题          | 交付                                              |
+| ---- | ------------- | ------------------------------------------------- |
+| 1    | 发布前工程债  | 拆大文件、纹理保活、边缘自动滚屏、运行时收窄      |
+| 2    | 开源发布 v1.0 | 发布清仓、仓库公开、CI 实证、GitHub Pages、v1.0.0 |
+| 3    | 1.0 后        | 可访问性大项、平台人工验收、可选能力              |
+| 4    | 协同          | 最后评估；不进入默认启动路径                      |
 
-### P1 多标签策略
+排序约束：
 
-- [x] 资产 GC 的 Web Locks 单写者：锁被占用时跳过本轮。
-- [x] 单写者 + 只读跟随（Web Locks 按文档排他锁）：先到者 leader，其余标签只读
-      （视图操作保留、写入/导入禁用、不落盘、不跑维护链），写者离开后 follower 自动接管
-      （整页刷新）；无 Web Locks 降级 solo。规格：[21-multi-tab](21-multi-tab.md)。
-- [x] 双标签只读/接管/维护链测试（`multiTab.spec` E2E，含「只读标签不跑维护链」
-      断言；GC 锁并发由 `withAssetGcLock` 单测覆盖）。
+- 运行时收窄是破坏性内部 API 变更，必须在 1.0 公开前完成；1.0 后只做兼容演进。
+- 拆大文件先行，降低后续三项的审查与回滚成本。
+- 纹理保活与边缘自动滚屏不改 Yjs 数据面，可独立提交、独立回退。
+- 开源发布要求代码面与仓库卫生稳定，排在工程债之后。
+- 协同依赖真实公开使用反馈，放最后；当前不建服务端、不改默认启动路径。
 
-### P1 存储可靠性
+### 阶段 1 — 发布前工程债
 
-- [x] 启动 refresh 一次 `persisted()/estimate()`；未持久化时申请一次 `persist()`，失败不抛（`StorageStatusService`，docs/02 §6.1）。
-- [x] 顶栏保存状态即存储入口：持久化授权 / 用量配额压力（warn ≥ 80%、critical ≥ 95%）可见；写失败可重试。
-- [x] 备份/恢复入口复用项目菜单（docs/20 §9），不复制导出/导入流程。
-- [x] 390px：面板视口 clamp、顶栏 44px 不换行（docId 截断），E2E 覆盖。
+阶段 1 内部建议顺序：拆大文件 → 纹理保活 → 边缘自动滚屏 → 运行时收窄。
+拆大文件先行降低后续审查成本；纹理/边缘相互独立可互换；运行时收窄最后，
+避免新代码与新探针二次迁移。
 
-### P1 资产/图片生命周期
+#### 1.1 拆大文件
 
-- [x] 快速切换 src 的在途加载竞态：token 化加载会话 + 纹理租约，
-      迟到结果只释放自己的租约（`ImageLoadController`，docs/19 §3）。
-- [x] 同图多实例纹理共享：按 assetId 引用计数，N 实例一份纹理一份 URL 计数
-      （`ImageTextureCache`，docs/19 §3）。
-- [x] 图片加载失败重试：http(s) 解码失败自动重试两次 + 双击画布手动重试、
-      占位四态区分（docs/19 §4）。
-- [x] GC 全库扫描启动成本：空库短路、批量删除（单批两事务）、每篇协作让出、
-      单轮软预算 1500ms 可中断（docs/19 §5）。
+目标：源码单文件 < 400 行；单测与 E2E 按域拆分到可读，不机械卡行数。
 
-### P2 UI / 可访问性
+- [ ] 核心源码（当前均 >400 行）：`lineMath.ts`、`lineService.ts`、`dbProvider.ts`、
+      `viewportService.ts`、`selectorService.ts`、`boardComposition.ts`、`textService.ts`、
+      `lineVm.ts`、`lineHoverOverlay.ts`、`types/widget.ts`。
+- [ ] 单测（当前均 >400 行）：`lineMath.test.ts`、`mindService.test.ts`、
+      `dbProvider.test.ts`、`mindDragDescendant.test.ts`、`shapeVm.test.ts`。
+- [ ] E2E spec（当前均 >400 行）：`widgets.spec.ts`、`mind.spec.ts`、
+      `textEdit.spec.ts`、`image.spec.ts`、`toolbar.spec.ts`、`align.spec.ts`、
+      `group.spec.ts`、`coverage.spec.ts`、`multiTab.spec.ts`、`rotate.spec.ts`。
+- 拆分纪律：只移动 + 改 import，不改断言/实现/默认值；每拆一个文件独立提交；
+  测试数与拆分前一致；`pnpm verify` 与相关 E2E 全绿。
+- E2E 拆分排在最后：按 spec 域逐文件提交，先拆 `widgets`/`mind`/`textEdit`，
+  不阻塞阶段 1 其余三项与阶段 2。
 
-- [x] 错误页/危险色对比度：语义色按角色拆分（danger-ink 文字 / accent-fill 填充，
-      WCAG 2.2 AA），对比度 E2E 护栏从计算样式取色（specs/a11y-mobile A1/A2）。
-- [x] 移动端完整布局断言：390×844 九面矩阵（`mobile.spec.ts` M1–M9），工具坞
-      防压缩、脑图按钮钳制、面板纵向兜底同批修复（specs/a11y-mobile A3）。
-- [x] 物理断网（editBlocked）单机不可达不变量：core 单测 + 断网 E2E
-      （specs/a11y-mobile A4）；单机不传 `wsUrl` → `editBlocked` 恒 false。
-- [x] 右键菜单键盘协议（批次 B W1）：role=menu + roving 焦点（五消费者共享
-      `a11y/rovingFocus`）、Shift+F10/Menu 键打开、菜单期快捷键全静默闸门、
-      焦点归还矩阵；E2E `a11yKeyboard.spec.ts`。
-- [x] 工具主题色对 soft 底对比度八组（W2）：`tool-*-ink` 按角色拆分（soft 底
-      前景统一 4.5:1，本体色留给画布图形）；a11y.spec 配对 13 → 21 组。
-- [x] 200% 缩放与安全区（W3）：320×640 重排（紧凑顶栏 `max-[379px]`）+ 720×450
-      缩放代理矩阵 `a11yLayout.spec.ts`；`viewport-fit=cover` + 四条 safe 变量
-      （E2E 覆盖注入路径）。
-- [x] 屏读巡检（W4）：画布 role=application + 帮助文本、Announcer 唯一播报源
-      （六字段差分）、五组控件可访问名扫描、焦点顺序契约（工具坞单停靠）。
+#### 1.2 纹理保活
 
-### P2 架构收口
+- [ ] `ImageTextureCache` 引用归零后进入保活窗口（建议 5s，可配置）；窗口内重新
+      acquire 复用同一纹理，窗口结束仍为零引用才 `destroy(true)`。
+- [ ] 双上限：保活条目数 + 估算显存；超限按 LRU 立即销毁。`dispose` 与页面
+      `pagehide` 清空全部定时器与条目。
+- [ ] 租约/GC 语义实现前定稿：保活条目是否继续持有 URL 租约、是否计入 GC 持活；
+      不允许 GC 误删仍可复用的资产。
+- [ ] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose 清理；undo 恢复
+      路径断言不重复 decode（注入计数）。
+- 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在窗口前后平衡。
+- 规格：docs/19 §3、specs/assets-lifecycle §3.2。
 
-- [x] `app.ts` 收敛为门面（< 400）：查询/销毁/调试/项目门面/配置外移为
-      board* 系列文件，17 条流 getter + 31 条命令纯委托上移 `BoardFacade` 基类。
-- [x] `boardCommands.ts` 宿主契约类型化（`IBoardCommandHost`，core 源码零 `any`）；
-      对齐/分布/微移、PNG 导出、样式写入分块（alignCommands/exportCommand/styleCommands）。
-- [x] `BoardPublicApi` 为 Pick allowlist：`BOARD_PUBLIC_MEMBERS`（64 成员）+
-      编译期分类锁（未归类/重叠/幽灵键三条，boardPublicApi.ts）；桥/命令模块
-      经 `BoardPublicApi` 收窄消费。
-- [x] 类型注册表单源：`WIDGET_RUNTIME`（token + 工厂单源，widgetRuntime.ts），
-      `WidgetDataUnion` 从 `WIDGET_REGISTRY` 派生 + 派生等价锁。
-- 运行时收窄（不导出 internal 字段）需破坏性版本化——挂账。
+#### 1.3 边缘自动滚屏
 
-### P2 CI / 视觉
+- [ ] 拖拽进入视口边缘热区时 rAF 平移 viewport，并按当前屏幕坐标重放 dragMove
+      补偿；速度按距边缘距离分档（docs/05 §4.5）。
+- [ ] 停止条件：松手、Esc、指针离开窗口、切只读、进入文本编辑；停止时清 rAF。
+- [ ] 覆盖画布控件拖拽；脑图节点拖拽是否复用同一滚屏服务，按 docs/11 的拖动
+      路径在实现时确认。
+- [ ] 与参考线吸附、选区框、ActionBar 跟随、最后一帧落库一致；禁止增量累加。
+- [ ] 测试：热区分档/速度曲线/停止条件/坐标补偿单测；E2E 拖到边缘后画布滚动且
+      落点正确。
+- 验收：`pnpm verify` + 定向 E2E；无 rAF 泄漏；一次拖拽只写一次 Yjs。
 
-- [x] Linux 视觉基线已落地（specs/linux-visual）：容器固定环境生成（双跑 SHA-256
-      全等 + 人工审图），CI visual 为真门禁；基线齐全护栏接入 verify 与 gate。
-- CI 实证挂账：Actions 恢复可用后普通 + update 两次 dispatch 补验
-  （specs/linux-visual §14.7）。
-- 新项目不保留“靠未跟踪 actuals 假绿”的做法。
+#### 1.4 运行时收窄
+
+- [ ] 公开面从类型 allowlist 变为运行时 allowlist：宿主拿到的实例只含
+      `BOARD_PUBLIC_MEMBERS`；internal 字段不可枚举、不可读、不可调用。
+- [ ] 调试面分离：DEV/E2E 的内部探针收敛到 `__debug` 单一入口；生产构建不携带
+      调试面，`SPINTH_E2E` 构建保留只读探针。
+- [ ] 迁移现有 E2E `__debug` 探针与桩测：优先改用公开查询/命令；必须保留的内部
+      断言改走调试入口。
+- [ ] 1.0 前完成并作为公开 API 基线；1.0 后不再做破坏性收窄。
+- [ ] 测试：运行时 allowlist（未列成员不可见/不可调用）、生产构建探针不存在、
+      E2E 全量绿；`BoardPublicApi` 类型锁继续保留。
+- 验收：`pnpm verify` + E2E 全量；宿主侧无 internal 字段可读。
+- 规格：specs/api-surface §1.2/A9、docs/12。
+
+### 阶段 2 — 开源发布 v1.0
+
+#### 2.1 发布清仓
+
+- [ ] 许可证与第三方声明：LICENSE（MIT 候选，待拍板）、THIRD_PARTY_NOTICES。
+- [ ] 对外 README：定位、在线 Demo、截图/GIF、功能、快速开始、架构、浏览器支持、
+      隐私（无账号/无遥测）、License、Contributing；语言策略待拍板。
+- [ ] 社区文件：CONTRIBUTING、CODE_OF_CONDUCT、SECURITY、Issue/PR 模板、CHANGELOG。
+- [ ] 版本与页面元信息：1.0.0、OG/Twitter/canonical/robots、社交预览图。
+- [ ] 仓库卫生：`pnpm hygiene`、全历史密钥/邮箱/本机路径扫描、依赖许可证、
+      大文件检查。
+- 验收：README 可对外；`pnpm verify` 绿；无隐私/来源残留。
+
+#### 2.2 仓库公开与 CI 实证
+
+- [ ] 本地全量门禁绿后再改 public；公开不可逆，先清仓。
+- [ ] Actions 恢复后跑 gate/timing/multitab/visual 四个 job。
+- [ ] 补 specs/linux-visual §14.7 的两次 dispatch（普通 + 坏基线 update）。
+- [ ] main 分支保护：CI 必过。
+- 验收：四 job 绿；visual 真门禁；dispatch 挂账关闭。
+
+#### 2.3 GitHub Pages 上线
+
+- [ ] 子路径构建 `SPINTH_BASE=/<repo>/` + `check-pages-build`；本地子路径预览
+      验证 SW scope、manifest、离线刷新、更新横幅、`?doc=`。
+- [ ] Settings → Pages → Source = GitHub Actions（先启用再触发 `pages.yml`）。
+- [ ] 线上验收：首屏、资源 200、PWA 安装、断网刷新、更新横幅、移动端、
+      Lighthouse、CSP 零 violation。
+- [ ] README 加 Demo 链接与 badges；仓库 homepage 填 Pages 地址。
+- 验收：Pages 地址可用；线上 smoke 全过。
+
+#### 2.4 v1.0.0 发布
+
+- [ ] 打 tag + GitHub Release；release notes 按用户价值写。
+- [ ] 同步 docs/13 与 AGENTS 基线；1.0.x 只修 bug。
+- 验收：Release 完整；后续破坏性变更走主版本。
+
+### 阶段 3 — 1.0 后
+
+#### 3.1 可访问性
+
+- 小项先收：宿主浮层快捷键闸门、touch/pen 自动化、ActionBar 安全区性能、
+  roving autoFocus 单测。
+- 大项后做：画布内容朗读（独立内容层）、px→rem 全量迁移、ToolFlyout Tab 顺序、
+  ToolGhost/画布图形对比度（需产品判断）。
+- 规格：specs/a11y-closeout §13.5。
+
+#### 3.2 平台人工验收
+
+- VoiceOver M1–M8（specs/a11y-closeout §8.7）。
+- iOS/Android 添加到主屏幕的启动形态与图标裁切（specs/pwa §14）。
+
+#### 3.3 可选能力
+
+- 拖放 `.spinth.zip` 导入（docs/20 §1.2 当前非目标）。
+- 其他按真实使用反馈立项，不预先扩表。
+
+### 阶段 4 — 协同（最后）
+
+- 前置评估按 docs/10；只有 1.0 稳定且有真实多设备需求才启动。
+- 不建 `packages/server`，不把 `y-websocket` 放进默认启动路径，不改单机离线语义。
+- 启动时先补 editBlocked 交互面矩阵（docs/21 §4）与 Awareness/wsProvider 边界。
+
+### 已完成批次（归档）
+
+- 项目导出/导入（docs/20）、多标签单写者/只读（docs/21）、存储可靠性（docs/02 §6.1）。
+- 资产/图片生命周期（docs/19）、PWA/Service Worker（specs/pwa.md）。
+- Linux 视觉基线（specs/linux-visual.md）、API 收口（specs/api-surface.md）。
+- 可访问性批次 A/B（specs/a11y-mobile.md、specs/a11y-closeout.md）。
 
 ## 3. 决策与挂账
 
+- 阶段顺序：工程债 → 开源发布 → 1.0 后 → 协同；协同不进入当前版本默认路径。
+- 1.0 是首个公开 API 基线：运行时收窄在 1.0 前完成；1.0 后破坏性变更走主版本。
+- 纹理保活窗口的 URL 租约与 GC 可见性在实现前定稿；保活不得让 GC 误删仍可复用的资产（docs/19 §3）。
+- 边缘自动滚屏只作用于拖拽，不改视口持久化；速度分档与停止条件按 docs/05 §4.5。
 - 空间索引 + culling 的 MIND_MAP 豁免：树增长不触发几何 diff，整图一个渲染单元；
   索引会过期，因此豁免 culling。
 - LINE 选区交互：线不可整体拖动/缩放；拖线身 = 段滑移，端点 = 重锚定。
-- 边缘自动滚屏：规格保留，未实现。
 - 纹理按 assetId 共享（引用归零销毁；data/http 不缓存）、GC 单轮软预算 + mark 中断零删除（docs/19）。
-- 纹理保活缓存（VM 删除后保留 N 秒省一次重解码）：未做，undo 恢复接受重解码。
+  保活窗口在此基础上扩展，不改变归零销毁的最终语义。
 - 多标签：单写者 + 只读跟随，接管 = 整页刷新，不做实时同步（docs/21）。
 - 只读态收口分层：core 修语义（右键不建选区、降级序列、工具钳制），react 修呈现（持久铬件禁用、浮动件随附着对象隐藏）；命令层守卫是安全网不是呈现面（docs/21 §4）。
 - 项目文件格式、导入语义、ZIP 依赖：`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning（docs/20）。
@@ -114,6 +191,8 @@
 - PWA/Service Worker 已落地：manifest + 子路径 SW + 预缓存清单 + 可控更新横幅
   （specs/pwa.md）。Linux 视觉基线已落地（specs/linux-visual），平台侧剩余
   挂账为 CI 实证（Actions 恢复后普通 + update 两次 dispatch 补验）。
+- 视觉基线不保留「靠未跟踪 actuals 假绿」的做法；基线必须入库并由
+  `check-visual-baselines` 守护。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
@@ -122,3 +201,5 @@
   （portal 方案与 390px 裁剪约束冲突，需另案权衡）、指针主键过滤的 touch/pen
   自动化覆盖、ActionBar 渲染期读安全区的性能小债、roving autoFocus 重渲染
   不抢焦点的定点单测——specs/a11y-closeout §13.5。
+- 开源发布待拍板：LICENSE（MIT 候选）、README 语言、作者邮箱/历史提交元数据
+  是否重写、是否使用自定义域名。
