@@ -51,9 +51,12 @@ for (const stem of stems) {
 
 // 3. 目录内不得有白名单之外的文件（未知平台 / -actual / -expected / -diff / 空文件）
 const allowed = new Set(stems.flatMap((s) => PLATFORMS.map((p) => `${s}-${p}.png`)));
+const unknown = [];
 for (const name of fs.readdirSync(SNAP_DIR)) {
-  if (!allowed.has(name))
+  if (!allowed.has(name)) {
     fail(`基线目录出现未纳管文件：${path.join(path.relative(ROOT, SNAP_DIR), name)}`);
+    unknown.push(name);
+  }
 }
 
 if (failures.length > 0) {
@@ -69,7 +72,9 @@ if (failures.length > 0) {
         'npx playwright test --grep @visual --update-snapshots',
     );
   }
-  console.error('  指引：目录内未纳管文件（-actual 等）请删除，勿改名顶替基线');
+  if (unknown.length > 0) {
+    console.error('  指引：目录内未纳管文件（-actual 等）请删除，勿改名顶替基线');
+  }
   process.exitCode = 1;
 } else {
   console.log(

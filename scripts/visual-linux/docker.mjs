@@ -39,7 +39,7 @@ export function dockerfileBaseRef(version) {
     .readFileSync(DOCKERFILE, 'utf8')
     .match(/^FROM (mcr\.microsoft\.com\/playwright\S*)/m)?.[1];
   if (!from) die(2, 'Dockerfile 未找到 mcr playwright base 的 FROM 行');
-  return from.replace('v${PLAYWRIGHT_VERSION}-noble', `v${version}-noble`);
+  return from.replace(/\$\{PLAYWRIGHT_VERSION\}/g, version);
 }
 
 export function readDockerfileVersion() {
@@ -48,8 +48,9 @@ export function readDockerfileVersion() {
   const dockerfile = fs.readFileSync(DOCKERFILE, 'utf8');
   const from = dockerfile.match(/^FROM (mcr\.microsoft\.com\/playwright\S*)/m)?.[1];
   const refOk =
-    from === 'mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble' ||
-    /^mcr\.microsoft\.com\/playwright(:v\S+)?@sha256:[0-9a-f]{64}$/.test(from ?? '');
+    /^mcr\.microsoft\.com\/playwright:v\$\{PLAYWRIGHT_VERSION\}-[A-Za-z0-9._-]+$/.test(
+      from ?? '',
+    ) || /^mcr\.microsoft\.com\/playwright(:v\S+)?@sha256:[0-9a-f]{64}$/.test(from ?? '');
   if (!refOk) {
     die(
       2,
@@ -57,7 +58,8 @@ export function readDockerfileVersion() {
     );
   }
   const m = dockerfile.match(/^ARG PLAYWRIGHT_VERSION=(\S+)/m);
-  if (!m) die(2, 'Dockerfile 未找到 ARG PLAYWRIGHT_VERSION 默认值');
+  if (!m)
+    die(2, 'Dockerfile 未找到 ARG PLAYWRIGHT_VERSION 默认值（digest pin 形态仍需保留版本声明）');
   return m[1];
 }
 
@@ -220,21 +222,27 @@ export function containerCreate(name, tag) {
   }
   runArgs.push(tag, 'sleep', 'infinity');
   sh('docker', runArgs);
-  // run 成功即注册清理：后续 exec/chown/cp 任一步失败，die 也不会留下孤儿容器
-  makeCleanup(name);
-  sh('docker', ['exec', '-u', '0:0', name, 'mkdir', '-p', '/work/src', '/tmp/home']);
-  sh('docker', [
-    'exec',
-    '-u',
-    '0:0',
-    name,
-    'chown',
-    `${process.getuid()}:${process.getgid()}`,
-    '/work/src',
-    '/tmp/home',
-  ]);
-  log(`拷入源码副本 → ${name}:/work/src ……`);
-  sh('docker', ['cp', `${WORK_SRC}/.`, `${name}:/work/src`]);
+  // run 成功即注册清理：后续 exec/chown/cp 抛错时由本函数 catch 调 cleanup，
+  // 调用方再拿到同一实例；不会留下孤儿容器（specs §14.8）
+  const cleanup = makeCleanup(name);
+  try {
+    sh('docker', ['exec', '-u', '0:0', name, 'mkdir', '-p', '/work/src', '/tmp/home']);
+    sh('docker', [
+      'exec',
+      '-u',
+      '0:0',
+      name,
+      'chown',
+      `${process.getuid()}:${process.getgid()}`,
+      '/work/src',
+      '/tmp/home',
+    ]);
+    log(`拷入源码副本 → ${name}:/work/src ……`);
+    sh('docker', ['cp', `${WORK_SRC}/.`, `${name}:/work/src`]);
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
 }
 
 export function execIn(name, script, env = {}) {
