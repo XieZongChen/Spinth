@@ -1,7 +1,7 @@
 # Linux 视觉基线：技术方案与架构设计
 
-> 状态：**已实施（本地全链验证，2026-10）**——实施档案与偏差见 §14.5，两轮
-> 返工见 §14.6–§14.7；CI 实证挂账（Actions 因私有仓库计费不可用，恢复后
+> 状态：**已实施（本地全链验证，2026-10）**——实施档案与偏差见 §14.5，三轮
+> 返工见 §14.6–§14.8；CI 实证挂账（Actions 因私有仓库计费不可用，恢复后
 > 普通 + update 两次 dispatch 补验，见 §14.7）。
 > 审查记录见 §14。
 > 范围：为现有 4 个 `@visual` 用例生成并校验 Linux 基线，把 CI visual 层从「试运行挂账」升为真门禁；不改产品渲染、交互与数据流。
@@ -636,6 +636,26 @@ b2144ef4b945cd0ec262782f6b47cf5bfffd432516f0e2b640ea935ce756fcbd  theme-light-li
 CI 实证验收口径（Actions 恢复后）：**两次 dispatch**——普通 dispatch 验
 gate 基线检查 + visual 校验分支；带坏基线的 update dispatch 验「跳过校验 →
 生成 → artifact」整条路径（两步骤条件互斥，一次 dispatch 覆盖不了两条）。
+
+### 14.8 第三轮审查返工（2026-10）
+
+第三轮复审确认 P1/P2 已修、skip 假绿已实证；补掉事务与清理的两个边缘：
+
+- **update 事务覆盖全部回写后失败**：`rollback()` 改为幂等、逐文件 best-effort，
+  并注册进 `CLEANUPS`；copy 自身 / `rsyncWork` / 复验容器创建 / 复验
+  install+preflight / `collectEnvironment` / `writeArtifact` 任一失败都回滚；
+  成功才 unregister。`installDeps`/`preflight` 的 `die` 也会触发 CLEANUPS 回滚。
+- **containerCreate 抛错自清理**：`docker run` 成功后 try exec/chown/cp；任一步
+  抛错先 cleanup 再 rethrow，调用方不再依赖 `die` 才能清理孤儿容器。
+- **digest 引用通用化**：`dockerfileBaseRef` 用 ${PLAYWRIGHT_VERSION} 通用替换；
+  `readDockerfileVersion` 接受任意后缀变量 tag（`-noble` / `-jammy` 等）与
+  tag+digest、纯 digest；digest 形态仍需保留 ARG 版本声明。
+- **护栏提示收窄**：缺 linux / 缺 darwin / 未纳管文件按实际缺失分别打印；
+  `stemsError` 不再附带无关的未纳管指引。
+- **复跑**：`pnpm verify`；Linux 校验 4/4；stability 5 张全等；临时
+  `test.skip` → `--update` exit 3；update artifact `base_digest` 单值；
+  macOS visual 4/4。
+- **CI 实证**仍为两次 dispatch（普通 + 坏基线 update），见 §14.7。
 
 ## 15. 附录
 
