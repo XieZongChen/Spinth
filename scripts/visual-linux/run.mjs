@@ -11,7 +11,7 @@ import { CACHE, ROOT, SNAPSHOTS_REL, SPEC, WORK_SRC } from './config.mjs';
 import { containerCreate, execIn, makeCleanup, rsyncWork, stripLinuxBaselines } from './docker.mjs';
 import { collectEnvironment, printPngHashes, writeArtifact } from './artifact.mjs';
 import { extractVisualStems } from './stems.mjs';
-import { die, log, sh, tailOf } from './util.mjs';
+import { die, log, registerCleanup, sh, tailOf, unregisterCleanup } from './util.mjs';
 
 /** 容器内依赖安装（corepack 由镜像内 node 24 自带；shim 装进 HOME/bin 供 webServer 用 pnpm） */
 export function installDeps(name) {
@@ -153,46 +153,58 @@ export async function runOnce(tag, pkgVersion, { update }) {
         }
       }),
     );
-    for (const f of linuxPngs) fs.copyFileSync(path.join(staged, f), path.join(hostSnap, f));
-    log(`已回写 ${linuxPngs.length} 张基线到 ${SNAPSHOTS_REL}/，开始复验……`);
 
-    // 回写后任何一步失败（复验/环境采集/artifact 落盘）都回滚宿主基线：
-    // 不允许「基线已改而产物/复验缺失」的半成品状态
+    // 回写后任何一步失败（copy 自身 / rsync / 复验容器 / 安装预检 / 环境采集 /
+    // artifact）都回滚宿主基线；rollback 同时注册进 CLEANUPS，installDeps/
+    // preflight 的 die 也能触发，不允许「基线已改而产物/复验缺失」的半成品。
+    let rolledBack = false;
     const rollback = () => {
+      if (rolledBack) return;
+      rolledBack = true;
       for (const [f, state] of trackedBefore) {
         const target = path.join(hostSnap, f);
-        if (state === 'tracked') sh('git', ['checkout', '--', target]);
-        else fs.rmSync(target, { force: true });
+        try {
+          if (state === 'tracked') sh('git', ['checkout', '--', target]);
+          else fs.rmSync(target, { force: true });
+        } catch (err) {
+          console.error(
+            `[visual-linux] 回滚失败 ${f}：${String(err?.message ?? err)}（请人工检查 git status）`,
+          );
+        }
       }
     };
+    registerCleanup(rollback);
 
-    // 复验用全新 work + 新容器：确保读的是宿主回写后的基线
-    rsyncWork();
-    const verifyName = `spinth-visual-reverify-${Date.now()}`;
-    containerCreate(verifyName, tag);
-    const verifyCleanup = makeCleanup(verifyName);
-    let env;
     try {
-      installDeps(verifyName);
-      preflight(verifyName, pkgVersion);
-      if (playwrightRun(verifyName, false) !== 0) {
-        rollback();
-        fail(3, '复验失败：已回滚本次回写的基线——先排查环境或截图稳定性，再重试 update');
+      for (const f of linuxPngs) fs.copyFileSync(path.join(staged, f), path.join(hostSnap, f));
+      log(`已回写 ${linuxPngs.length} 张基线到 ${SNAPSHOTS_REL}/，开始复验……`);
+
+      // 复验用全新 work + 新容器：确保读的是宿主回写后的基线
+      rsyncWork();
+      const verifyName = `spinth-visual-reverify-${Date.now()}`;
+      containerCreate(verifyName, tag);
+      const verifyCleanup = makeCleanup(verifyName);
+      let env;
+      try {
+        installDeps(verifyName);
+        preflight(verifyName, pkgVersion);
+        if (playwrightRun(verifyName, false) !== 0) {
+          fail(3, '复验失败：已回滚本次回写的基线——先排查环境或截图稳定性，再重试 update');
+        }
+        env = collectEnvironment(verifyName);
+      } finally {
+        verifyCleanup();
       }
-      env = collectEnvironment(verifyName);
-    } finally {
-      verifyCleanup();
-    }
 
-    try {
       writeArtifact(tag, pkgVersion, env);
+      printPngHashes(hostSnap, 'linux');
+      log('update 完成：人工审图（3 张含中文）后方可提交（specs §9 纪律）');
+      unregisterCleanup(rollback);
+      return 0;
     } catch (err) {
       rollback();
-      fail(3, `update 产物写入失败（${String(err?.message ?? err)}）：已回滚本次回写的基线`);
+      die(3, `update 失败：已回滚本次回写的基线（${String(err?.message ?? err)}）`);
     }
-    printPngHashes(hostSnap, 'linux');
-    log('update 完成：人工审图（3 张含中文）后方可提交（specs §9 纪律）');
-    return 0;
   } finally {
     cleanup();
   }
