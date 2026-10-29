@@ -1,16 +1,8 @@
 import { Disposable } from '../../base/disposable';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { ISelectorService, IVmEngineService, IViewportService } from '../../types';
-import {
-  anchorOf,
-  capsuleAnchors,
-  dotOffsetCenter,
-  effectivePath,
-  nearestSegBody,
-  SEGMENT_BODY_TOLERANCE,
-  type IPt,
-  type JoinDir,
-} from './lineMath';
+import { anchorOf, capsuleAnchors, effectivePath, type IPt, type JoinDir } from './lineMath';
+import { JOINS, dotSnapshots, nearestDot, resolveLineHover } from './lineHoverMath';
 import { LineAnchorIndicator } from './lineAnchorIndicator';
 import { LineEndpointHandles } from './lineEndpointHandles';
 import { LineSegmentHandles } from './lineSegmentHandles';
@@ -24,9 +16,8 @@ import type { LineVm } from './lineVm';
  * 会话状态（drawingId/editingId/endpointDrag/segSlide…）归属宿主——经
  * ILineOverlayHost 的窄语义查询读取；quick-add 决策经 host 回调转发
  * （刀 3 后指向 LineQuickAdd 协作者，本类不感知）。
+ * 悬停命中与外移点几何单源在 lineHoverMath（纯函数）。
  */
-
-const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
 
 /** 宿主回调：会话状态查询 + quick-add 决策转发（MindNodeEditor 模式窄面） */
 export interface ILineOverlayHost {
@@ -185,20 +176,14 @@ export class LineHoverOverlay extends Disposable {
     const geom = first.getHostGeom();
     this.indicator.show(geom);
     this.hoverTarget = { id: first.id, geom };
-    this.anchorHoverSnapshot = this.dotSnapshots(geom);
+    this.anchorHoverSnapshot = dotSnapshots(geom, this.viewport.vpScale$.value || 1);
     this.anchorActiveSnapshot = null;
     this.ghostPreview.hide();
     // 模型几何变化（拖拽落库/键盘微移/undo/远端）→ 四点跟随
     this.targetSub = first.onStateChanged$.subscribe(() => this.followQuickDots());
   }
 
-  /** 四向外移点坐标快照（快照供 E2E 探针 + hover 命中判定共用） */
-  private dotSnapshots(geom: IHostGeom): Array<{ x: number; y: number }> {
-    return JOINS.map((j) => {
-      const c = this.dotCenter(geom, j);
-      return { x: c.x, y: c.y };
-    });
-  }
+  /** 四向外移点坐标快照与最近点几何单源在 lineHoverMath（dotSnapshots/nearestDot） */
 
   /**
    * 选中形状的四向连接点跟随（三通道共用）：selector 拖拽（dragMove$）、
@@ -219,7 +204,7 @@ export class LineHoverOverlay extends Disposable {
     const geom = vm.getHostGeom();
     this.indicator.show(geom, this.anchorActiveSnapshot);
     this.hoverTarget = { id: vm.id, geom };
-    this.anchorHoverSnapshot = this.dotSnapshots(geom);
+    this.anchorHoverSnapshot = dotSnapshots(geom, this.viewport.vpScale$.value || 1);
   }
 
   /**
@@ -250,44 +235,21 @@ export class LineHoverOverlay extends Disposable {
         if (pts.length >= 2) {
           const world = this.viewport.clientToWorld(e.clientX, e.clientY);
           const scale = this.viewport.vpScale$.value || 1;
-          const grab = 12 / scale;
-          const dS = Math.hypot(world.x - pts[0]!.x, world.y - pts[0]!.y);
-          const dE = Math.hypot(world.x - pts[pts.length - 1]!.x, world.y - pts[pts.length - 1]!.y);
-          const endpointActive = dS <= grab ? 0 : dE <= grab ? 1 : null;
-          // 段身 hover（2026-09-30 参考视频对齐）：距段线身 ≤8/scale 即命中
-          // （线身任意点可拖），胶囊高亮仍限主段（短段无手柄）；CURVE/STRAIGHT
-          // 无段语义不参与（不亮胶囊也不给方向光标）
-          let segmentActive: number | null = null;
-          let hoverSegIndex = -1;
-          if (endpointActive === null && (line.state.lineType ?? 'ELBOWED') === 'ELBOWED') {
-            const seg = nearestSegBody(pts, world, SEGMENT_BODY_TOLERANCE / scale);
-            if (seg) {
-              hoverSegIndex = seg.index;
-              // 胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段）
-              const k = capsuleAnchors(pts, scale, line.knockoutRectDebug).findIndex(
-                ({ index }) => index === seg.index,
-              );
-              segmentActive = k >= 0 ? k : null;
-            }
-          }
-          this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale, endpointActive);
-          this.showSegmentHandles(pts, scale, segmentActive, line);
-          this.endpointActiveSnapshot = endpointActive;
-          // cursor 反馈：端点 = grab（拖拽重锚定）、段身 = 拖动方向（法向）
-          // 的双向箭头——水平段上下拖 ↕ ns-resize / 垂直段左右拖 ↔ ew-resize
-          // （与矩形缩放手柄同惯例：光标指拖向，用户实测 2026-09-30 定向）；
-          // 离开恢复模式默认
-          let hover: string | null = null;
-          if (endpointActive !== null) {
-            hover = 'grab';
-          } else if (hoverSegIndex >= 0) {
-            const a = pts[hoverSegIndex]!;
-            const b = pts[hoverSegIndex + 1]!;
-            hover = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? 'ns-resize' : 'ew-resize';
-          }
-          if (hover) {
+          const hit = resolveLineHover(
+            pts,
+            line.state.lineType ?? 'ELBOWED',
+            line.knockoutRectDebug,
+            world,
+            scale,
+          );
+          this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale, hit.endpointActive);
+          this.showSegmentHandles(pts, scale, hit.segmentActive, line);
+          this.endpointActiveSnapshot = hit.endpointActive;
+          // cursor 反馈（判定单源 lineHoverMath）：端点 = grab（拖拽重锚定）、
+          // 段身 = 拖动方向（法向）的双向箭头；离开恢复模式默认
+          if (hit.hoverCursor) {
             this.hoverCursorSet = true;
-            this.viewport.setHoverCursor(hover);
+            this.viewport.setHoverCursor(hit.hoverCursor);
           } else {
             this.resetHoverCursor();
           }
@@ -303,12 +265,9 @@ export class LineHoverOverlay extends Disposable {
     }
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
     const scale = this.viewport.vpScale$.value || 1;
-    const grabRadius = 12 / scale;
-    // 最近外移点（≤抓取半径 = hover 命中，与按下抓取 maybeShapeAnchorGrab 同口径）
-    const nearest = JOINS.map((j) => ({ j, c: this.dotCenter(target.geom, j) }))
-      .map(({ j, c }) => ({ j, d: Math.hypot(c.x - world.x, c.y - world.y) }))
-      .sort((p, q) => p.d - q.d)[0]!;
-    if (nearest.d <= grabRadius) {
+    // 最近外移点（≤抓取半径 12/scale = hover 命中，与按下抓取 maybeShapeAnchorGrab 同口径）
+    const nearest = nearestDot(target.geom, world, scale);
+    if (nearest.d <= 12 / scale) {
       const anchor = anchorOf(target.geom.rect, nearest.j, target.geom.rotation);
       const sb = this.vmEngine.getVmById(target.id)?.getBounds() ?? null;
       const sbFull = sb ?? { x: anchor.x, y: anchor.y, width: 120, height: 80 };
@@ -323,14 +282,10 @@ export class LineHoverOverlay extends Disposable {
     }
     // 四点常显 + 指针贴近外移点时高亮
     this.indicator.show(target.geom, this.anchorActiveSnapshot);
-    this.anchorHoverSnapshot = this.dotSnapshots(target.geom);
+    this.anchorHoverSnapshot = dotSnapshots(target.geom, scale);
   };
 
-  /** 连接点外移点中心（edge 锚点 + 法向 24px——与指示器绘制同源，避开边中点缩放手柄） */
-  private dotCenter(geom: IHostGeom, j: JoinDir): IPt {
-    // 1.8③：外移量屏幕恒定（与抓取圆心同源）
-    return dotOffsetCenter(geom.rect, j, geom.rotation, this.viewport.vpScale$.value || 1);
-  }
+  /** 外移点中心单源在 lineHoverMath.dotCenter（overlay 调用处传 scale） */
 
   private clearQuickAnchor(): void {
     this.ghostPreview.hide();
