@@ -7,31 +7,22 @@ import {
   effectivePath,
   insetEnds,
   LINE_END_GAP,
-  pointAtRatio,
-  polylineHit,
   segmentDirection,
   slicePathByDash,
   slicePathExcludingRect,
   type IPt,
 } from './lineMath';
-import { htmlToPlainText } from '../text/textVm';
-import { defaultLineTextColor } from '../../platform/textEngine/theme';
+import { computeLineTextKnockout, createLineTextNode } from './lineVmText';
+import { hitTestLinePoint, hitTestLineText } from './lineVmHit';
 import { markRender } from '../../common/render';
 import type { LineData } from '../../types';
 
-/** 命中容差余量（世界像素）：tol = strokeWidth + 6（线宽笔宽批——默认 2 恰等
- *  原定常 8 零默认变化；粗线放宽保可选中性。penVm「strokeWidth + 4」同族口径） */
-const HIT_TOLERANCE_BASE = 6;
+// 线上文字常量单源在 lineVmText（编辑 DOM 与渲染同源消费）；此处 re-export
+// 保持 lineTextEditor 等外部消费者的 import 路径不变
+export { LINE_TEXT_FONT_SIZE, LINE_TEXT_LINE_HEIGHT } from './lineVmText';
+
 const ARROW_LEN = 10;
 const ARROW_ANGLE = Math.PI / 7; // ~26° 开放箭头
-/** 线上文字（视觉规格：12px 深灰，白底由镂空切分自然形成） */
-export const LINE_TEXT_FONT_SIZE = 12;
-/** 线上文字行高（倍数，视觉规格 1.4）——编辑 DOM（lineTextEditor）与 pixi 渲染
- *  （ensureTextNode 经 fontSize×此值换算像素）同源消费；此前渲染未设行高按 1.0
- *  倍度量，编辑/退出两态文字高度跳变（批 lineHeight 顺修同源） */
-export const LINE_TEXT_LINE_HEIGHT = 1.4;
-/** 镂空矩形相对文字 bbox 的外扩（视觉规格：文字四周留白） */
-const KNOCKOUT_PADDING = 4;
 /** 虚线周期（视觉规格：与 shape dashed 同节奏） */
 const DASH_PATTERN = [8, 6] as const;
 
@@ -149,40 +140,15 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
     // 镂空宽用 Text 实测而非字符数估算——中文每字约 1em，0.62 系数会窄 40%，
     // 线会从文字两端穿过（外部审查揪出）。Text 实例常驻复用（文字不变只挪位置，
     // 节点拖拽带动连线跟随时不再每帧重建 canvas 栅格化纹理）。
-    const plain = htmlToPlainText(style.text || '');
-    let knockout: Rectangle | null = null;
-    let textAnchor: IPt | null = null;
-    const hasText = plain.trim().length > 0;
+    // 编辑期镂空 = 编辑器框实测矩形：空文字（未落库）即断线，且框含
+    // padding/border 比文字 bbox 大一圈——按 bbox 切线会从框边缘穿过
+    //（2026-10-02 用户实测揪出）
     const textNode = this.ensureTextNode();
-    if (this._textEditing && this._editorFrame) {
-      // 编辑期镂空 = 编辑器框实测矩形：空文字（未落库）即断线，且框含
-      // padding/border 比文字 bbox 大一圈——按 bbox 切线会从框边缘穿过
-      //（2026-10-02 用户实测揪出）
-      textAnchor = pointAtRatio(pts, style.textRatio).point;
-      knockout = new Rectangle(
-        textAnchor.x - this._editorFrame.width / 2,
-        textAnchor.y - this._editorFrame.height / 2,
-        this._editorFrame.width,
-        this._editorFrame.height,
-      );
-    } else if (hasText) {
-      // per-实例排版 override（docs/17 §4）：style 可变——赋值触发重栅格化，
-      // Text 实测宽高变化后镂空/滑移命中自动跟随
-      const fs = style.fontSize ?? LINE_TEXT_FONT_SIZE;
-      const fill = hexToNum(style.textColor ?? defaultLineTextColor());
-      // 行高同源（批 lineHeight 顺修）：pixi lineHeight 是像素单位 = fs × 1.4，
-      // 与编辑 DOM 的 1.4 倍逐像素一致——消除编辑/退出两态高度跳变
-      const lh = fs * LINE_TEXT_LINE_HEIGHT;
-      if (textNode.style.fontSize !== fs) textNode.style.fontSize = fs;
-      if (textNode.style.lineHeight !== lh) textNode.style.lineHeight = lh;
-      if (textNode.style.fill !== fill) textNode.style.fill = fill;
-      if (textNode.text !== plain) textNode.text = plain;
-      const { point } = pointAtRatio(pts, style.textRatio);
-      textAnchor = point;
-      const w = textNode.width + KNOCKOUT_PADDING * 2;
-      const h = textNode.height + KNOCKOUT_PADDING * 2;
-      knockout = new Rectangle(point.x - w / 2, point.y - h / 2, w, h);
-    }
+    const { knockout, textAnchor, hasText } = computeLineTextKnockout(pts, style, {
+      textEditing: this._textEditing,
+      editorFrame: this._editorFrame,
+      textNode,
+    });
     this._lastKnockout = knockout
       ? { x: knockout.x, y: knockout.y, width: knockout.width, height: knockout.height }
       : null;
@@ -212,17 +178,7 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
   /** 线上文字节点（常驻，drawLine 只更新 text/style/visible/position） */
   private ensureTextNode(): Text {
     if (!this.textSprite) {
-      this.textSprite = new Text({
-        text: '',
-        style: {
-          fontFamily: 'sans-serif',
-          fontSize: LINE_TEXT_FONT_SIZE,
-          lineHeight: LINE_TEXT_FONT_SIZE * LINE_TEXT_LINE_HEIGHT,
-          fill: hexToNum(defaultLineTextColor()),
-          align: 'center',
-        },
-      });
-      this.textSprite.anchor.set(0.5);
+      this.textSprite = createLineTextNode();
       this.g.addChild(this.textSprite);
     }
     return this.textSprite;
@@ -330,43 +286,14 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
   }
 
   hitTestPoint(p: Point): boolean {
-    // 视觉位置 = points + root 偏移（拖拽预览中 root 携带 delta），先把点转回 points 坐标系；
-    // 命中沿视觉语义路径（STRAIGHT 只测首尾线段，不测残留拐点）
-    const lx = p.x - this.root.x;
-    const ly = p.y - this.root.y;
-    const pts = effectivePath(
-      this.state.points.map((q) => ({ x: q[0], y: q[1] })),
-      this.state.lineType,
-    );
-    // 屏幕恒定容差（Batch 1 · 1.8①）：worldTransform.a = 全局缩放（含 viewport
-    // zoom；预览位移不改变它）——低 zoom 世界 tol 缩成亚像素点不中、高 zoom 过宽误选
-    const s = Math.abs(this.root.worldTransform.a) || 1;
-    return polylineHit(
-      { x: lx, y: ly },
-      pts,
-      ((this.state.strokeWidth ?? 2) + HIT_TOLERANCE_BASE) / s,
-    );
+    // 命中数学单源在 lineVmHit（视觉语义路径 + 屏幕恒定容差）
+    return hitTestLinePoint(p, this.root, this.state);
   }
 
   /** 线上文字 bbox 命中（世界坐标；文字滑移手势抓取判定，docs/08 §6 批次 3）。
    *  bbox 与渲染镂空同源：Text 实测尺寸 + KNOCKOUT_PADDING 外扩 */
   hitTestText(p: Point): boolean {
-    if (!this.textSprite || !this.textSprite.visible) return false;
-    const lx = p.x - this.root.x;
-    const ly = p.y - this.root.y;
-    const pts = effectivePath(
-      this.state.points.map((q) => ({ x: q[0], y: q[1] })),
-      this.state.lineType,
-    );
-    const { point } = pointAtRatio(pts, this.state.textRatio);
-    const w = this.textSprite.width + KNOCKOUT_PADDING * 2;
-    const h = this.textSprite.height + KNOCKOUT_PADDING * 2;
-    return (
-      lx >= point.x - w / 2 &&
-      lx <= point.x + w / 2 &&
-      ly >= point.y - h / 2 &&
-      ly <= point.y + h / 2
-    );
+    return hitTestLineText(p, this.root, this.state, this.textSprite);
   }
 
   /** 文字滑移视觉预览（零模型写——手势期铁律 docs/00 ④；松手落库 textRatio）。
