@@ -1,7 +1,6 @@
 import { BehaviorSubject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
-import { genId } from '../../utils/id';
-import { LineTypeSchema, type IActionBarOption } from '../../types';
+import { LineTypeSchema } from '../../types';
 import type {
   IDataEngineService,
   IEditingService,
@@ -13,20 +12,9 @@ import type {
   ShapeType,
   LineType,
 } from '../../types';
-import {
-  anchorOf,
-  dotOffsetCenter,
-  effectivePath,
-  nearestJoin,
-  quantizeJoin,
-  r2,
-  routeElbow,
-  type IPt,
-  type JoinDir,
-} from './lineMath';
-import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
+import { anchorOf, effectivePath, type IPt, type JoinDir } from './lineMath';
 import type { LineVm } from './lineVm';
-import type { IHostGeom, IRect } from '../../common/geometry';
+import type { IHostGeom } from '../../common/geometry';
 import type { Point } from 'pixi.js';
 import { LineHoverOverlay } from './lineHoverOverlay';
 import { LineQuickAdd, type ILineAnchorData } from './lineQuickAdd';
@@ -34,9 +22,8 @@ import { LineAnchorFollow } from './lineAnchorFollow';
 import { LineEndpointDrag } from './lineEndpointDrag';
 import { LineSegTextSlide } from './lineSegTextSlide';
 import { LineTextEditor } from './lineTextEditor';
-
-/** 拉线过程路由落库节流（外部审查：每个 pointermove 全量写 Yjs 无节流） */
-const DRAW_MOVE_THROTTLE_MS = 34;
+import { LineDrawSession, LINE_WIDTH_STEPS } from './lineDrawSession';
+import { hitWidget, nearestAnchorDot, nearestLineEndpoint } from './lineHitTest';
 
 /**
  * 连接线交互层（docs/08 §7）：line 工具按下→拖出→松手；
@@ -45,28 +32,8 @@ const DRAW_MOVE_THROTTLE_MS = 34;
  * 线上文字：双击已选中的线 → 在双击位置 ratio 处编辑（onLineDblClick，2026-09-30
  * 拍板单击不进编辑——线身单击是段滑移/胶囊手势，docs/08 §10.3）。
  */
-const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
-
-/** 锚点抓取边缘容差（屏幕像素）：连接点画在元素**边上**，严格 point-in-bounds
- *  会在贴边/压点时出界——指示器闪烁、按点抓空（用户实测）。命中失败时按此
- *  容差取环内最近元素（连线命中检测 8px 同款口径）。 */
-const ANCHOR_GRAB_TOLERANCE_SCREEN = 8;
-
-/** 线型三选项单源（docs/04 §2 工具默认参数节）：工具坞常驻二级菜单与 ActionBar 线型 popover 共用 */
-export const LINE_TYPE_OPTIONS: IActionBarOption[] = [
-  { id: 'STRAIGHT', label: '直线', icon: 'line-straight' },
-  { id: 'ELBOWED', label: '折线', icon: 'line-elbow' },
-  { id: 'CURVE', label: '曲线', icon: 'line-curve' },
-];
-
-/** 线宽四档（2026-10-14 线宽笔宽批）：1/2/4/8，默认 2——icon 粗细横线示意；
- *  flyout 第二组与 ActionBar popover 共用；超越既有设计两档（2/5） */
-export const LINE_WIDTH_STEPS = [1, 2, 4, 8] as const;
-export const LINE_WIDTH_OPTIONS: IActionBarOption[] = LINE_WIDTH_STEPS.map((n) => ({
-  id: String(n),
-  label: `${n} 像素线宽`,
-  icon: `line-width-${n}`,
-}));
+// 线型/线宽选项表单源在 lineDrawSession；re-export 保持消费路径（§3.3 先例）
+export { LINE_TYPE_OPTIONS, LINE_WIDTH_STEPS, LINE_WIDTH_OPTIONS } from './lineDrawSession';
 
 export class LineService extends Disposable {
   /** 工具默认线型（会话级，docs/04 §2——新线默认 ELBOWED 是 2026-09 拍板）：
@@ -106,10 +73,10 @@ export class LineService extends Disposable {
     this.defaultLineType$.next(parsed);
   }
 
-  private drawingId: string | null = null;
-  private pendingMove: IPointerEventInfo | null = null;
   /** 悬停/选中浮层协作者（A1 整理批刀 2：指示器/端点圆/段条/幽灵预览 + 快照） */
   private overlay: LineHoverOverlay | null = null;
+  /** 拉线状态机协作者（§4.2：line 工具 + quick-add 共用；initialize 内创建） */
+  private drawSession!: LineDrawSession;
   /** quick-add 协作者（A1 整理批刀 3：连接点手势 + quickAddPlan 单一决策） */
   private quickAdd: LineQuickAdd | null = null;
   /** 锚定跟随协作者（A1 整理批刀 4：reattach/rerouteLine/previewFollow/unbind） */
@@ -120,8 +87,6 @@ export class LineService extends Disposable {
   private segTextSlide: LineSegTextSlide | null = null;
   /** 手势忙态探针（组合根注入：rectEditor 缩放中等——悬停指示器抑制） */
   busyProbe: (() => boolean) | null = null;
-  private moveTimer = 0;
-  private startAnchor: { nodeId: string | null; join: JoinDir | null; point: IPt } | null = null;
 
   /** 线上文字编辑协作者（A1 整理批刀 1：TipTap 生命周期/节流落库/镂空喂框） */
   private textEditor: LineTextEditor | null = null;
@@ -158,18 +123,19 @@ export class LineService extends Disposable {
 
   initialize(): void {
     this.viewport.registerGlobalEventListener('line', {
-      onPointerDown: (e) => this.onPointerDown(e),
-      onPointerMove: (e) => this.onPointerMove(e),
-      onPointerUp: (e) => this.onPointerUp(e),
-      onPointerUpOutside: (e) => this.onPointerUp(e),
+      onPointerDown: (e) => this.drawSession.pointerDown(e),
+      onPointerMove: (e) => this.drawSession.pointerMove(e),
+      onPointerUp: (e) => this.drawSession.pointerUp(e),
+      onPointerUpOutside: (e) => this.drawSession.pointerUp(e),
       // 手势取消（Batch 1 · 1.9）：打断 ≠ 点击——settle 清零长草稿线（up 同款
       // 收尾；up 内部读 e 处仅 flush 用，占位世界位不影响收尾语义）
-      onPointerCancel: () => this.onPointerUp({ world: { x: -1e5, y: -1e5 } } as IPointerEventInfo),
+      onPointerCancel: () =>
+        this.drawSession.pointerUp({ world: { x: -1e5, y: -1e5 } } as IPointerEventInfo),
     });
     this.overlay = new LineHoverOverlay(this.viewport, this.vmEngine, this.selector, {
       isSessionBusy: () =>
         Boolean(
-          this.drawingId ||
+          this.drawSession.isDrawing ||
           this.editingLineId ||
           this.endpointDragCtl?.active ||
           this.segTextSlide?.segSlideActive ||
@@ -177,12 +143,25 @@ export class LineService extends Disposable {
         ) ||
         (this.busyProbe?.() ?? false),
       isEditing: () => this.editingLineId !== null,
-      isDrawing: () => this.drawingId !== null,
+      isDrawing: () => this.drawSession.isDrawing,
       quickAddPlanFor: (srcId, sb, anchor, join) =>
         this.quickAdd!.plan(srcId, sb, anchor, join, null),
     });
     this.overlay.initialize();
     this.addDisposable(this.overlay);
+    this.drawSession = new LineDrawSession(
+      this.viewport,
+      this.engine,
+      this.vmEngine,
+      this.selector,
+      this.history,
+      {
+        overlay: this.overlay,
+        getDefaultLineType: () => this.defaultType,
+        getDefaultStrokeWidth: () => this.defaultWidth,
+      },
+    );
+    this.addDisposable(this.drawSession);
     this.quickAdd = new LineQuickAdd(
       this.viewport,
       this.engine,
@@ -190,28 +169,13 @@ export class LineService extends Disposable {
       this.selector,
       this.history,
       {
-        beginSession: (id, anchor) => {
-          this.drawingId = id;
-          this.startAnchor = { nodeId: anchor.nodeId, join: anchor.join, point: anchor.point };
-        },
-        endSession: () => {
-          // flush 必须在 drawingId 置空之前（applyMove 按 drawingId 查 model）
-          this.flushPendingMove();
-          this.drawingId = null;
-        },
-        throttledMove: (world) => {
-          // 与 line 工具管线同款 34ms 节流（onPointerMove 尾部同款三行）
-          this.pendingMove = { world } as IPointerEventInfo;
-          if (this.moveTimer) return;
-          this.moveTimer = window.setTimeout(() => {
-            this.moveTimer = 0;
-            if (this.pendingMove) this.applyMove(this.pendingMove);
-          }, DRAW_MOVE_THROTTLE_MS);
-        },
-        settle: (id) => this.settleDrawing(id),
+        beginSession: (id, anchor) => this.drawSession.beginFromQuickAdd(id, anchor),
+        endSession: () => this.drawSession.endSession(),
+        throttledMove: (world) => this.drawSession.queueMove(world),
+        settle: (id) => this.drawSession.settle(id),
         hideOverlays: () => this.overlay?.hideAll(),
         getStartAnchor: () =>
-          this.startAnchor as { nodeId: string; join: JoinDir; point: IPt } | null,
+          this.drawSession.startAnchor as { nodeId: string; join: JoinDir; point: IPt } | null,
         // 双创建链同源：quick-add 建线吃本服务会话默认线型；落新形状吃 ShapeService 会话默认型
         getDefaultLineType: () => this.defaultType,
         getDefaultStrokeWidth: () => this.defaultWidth,
@@ -229,7 +193,7 @@ export class LineService extends Disposable {
         this.history,
         this.overlay,
         {
-          hitTest: (world) => this.hitWidget(world),
+          hitTest: (world) => hitWidget(this.vmEngine, this.viewport, world),
         },
       );
       this.addDisposable(this.endpointDragCtl);
@@ -276,7 +240,11 @@ export class LineService extends Disposable {
     // 只认画布双击：capture 相 window 监听会收到 DOM 控件（工具栏/ActionBar）
     // 的双击，坐标换算到画布后若线恰在其后方会误进编辑（外部审查 A3）
     if (!(e.target instanceof HTMLCanvasElement)) return;
-    if (this.viewport.cursorMode$.value !== 'cursor' || this.drawingId || this.editingLineId)
+    if (
+      this.viewport.cursorMode$.value !== 'cursor' ||
+      this.drawSession.isDrawing ||
+      this.editingLineId
+    )
       return;
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
     for (const vm of this.vmEngine.getVmByPoint({ x: world.x, y: world.y } as Point)) {
@@ -348,7 +316,7 @@ export class LineService extends Disposable {
    * selector 跳过本次手势。抓取半径 12 屏幕像素（手柄 8px + 余量）。
    */
   handleGestureDown(world: { x: number; y: number }): boolean {
-    if ((this.endpointDragCtl?.active ?? false) || this.drawingId) return false;
+    if ((this.endpointDragCtl?.active ?? false) || this.drawSession.isDrawing) return false;
     const ids = this.selector.selected$.value;
     if (ids.length !== 1) return false;
     const vm = this.vmEngine.getVmById(ids[0]!);
@@ -362,13 +330,11 @@ export class LineService extends Disposable {
         data.lineType,
       );
       const tol = 12 / (this.viewport.vpScale$.value || 1);
-      const dStart = Math.hypot(world.x - pts[0]!.x, world.y - pts[0]!.y);
-      const dEnd = Math.hypot(world.x - pts[pts.length - 1]!.x, world.y - pts[pts.length - 1]!.y);
-      const which: 'start' | 'end' = dStart <= dEnd ? 'start' : 'end';
+      const { which, d } = nearestLineEndpoint(pts, world);
       // 远离两端：① 段中点胶囊抓取（显式手柄 > 文字 bbox）；② 线上文字
       // 滑移抓取；③ 段身其余位置（参考线身任意点可拖）；否则交还 selector。
       // 文字编辑入口 = 双击连线（onLineDblClick，单击/拖拽均不进编辑）
-      if ((which === 'start' ? dStart : dEnd) > tol) {
+      if (d > tol) {
         if (this.segTextSlide?.maybeSegmentSlideGrab(vm.id, world, true)) return true;
         if (this.segTextSlide?.maybeTextSlideGrab(vm.id, world)) return true;
         return this.segTextSlide?.maybeSegmentSlideGrab(vm.id, world, false) ?? false;
@@ -392,184 +358,11 @@ export class LineService extends Disposable {
     if (!vm || vm.type === 'LINE' || vm.getRotation() !== 0) return false; // 旋转件不出四点（docs/05 §8）
     const geom = vm.getHostGeom();
     // 抓取判定按**外移点**（形状外 24px）；连线起点 = 该侧边中点（θ=0——旋转件已禁）
-    const nearest = JOINS.map((j) => ({
-      j,
-      a: dotOffsetCenter(geom.rect, j, 0, this.viewport.vpScale$.value || 1),
-    }))
-      .map(({ j, a }) => ({ j, a, d: Math.hypot(a.x - world.x, a.y - world.y) }))
-      .sort((p, q) => p.d - q.d)[0]!;
+    const nearest = nearestAnchorDot(geom, world, this.viewport.vpScale$.value || 1);
     const grabRadius = 12 / (this.viewport.vpScale$.value || 1);
     if (nearest.d > grabRadius) return false;
     this.quickAdd?.startConnectorFrom(anchorOf(geom.rect, nearest.j), nearest.j, world);
     return true;
-  }
-
-  /** 悬停命中：返回被压住的控件（line 工具下按下在控件上 = 锚定起点）。
-   *  严格命中优先；未命中按边缘容差取环内最近元素（连接点在边上——贴边
-   *  悬停/按压点必须仍命中，否则指示器闪烁、起点抓空）。
-   *  PEN 不参与（2026-10-08 用户拍板）：画笔元素不作为连线锚定/快捷创建
-   *  目标——线画开路径，与笔画交叉会误抓 */
-  /** 命中返回宿主几何（局部矩形 + θ，docs/05 §8——锚点/最近边随旋转感知）；
-   *  容差环按世界 AABB（保守外接） */
-  private hitWidget(p: { x: number; y: number }): { id: string; geom: IHostGeom } | null {
-    for (const vm of this.vmEngine.getVmByPoint({ x: p.x, y: p.y } as Point)) {
-      if (vm.type === 'LINE' || vm.type === 'PEN') continue;
-      return { id: vm.id, geom: vm.getHostGeom() };
-    }
-    const tol = ANCHOR_GRAB_TOLERANCE_SCREEN / (this.viewport.vpScale$.value || 1);
-    const cands = this.vmEngine.getVmsInRect({
-      x: p.x - tol,
-      y: p.y - tol,
-      width: tol * 2,
-      height: tol * 2,
-    });
-    for (const vm of cands) {
-      if (vm.type === 'LINE' || vm.type === 'PEN') continue;
-      const b = vm.getBounds();
-      const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.width));
-      const dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.height));
-      if (Math.hypot(dx, dy) <= tol) return { id: vm.id, geom: vm.getHostGeom() };
-    }
-    return null;
-  }
-
-  private onPointerDown(e: IPointerEventInfo): void {
-    this.overlay?.hideDrawFeedback();
-    const hit = this.hitWidget(e.world);
-    const join = hit ? nearestJoin(hit.geom.rect, e.world, hit.geom.rotation) : null;
-    const point = hit
-      ? anchorOf(hit.geom.rect, join!, hit.geom.rotation)
-      : { x: e.world.x, y: e.world.y };
-    this.startAnchor = { nodeId: hit?.id ?? null, join, point };
-    const id = genId();
-    this.drawingId = id;
-    this.engine.add({
-      id,
-      type: 'LINE',
-      zOrder: this.engine.genInitialOrder(),
-      points: [
-        [r2(point.x), r2(point.y)],
-        [r2(point.x), r2(point.y)],
-      ],
-      startNodeId: hit?.id ?? null,
-      endNodeId: null,
-      startJoin: join,
-      endJoin: null,
-      color: '#4b5563',
-      strokeWidth: this.defaultWidth,
-      startArrow: 'none',
-      endArrow: 'arrow',
-      // 新线线型/线宽读会话默认（初始 ELBOWED——2026-09 拍板：现代白板默认正交折线；
-      // 两端同轴时路由自然退化为直线；工具坞二级菜单可切，docs/04 §2 会话态优先）
-      lineType: this.defaultType,
-    } as never);
-  }
-
-  private onPointerMove(e: IPointerEventInfo): void {
-    // 悬停连接点指示器（仅未绘制时；绘制中的端点吸附反馈属批次 2）。
-    // 最近连接点放大高亮（视觉响应替代 hover 态——指示器本身不可命中）
-    if (!this.drawingId) {
-      const hit = this.hitWidget(e.world);
-      if (hit) {
-        const active = JOINS.indexOf(nearestJoin(hit.geom.rect, e.world, hit.geom.rotation));
-        this.overlay?.showDrawFeedback(hit.geom, active); // 连线工具目标反馈：紧贴边中点
-      } else {
-        this.overlay?.hideDrawFeedback();
-      }
-      return;
-    }
-    this.pendingMove = e;
-    if (this.moveTimer) return;
-    this.moveTimer = window.setTimeout(() => {
-      this.moveTimer = 0;
-      if (this.pendingMove) this.applyMove(this.pendingMove);
-    }, DRAW_MOVE_THROTTLE_MS);
-  }
-
-  /** 路由落库（34ms 节流 + trailing：松手前最后一次 move 必达，终点不丢帧） */
-  private applyMove(e: IPointerEventInfo): void {
-    this.pendingMove = null;
-    const model = this.engine.getModelById(this.drawingId!);
-    if (!model) return;
-    // 悬停控件 → 端点吸附到边锚点（docs/08 §3）；指示器同步显示目标连接点
-    // （绘制中的吸附反馈——用户实测「连入元素时也要触发指示器」）
-    const hit = this.hitWidget(e.world);
-    const join = hit ? nearestJoin(hit.geom.rect, e.world, hit.geom.rotation) : null;
-    if (hit) {
-      // 连线工具的目标反馈：连接点**紧贴边中点**（与选中态快速创建点是两套逻辑）
-      this.overlay?.showDrawFeedback(hit.geom, JOINS.indexOf(join!));
-    } else {
-      this.overlay?.hideDrawFeedback();
-    }
-    const end = hit
-      ? anchorOf(hit.geom.rect, join!, hit.geom.rotation)
-      : { x: e.world.x, y: e.world.y };
-    // 避让节点用世界 AABB（旋转宿主保守外接）；出线方向量化到最近轴
-    // （旋转宿主的走廊方向旋转感知——穿体修复，docs/05 §8）
-    const hostAabb = (g: IHostGeom | null): IRect | null =>
-      g ? rotatedRectBounds(g.rect, g.rotation) : null;
-    const startNodeGeom =
-      this.startAnchor?.nodeId != null
-        ? (this.vmEngine.getVmById(this.startAnchor.nodeId)?.getHostGeom() ?? null)
-        : null;
-    const startNodeBounds = hostAabb(startNodeGeom);
-    const route = routeElbow({
-      start: this.startAnchor!.point,
-      startJoin:
-        this.startAnchor!.join && startNodeGeom
-          ? quantizeJoin(this.startAnchor!.join, startNodeGeom.rotation)
-          : this.startAnchor!.join,
-      end,
-      endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
-      startNode: startNodeBounds,
-      endNode: hostAabb(hit ? hit.geom : null),
-    });
-    model.update({
-      points: route.map((p) => [r2(p.x), r2(p.y)] as [number, number]),
-      endNodeId: hit?.id ?? null,
-      endJoin: join,
-    } as never);
-  }
-
-  private onPointerUp(_e: IPointerEventInfo): void {
-    const id = this.drawingId;
-    if (!id) return;
-    // 松手先冲刷节流中的最后一帧（终帧必达），再做重合判定。
-    // 顺序敏感：flush 必须在 drawingId 置空**之前**——applyMove 按
-    // drawingId 查 model，先置空会让 flush 静默失效（外部审查揪出，
-    // 2026-09-21）：快速拉线（down→move→up <34ms）points 停在初始
-    // 同位两点 → 距离 <4 → 整条线被当「未拖出」删除；快速甩尾则终点截断
-    this.flushPendingMove();
-    this.drawingId = null;
-    this.overlay?.hideDrawFeedback();
-    this.settleDrawing(id);
-  }
-
-  private flushPendingMove(): void {
-    if (this.moveTimer) {
-      window.clearTimeout(this.moveTimer);
-      this.moveTimer = 0;
-    }
-    if (this.pendingMove) this.applyMove(this.pendingMove);
-  }
-
-  /** 连线落定（line 模式松手 / 连接点拖拽共用）：未拖出删除，否则保留选中 */
-  private settleDrawing(id: string): void {
-    const model = this.engine.getModelById(id);
-    if (model) {
-      const data = model.toJSON() as unknown as { points: Array<[number, number]> };
-      const [a, b] = data.points;
-      // 起终点重合（未拖出）→ 删除（docs/08 §7）
-      if (a && b && Math.hypot(b[0] - a[0], b[1] - a[1]) < 4) {
-        this.engine.removeByIds([id]);
-      } else {
-        this.history.stopCapturing();
-        this.selector.setSelected([id]);
-        // 工具保持激活（docs/08 §10 批次 1，参考同款）：连续画线不必反复切工具；
-        // Esc/V 即回 cursor（app.clearSelection 本就 setCursorMode('cursor')）
-      }
-    }
-    this.startAnchor = null;
   }
 
   /** 节点移动时重算关联线（app.ts 契约；本体在 LineAnchorFollow 协作者）。
@@ -601,10 +394,5 @@ export class LineService extends Disposable {
 
   get editingWidgetId(): string | null {
     return this.editingLineId;
-  }
-
-  override dispose(): void {
-    if (this.moveTimer) window.clearTimeout(this.moveTimer);
-    super.dispose();
   }
 }
