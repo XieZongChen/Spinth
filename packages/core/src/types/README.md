@@ -4,6 +4,7 @@
 
 - `widget.ts`：IWidgetData 判别联合 + 各控件 zod schema + 能力位注册表
   （WIDGET_REGISTRY——schema 域单源；运行时域的 token/工厂在 `../widgetRuntime.ts`）。
+- `actionBar.ts`：ActionBar / 脑图 +/- 按钮 DOM 契约（widget.ts 显式 re-export）。
 - `services.ts`：各 I*Service 接口。
 - `base.ts`：IBaseModel / IBaseWidgetVm / IWidgetCapabilities / IOnStateChangedInfo。
 - `index.ts`：统一导出。
