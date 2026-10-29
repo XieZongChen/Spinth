@@ -1,17 +1,14 @@
-import { Container, Point, Rectangle, type Renderer } from 'pixi.js';
+import { Container, Point, type Renderer } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import { BehaviorSubject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
 import { markRender } from '../../common/render';
 import type { IPoint, IRect } from '../../common/geometry';
 import { isInteractiveUiTarget } from '../keyboard/shortcuts';
-import type {
-  CursorMode,
-  IPointerEventInfo,
-  IPointerHandlers,
-  IViewportService,
-} from '../../types';
+import type { CursorMode, IPointerHandlers, IViewportService } from '../../types';
 import { BoardApplication } from './boardApplication';
+import { ViewportPointerInput } from './viewportPointerInput';
+import { ViewportZoom, MIN_SCALE, MAX_SCALE } from './viewportZoom';
 
 declare module 'pixi.js' {
   interface Container {
@@ -19,12 +16,6 @@ declare module 'pixi.js' {
     zOrder?: string;
   }
 }
-
-const MIN_SCALE = 0.05;
-/** awareness 光标位置上报节流（docs/10 §3：80ms） */
-const AWARENESS_POS_THROTTLE_MS = 80;
-const MAX_SCALE = 4;
-const ZOOM_STEP = 1.2;
 
 /**
  * 视口服务（docs/03 §4-§7）：pixi-viewport 封装、分层、zOrder 物理排序、
@@ -41,7 +32,9 @@ export class ViewportService extends Disposable implements IViewportService {
   readonly optionLayer = new Container();
   private resizeObserver: ResizeObserver | null = null;
 
-  private handlers = new Map<CursorMode, IPointerHandlers>();
+  /** 指针输入与相机缩放协作者（initialize 时创建并绑定；监听释放随 Disposable） */
+  private pointerInput!: ViewportPointerInput;
+  private zoom!: ViewportZoom;
 
   /** 物理断网判定（组合根注入 NetworkService.editBlocked$；默认直读 navigator） */
   isEditBlocked: () => boolean = () =>
@@ -98,8 +91,33 @@ export class ViewportService extends Disposable implements IViewportService {
     app.stage.addChild(this.viewport);
     this.viewport.addChild(this.widgetLayer, this.optionLayer);
 
+    // 指针输入/相机缩放协作者（specs/split-large-files §4.4）：host 经对象
+    // 字面量接线——isEditBlocked 闭包读实例字段（组合根覆写仍生效）
+    this.pointerInput = new ViewportPointerInput({
+      stage: app.stage,
+      canvas: app.canvas,
+      toWorld: (p) => this.toWorld(p),
+      cursorMode$: this.cursorMode$,
+      editable$: this.editable$,
+      curPos$: this.curPos$,
+      isEditBlocked: () => this.isEditBlocked(),
+    });
+    this.zoom = new ViewportZoom({
+      viewport: this.viewport,
+      widgetLayer: this.widgetLayer,
+      getRendererSize: () => ({
+        width: app.renderer.width,
+        height: app.renderer.height,
+      }),
+      onMoved: () => {
+        markRender();
+        this.scheduleVpSync();
+      },
+    });
+    this.addDisposable(this.pointerInput);
+    this.pointerInput.bind();
+
     this.bindViewportEvents();
-    this.bindStagePointerEvents();
     this.bindWheelModifier();
     this.bindSpaceGrab();
     this.observeResize();
@@ -211,200 +229,16 @@ export class ViewportService extends Disposable implements IViewportService {
     return new Point(p.x + rect.left, p.y + rect.top);
   }
 
-  // ---------- 指针分发（工具状态机枢纽） ----------
+  // ---------- 指针分发（工具状态机枢纽；输入管线本体在 ViewportPointerInput） ----------
 
   registerGlobalEventListener(mode: CursorMode, handlers: IPointerHandlers): void {
-    this.handlers.set(mode, handlers);
-  }
-
-  private bindStagePointerEvents(): void {
-    const stage = this.boardApp.app.stage;
-    stage.eventMode = 'static';
-    stage.hitArea = new Rectangle(0, 0, 1e6, 1e6);
-
-    let lastPosAt = 0;
-    /** 活跃指针（Batch 1 · 1.9④）：down 起至 up/cancel 止——期间异 pointerId 的
-     *  down/move 不派发（第二指不再新建孤儿笔/草稿跳变/覆写 dragState） */
-    let activePointerId: number | null = null;
-    const dispatch = (
-      kind: 'down' | 'move' | 'up' | 'upoutside' | 'right' | 'cancel',
-      e: {
-        global: Point;
-        shiftKey: boolean;
-        metaKey: boolean;
-        ctrlKey: boolean;
-        altKey: boolean;
-        pointerId?: number;
-      },
-    ): void => {
-      // pointerId 过滤：down 抢占记录（首个生效），异 id 的 down/move 丢弃；
-      // up/cancel 归还（任意终止都释放）
-      if (kind === 'down') {
-        if (
-          activePointerId !== null &&
-          e.pointerId !== undefined &&
-          e.pointerId !== activePointerId
-        )
-          return;
-        activePointerId = e.pointerId ?? null;
-      } else if (kind === 'move') {
-        if (
-          activePointerId !== null &&
-          e.pointerId !== undefined &&
-          e.pointerId !== activePointerId
-        )
-          return;
-      } else if (kind === 'up' || kind === 'upoutside' || kind === 'cancel') {
-        if (
-          e.pointerId !== undefined &&
-          activePointerId !== null &&
-          e.pointerId !== activePointerId &&
-          kind !== 'cancel'
-        )
-          return;
-        activePointerId = null;
-      }
-      // 编辑守卫（docs/10 §4）：只读或物理断网不分发交互（ws 断连不拦——离线可编辑）。
-      // up/upoutside 必须放行：拖拽中途断网若吞掉 up，交互状态机（如拉线中）会永久挂起。
-      // 断网判定注入（组合根接 NetworkService.editBlocked$——两态单源，
-      // 曾直接读 navigator.onLine 与 keyboard 闸门形成双源，外部审查揪出）
-      if (
-        kind !== 'up' &&
-        kind !== 'upoutside' &&
-        kind !== 'cancel' &&
-        (!this.editable$.value || this.isEditBlocked())
-      ) {
-        return;
-      }
-      // awareness 光标采集：move 事件顺带更新（80ms 节流，docs/10 §3）
-      if (kind === 'move') {
-        const now = performance.now();
-        if (now - lastPosAt >= AWARENESS_POS_THROTTLE_MS) {
-          lastPosAt = now;
-          const world = this.toWorld(e.global);
-          this.curPos$.next({ x: world.x, y: world.y });
-        }
-      }
-      const handlers = this.handlers.get(this.cursorMode$.value);
-      if (!handlers) return;
-      // 只读下 up/upoutside 也吞（上面"up 必须放行"仅对 editBlocked 断网分支
-      // 成立）——依赖 BoardCommands.updateEditable(false) 降级时先对手势发
-      // dispatchGestureCancel 收口，交互状态机不会悬挂在等 up 的半路
-      if (!this.editable$.value && kind !== 'cancel') return;
-      const info: IPointerEventInfo = {
-        world: this.toWorld(e.global),
-        screen: e.global.clone(),
-        shiftKey: e.shiftKey,
-        metaKey: e.metaKey,
-        ctrlKey: e.ctrlKey,
-        altKey: e.altKey,
-        raw: { x: e.global.x, y: e.global.y },
-      };
-      switch (kind) {
-        case 'down':
-          handlers.onPointerDown?.(info);
-          break;
-        case 'move':
-          handlers.onPointerMove?.(info);
-          break;
-        case 'up':
-          handlers.onPointerUp?.(info);
-          break;
-        case 'upoutside':
-          handlers.onPointerUpOutside?.(info);
-          break;
-        case 'cancel':
-          handlers.onPointerCancel?.(info);
-          break;
-        case 'right':
-          handlers.onRightClick?.(info);
-          break;
-      }
-    };
-
-    const disposers: Array<() => void> = [];
-    for (const [event, kind] of [
-      ['pointerdown', 'down'],
-      ['pointermove', 'move'],
-      ['pointerup', 'up'],
-      ['pointerupoutside', 'upoutside'],
-      ['rightdown', 'right'],
-    ] as const) {
-      const handler = (e: {
-        global: Point;
-        shiftKey: boolean;
-        metaKey: boolean;
-        ctrlKey: boolean;
-        altKey: boolean;
-        button?: number;
-      }): void => {
-        // 主键过滤（specs/a11y-closeout §5.3 派生修复，批次 B W1）：右键的
-        // down/up 不进模式 handlers——此前右键点已选中件会走「单击激活」路径
-        // 异步开出内联编辑器，其挂载焦点抢走右键菜单的首项聚焦；右键语境 =
-        // contextmenu 菜单（rightdown 通道与 DOM contextmenu 均不受影响）。
-        // `button != null` 防卫：pixi 事件对象可能缺省 button（touch/pen 归一
-        // 路径），undefined !== 0 会把合法指针误挡（复审 P2 实锤）
-        if (
-          (kind === 'down' || kind === 'up' || kind === 'upoutside') &&
-          e.button != null &&
-          e.button !== 0
-        )
-          return;
-        dispatch(kind, e);
-      };
-      stage.on(event, handler);
-      disposers.push(() => stage.off(event, handler));
-    }
-
-    // 原生 pointercancel（Batch 1 · 1.9①）：pixi EventSystem 不转发 cancel——
-    // 触控/笔被打断（来电、浏览器手势接管）时 stage 会话收不到任何终止事件。
-    // 直挂 canvas，派发进统一 cancel 通道
-    const canvasEl = this.boardApp.app.canvas; // 启动即有（boardApplication appendChild 同源）
-    const onNativeCancel = (e: PointerEvent): void => {
-      dispatch('cancel', {
-        global: new Point(e.offsetX, e.offsetY),
-        shiftKey: e.shiftKey,
-        metaKey: e.metaKey,
-        ctrlKey: e.ctrlKey,
-        altKey: e.altKey,
-        pointerId: e.pointerId,
-      });
-      activePointerId = null;
-    };
-    canvasEl.addEventListener('pointercancel', onNativeCancel);
-    disposers.push(() => canvasEl.removeEventListener('pointercancel', onNativeCancel));
-
-    // window blur watchdog（1.9③）：切窗/失焦时对当前模式派发 cancel——
-    // stage 管线会话冻结在预览态、window 管线（rectEditor 等）复焦后无按键续拖
-    const onBlur = (): void => {
-      dispatch('cancel', {
-        global: new Point(-1e5, -1e5), // 无有效指针位——cancel 语义不依赖坐标
-        shiftKey: false,
-        metaKey: false,
-        ctrlKey: false,
-        altKey: false,
-      });
-      activePointerId = null;
-    };
-    window.addEventListener('blur', onBlur);
-    disposers.push(() => window.removeEventListener('blur', onBlur));
-    for (const d of disposers) this.addDisposable(d);
+    this.pointerInput.register(mode, handlers);
   }
 
   /** 对指定模式派发手势取消（Batch 1 · 1.10）：切工具/Esc 收口入口——
    *  换模式前对**旧模式** handlers 发 cancel（换完再发会路由到新模式） */
   dispatchGestureCancel(mode: CursorMode): void {
-    const handlers = this.handlers.get(mode);
-    if (!handlers?.onPointerCancel) return;
-    handlers.onPointerCancel({
-      world: { x: -1e5, y: -1e5, clone: () => ({ x: -1e5, y: -1e5 }) } as unknown as Point,
-      screen: new Point(-1e5, -1e5),
-      shiftKey: false,
-      metaKey: false,
-      ctrlKey: false,
-      altKey: false,
-      raw: { x: -1e5, y: -1e5 },
-    });
+    this.pointerInput.dispatchCancel(mode);
   }
 
   // ---------- wheel / 抓手 / 光标 ----------
@@ -488,72 +322,22 @@ export class ViewportService extends Disposable implements IViewportService {
       cursor ?? ViewportService.CURSOR_STYLES[this.cursorMode$.value] ?? 'default';
   }
 
-  // ---------- 缩放 ----------
+  // ---------- 缩放（相机数学本体在 ViewportZoom 协作者） ----------
 
   setPageScale(scale: number, focus?: { x: number; y: number }, immediate = false): void {
-    const clamped = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
-    // P0-7（2026-10-17 外部审查）三处数学修正：
-    // ① focus 缺省直用 viewport.center——pixi-viewport v6 的 center 本就是世界
-    //    坐标（屏幕中心的 toWorld 值），再过一次 toWorld 是二次换算（纯缩放
-    //    轨道上恰好幂等掩盖了漂移，平移后 focus 即错位）；
-    // ② 比例项 old/new：保持 focus 世界点停在同一屏幕位置的正确目标是
-    //    P = f + (c_w − f)·(s/s′)——原写成 new/old；
-    // ③ immediate 分支改 moveCenter：animate({ position }) 的 position 是
-    //    moveCenter 的世界中心目标（AnimatePlugin 源码语义），而
-    //    viewport.position 是平移量——同数异义，cmd+0 曾半屏级跳动。
-    // 不能省略 position：pixi-viewport AnimatePlugin 在 keepCenter=true 时不 emit
-    // 'moved'，vpScale$/vpBounds$ 将永远滞后（setPageScale(1) 后 HUD 显示与 LOD
-    // 联动全部失真，2026-09 浏览器实测揪出）。
-    const f = focus ?? this.viewport.center;
-    const ratio = this.viewport.scale.x / clamped;
-    const target = new Point(
-      f.x + (this.viewport.center.x - f.x) * ratio,
-      f.y + (this.viewport.center.y - f.y) * ratio,
-    );
-    if (immediate) {
-      // 立即精确路径（zoom100 专用）：AnimatePlugin 是收敛式插值（每帧
-      // scale += (target-scale)*ease），慢环境帧少时停在离目标 1.6%~2.9% 的
-      // 残差（CI 两次红实证）——「回 100%」语义要求精确归位。手动设置不
-      // emit 'moved'，须自触发 vp 同步 + markRender（onMoved 同款）。
-      // 须先取消在飞 Animate：animate() 重入自带替换（add 先 destroy 同名），
-      // 本路径绕过了它——残留 Animate 每帧仍按其目标继续插值，把刚设的
-      // scale 拉走（CI 实证：cmd+= 动画在飞时 cmd+0，最终停在 1.18）。
-      this.viewport.plugins.remove('animate');
-      this.viewport.scale.set(clamped);
-      this.viewport.moveCenter(target);
-      markRender();
-      this.scheduleVpSync();
-      return;
-    }
-    this.viewport.animate({
-      time: 200,
-      scale: clamped,
-      position: target,
-    });
+    this.zoom.setPageScale(scale, focus, immediate);
   }
 
   zoomIn(): void {
-    this.setPageScale(this.viewport.scale.x * ZOOM_STEP);
+    this.zoom.zoomIn();
   }
 
   zoomOut(): void {
-    this.setPageScale(this.viewport.scale.x / ZOOM_STEP);
+    this.zoom.zoomOut();
   }
 
   zoomToFit(padding = 100): void {
-    if (this._widgetLayer.children.length === 0) {
-      this.setPageScale(1);
-      return;
-    }
-    const b = this._widgetLayer.getLocalBounds();
-    const w = this.boardApp.app.renderer.width;
-    const h = this.boardApp.app.renderer.height;
-    const scale = Math.min(Math.max((w - padding * 2) / b.width, (h - padding * 2) / b.height), 1);
-    this.viewport.animate({
-      time: 200,
-      scale,
-      position: new Point(b.x + b.width / 2, b.y + b.height / 2),
-    });
+    this.zoom.zoomToFit(padding);
   }
 
   // ---------- resize / destroy ----------
