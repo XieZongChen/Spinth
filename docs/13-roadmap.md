@@ -58,6 +58,7 @@
   测试数与拆分前一致；`pnpm verify` 与相关 E2E 全绿。
 - E2E 拆分排在最后：按 spec 域逐文件提交，先拆 `widgets`/`mind`/`textEdit`，
   不阻塞阶段 1 其余三项与阶段 2。
+- 方案与审查：[specs/split-large-files.md](../specs/split-large-files.md)。
 
 #### 1.2 纹理保活
 
