@@ -2,7 +2,7 @@ import { Point, Rectangle } from 'pixi.js';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
 import { markRender } from '../../common/render';
-import { unionRects, type IPoint, type IRect } from '../../common/geometry';
+import type { IPoint, IRect } from '../../common/geometry';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -12,34 +12,18 @@ import type {
   IViewportService,
   IVmEngineService,
 } from '../../types';
-import { SelectorVm } from './selectorVm';
+import { SelectorVm, marqueeRectOf, type MarqueeState } from './selectorVm';
 import { SelectionVm } from '../selection/selectionVm';
+import {
+  applyDragMove,
+  cancelDrag,
+  commitDrag,
+  createDragState,
+  type DragState,
+  type ISelectorDragContext,
+} from './selectorDragOps';
 import type { RefLineService } from '../refLine/refLineService';
 import type { GroupService } from './groupService';
-
-/** 拖拽启动阻尼（docs/05 §4.1）——屏幕 px（Batch 1 · 1.8④：防手抖是屏幕手感，
- * 世界单位在 0.05x 下 1px 抖动即判拖拽、4x 下迟滞 40px） */
-const DRAG_TRACTION_SCREEN = 10;
-
-interface DragState {
-  startWorld: Point;
-  ids: string[];
-  /** 按下时元素是否已在选区（未拖动松手 = 单击已选中 → 激活编辑，docs/05 §3） */
-  wasSelected: boolean;
-  initial: Map<string, IRect>;
-  /** 拖拽起点的选区外接矩形（选区框绝对定位基准） */
-  initialUnion: IRect;
-  moved: boolean;
-  /** 最后一帧吸附修正后的位移：松手落库用它，禁止从指针原始差值重算
-   *  （否则吸附只作用于视觉、松手跳回未对齐位置——docs/06 §5 视觉=数据 / docs/14 规则 5） */
-  lastDx: number;
-  lastDy: number;
-}
-
-interface MarqueeState {
-  start: Point;
-  cur: Point;
-}
 
 /**
  * 选中服务（docs/05 §3）：cursor 模式的点选/框选/拖拽。
@@ -53,6 +37,8 @@ export class SelectorService extends Disposable implements ISelectorService {
   mindDragDelegate: IMindDragDelegate | null = null;
 
   private dragState: DragState | null = null;
+  /** 拖拽操作上下文（initialize 后构造；ops 无状态——状态归本类字段） */
+  private dragCtx!: ISelectorDragContext;
   private marquee: MarqueeState | null = null;
   /** marquee 组过滤闭包（docs/18 §4.3）：手势开始建、结束清；null = 无组语义 */
   private marqueeGroupFilter: ((hitIds: string[], rect: IRect) => string[]) | null = null;
@@ -85,6 +71,18 @@ export class SelectorService extends Disposable implements ISelectorService {
       this.viewport.optionLayer,
       () => this.viewport.vpScale$.value,
     );
+    // 拖拽操作 ctx（specs/split-large-files §4.5）：onDragCommitted 转发可空字段
+    this.dragCtx = {
+      viewport: this.viewport,
+      vmEngine: this.vmEngine,
+      engine: this.engine,
+      history: this.history,
+      selectionVm: this.selectionVm,
+      dragMove$: this.dragMove$,
+      getRefLine: () => this.getRefLine(),
+      onDragCommitted: (ids, dx, dy) => this.onDragCommitted?.(ids, dx, dy),
+      syncSelectionVm: () => this.syncSelectionVm(),
+    };
     this.addDisposable(this.selected$.subscribe(() => this.syncSelectionVm()));
 
     this.viewport.registerGlobalEventListener('cursor', {
@@ -224,27 +222,8 @@ export class SelectorService extends Disposable implements ISelectorService {
       }
       // initial（per-id）= getLocalRect（commitDrag/预览的输入语义——数据矩形）；
       // initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）
-      const initial = new Map<string, IRect>();
-      const worldBounds: IRect[] = [];
-      for (const id of ids) {
-        const vm = this.vmEngine.getVmById(id);
-        if (vm) {
-          initial.set(id, vm.getLocalRect());
-          worldBounds.push(vm.getBounds());
-        }
-      }
-      const initialUnion = unionRects(worldBounds);
-      if (!initialUnion) return;
-      this.dragState = {
-        startWorld: e.world.clone(),
-        ids,
-        wasSelected,
-        initial,
-        initialUnion,
-        moved: false,
-        lastDx: 0,
-        lastDy: 0,
-      };
+      const dragState = createDragState(this.dragCtx, ids, e, wasSelected);
+      if (dragState) this.dragState = dragState;
     } else {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);
@@ -252,7 +231,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       this.marquee = { start: e.world.clone(), cur: e.world.clone() };
       // 组索引快照按手势建一次（docs/18 §4.3：拖框期间组籍/成员不变）
       this.marqueeGroupFilter = this.getGroups()?.createMarqueeFilter() ?? null;
-      this.selectorVm.show(this.marqueeRect());
+      this.selectorVm.show(marqueeRectOf(this.marquee));
     }
   }
 
@@ -265,42 +244,12 @@ export class SelectorService extends Disposable implements ISelectorService {
       return;
     }
     if (this.dragState) {
-      const d = this.dragState;
-      let dx = e.world.x - d.startWorld.x;
-      let dy = e.world.y - d.startWorld.y;
-      if (!d.moved) {
-        if (Math.hypot(dx, dy) < DRAG_TRACTION_SCREEN / (this.viewport.vpScale$.value || 1)) return;
-        d.moved = true;
-      }
-      // 参考线吸附（docs/06 §5）：作用于选区外接矩形的期望位移
-      const snapped = this.getRefLine().snapForDrag(d.initialUnion, dx, dy);
-      dx = snapped.dx;
-      dy = snapped.dy;
-      d.lastDx = dx;
-      d.lastDy = dy;
-      // 视觉反馈：per-type 平移预览（rect 型 root=init+delta；points 世界坐标型
-      // root=delta、几何在 points 上）——选区框统一用初始包络 + 全量 delta 绝对定位
-      // （禁止对框做增量累加——多次 pointermove 下会复合漂移，框以倍速飞离形状）
-      for (const id of d.ids) {
-        const vm = this.vmEngine.getVmById(id);
-        const init = d.initial.get(id);
-        if (vm && init) {
-          vm.applyDragPreview(init, dx, dy);
-        }
-      }
-      this.selectionVm.moveTo({
-        x: d.initialUnion.x + dx,
-        y: d.initialUnion.y + dy,
-        width: d.initialUnion.width,
-        height: d.initialUnion.height,
-      });
-      this.dragMove$.next();
-      markRender();
+      applyDragMove(this.dragCtx, this.dragState, e);
       return;
     }
     if (this.marquee) {
       this.marquee.cur = e.world.clone();
-      const rect = this.marqueeRect();
+      const rect = marqueeRectOf(this.marquee);
       this.selectorVm.update(rect);
       const hits = this.vmEngine.getVmByRect(
         new Rectangle(rect.x, rect.y, rect.width, rect.height),
@@ -316,16 +265,8 @@ export class SelectorService extends Disposable implements ISelectorService {
 
   private onPointerCancel(): void {
     if (this.dragState) {
-      const d = this.dragState;
-      // 预览回弹：root 只改了视觉 position——按 initial 零位移复位（下一帧渲染
-      // 依数据重画，此处显式复位防「冻结在预览位直到下次点击」）
-      for (const id of d.ids) {
-        const vm = this.vmEngine.getVmById(id);
-        const init = d.initial.get(id);
-        if (vm && init) vm.applyDragPreview(init, 0, 0);
-      }
+      cancelDrag(this.dragCtx, this.dragState); // 预览回弹 + 参考线收起；清空归本类
       this.dragState = null;
-      this.getRefLine().hideMatches();
     }
     if (this.marquee) {
       this.marquee = null;
@@ -361,29 +302,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     }
     if (this.dragState) {
       const d = this.dragState;
-      if (d.moved) {
-        // 落库用最后一帧吸附修正后的位移（d.lastDx/lastDy），不从指针重算——
-        // 重算会丢弃吸附，出现「拖拽中对齐、松手跳偏」（docs/06 §5 视觉=数据）
-        const dx = d.lastDx;
-        const dy = d.lastDy;
-        // 松手统一落库：一个事务 = 一次撤销（docs/05 §4.3）；per-type 语义
-        // （rect 型写 x/y，points 型平移 points）封装在 vm.commitDrag
-        this.engine.transact(() => {
-          for (const id of d.ids) {
-            const init = d.initial.get(id);
-            const vm = this.vmEngine.getVmById(id);
-            if (init && vm) {
-              vm.commitDrag(init, dx, dy);
-            }
-          }
-        });
-        // 锚定线急切重路由钩子（组合根注入，docs/05 §4.3/§7）：必须夹在 transact
-        // 之后（Yjs 观察者相 state 已同步刷新；root 仍携带末帧预览位移 = 提交后
-        // 位置，getBounds 直接可用）与 stopCapturing 之前（并入同一撤销项）——
-        // 若留给 onStateChanged$ 微任务相（渲染后才广播）会裂成第二个 undo 项
-        this.onDragCommitted?.(d.ids, dx, dy);
-        this.history.stopCapturing();
-      }
+      commitDrag(this.dragCtx, d); // moved 分支：transact + onDragCommitted + stopCapturing
       this.dragState = null;
       this.getRefLine().hideMatches();
       this.syncSelectionVm();
@@ -407,7 +326,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       return;
     }
     if (this.marquee) {
-      const rect = this.marqueeRect();
+      const rect = marqueeRectOf(this.marquee);
       this.marquee = null;
       this.marqueeGroupFilter = null;
       this.selectorVm.hide();
@@ -434,16 +353,6 @@ export class SelectorService extends Disposable implements ISelectorService {
   /** 拖拽松手落库后、stopCapturing 前的钩子（BoardSDK 注入锚定线急切重路由，docs/05 §4.3） */
   onDragCommitted: ((ids: string[], dx: number, dy: number) => void) | null = null;
   private singleClickActivate = true;
-
-  private marqueeRect(): IRect {
-    const m = this.marquee!;
-    return {
-      x: Math.min(m.start.x, m.cur.x),
-      y: Math.min(m.start.y, m.cur.y),
-      width: Math.abs(m.cur.x - m.start.x),
-      height: Math.abs(m.cur.y - m.start.y),
-    };
-  }
 
   private syncSelectionVm(): void {
     const ids = this.selected$.value;
