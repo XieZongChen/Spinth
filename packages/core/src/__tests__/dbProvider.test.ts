@@ -381,7 +381,12 @@ describe('写聚合（docs/16 P2#1，2026-09-28）', () => {
     const db = new DbProvider();
     await db.attach(docId, doc);
     writeWidget(doc, 'bk', 'v');
-    const s = db as unknown as { db: IDBDatabase; retryDelayMs: number; writeBuffer: Uint8Array[] };
+    // 探针访问路径迁移：写缓冲/退避状态自 DbProvider 私有字段移入 DbWriteQueue
+    // （db 字段替换 Proxy 仍有效——getDb() 闭包读 provider 实例属性）
+    const s = db as unknown as {
+      db: IDBDatabase;
+      writeQueue: { retryDelayMs: number; buffered: number };
+    };
     const real = s.db;
     // 事务创建持续抛错（模拟配额满）：flushPendingWrites 内部 catch 不外抛
     s.db = new Proxy(real, {
@@ -393,16 +398,16 @@ describe('写聚合（docs/16 P2#1，2026-09-28）', () => {
           : Reflect.get(t, k),
     });
     await db.flushPendingWrites();
-    expect(s.retryDelayMs).toBe(200); // 100 ×2
-    expect(s.writeBuffer.length).toBe(1); // 失败批退回缓冲
+    expect(s.writeQueue.retryDelayMs).toBe(200); // 100 ×2
+    expect(s.writeQueue.buffered).toBe(1); // 失败批退回缓冲
     await db.flushPendingWrites();
-    expect(s.retryDelayMs).toBe(400);
+    expect(s.writeQueue.retryDelayMs).toBe(400);
     for (let i = 0; i < 10; i++) await db.flushPendingWrites(); // 连续失败
-    expect(s.retryDelayMs).toBe(5000); // 封顶
+    expect(s.writeQueue.retryDelayMs).toBe(5000); // 封顶
     // 恢复句柄：一次成功即复位 + 缓冲清空落盘
     s.db = real;
     await db.flushPendingWrites();
-    expect(s.retryDelayMs).toBe(100);
+    expect(s.writeQueue.retryDelayMs).toBe(100);
     expect((await db.readAuditLog()).length).toBe(1);
     db.dispose();
     doc.destroy();
