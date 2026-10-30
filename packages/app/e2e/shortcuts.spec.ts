@@ -124,7 +124,23 @@ test('P0-7 缩放锚点：屏幕中心的世界点在缩放前后不动（animat
   const docId = `e2e-zoom-anchor-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
+  // 完整套件并行跑时保持页面前台：后台页 rAF 节流会让 200ms 缩放动画迟迟不收敛，
+  // 本用例是 @timing 语义，不能把「页面被节流」误判成锚点回归。
+  await page.bringToFront();
   const canvas = page.locator('canvas').first();
+
+  // 显式 Control（与上方 Ctrl+= 用例同款）：ControlOrMeta 在 macOS 会走 Meta，
+  // 并行 worker 下偶发按键未生效；两个缩放入口统一成同一物理键。
+  const zoomIn = async (): Promise<void> => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press('=');
+    await page.keyboard.up('Control');
+  };
+  const zoomReset = async (): Promise<void> => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press('0');
+    await page.keyboard.up('Control');
+  };
 
   // 拉开世界范围（有内容才可平移）
   await page.keyboard.press('r');
@@ -154,9 +170,9 @@ test('P0-7 缩放锚点：屏幕中心的世界点在缩放前后不动（animat
   // animate 路径：cmd+= 绕中心——中心世界点不动（修复前 focus 二次换算 + 比例
   // 写反，平移后轨道漂移；纯缩放轨道恰好幂等掩盖）
   const a = await centerWorld();
-  await page.keyboard.press('ControlOrMeta+=');
-  await expect.poll(scaleOf, { timeout: 5000 }).toBeGreaterThan(1);
-  await page.waitForTimeout(300); // 200ms 动画沉降
+  await zoomIn();
+  await expect.poll(scaleOf, { timeout: 10_000 }).toBeGreaterThan(1);
+  await page.waitForTimeout(400); // 200ms 动画沉降（并行负载下留余量）
   const b = await centerWorld();
   expect(Math.abs(b.x - a.x)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(b.y - a.y)).toBeLessThanOrEqual(0.5);
@@ -166,17 +182,17 @@ test('P0-7 缩放锚点：屏幕中心的世界点在缩放前后不动（animat
   await page.mouse.wheel(0, 400);
   await page.waitForTimeout(200);
   const c = await centerWorld();
-  await page.keyboard.press('ControlOrMeta+=');
-  await expect.poll(scaleOf, { timeout: 5000 }).toBeGreaterThan(1.4);
-  await page.waitForTimeout(300);
+  await zoomIn();
+  await expect.poll(scaleOf, { timeout: 10_000 }).toBeGreaterThan(1.4);
+  await page.waitForTimeout(400);
   const d = await centerWorld();
   expect(Math.abs(d.x - c.x)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(d.y - c.y)).toBeLessThanOrEqual(0.5);
 
   // immediate 路径：cmd+0 精确归位——中心世界点不动（修复前 position.set 把
   // 世界中心值当平移量写入，半屏级跳动）
-  await page.keyboard.press('ControlOrMeta+0');
-  await expect.poll(scaleOf, { timeout: 5000 }).toBeCloseTo(1, 5);
+  await zoomReset();
+  await expect.poll(scaleOf, { timeout: 10_000 }).toBeCloseTo(1, 5);
   const e = await centerWorld();
   expect(Math.abs(e.x - d.x)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(e.y - d.y)).toBeLessThanOrEqual(0.5);
