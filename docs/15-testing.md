@@ -61,7 +61,7 @@
   smoke 1 例（dev 不注册）。跑法 = 主配置 + pwa 配置双命令（gate 与 `test:e2e`），
   nightly 三层只用主配置不付 preview 构建成本。生产探针为构建期开关（`SPINTH_E2E=1`）
   - `?e2e=1` 双门控的只读桥（`src/e2eProbe.ts`），Pages 产物零暴露。
-- coverage：67.39 / 59.01 / 69.26 / 57.77（语句/分支/行/函数），阈值 66/58/68/57。
+- coverage：67.39 / 59.01 / 69.27 / 57.77（语句/分支/行/函数），阈值 66/58/68/57。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTabRole.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`
@@ -109,5 +109,5 @@
 - 存储状态：StorageStatusService 10 单测 + storageMath 6 单测 + E2E 8 例
   （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
-- 大测试文件已按域拆分（docs/13 阶段 1.1 已收口）：单测拆至 **tests**/helpers/
+- 大测试文件已按域拆分（docs/13 阶段 1.1 已收口）：单测拆至 `__tests__`/helpers/
   fixture + 域文件；E2E spec 全部 < 500 行（最大 lineQuickAdd 460）。

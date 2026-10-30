@@ -18,10 +18,10 @@
     lineHoverOverlay 的 resolveLineHover 等、textService 的 commitEdit）实为
     类方法或内联逻辑——按手法 B 做方法体外移，类方法变薄委托。
   - `pathLength` 放 lineGeometry（route/path 两域共用度量）；
-    `readLegacyUpdates` 外移 dbMaintenance；线型/线宽选项表外移 lineDrawSession
+    `readLegacyUpdates` 外移 dbMaintenance；线型/线宽选项表外移 lineOptions
     并经 lineService re-export 保持消费路径（§3.3 先例）。
   - dbProvider/lineService/selectorService 拆后行数按真实接线成本落在
-    390-398 区间（设计预估 350-380 偏乐观），均 < 400 达标。
+    394-399 区间（设计预估 350-380 偏乐观），均 < 400 达标。
   - mindService 单测拆分时发现既有 `mindNav.test.ts`（mindNav 纯逻辑 29 例）
     与方案文件名撞名——保留原文件，方向键导航 2 例并入 mindBuild。
   - E2E helper 命名按实际探针函数（probe/lineProbe）落位
@@ -40,6 +40,8 @@
     选项表；lineService re-export 保持消费路径）。
   - P3.2：viewportZoom 立即路径的双 markRender 收敛为经 host.onMoved 一次
     （与拆分前渲染计数一致）。
+  - 完整 E2E 复跑发现 P0-7 @timing 抖动（并行负载下 Ctrl+= 偶发不生效/动画未收敛）：
+    用例改为 bringToFront + 显式 Control + 10s poll；主配置 205 + pwa 6 复跑全绿。
 
 ## 1. 目标与非目标
 
@@ -238,13 +240,14 @@ lineHandles.ts        主段、胶囊、分支错位、外移点、段滑移
 
 **测试拆分**
 
-| 新测试               | 吸收 describe                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| lineGeometry.test.ts | lineMath（docs/08 §3）、segmentGeoms 段几何                                                       |
-| lineRoute.test.ts    | routeElbow 正交路由、mergeCollinear/absorbTinyJogs、绕行候选、贴边降权、锚定进入段、pinKeepMiddle |
-| linePath.test.ts     | 线上文字定位、镂空与虚线切分、effectivePath 视图语义路径                                          |
-| lineHandles.test.ts  | majorSegments、capsuleAnchors、slideSegment                                                       |
-| lineSchema.test.ts   | LineSchema pinned 默认值                                                                          |
+| 新测试               | 吸收 describe                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| lineGeometry.test.ts | lineMath（docs/08 §3）、segmentGeoms 段几何                                        |
+| lineRoute.test.ts    | routeElbow 正交路由、mergeCollinear/absorbTinyJogs、绕行候选、贴边降权、锚定进入段 |
+| linePinned.test.ts   | pinKeepMiddle pinned 路由                                                          |
+| linePath.test.ts     | 线上文字定位、镂空与虚线切分、effectivePath 视图语义路径                           |
+| lineHandles.test.ts  | majorSegments、capsuleAnchors、slideSegment                                        |
+| lineSchema.test.ts   | LineSchema pinned 默认值                                                           |
 
 **验收**
 
@@ -655,7 +658,7 @@ export function commitTextEdit(
 
 | 原文件                           | 新文件                                                                                 | 共享 helper                   |
 | -------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------- |
-| lineMath.test.ts（70）           | lineGeometry / lineRoute / linePath / lineHandles / lineSchema                         | 无                            |
+| lineMath.test.ts（70）           | lineGeometry / lineRoute / linePinned / linePath / lineHandles / lineSchema            | 无                            |
 | mindService.test.ts（33）        | mindBuild / mindNav / mindEdit / mindSelect / mindTool                                 | helpers/mindServiceFixture.ts |
 | dbProvider.test.ts（24）         | dbProvider.store / dbProvider.writeQueue / dbProvider.compaction / dbProvider.readonly | helpers/dbProviderFixture.ts  |
 | mindDragDescendant.test.ts（23） | mindDragLegality / mindDragText / mindDragDrop                                         | helpers/mindDragFixture.ts    |

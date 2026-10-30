@@ -55,8 +55,8 @@
       `lineVmText`/`lineVmHit`；`lineHoverOverlay` 抽 `lineHoverMath`；
       `types/widget` 外移 ActionBar 契约至 `types/actionBar`（re-export 保持
       import 路径）。
-- [x] 单测（5 个 >400 行文件）：拆为 lineGeometry/lineRoute/linePath/lineHandles/
-      lineSchema、mindBuild/mindTool/mindEdit/mindSelect、dbProvider.store/
+- [x] 单测（5 个 >400 行文件）：拆为 lineGeometry/lineRoute/linePinned/linePath/
+      lineHandles/lineSchema、mindBuild/mindTool/mindEdit/mindSelect、dbProvider.store/
       writeQueue/compaction/readonly、mindDragLegality/Text/Drop、
       shapeInset/Height/VmRender + 3 个 `__tests__/helpers/` fixture。
 - [x] E2E spec（10 个 >400 行文件）：widgets→line*/pen/eraser 8 个、
