@@ -9,8 +9,8 @@
 ## 0. 实施结果（2026-10-30）
 
 - 源码行数报告（附录 A 命令）输出为空：10 个目标源文件全部拆至 < 400 行。
-- E2E > 500 行文件为空；401-500 区间仅 5 个 spec（lineQuickAdd 460、
-  toolbarMenu 430、lineSelect 429、imageAsset 419、textEditShape 414）。
+- E2E 按用户流程域拆分；当前最大 lineQuickAdd 460 行（401-500 区间共 5 个），
+  不设 500 行上限。
 - 计数不变：单测 983（core 894 + react 51 + app 38）；E2E 主配置 205 用例 +
   pwa 配置 6 用例 = 211；spec 文件主配置 22 → 43（含 pwa 共 23 → 44）。
 - 与设计的偏差（均在方案框架内适配，见 §8.4 精神）：
@@ -47,8 +47,8 @@
 
 ### 1.1 目标
 
-- **源码硬目标**：清单内源文件拆分后单文件 < 400 行；新增文件同样遵守。
-- **测试软目标**：单测按 describe 域拆分，单文件目标 < 400 行；E2E 按用户流程拆分，单文件目标 < 500 行，**不新增 > 600 行文件**。
+- **源码硬目标**：清单内非测试源文件拆分后单文件 < 400 行；新增非测试源文件同样遵守。
+- **测试拆分**：单测按 describe/文件域、E2E 按用户流程域拆分；测试文件不套用 400 行上限，不以行数作为拆分依据。
 - **行为零变化**：schema、默认值、Yjs 数据、渲染像素、undo 粒度、快捷键、E2E 断言全部不变。
 - **兼容面稳定**：公共 import 路径、类名、构造签名、方法签名、常量导出不变；core 的 index.ts 不新增导出。
 - **可回退**：每个 seam 一笔提交；源拆分与测试拆分分开；任一笔可单独 revert。
@@ -65,7 +65,7 @@
 
 ## 2. 现状盘点
 
-### 2.1 超 400 行清单（设计时实测）
+### 2.1 设计时超 400 行清单（测试文件仅作拆分依据，不构成行数门禁）
 
 源码：
 
@@ -688,7 +688,7 @@ export function commitTextEdit(
 
 **规则**
 
-- 一个 spec 文件 = 一个用户流程域；超过 600 行继续按子流程拆。
+- 一个 spec 文件 = 一个用户流程域；按功能域拆分，不以行数为依据；流程域过大再按子流程拆。
 - test 标题不改；skip 条件不改；docId 前缀按域唯一（防并行 worker 撞库）。
 - 每个 test 独立 setup；若存在顺序依赖，保留在同一文件并显式 serial，不跨文件。
 - 拆分后 playwright test --list 用例数仍为 211；spec 数增加是预期。
@@ -791,7 +791,7 @@ git diff --color-moved=blocks --stat
 ```
 
 - 现有测试不改仍绿（源拆分笔）。
-- 新增文件 < 400 行（源码）；测试文件不超过目标上限。
+- 新增非测试源文件 < 400 行；测试文件按文件/功能域拆分，不套用行数上限。
 - 没有新增 any / ts-ignore / eslint-disable。
 - 公共 export 不减；barrel 无 export *。
 - 通过后立即 push。
@@ -811,10 +811,14 @@ node scripts/check-visual-baselines.mjs
 ### 7.3 最终
 
 ```bash
-find packages -type f -name '*.ts' -not -path '*/node_modules/*' -not -path '*/dist/*' -print0   | xargs -0 wc -l | awk '$1 > 400 && $2 != "total"'
+find packages -type f \( -name '*.ts' -o -name '*.tsx' \) \
+  -not -path '*/node_modules/*' -not -path '*/dist/*' \
+  -not -path '*/__tests__/*' -not -path '*/e2e/*' \
+  -not -name '*.test.ts' -not -name '*.test.tsx' -print0 \
+  | xargs -0 wc -l | awk '$1 > 400 && $2 != "total"'
 ```
 
-- 上述命令输出为空（源码）；测试/E2E 只允许白名单例外，且必须有理由。
+- 上述命令输出为空（非测试源码）；测试文件按文件/功能域拆分，不套用行数上限。
 - pnpm -r test 983 例；playwright test --list 211 例。
 - pnpm verify 全绿。
 - core 的 index.ts 导出面无变化。
@@ -824,16 +828,16 @@ find packages -type f -name '*.ts' -not -path '*/node_modules/*' -not -path '*/d
 
 ### 8.1 风险
 
-| 风险                              | 级别 | 缓解                                               |
-| --------------------------------- | ---- | -------------------------------------------------- |
-| 协作者抽取改变 this/初始化顺序    | 高   | move-only；host interface；逐行 diff；现有测试不动 |
-| boardComposition 重排导致启动差异 | 高   | 顺序契约表；每步只搬连续块；启动 E2E               |
-| timer/listener 释放两次或漏释放   | 高   | dispose 矩阵；每笔检查 addDisposable               |
-| barrel export * 扩大公共面        | 中   | 显式 re-export 白名单；审查 diff                   |
-| 测试 helper 提前执行 Pixi stub    | 中   | 每个新测试文件复制 preamble；不 module 顶层构造    |
-| E2E 拆分后并行撞库/时序抖动       | 中   | 唯一 docId 前缀；独立 setup；全量复跑              |
-| coverage 因 barrel/新文件下降     | 中   | 每 wave 跑 coverage；不降阈值                      |
-| 拆过度导致无意义薄文件            | 中   | 只按域拆；单文件低于 80 行需合并回相邻域           |
+| 风险                              | 级别 | 缓解                                                               |
+| --------------------------------- | ---- | ------------------------------------------------------------------ |
+| 协作者抽取改变 this/初始化顺序    | 高   | move-only；host interface；逐行 diff；现有测试不动                 |
+| boardComposition 重排导致启动差异 | 高   | 顺序契约表；每步只搬连续块；启动 E2E                               |
+| timer/listener 释放两次或漏释放   | 高   | dispose 矩阵；每笔检查 addDisposable                               |
+| barrel export * 扩大公共面        | 中   | 显式 re-export 白名单；审查 diff                                   |
+| 测试 helper 提前执行 Pixi stub    | 中   | 每个新测试文件复制 preamble；不 module 顶层构造                    |
+| E2E 拆分后并行撞库/时序抖动       | 中   | 唯一 docId 前缀；独立 setup；全量复跑                              |
+| coverage 因 barrel/新文件下降     | 中   | 每 wave 跑 coverage；不降阈值                                      |
+| 拆过度导致无意义薄文件            | 中   | 只按域拆；非测试源码低于 80 行需合并回相邻域；测试文件按功能域保留 |
 
 ### 8.2 dispose / listener 矩阵
 
