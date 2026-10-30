@@ -158,7 +158,7 @@ jobs:
       # 接管依赖 close→reload 时序：20 次全跑、retries=0——第一次红就留现场，
       # 不靠 gate 的 retries=1 掩盖 flake
       - name: E2E（接管压力 20×，retries=0）
-        run: npx playwright test packages/app/e2e/multiTab.spec.ts -g "接管" --repeat-each=20 --workers=2 --retries=0
+        run: npx playwright test packages/app/e2e/multiTabRole.spec.ts -g "接管" --repeat-each=20 --workers=2 --retries=0
       - name: 上传失败现场
         if: failure()
         uses: actions/upload-artifact@v4
