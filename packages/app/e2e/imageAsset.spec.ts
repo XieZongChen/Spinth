@@ -221,7 +221,9 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
   }, docId);
 });
 
-test('objectURL 配平回归（第三轮审查）：删图计数归零 revoke；undo 恢复计数=1', async ({ page }) => {
+test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到期归零 revoke；undo 恢复计数=1', async ({
+  page,
+}) => {
   const docId = `e2e-refbal-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -281,7 +283,7 @@ test('objectURL 配平回归（第三轮审查）：删图计数归零 revoke；
   expect(r.refs).toBe(1);
   expect(r.urls).toBe(1);
 
-  // 删除：dispose 配平——计数归零且 URL revoke（第三轮审查实证 refs 停留 1 = 泄漏）
+  // 删除：纹理进入保活窗口——URL 仍被空闲条目持有（1/1，GC 持活闸门）
   await page.evaluate(() => {
     const w = (
       window as unknown as {
@@ -294,9 +296,12 @@ test('objectURL 配平回归（第三轮审查）：删图计数归零 revoke；
     w.engine.removeByIds(w.__debug.selectedIds);
   });
   await expect.poll(async () => (await imageState(page)).count, { timeout: 5_000 }).toBe(0);
-  await page.waitForTimeout(200);
   r = await refs();
-  expect(r.refs).toBe(0);
+  expect(r.refs).toBe(1); // 保活期持有（specs/texture-keepalive D1：租约随窗口）
+  expect(r.urls).toBe(1);
+  // 窗口到期（5s + 余量）：计数归零且 URL revoke（第三轮审查不变式）
+  await expect.poll(async () => (await refs()).refs, { timeout: 9_000 }).toBe(0);
+  r = await refs();
   expect(r.urls).toBe(0);
 
   // undo 恢复：新 vm 重新持有（恰 1，非累加为 2）

@@ -50,9 +50,13 @@ export interface IDebugSnapshotDeps {
       >;
     };
   } | null;
-  /** 图片纹理缓存探针（E2E 断言同图一份纹理/refs 计数）；null = 未建 */
+  /** 图片纹理缓存探针（E2E 断言同图一份纹理/refs 计数；entries 含保活空闲条目）；null = 未建 */
   imageTextures: {
-    debug(): { entries: Array<{ key: string; refs: number; uid: number }>; pending: number };
+    debug(): {
+      entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
+      pending: number;
+      keepAlive: { count: number; bytes: number };
+    };
   } | null;
   /** 资产 objectURL 租约快照（id → refs；E2E 断言切 src/删图计数归位） */
   assetStore: { debugLeases(): Record<string, number> } | null;
@@ -128,8 +132,13 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
       // 加载会话探针（docs/19 §4）：IMAGE 的 src/状态/重试次数/纹理标识
       imageLoad: (vm as unknown as { loadDebug?: unknown }).loadDebug ?? null,
     })),
-    /** 纹理缓存探针：entries[].key=assetId（refs>0 存活）/pending 在途数 */
-    imageTextures: d.imageTextures?.debug() ?? { entries: [], pending: 0 },
+    /** 纹理缓存探针：entries[].key=assetId（refs>0 在租 / idle=true 保活空闲）；
+     *  keepAlive = 空闲池条目数与估算字节（E2E 验双上限） */
+    imageTextures: d.imageTextures?.debug() ?? {
+      entries: [],
+      pending: 0,
+      keepAlive: { count: 0, bytes: 0 },
+    },
     /** 资产 URL 租约（id → 计数；非资产图为空对象） */
     assetLeases: d.assetStore?.debugLeases() ?? {},
   };

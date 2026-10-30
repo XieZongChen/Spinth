@@ -1,4 +1,4 @@
-/** 图片生命周期 E2E（docs/19 §3-§4）：纹理共享/计数配平/自动手动重试 */
+/** 图片生命周期 E2E（docs/19 §3-§4）：纹理共享/保活窗口/undo 复用/计数配平/自动手动重试 */
 import { expect, test } from '@playwright/test';
 import { waitForSynced } from './helpers/boardE2e';
 import {
@@ -10,7 +10,7 @@ import {
   PNG_B64,
 } from './helpers/imageProbeE2e';
 
-test('纹理共享（L2）：同图两实例一份纹理一份 URL 计数；删除逐张递减', async ({ page }) => {
+test('纹理共享（L2）：同图两实例一份纹理一份 URL 计数；删除进保活、到期归零', async ({ page }) => {
   const docId = `e2e-texshare-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -37,24 +37,71 @@ test('纹理共享（L2）：同图两实例一份纹理一份 URL 计数；删�
   const leaseValues = Object.values(p0.leases);
   expect(leaseValues).toEqual([1]); // 同图 N 实例只占 1 份 URL 计数
 
-  // 删一张：refs 2 → 1（纹理存活）；再删：条目销毁、URL 租约归还
+  // 删一张：refs 2 → 1（纹理存活）；再删：进入保活窗口（refs=0/idle=true，
+  // 纹理与 URL 租约保留）→ 窗口到期后条目销毁、URL 租约归还
   await removeFirstImage(page);
   await expect
     .poll(async () => (await textureProbes(page)).entries[0]?.refs ?? 0, { timeout: 5_000 })
     .toBe(1);
   await removeFirstImage(page);
   await expect
-    .poll(async () => (await textureProbes(page)).entries.length, { timeout: 5_000 })
+    .poll(
+      async () => {
+        const p = await textureProbes(page);
+        const e = p.entries[0];
+        return e && e.refs === 0 && e.idle ? p.keepAlive.count : -1;
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(1);
+  expect(Object.values((await textureProbes(page)).leases)).toEqual([1]); // 租约仍 1
+  await expect
+    .poll(async () => (await textureProbes(page)).entries.length, { timeout: 9_000 }) // 5s 窗口 + 余量
     .toBe(0);
   await expect
-    .poll(async () => Object.keys((await textureProbes(page)).leases).length, { timeout: 5_000 })
+    .poll(async () => Object.keys((await textureProbes(page)).leases).length, { timeout: 9_000 })
     .toBe(0);
   await page.evaluate((id) => {
     void indexedDB.deleteDatabase(`spinth-doc:${id}`);
   }, docId);
 });
 
-test('切 src 计数配平（L1）：A 切 B 后旧引用归零、新引用恰 1；删图归零', async ({ page }) => {
+test('窗口内 undo 复用（L2）：删图后立即撤销——同一纹理未重新解码', async ({ page }) => {
+  const docId = `e2e-texundo-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  const b64 = await saltedPngB64(page);
+  await pasteB64(page, b64);
+  await expect.poll(async () => (await imageState(page)).count, { timeout: 8_000 }).toBe(1);
+  await expect
+    .poll(async () => (await textureProbes(page)).loads[0]?.state ?? '', { timeout: 8_000 })
+    .toBe('loaded');
+  const before = await textureProbes(page);
+  const uidBefore = before.loads[0]!.textureUid;
+  expect(before.entries[0]!.refs).toBe(1);
+
+  // 删除后立即 undo（中间不插轮询——CI 停顿可能吃掉 5s 窗口；
+  // uid 相同即证未重新 decode，时序无关）
+  await removeFirstImage(page);
+  await page.keyboard.press('ControlOrMeta+z');
+
+  await expect.poll(async () => (await imageState(page)).count, { timeout: 8_000 }).toBe(1);
+  await expect
+    .poll(async () => (await textureProbes(page)).loads[0]?.state ?? '', { timeout: 8_000 })
+    .toBe('loaded');
+  const after = await textureProbes(page);
+  expect(after.loads[0]!.textureUid).toBe(uidBefore); // 同一份 GPU 纹理
+  expect(after.entries[0]!.refs).toBe(1);
+  expect(after.entries[0]!.idle).toBe(false); // 窗口内被 wake 复用
+  expect(after.leases[after.entries[0]!.key]).toBe(1); // URL 租约未归还过（恰 1）
+  await page.evaluate((id) => {
+    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
+  }, docId);
+});
+
+test('切 src 计数配平（L1）：A 切 B 后 A 进入保活、B 恰 1；窗口到期 A 租约归零', async ({
+  page,
+}) => {
   const docId = `e2e-srcsw-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -97,16 +144,31 @@ test('切 src 计数配平（L1）：A 切 B 后旧引用归零、新引用恰 1
   const probes = await textureProbes(page);
   const hashB = srcB.slice('spinth-asset:'.length);
   expect(probes.loads[0]!.src).toBe(srcB);
-  // 旧引用归零（条目已销毁），新引用恰 1——竞态由单测确定性覆盖，此处守计数不变式
-  expect(probes.leases[hashA] ?? 0).toBe(0);
-  expect(probes.leases[hashB]).toBe(1);
+  // A 条目进入保活窗口（refs=0/idle=true、租约仍 1），B 在租恰 1——竞态由单测
+  // 确定性覆盖，此处守计数不变式
+  await expect
+    .poll(
+      async () => {
+        const p = await textureProbes(page);
+        const a = p.entries.find((e) => e.key === hashA);
+        return a && a.refs === 0 && a.idle && p.leases[hashA] === 1 ? p.leases[hashB] : -1;
+      },
+      { timeout: 8_000 },
+    )
+    .toBe(1);
+  // A 的保活窗口到期后租约归零（B 不受影响）
+  await expect
+    .poll(async () => (await textureProbes(page)).leases[hashA] ?? 0, { timeout: 9_000 })
+    .toBe(0);
+  expect((await textureProbes(page)).leases[hashB]).toBe(1);
 
   await removeFirstImage(page);
+  // B 删除 → 同样先进入保活窗口，到期后条目销毁、租约归零
   await expect
-    .poll(async () => (await textureProbes(page)).entries.length, { timeout: 5_000 })
+    .poll(async () => (await textureProbes(page)).entries.length, { timeout: 9_000 })
     .toBe(0);
   await expect
-    .poll(async () => (await textureProbes(page)).leases[hashB] ?? 0, { timeout: 5_000 })
+    .poll(async () => (await textureProbes(page)).leases[hashB] ?? 0, { timeout: 9_000 })
     .toBe(0);
   await page.evaluate((id) => {
     void indexedDB.deleteDatabase(`spinth-doc:${id}`);

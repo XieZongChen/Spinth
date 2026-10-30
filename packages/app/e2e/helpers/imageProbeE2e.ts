@@ -54,10 +54,12 @@ export async function persisted(page: Page): Promise<void> {
     .toBe('saved');
 }
 
-/** 纹理缓存/租约/加载会话探针（docs/19 §3-§4） */
+/** 纹理缓存/租约/加载会话探针（docs/19 §3-§4）；idle=true 为保活空闲条目，
+ *  keepAlive 汇报空闲池条目数与估算字节（specs/texture-keepalive §4.6） */
 export function textureProbes(page: Page): Promise<{
-  entries: Array<{ key: string; refs: number; uid: number }>;
+  entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
   pending: number;
+  keepAlive: { count: number; bytes: number };
   leases: Record<string, number>;
   loads: ImageLoadProbe[];
 }> {
@@ -67,8 +69,9 @@ export function textureProbes(page: Page): Promise<{
         __spinth: {
           __debug: {
             imageTextures: {
-              entries: Array<{ key: string; refs: number; uid: number }>;
+              entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
               pending: number;
+              keepAlive: { count: number; bytes: number };
             };
             assetLeases: Record<string, number>;
             vmStates: Array<Record<string, unknown>>;
@@ -79,6 +82,7 @@ export function textureProbes(page: Page): Promise<{
     return {
       entries: d.imageTextures.entries,
       pending: d.imageTextures.pending,
+      keepAlive: d.imageTextures.keepAlive,
       leases: d.assetLeases,
       loads: d.vmStates.filter((v) => v.type === 'IMAGE').map((v) => v.imageLoad as ImageLoadProbe),
     };

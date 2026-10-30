@@ -12,8 +12,12 @@ export const PNG_B64 =
 export type Debug = {
   modelCount: number;
   vmStates: Array<Record<string, unknown>>;
-  /** 纹理缓存探针（同图一份纹理断言）；导航间隙由调用方判空 */
-  imageTextures: { entries: Array<{ key: string; refs: number; uid: number }>; pending: number };
+  /** 纹理缓存探针（同图一份纹理断言；idle=true 为保活空闲条目）；导航间隙由调用方判空 */
+  imageTextures: {
+    entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
+    pending: number;
+    keepAlive: { count: number; bytes: number };
+  };
   /** 资产 objectURL 租约（id → 计数） */
   assetLeases: Record<string, number>;
 };

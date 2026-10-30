@@ -67,12 +67,14 @@ export interface IImageTextureCacheOptions {
 
 /**
  * 纹理缓存（L2 同图共享）：同 assetId 只解码/建纹一次，多 VM 各持一份
- * 租约（引用计数）；refs 归零才 texture.destroy(true) 并归还 URL 租约。
- * 缓存条目在存活期间持有 objectURL 租约——资产 GC 的「持活不删」闸门
- * 因此仍然生效（同图 N 实例只占 1 份计数，比每 VM 各持一份更省）。
+ * 租约（引用计数）；refs 归零进入保活窗口（默认 5s/8 条/32MiB，LRU 逐出，
+ * specs/texture-keepalive），窗口内重新 acquire 直接复用，窗口结束或被
+ * 预算逐出才 texture.destroy(true) 并归还 URL 租约。缓存条目在存活（含
+ * 保活窗口）期间持有 objectURL 租约——资产 GC 的「持活不删」闸门因此
+ * 覆盖保活期（同图 N 实例只占 1 份计数，比每 VM 各持一份更省）。
  *
  * data URL / http 走不缓存分支：data URL 可能超长不能当 Map key；http
- * 内容可变，共享语义不成立。
+ * 内容可变，共享语义不成立；二者释放即销毁，不进入保活池。
  */
 export class ImageTextureCache implements IImageTexturePort {
   private readonly entries = new Map<string, ICacheEntry>();
@@ -161,15 +163,22 @@ export class ImageTextureCache implements IImageTexturePort {
     this.keepAlive.dropAll();
   }
 
-  /** 探针（E2E 断言「同图一份纹理 / refs 计数」） */
-  debug(): { entries: Array<{ key: string; refs: number; uid: number }>; pending: number } {
+  /** 探针（E2E 断言「同图一份纹理 / refs 计数」）；entries 含保活空闲条目
+   *  （refs=0 + idle=true），keepAlive 汇报空闲条目数与估算字节（验预算） */
+  debug(): {
+    entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
+    pending: number;
+    keepAlive: { count: number; bytes: number };
+  } {
     return {
       entries: Array.from(this.entries.values()).map((e) => ({
         key: e.key ?? '',
         refs: e.refs,
         uid: textureUidOf(e.texture),
+        idle: this.keepAlive.has(e),
       })),
       pending: this.pending.size,
+      keepAlive: this.keepAlive.stats,
     };
   }
 
