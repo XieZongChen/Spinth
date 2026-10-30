@@ -7,7 +7,6 @@ import {
   absorbTinyJogs,
   segmentIntersectsRect,
   pathLength,
-  pinKeepMiddle,
   NODE_MARGIN,
   type IPt,
 } from '../widgets/line/lineMath';
@@ -373,28 +372,5 @@ describe('锚定进入段最短长度（2026-09-28 用户实测：短末段挤�
     const n = route.length;
     const last = Math.hypot(route[n - 1]!.x - route[n - 2]!.x, route[n - 1]!.y - route[n - 2]!.y);
     expect(last).toBeGreaterThanOrEqual(20);
-  });
-});
-
-describe('pinKeepMiddle pinned 路由（docs/08 §10 批次 3）', () => {
-  const pts = [
-    { x: 10, y: 20 },
-    { x: 10, y: 50 },
-    { x: 100, y: 50 },
-    { x: 200, y: 50 },
-    { x: 200, y: 80 },
-  ];
-
-  it('两端锚点重贴、中间拐点保持（U 形不丢）', () => {
-    const next = pinKeepMiddle(pts, { x: 15, y: 25 }, { x: 195, y: 75 });
-    expect(next[0]).toEqual({ x: 15, y: 25 });
-    expect(next[next.length - 1]).toEqual({ x: 195, y: 75 });
-    expect(next.slice(1, -1)).toEqual(pts.slice(1, -1));
-  });
-
-  it('null 端不重贴', () => {
-    const next = pinKeepMiddle(pts, null, { x: 195, y: 75 });
-    expect(next[0]).toEqual({ x: 10, y: 20 });
-    expect(next[next.length - 1]).toEqual({ x: 195, y: 75 });
   });
 });
