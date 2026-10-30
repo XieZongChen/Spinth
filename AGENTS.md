@@ -122,8 +122,9 @@ Node >= 24，pnpm 11.28.5。
 单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/旋转/
 参考线、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单、
 项目文件导出/导入（`.spinth.zip`，docs/20）、存储状态面板（docs/02 §6.1）、
-多标签单写者/只读跟随（docs/21）、资产/图片生命周期（加载会话/纹理共享/重试/
-GC 分片预算，docs/19）、只读态收口（右键不建选区、呈现门禁、运行时降级序列，
+多标签单写者/只读跟随（docs/21）、资产/图片生命周期（加载会话/纹理共享/
+纹理保活/重试/GC 分片预算，docs/19 + specs/texture-keepalive）、只读态收口
+（右键不建选区、呈现门禁、运行时降级序列，
 docs/21 §4）、可访问性与移动端收口批次 A（语义色 WCAG AA + 对比度护栏、共享
 错误态 role=alert、390px 九面布局矩阵、单机断网不变量，specs/a11y-mobile）、
 公共 API 收口与 P2 架构收口（`BoardPublicApi` allowlist + 分类编译锁、
@@ -145,11 +146,12 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 仪式，脚本不强制）、基线齐全护栏接入 verify 与 CI gate、visual job 真门禁
 （update dispatch 跳过校验直接生成）；darwin/linux 双平台各 5 张基线。
 
-当前实测基线：`pnpm verify` 通过；983 单测（core 894 + react 51 + app 38）；
-E2E 44 spec / 211 用例全绿（视觉 4/4 双平台；图片/资产专项 10/10；a11y 6/6；
+当前实测基线：`pnpm verify` 通过；998 单测（core 909 + react 51 + app 38）；
+E2E 44 spec / 212 用例全绿（视觉 4/4 双平台；图片/资产专项 11/11；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 
-下一阶段顺序：发布前工程债（拆大文件、纹理保活、边缘自动滚屏、运行时收窄）
+下一阶段顺序：发布前工程债余项（拆大文件与纹理保活已完成，specs/
+split-large-files、specs/texture-keepalive；剩边缘自动滚屏、运行时收窄）
 → 开源发布 v1.0（发布清仓、仓库公开、CI 实证、GitHub Pages）
 → 1.0 后可访问性与平台遗留；协同最后（docs/10，不进入默认启动路径）。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与

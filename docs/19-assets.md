@@ -27,8 +27,12 @@ src = "spinth-asset:<sha256>"
 1. `ImageLoadController`：一次 src 变化 = 一个 token 化会话；会话完成时按
    token 校验一次，过期结果不落地、只释放自己拿到的租约（不触碰当前会话）。
 2. `ImageTextureCache`：同 assetId 只解码/建纹一次，多实例各持一份纹理租约
-   （引用计数），归零才 `texture.destroy(true)` 并归还 URL 租约——
-   同图 N 实例 = 1 次解码、1 份 GPU 纹理、1 份 objectURL 计数。
+   （引用计数）；归零进入保活窗口（默认 5s / 空闲 8 条 / 估算显存 32MiB，
+   超限按 LRU 逐出，specs/texture-keepalive），窗口内重新 acquire 直接复用
+   同一纹理，窗口结束或被预算逐出才 `texture.destroy(true)` 并归还 URL
+   租约——同图 N 实例 = 1 次解码、1 份 GPU 纹理、1 份 objectURL 计数；
+   `pagehide` 只清空闲条目（在租条目仍被 sprite 引用，销毁会破 bfcache
+   恢复画面），`dispose` 全量销毁。
 3. data URL / http 不共享（data URL 超长不可作 Map key；http 内容可变），
    每次加载独立建纹、释放即销毁。
 4. 切换 src 期间旧图保持显示（防闪烁）；新图提交或失败后才替换 sprite 与
@@ -38,7 +42,7 @@ src = "spinth-asset:<sha256>"
 
 - objectURL 引用计数；并发首载共用同一个 in-flight Promise，避免重复创建 URL。
 - 释放归零时 revoke；持活引用 > 0 的资产 GC 不删（下轮再看）——缓存条目
-  在存活期间持有 URL 租约，该闸门对共享纹理同样生效。
+  在存活（含保活窗口）期间持有 URL 租约，该闸门对共享纹理与保活期同样生效。
 - sprite 销毁不销毁纹理（纹理归缓存租约所有）；缓存由组合根创建、随 SDK
   dispose 无条件清空。
 
@@ -85,7 +89,9 @@ src = "spinth-asset:<sha256>"
   一次（docs/21 §4）；Web Locks 锁保留为并发兜底。
 - 多标签用 Web Locks 串行化（锁覆盖整轮含协作让出）；锁被占用时跳过本轮，
   Web Locks API 不可用时降级直跑（单标签场景无竞争）。
-- 删除批内检查 objectURL 引用计数；正在渲染的资产跳过。
+- 删除批内检查 objectURL 引用计数；正在渲染的资产跳过。纹理保活期条目
+  仍持有 objectURL 租约（specs/texture-keepalive D1），GC 视其为在租——
+  被保活挡下的孤儿最多留到下个会话的 GC，与任何在租资产同语义。
 - 存量迁移链与 GC 同源：每 8 张迁移协作让出一次，同样接受 shouldContinue 中断
   （迁移幂等，中断安全）。
 

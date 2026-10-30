@@ -9,11 +9,11 @@
 - [x] SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP
 - [x] 多选、编组、对齐/分布、旋转、参考线吸附
 - [x] 富文本编辑、排版 override、marks、橡皮分段擦除
-- [x] 本地资产库、图片 GC、失败回退、资产/图片生命周期（加载会话/纹理共享/重试/GC 分片）
+- [x] 本地资产库、图片 GC、失败回退、资产/图片生命周期（加载会话/纹理共享/保活窗口/重试/GC 分片）
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 983 单测（core 894 + react 51 + app 38）、E2E 44 spec / 211 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 10/10、`pnpm verify` 通过
+- [x] 998 单测（core 909 + react 51 + app 38）、E2E 44 spec / 212 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 11/11、`pnpm verify` 通过
 
 当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
 
@@ -38,9 +38,9 @@
 
 ### 阶段 1 — 发布前工程债
 
-阶段 1 内部建议顺序：拆大文件 → 纹理保活 → 边缘自动滚屏 → 运行时收窄。
-拆大文件先行降低后续审查成本；纹理/边缘相互独立可互换；运行时收窄最后，
-避免新代码与新探针二次迁移。
+阶段 1 内部顺序：拆大文件 → 纹理保活 → 边缘自动滚屏 → 运行时收窄。
+前两项已完成（specs/split-large-files、specs/texture-keepalive）；边缘与
+已完成项相互独立；运行时收窄最后，避免新代码与新探针二次迁移。
 
 #### 1.1 拆大文件
 
@@ -73,16 +73,18 @@
 
 #### 1.2 纹理保活
 
-- [ ] `ImageTextureCache` 引用归零后进入保活窗口（建议 5s，可配置）；窗口内重新
-      acquire 复用同一纹理，窗口结束仍为零引用才 `destroy(true)`。
-- [ ] 双上限：保活条目数 + 估算显存；超限按 LRU 立即销毁。`dispose` 与页面
-      `pagehide` 清空全部定时器与条目。
-- [ ] 租约/GC 语义实现前定稿：保活条目是否继续持有 URL 租约、是否计入 GC 持活；
-      不允许 GC 误删仍可复用的资产。
-- [ ] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose 清理；undo 恢复
-      路径断言不重复 decode（注入计数）。
-- 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在窗口前后平衡。
-- 规格：docs/19 §3、specs/assets-lifecycle §3.2。
+- [x] `ImageTextureCache` 引用归零后进入保活窗口（默认 5s，构造参数可配）；窗口内
+      重新 acquire 复用同一纹理，窗口结束仍为零引用才 `destroy(true)`。
+- [x] 双上限：保活条目数 + 估算显存；超限按 LRU 立即销毁。`dispose` 全量销毁；
+      页面 `pagehide` 只清**空闲**条目与保活定时器（在租条目保留，防 bfcache
+      恢复后画面破损）。
+- [x] 租约/GC 语义：保活条目继续持有 URL 租约并计入 GC 持活（窗口结束才归还），
+      GC 不误删仍可复用的资产。
+- [x] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose/pagehide 清理；
+      undo 恢复路径断言不重复 decode（注入计数）+ E2E uid 复用断言。
+- 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在空闲前/空闲中/到期后
+  平衡（1/1 → 1/1 → 0/0）。
+- 规格：docs/19 §3、specs/texture-keepalive（已实施）、specs/assets-lifecycle §3.2。
 
 #### 1.3 边缘自动滚屏
 
@@ -176,7 +178,7 @@
 ### 已完成批次（归档）
 
 - 项目导出/导入（docs/20）、多标签单写者/只读（docs/21）、存储可靠性（docs/02 §6.1）。
-- 资产/图片生命周期（docs/19）、PWA/Service Worker（specs/pwa.md）。
+- 资产/图片生命周期（docs/19）、纹理保活（specs/texture-keepalive.md）、PWA/Service Worker（specs/pwa.md）。
 - Linux 视觉基线（specs/linux-visual.md）、API 收口（specs/api-surface.md）。
 - 可访问性批次 A/B（specs/a11y-mobile.md、specs/a11y-closeout.md）。
 
@@ -184,13 +186,13 @@
 
 - 阶段顺序：工程债 → 开源发布 → 1.0 后 → 协同；协同不进入当前版本默认路径。
 - 1.0 是首个公开 API 基线：运行时收窄在 1.0 前完成；1.0 后破坏性变更走主版本。
-- 纹理保活窗口的 URL 租约与 GC 可见性在实现前定稿；保活不得让 GC 误删仍可复用的资产（docs/19 §3）。
+- 纹理保活窗口期条目继续持有 URL 租约并计入 GC 持活（specs/texture-keepalive D1）；保活不让 GC 误删仍可复用的资产（docs/19 §3）。
 - 边缘自动滚屏只作用于拖拽，不改视口持久化；速度分档与停止条件按 docs/05 §4.5。
 - 空间索引 + culling 的 MIND_MAP 豁免：树增长不触发几何 diff，整图一个渲染单元；
   索引会过期，因此豁免 culling。
 - LINE 选区交互：线不可整体拖动/缩放；拖线身 = 段滑移，端点 = 重锚定。
-- 纹理按 assetId 共享（引用归零销毁；data/http 不缓存）、GC 单轮软预算 + mark 中断零删除（docs/19）。
-  保活窗口在此基础上扩展，不改变归零销毁的最终语义。
+- 纹理按 assetId 共享（引用归零进保活窗口、窗口结束销毁；data/http 不缓存）、
+  GC 单轮软预算 + mark 中断零删除（docs/19、specs/texture-keepalive）。
 - 多标签：单写者 + 只读跟随，接管 = 整页刷新，不做实时同步（docs/21）。
 - 只读态收口分层：core 修语义（右键不建选区、降级序列、工具钳制），react 修呈现（持久铬件禁用、浮动件随附着对象隐藏）；命令层守卫是安全网不是呈现面（docs/21 §4）。
 - 项目文件格式、导入语义、ZIP 依赖：`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning（docs/20）。

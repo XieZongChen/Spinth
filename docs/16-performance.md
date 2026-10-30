@@ -62,6 +62,8 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - 快照纹理 LOD、测量缓存、空间索引、culling。
 - 同图多实例纹理共享（按 assetId 引用计数，一份解码/一份 GPU 纹理/一份
   URL 计数，docs/19 §3）。
+- 纹理保活窗口（归零后 5s 内复用不重解码；空闲 8 条/估算显存 32MiB 双上限
+  LRU 逐出、pagehide 清空闲，specs/texture-keepalive）。
 - 资产 GC 启动成本收口：空库零扫描短路、批量删除（单批 64 行两事务）、
   每篇扫描/每块删除协作让出、单轮软预算 1500ms、mark 中断零删除（docs/19 §5）。
 
@@ -79,7 +81,8 @@ P3  TextVm.render 全量重建（平移复用已落地）
 仍需关注：
 
 - 源文件 >400 行已清零（docs/13 阶段 1.1 拆分收口，方案见
-  specs/split-large-files）；后续关注点为阶段 1.2-1.4（纹理保活/边缘滚屏/运行时收窄）。
+  specs/split-large-files）；纹理保活已落地（specs/texture-keepalive）；
+  后续关注点为阶段 1.3-1.4（边缘滚屏/运行时收窄）。
 
 ## 7. 性能基准
 

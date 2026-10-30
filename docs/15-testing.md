@@ -13,8 +13,8 @@
 
 ## 2. 当前基线
 
-- 单测：983 passed（core 894 + react 51 + app 38）。
-- E2E：44 个 spec（主配置 43 + pwa 1）、211 例（分层：fast 202 / timing+bench 5 / visual 4；
+- 单测：998 passed（core 909 + react 51 + app 38）。
+- E2E：44 个 spec（主配置 43 + pwa 1）、212 例（分层：fast 203 / timing+bench 5 / visual 4；
   混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
@@ -35,12 +35,15 @@
 - 单机断网不变量：core `networkService`（默认离线不阻断/blockOnOffline 三态翻转/
   构造即离线/dispose 摘监听）+ smoke 断网 E2E（断言 `navigator.onLine===false` 前置
   → 创建/撤销/落盘照常 → OfflineBar 与只读 pill 均 0；断网中不 reload）。
-- 图片/资产专项：10/10（imageCreate——创建入口；imageAsset——资产引用、存量迁移、
-  objectURL 配平、GC 清孤儿；imageLifecycle——纹理共享 refs 递减、切 src 计数配平、
-  http 自动重试（route 前两次 abort）、missing 双击手动重试）。
+- 图片/资产专项：11/11（imageCreate——创建入口；imageAsset——资产引用、存量迁移、
+  objectURL 配平（保活持租约 → 到期归零 → undo 复开）、GC 清孤儿；imageLifecycle——
+  纹理共享 refs 递减、窗口内 undo 复用同 uid、切 src 计数配平、http 自动重试
+  （route 前两次 abort）、missing 双击手动重试）。
 - 图片加载链单测：`imageRetry`（重试分类）/ `imageLoadController`（token 会话、
-  迟到成功/失败只动自己的租约、重试计时器纪律）/ `imageTextureCache`（同
-  assetId 一份纹理、并发 in-flight 去重、失败分阶段 retryable、dispose 兜底）；
+  迟到成功/失败只动自己的租约、重试计时器纪律）/ `imageKeepAlive`（假计时器：
+  窗口到期/wake 重计时/双上限 LRU/单条超预算/windowMs=0/dropAll+forget 幂等）/
+  `imageTextureCache`（同 assetId 一份纹理、并发 in-flight 去重、失败分阶段
+  retryable、保活三态（空闲/复用/到期销毁）、pagehide 清空闲、dispose 兜底）；
   GC 单测含空库短路、mark 中断零删除、sweep 预算部分完成、协作让出节奏。
 - 多标签专项：multiTabRole 5 例 + multiTabReadonly 6 例（双标签角色/接管/只读不写盘/
   不同文档并行/无锁降级；只读视图操作/390px/手动刷新/只读不跑维护链/只读标签双击

@@ -126,13 +126,13 @@ render(next)                                 // 数据变化
 
 ### 3.2 备选方案与取舍
 
-| 备选                                               | 放弃原因                                                                            |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 只修 `heldAssetId` 槽位（按 assetId 比对后再释放） | 能止住误释放，但每 VM 仍各自解码/建纹，L2/L3 无从落地；旧槽位模型继续扩散           |
-| 共享 PIXI `TextureSource`、每 VM 独立 `Texture`    | 生命周期更细但收益与共享 Texture 相同，PIXI v8 的 source/frame 组合增加审查面；不选 |
-| 重试交给 PIXI Assets 管线                          | P0 已证实无扩展名 blob URL 推断不出 parser（docs/19 §3）；继续用 `Image.decode`     |
-| GC 改为写盘引用索引                                | 正确但数据层改动大、迁移成本高；本批先用「批量 + 软预算」拿到 80% 收益              |
-| 纹理保活（VM 删除后 N 秒再销毁）                   | 省一次重新解码，但新增定时器与内存上限策略；列为后续优化                            |
+| 备选                                               | 放弃原因                                                                                                               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 只修 `heldAssetId` 槽位（按 assetId 比对后再释放） | 能止住误释放，但每 VM 仍各自解码/建纹，L2/L3 无从落地；旧槽位模型继续扩散                                              |
+| 共享 PIXI `TextureSource`、每 VM 独立 `Texture`    | 生命周期更细但收益与共享 Texture 相同，PIXI v8 的 source/frame 组合增加审查面；不选                                    |
+| 重试交给 PIXI Assets 管线                          | P0 已证实无扩展名 blob URL 推断不出 parser（docs/19 §3）；继续用 `Image.decode`                                        |
+| GC 改为写盘引用索引                                | 正确但数据层改动大、迁移成本高；本批先用「批量 + 软预算」拿到 80% 收益                                                 |
+| 纹理保活（VM 删除后 N 秒再销毁）                   | 已落地：lease 归零进空闲池（5s 窗口/双上限 LRU/pagehide 清空闲），窗口结束才销毁；方案与实施见 specs/texture-keepalive |
 
 ### 3.3 预期收益（审查时按此核对）
 
@@ -418,6 +418,10 @@ private async build(key, src): Promise<Entry> {
 
 ### 5.4 引用计数与销毁
 
+> 保活落地后的现状：keyed 条目归零不再立即 `destroyEntry`，改入 `ImageKeepAlivePool`
+> 空闲池（窗口结束/预算逐出才销毁，`acquire` 命中即 wake 复用）；data/http 无 key
+> 条目与 `dispose`/`pagehide` 路径仍是释放即销毁。详见 specs/texture-keepalive §5.3。
+
 ```ts
 private leaseOf(entry): IImageTextureLease {
   let released = false;
@@ -452,15 +456,15 @@ private destroyEntry(entry) {
 
 - `sprite.destroy()` 不得带 `{ texture: true }`，本机也不得再单独 `texture.destroy`；
   纹理只由 `destroyEntry` 销毁。
-- `texture.destroy(true)` 只在 refs 归零时调用一次；重复释放由 lease 幂等 + entry.destroyed 兜住。
+- `texture.destroy(true)` 只在条目最终销毁时调用一次（keyed 归零进保活窗口，窗口结束/逐出/dispose 时）；重复释放由 lease 幂等 + entry.destroyed 兜住。
 - 共享纹理不改变 sprite 的 `width/height` 拉伸语义（纹理像素不变）。
 - 不引入 PIXI 全局 Cache 依赖；`Texture.from(img)` 每条目只调一次。
 
 ### 5.6 与资产 GC 的关系
 
-缓存条目在存活期间**持有 URL 租约**（`source.release` 直到 `destroyEntry`），
-因此 GC 的「持活 objectURL 不删」闸门仍然生效；同一纹理多个 VM 只占 1 份计数，
-比现状更省。
+缓存条目在存活（含保活窗口）期间**持有 URL 租约**（`source.release` 直到
+`destroyEntry`——keyed 归零先进保活池，窗口结束/逐出才销毁），因此 GC 的
+「持活 objectURL 不删」闸门对保活期同样生效；同一纹理多个 VM 只占 1 份计数。
 
 ### 5.7 组合根接线
 
