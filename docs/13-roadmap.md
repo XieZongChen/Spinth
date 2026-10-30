@@ -46,14 +46,25 @@
 
 目标：源码单文件 < 400 行；单测与 E2E 按域拆分到可读，不机械卡行数。
 
-- [ ] 核心源码（当前均 >400 行）：`lineMath.ts`、`lineService.ts`、`dbProvider.ts`、
-      `viewportService.ts`、`selectorService.ts`、`boardComposition.ts`、`textService.ts`、
-      `lineVm.ts`、`lineHoverOverlay.ts`、`types/widget.ts`。
-- [ ] 单测（当前均 >400 行）：`lineMath.test.ts`、`mindService.test.ts`、
-      `dbProvider.test.ts`、`mindDragDescendant.test.ts`、`shapeVm.test.ts`。
-- [ ] E2E spec（当前均 >400 行）：`widgets.spec.ts`、`mind.spec.ts`、
-      `textEdit.spec.ts`、`image.spec.ts`、`toolbar.spec.ts`、`align.spec.ts`、
-      `group.spec.ts`、`coverage.spec.ts`、`multiTab.spec.ts`、`rotate.spec.ts`。
+- [x] 核心源码（10 个 >400 行文件）：`lineMath` 拆为 geometry/route/path/handles
+      域模块 + 显式 barrel；`lineService` 抽 `LineDrawSession` + `lineHitTest`；
+      `dbProvider` 拆 `dbSchema`/`dbWriteQueue`/`dbMaintenance`；`viewportService`
+      拆 `viewportPointerInput`/`viewportZoom`；`selectorService` 抽
+      `selectorDragOps`；`boardComposition` 拆 5 个装配阶段 helper + 维护调度；
+      `textService` 拆 `textEditStyle`/`textCommit`；`lineVm` 拆
+      `lineVmText`/`lineVmHit`；`lineHoverOverlay` 抽 `lineHoverMath`；
+      `types/widget` 外移 ActionBar 契约至 `types/actionBar`（re-export 保持
+      import 路径）。
+- [x] 单测（5 个 >400 行文件）：拆为 lineGeometry/lineRoute/linePath/lineHandles/
+      lineSchema、mindBuild/mindTool/mindEdit/mindSelect、dbProvider.store/
+      writeQueue/compaction/readonly、mindDragLegality/Text/Drop、
+      shapeInset/Height/VmRender + 3 个 `__tests__/helpers/` fixture。
+- [x] E2E spec（10 个 >400 行文件）：widgets→line*/pen/eraser 8 个、
+      mind→Tool/Layout/Select/NodeEdit 4 个、textEdit→Text/Shape/Style 3 个、
+      image→Create/Asset/Lifecycle 3 个、toolbar→Menu/Line 2 个、align→基础+
+      Anchor 2 个、group→Create/Ops 2 个、coverage→historyLayer/styleResize/
+      shortcuts 3 个、multiTab→Role/Readonly 2 个、rotate→基础+Anchor 2 个；
+      公共探针抽 `e2e/helpers/`（board/widget/mind/text/image + 各域 helper）。
 - 拆分纪律：只移动 + 改 import，不改断言/实现/默认值；每拆一个文件独立提交；
   测试数与拆分前一致；`pnpm verify` 与相关 E2E 全绿。
 - E2E 拆分排在最后：按 spec 域逐文件提交，先拆 `widgets`/`mind`/`textEdit`，

@@ -1,8 +1,31 @@
 # 拆大文件：技术方案与架构设计
 
 > 范围：[docs/13](../docs/13-roadmap.md) §2 阶段 1.1（发布前工程债之一）。
-> 状态：设计完成，待实施；本文只定义方案、边界与验收，不含实现代码。
+> 状态：**已实施完成**（分支 `refactor/split-large-files`，16 笔提交）；
+> 本文 §4/§5 为实施依据的设计，§6 的 16 笔全部落地。
 > 关联：AGENTS「单文件单职责」、[docs/15](../docs/15-testing.md) §5、[docs/16](../docs/16-performance.md) §6。
+
+## 0. 实施结果（2026-10-30）
+
+- 源码行数报告（附录 A 命令）输出为空：10 个目标源文件全部拆至 < 400 行。
+- E2E > 500 行文件为空；401-500 区间仅 5 个 spec（lineQuickAdd 460、
+  toolbarMenu 430、lineSelect 429、imageAsset 419、textEditShape 414）。
+- 计数不变：单测 983（core 894 + react 51 + app 38）；E2E 主配置 205 用例 +
+  pwa 配置 6 用例 = 211；spec 文件 22 → 43。
+- 与设计的偏差（均在方案框架内适配，见 §8.4 精神）：
+  - 方案点名的部分「模块级函数」（lineVm 的 createLineTextNode 等、
+    lineHoverOverlay 的 resolveLineHover 等、textService 的 commitEdit）实为
+    类方法或内联逻辑——按手法 B 做方法体外移，类方法变薄委托。
+  - `pathLength` 放 lineGeometry（route/path 两域共用度量）；
+    `readLegacyUpdates` 外移 dbMaintenance；线型/线宽选项表外移 lineDrawSession
+    并经 lineService re-export 保持消费路径（§3.3 先例）。
+  - dbProvider/lineService/selectorService 拆后行数按真实接线成本落在
+    390-398 区间（设计预估 350-380 偏乐观），均 < 400 达标。
+  - mindService 单测拆分时发现既有 `mindNav.test.ts`（mindNav 纯逻辑 29 例）
+    与方案文件名撞名——保留原文件，方向键导航 2 例并入 mindBuild。
+  - E2E helper 命名按实际探针函数（probe/lineProbe）落位
+    boardE2e/widgetProbeE2e/mindProbeE2e/textProbeE2e/imageProbeE2e +
+    各域 E2e helper；multiTab 继续复用 projectFileE2e 的 ready。
 
 ## 1. 目标与非目标
 
