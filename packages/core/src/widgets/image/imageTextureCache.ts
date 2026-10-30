@@ -1,6 +1,14 @@
 import type { Texture } from 'pixi.js';
 import type { IImageTexturePort, ImageTextureResult } from './imageLoadController';
 import { textureUidOf } from './imageLoadController';
+import {
+  DEFAULT_IMAGE_KEEP_ALIVE,
+  type IImageKeepAliveBudget,
+  type IImageKeepAliveTimers,
+  ImageKeepAlivePool,
+  estimateTextureBytes,
+  systemTimers,
+} from './imageKeepAlive';
 import { assetIdOf, isAssetSrc } from '../../platform/dataEngine/assetStore';
 
 /** 已解析的加载源（asset 路径 = AssetStore.objectURL 的引用计数租约） */
@@ -47,6 +55,16 @@ interface ICacheEntry {
   destroyed: boolean;
 }
 
+/** 构造可选项（组合根可调；不进 IBoardConfig、不从 index.ts 导出） */
+export interface IImageTextureCacheOptions {
+  /** 保活预算；windowMs<=0 = 关闭保活（release 即销毁，等价旧行为） */
+  keepAlive?: Partial<IImageKeepAliveBudget>;
+  /** 计时器端口（单测注入假实现） */
+  timers?: IImageKeepAliveTimers;
+  /** pagehide 来源；组合根传 window，Node 单测不传（默认 null = 不监听） */
+  lifecycle?: EventTarget | null;
+}
+
 /**
  * 纹理缓存（L2 同图共享）：同 assetId 只解码/建纹一次，多 VM 各持一份
  * 租约（引用计数）；refs 归零才 texture.destroy(true) 并归还 URL 租约。
@@ -63,11 +81,27 @@ export class ImageTextureCache implements IImageTexturePort {
   /** data/http（无 key）的在租条目：不共享但仍需被 dispose 兜底回收 */
   private readonly transient = new Set<ICacheEntry>();
   private disposed = false;
+  /** keyed 条目归零后的空闲保活池（到期/逐出经 onEvict → destroyEntry 销毁） */
+  private readonly keepAlive: ImageKeepAlivePool<ICacheEntry>;
+  /** pagehide 摘除函数；未注册监听时为 no-op */
+  private readonly offLifecycle: () => void;
 
   constructor(
     private readonly source: IImageSourcePort,
     private readonly codec: IImageCodec,
-  ) {}
+    options: IImageTextureCacheOptions = {},
+  ) {
+    const budget = clampBudget(options.keepAlive);
+    this.keepAlive = new ImageKeepAlivePool<ICacheEntry>(
+      budget,
+      options.timers ?? systemTimers,
+      (entry) => this.destroyEntry(entry),
+      (entry) => estimateTextureBytes(entry.texture),
+    );
+    this.offLifecycle = options.lifecycle
+      ? bindPageHide(options.lifecycle, () => this.dropIdle())
+      : noop;
+  }
 
   async acquire(src: string): Promise<ImageTextureResult> {
     if (this.disposed) {
@@ -77,6 +111,7 @@ export class ImageTextureCache implements IImageTexturePort {
     if (key === null) return this.acquireUncached(src);
     const live = this.entries.get(key);
     if (live && !live.destroyed) {
+      this.keepAlive.wake(live); // idle → live：取消保活计时（不在池中 no-op）
       live.refs++;
       return { kind: 'ok', lease: this.leaseOf(live) };
     }
@@ -106,6 +141,8 @@ export class ImageTextureCache implements IImageTexturePort {
    *  无 key 的 transient 条目（data/http）同样无条件回收 */
   dispose(): void {
     this.disposed = true;
+    this.offLifecycle(); // 摘 pagehide 监听（StrictMode 双挂载防泄漏）
+    this.keepAlive.dropAll(); // 空闲条目：取消计时 + 逐条销毁（在租的走下面统一销毁）
     for (const entry of this.entries.values()) this.destroyEntry(entry);
     this.entries.clear();
     for (const entry of this.transient) this.destroyEntry(entry);
@@ -117,6 +154,11 @@ export class ImageTextureCache implements IImageTexturePort {
       );
     }
     this.pending.clear();
+  }
+
+  /** pagehide 入口：只清空闲条目（在租条目仍被 sprite 引用，销毁会破画面） */
+  dropIdle(): void {
+    this.keepAlive.dropAll();
   }
 
   /** 探针（E2E 断言「同图一份纹理 / refs 计数」） */
@@ -201,7 +243,10 @@ export class ImageTextureCache implements IImageTexturePort {
         if (released || entry.destroyed) return; // 幂等 + 销毁竞态兜底
         released = true;
         entry.refs--;
-        if (entry.refs <= 0) this.destroyEntry(entry);
+        if (entry.refs > 0) return;
+        if (entry.key === null)
+          this.destroyEntry(entry); // data/http：释放即销毁（不保活）
+        else this.keepAlive.hold(entry); // keyed：进入保活窗口（可被预算同步逐出）
       },
     };
   }
@@ -209,6 +254,7 @@ export class ImageTextureCache implements IImageTexturePort {
   private destroyEntry(entry: ICacheEntry): void {
     if (entry.destroyed) return; // dispose 与 lease 归零可能先后到达
     entry.destroyed = true;
+    this.keepAlive.forget(entry); // 先摘保活计时器，再进入销毁（防到期回调踩已销毁条目）
     if (entry.key !== null && this.entries.get(entry.key) === entry) this.entries.delete(entry.key);
     this.transient.delete(entry); // 无条件（keyed 条目不在集合内，delete 无害）
     try {
@@ -218,4 +264,26 @@ export class ImageTextureCache implements IImageTexturePort {
     }
     entry.source.release();
   }
+}
+
+const noop = (): void => {};
+
+/** 预算钳制：Partial 与默认合并；非有限/负值回退默认（防宿主误传导致永不逐出） */
+function clampBudget(over: Partial<IImageKeepAliveBudget> | undefined): IImageKeepAliveBudget {
+  const pick = (v: number | undefined, fallback: number): number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
+  const raw = over ?? {};
+  return {
+    windowMs: pick(raw.windowMs, DEFAULT_IMAGE_KEEP_ALIVE.windowMs),
+    maxEntries: pick(raw.maxEntries, DEFAULT_IMAGE_KEEP_ALIVE.maxEntries),
+    maxBytes: pick(raw.maxBytes, DEFAULT_IMAGE_KEEP_ALIVE.maxBytes),
+  };
+}
+
+/** 注册 pagehide → dropIdle；返回摘除函数（dispose 时调用，防 StrictMode 双挂载泄漏） */
+function bindPageHide(target: EventTarget, onPageHide: () => void): () => void {
+  target.addEventListener('pagehide', onPageHide);
+  return (): void => {
+    target.removeEventListener('pagehide', onPageHide);
+  };
 }

@@ -53,7 +53,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('同 assetId 两次 acquire：createTexture 只一次、同一纹理、refs=2', async () => {
     const { source } = makeSource();
     const { codec, createTexture, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r1 = await cache.acquire(SRC);
     const r2 = await cache.acquire(SRC);
     if (r1.kind !== 'ok' || r2.kind !== 'ok') throw new Error('expect ok');
@@ -69,7 +69,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('release 一个：refs=1 纹理存活；release 第二个：destroy(true) 一次 + source 归还一次；重复 release 幂等', async () => {
     const { source, releases } = makeSource();
     const { codec, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r1 = await cache.acquire(SRC);
     const r2 = await cache.acquire(SRC);
     if (r1.kind !== 'ok' || r2.kind !== 'ok') throw new Error('expect ok');
@@ -89,7 +89,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('并发 acquire（首个未完成）：共享同一 pending，createTexture 一次，两者都成功', async () => {
     const { source, open, releases } = makeSource();
     const { codec, createTexture } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     // 挂起首个 open：精确观测 pending 窗口
     let releaseOpen!: (h: IImageSourceHandle) => void;
     open.mockImplementationOnce(
@@ -114,7 +114,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('open 返回 null：missing；codec 不调用；无条目残留', async () => {
     const { source } = makeSource();
     const { codec, decode, createTexture } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r = await cache.acquire(SRC_GONE);
     expect(r).toEqual({ kind: 'missing' });
     expect(decode).not.toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
     const { source, releases } = makeSource();
     // fail=false → decode 失败（retryable=true）；fail=true → createTexture 失败（false）
     const { codec } = makeCodec({ failDecode: () => !fail, failCreate: () => fail });
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r1 = await cache.acquire(SRC);
     expect(r1).toMatchObject({ kind: 'error', retryable: true });
     expect(releases[0]!).toHaveBeenCalledTimes(1);
@@ -142,7 +142,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('data/http（无 key）：不共享——两次 acquire 两次建纹，各自 release 独立销毁', async () => {
     const { source } = makeSource();
     const { codec, createTexture, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r1 = await cache.acquire('data:image/png;base64,xxx');
     const r2 = await cache.acquire('data:image/png;base64,xxx');
     if (r1.kind !== 'ok' || r2.kind !== 'ok') throw new Error('expect ok');
@@ -159,7 +159,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('dispose：全部条目销毁 + source 归还；之后 acquire 返回 error 不泄漏', async () => {
     const { source, releases } = makeSource();
     const { codec, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     const r = await cache.acquire(SRC);
     if (r.kind !== 'ok') throw new Error('expect ok');
     cache.dispose(); // refs=1 仍强制销毁（SDK 生命周期结束）
@@ -173,7 +173,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('debug()：pending 期间 pending=1，完成后归零', async () => {
     const { source, open } = makeSource();
     const { codec } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     let releaseOpen!: (h: IImageSourceHandle | null) => void;
     open.mockImplementationOnce(
       () =>
@@ -191,7 +191,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('dispose 竞态：key 在途 build 于 dispose 之后完成 → 返回 missing 不发租约', async () => {
     const { source, open } = makeSource();
     const { codec, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     let releaseOpen!: (h: IImageSourceHandle) => void;
     open.mockImplementationOnce(
       () =>
@@ -210,7 +210,7 @@ describe('ImageTextureCache（fake source + fake codec）', () => {
   it('dispose 回收无 key 条目：data 在租/在途的纹理都被销毁 + source 归还', async () => {
     const { source, releases } = makeSource();
     const { codec, decode, textures } = makeCodec();
-    const cache = new ImageTextureCache(source, codec);
+    const cache = new ImageTextureCache(source, codec, { keepAlive: { windowMs: 0 } });
     // 在租：acquire 成功未 release
     const held = await cache.acquire('data:image/png;base64,xxx');
     expect(held.kind).toBe('ok');

@@ -46,6 +46,8 @@ export function assembleCore(sdk: BoardSDK): void {
       },
     },
     browserImageCodec,
+    // 保活窗口先关（windowMs 0 = 旧行为）；启用窗口的接线随行为开关同批切换
+    { keepAlive: { windowMs: 0 } },
   );
   // 纹理服务先于 engine.initialize 注册（IndexedDB 恢复即建 Vm，构造时 resolve；
   // renderer 此刻尚不存在，snapshot 降级 Text 模式，viewport.initialize 后 attach 重评）
