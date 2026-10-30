@@ -1,6 +1,5 @@
 import { Container, Point } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
-import { markRender } from '../../common/render';
 
 export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 4;
@@ -45,14 +44,14 @@ export class ViewportZoom {
       // 立即精确路径（zoom100 专用）：AnimatePlugin 是收敛式插值（每帧
       // scale += (target-scale)*ease），慢环境帧少时停在离目标 1.6%~2.9% 的
       // 残差（CI 两次红实证）——「回 100%」语义要求精确归位。手动设置不
-      // emit 'moved'，须自触发 vp 同步 + markRender（onMoved 同款）。
+      // emit 'moved'，须经 host.onMoved 自触发 vp 同步 + markRender。
       // 须先取消在飞 Animate：animate() 重入自带替换（add 先 destroy 同名），
       // 本路径绕过了它——残留 Animate 每帧仍按其目标继续插值，把刚设的
       // scale 拉走（CI 实证：cmd+= 动画在飞时 cmd+0，最终停在 1.18）。
       viewport.plugins.remove('animate');
       viewport.scale.set(clamped);
       viewport.moveCenter(target);
-      markRender();
+      // 渲染标记与 vp 同步统一经 host.onMoved（service 侧 markRender + scheduleVpSync）
       this.host.onMoved();
       return;
     }
