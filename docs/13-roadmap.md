@@ -44,7 +44,7 @@
 
 #### 1.1 拆大文件
 
-目标：源码单文件 < 400 行；单测与 E2E 按域拆分到可读，不机械卡行数。
+目标：非测试源码单文件 < 400 行；单测与 E2E 按文件/功能域拆分，不套用 400 行上限，也不机械卡行数。
 
 - [x] 核心源码（10 个 >400 行文件）：`lineMath` 拆为 geometry/route/path/handles
       域模块 + 显式 barrel；`lineService` 抽 `LineDrawSession` + `lineHitTest`；

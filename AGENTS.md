@@ -48,7 +48,7 @@ Node >= 24，pnpm 11.28.5。
 2. **接口先行**：先在 `packages/core/src/types/` 写 TS interface + zod schema。
 3. **数据流铁律**：禁止绕过 Yjs 直接改 VM/PIXI；拖拽/缩放只允许视觉预览，松手必须经 Model 写回。
 4. **显式依赖**：构造函数注入，通过 ServiceRegistry 获取依赖；禁止装饰器 DI 和全局单例。
-5. **单文件单职责**：目标 < 400 行，超过就拆 Service/Vm/工具。
+5. **单文件单职责**：非测试代码目标 < 400 行，超过就拆 Service/Vm/工具；测试文件按文件/功能域拆分，不套用 400 行上限。
 6. **测试护栏**：纯逻辑有 vitest；编排有桩测试；整机链路有 Playwright。提交前 `pnpm verify`，改交互补跑 `pnpm test:e2e`。
 7. **新增控件 = 三件套**：`xxxModel.ts` + `xxxVm.ts` + `xxxService.ts` + 注册；不改 dataEngine/vmEngine。
 8. **单机优先**：启动主路径不启用服务端、账号或远端同步；协同相关代码不得进入默认启动路径。本地文档必须能离线编辑、刷新恢复。

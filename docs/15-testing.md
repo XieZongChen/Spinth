@@ -109,5 +109,6 @@
 - 存储状态：StorageStatusService 10 单测 + storageMath 6 单测 + E2E 8 例
   （docs/02 §6.1；阈值/降级/申请语义有分支覆盖）。
 - 项目导出/导入已有 68 单测 + 7 E2E 覆盖；规格见 [20-project-file](20-project-file.md)。
-- 大测试文件已按域拆分（docs/13 阶段 1.1 已收口）：单测拆至 `__tests__`/helpers/
-  fixture + 域文件；E2E spec 全部 < 500 行（最大 lineQuickAdd 460）。
+- 测试文件不套用 400 行上限：按文件/功能域拆分（单测按 describe 域，E2E 一个
+  spec 一个用户流程域）；当前 E2E 单文件最大 lineQuickAdd 460 行，是流程域自然结果，
+  不作为行数门禁。

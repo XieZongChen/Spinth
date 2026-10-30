@@ -32,7 +32,8 @@
 - 导出是**纯读**：只读 `Y.Doc` 与 `AssetStore`，不写 Yjs、不产生 undo 条目。
 - 导入写的是**新的** `Y.Doc` 快照与新的文档库；不得绕过 Yjs 直接改 VM/PIXI。
 - 显式依赖：`ProjectFileService` 由 `boardComposition` 构造注入；禁止全局单例/装饰器 DI。
-- 单文件单职责，目标 < 400 行；格式、归档、导出、导入、服务分层。
+- 非测试代码单文件单职责，目标 < 400 行；测试文件按文件/功能域拆分，不套用
+  400 行上限；格式、归档、导出、导入、服务分层。
 - 默认启动路径无网络；ZIP 库必须动态 import，不能进首屏同步 chunk。
 - 资产仍走现有内容寻址 `spinth-asset:<sha256>`；不得把 base64 写回 Yjs。
 - 提交前 `pnpm verify` 全绿；改交互补跑 `pnpm test:e2e`。
