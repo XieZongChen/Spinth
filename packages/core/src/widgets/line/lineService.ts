@@ -22,7 +22,8 @@ import { LineAnchorFollow } from './lineAnchorFollow';
 import { LineEndpointDrag } from './lineEndpointDrag';
 import { LineSegTextSlide } from './lineSegTextSlide';
 import { LineTextEditor } from './lineTextEditor';
-import { LineDrawSession, LINE_WIDTH_STEPS } from './lineDrawSession';
+import { LineDrawSession } from './lineDrawSession';
+import { LINE_WIDTH_STEPS } from './lineOptions';
 import { hitWidget, nearestAnchorDot, nearestLineEndpoint } from './lineHitTest';
 
 /**
@@ -32,8 +33,8 @@ import { hitWidget, nearestAnchorDot, nearestLineEndpoint } from './lineHitTest'
  * 线上文字：双击已选中的线 → 在双击位置 ratio 处编辑（onLineDblClick，2026-09-30
  * 拍板单击不进编辑——线身单击是段滑移/胶囊手势，docs/08 §10.3）。
  */
-// 线型/线宽选项表单源在 lineDrawSession；re-export 保持消费路径（§3.3 先例）
-export { LINE_TYPE_OPTIONS, LINE_WIDTH_STEPS, LINE_WIDTH_OPTIONS } from './lineDrawSession';
+// 线型/线宽选项表单源在 lineOptions；re-export 保持消费路径（§3.3 先例）
+export { LINE_TYPE_OPTIONS, LINE_WIDTH_STEPS, LINE_WIDTH_OPTIONS } from './lineOptions';
 
 export class LineService extends Disposable {
   /** 工具默认线型（会话级，docs/04 §2——新线默认 ELBOWED 是 2026-09 拍板）：

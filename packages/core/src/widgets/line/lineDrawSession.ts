@@ -1,7 +1,6 @@
 import { Disposable } from '../../base/disposable';
 import { genId } from '../../utils/id';
 import type {
-  IActionBarOption,
   IDataEngineService,
   IHistoryService,
   IPointerEventInfo,
@@ -43,22 +42,6 @@ export interface ILineDrawHost {
  * 松手顺序契约（外部审查，2026-09-21）：先 flush（终帧必达）再清 drawingId
  * 再 settle——applyMove 按 drawingId 查 model，先置空会让 flush 静默失效。
  */
-/** 线型三选项单源（docs/04 §2 工具默认参数节）：工具坞常驻二级菜单与 ActionBar 线型 popover 共用 */
-export const LINE_TYPE_OPTIONS: IActionBarOption[] = [
-  { id: 'STRAIGHT', label: '直线', icon: 'line-straight' },
-  { id: 'ELBOWED', label: '折线', icon: 'line-elbow' },
-  { id: 'CURVE', label: '曲线', icon: 'line-curve' },
-];
-
-/** 线宽四档（2026-10-14 线宽笔宽批）：1/2/4/8，默认 2——icon 粗细横线示意；
- *  flyout 第二组与 ActionBar popover 共用；超越既有设计两档（2/5） */
-export const LINE_WIDTH_STEPS = [1, 2, 4, 8] as const;
-export const LINE_WIDTH_OPTIONS: IActionBarOption[] = LINE_WIDTH_STEPS.map((n) => ({
-  id: String(n),
-  label: `${n} 像素线宽`,
-  icon: `line-width-${n}`,
-}));
-
 export class LineDrawSession extends Disposable {
   private drawingId: string | null = null;
   private pendingMove: IPointerEventInfo | null = null;
