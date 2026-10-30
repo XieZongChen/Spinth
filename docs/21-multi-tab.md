@@ -129,7 +129,7 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
   降级/canPaste 恒 false）；`updateEditable.test.ts`（降级序列与翻闸门相对位/手势收口
   恰好一次/切回可写无记忆/只读工具钳制）；`rectEditor.test.ts`（取消缩放与旋转手势：
   撤 window 监听、预览按起点回落零写、迟到抬手不落库、跟随层通知与标脏）。
-- E2E：`packages/app/e2e/multiTab.spec.ts`（同 context 双 page：leader/follower、接管、
+- E2E：`packages/app/e2e/multiTabRole.spec.ts` + `multiTabReadonly.spec.ts`（同 context 双 page：leader/follower、接管、
   只读不写盘、不同 docId 并行、无锁降级、只读视图操作、390px、手动刷新、只读标签
   不跑资产维护链、只读标签双击 missing 图可重试、只读右键降级——
   `lastAssetMaintenance`/`selected$`/`__debug` 探针）；

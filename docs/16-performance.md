@@ -78,8 +78,8 @@ P3  TextVm.render 全量重建（平移复用已落地）
 
 仍需关注：
 
-- `lineMath` / `lineService` / `dbProvider` / `viewportService` 等源文件超过 400 行，
-  阅读与维护成本高；拆分排期见 docs/13 阶段 1.1。
+- 源文件 >400 行已清零（docs/13 阶段 1.1 拆分收口，方案见
+  specs/split-large-files）；后续关注点为阶段 1.2-1.4（纹理保活/边缘滚屏/运行时收窄）。
 
 ## 7. 性能基准
 

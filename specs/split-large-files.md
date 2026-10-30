@@ -1,8 +1,9 @@
 # 拆大文件：技术方案与架构设计
 
 > 范围：[docs/13](../docs/13-roadmap.md) §2 阶段 1.1（发布前工程债之一）。
-> 状态：**已实施完成**（分支 `refactor/split-large-files`，16 笔提交）；
-> 本文 §4/§5 为实施依据的设计，§6 的 16 笔全部落地。
+> 状态：**已实施完成**（分支 `refactor/split-large-files`，§6 的 16 笔全部落地；
+> 外部审查后按「一笔一个 seam」重建：lineSelect import 修复并回 widgets E2E 笔、
+> mindNodeEdit 细分并回 mind E2E 笔，另有 CI 路径/文档事实/两处收口的追加笔）。
 > 关联：AGENTS「单文件单职责」、[docs/15](../docs/15-testing.md) §5、[docs/16](../docs/16-performance.md) §6。
 
 ## 0. 实施结果（2026-10-30）
@@ -11,7 +12,7 @@
 - E2E > 500 行文件为空；401-500 区间仅 5 个 spec（lineQuickAdd 460、
   toolbarMenu 430、lineSelect 429、imageAsset 419、textEditShape 414）。
 - 计数不变：单测 983（core 894 + react 51 + app 38）；E2E 主配置 205 用例 +
-  pwa 配置 6 用例 = 211；spec 文件 22 → 43。
+  pwa 配置 6 用例 = 211；spec 文件主配置 22 → 43（含 pwa 共 23 → 44）。
 - 与设计的偏差（均在方案框架内适配，见 §8.4 精神）：
   - 方案点名的部分「模块级函数」（lineVm 的 createLineTextNode 等、
     lineHoverOverlay 的 resolveLineHover 等、textService 的 commitEdit）实为
@@ -26,6 +27,19 @@
   - E2E helper 命名按实际探针函数（probe/lineProbe）落位
     boardE2e/widgetProbeE2e/mindProbeE2e/textProbeE2e/imageProbeE2e +
     各域 E2e helper；multiTab 继续复用 projectFileE2e 的 ready。
+- 外部审查收口（同日）：
+  - P1：nightly multitab-stress 的 CI 命令与 docs/15 同命令改指
+    `multiTabRole.spec.ts`（`multiTab.spec.ts` 已拆分，原命令 No tests found）。
+  - P2：docs/15（spec 计数/专项清单/coverage 数值/命令）、docs/16（>400 行
+    台账）、docs/17、docs/21、AGENTS、docs/13 的「当前事实」全部同步。
+  - 提交历史重建：考古确认 lineSelect 缺 import 由 widgets E2E 拆分笔新建时
+    漏写（非后续删除）；import 修复与 mindNodeEdit 拆分分别并回对应笔，
+    bc8e91c 不再存在——每笔独立可回退。
+  - P3.1：LINE_TYPE_OPTIONS/LINE_WIDTH_STEPS/LINE_WIDTH_OPTIONS 自
+    lineDrawSession 抽至 `lineOptions.ts`（拉线状态机不再持有 ActionBar
+    选项表；lineService re-export 保持消费路径）。
+  - P3.2：viewportZoom 立即路径的双 markRender 收敛为经 host.onMoved 一次
+    （与拆分前渲染计数一致）。
 
 ## 1. 目标与非目标
 

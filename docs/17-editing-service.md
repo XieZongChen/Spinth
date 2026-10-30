@@ -108,13 +108,13 @@ STICKY/SHAPE 的底色固定，文字默认色不参与主题化。
 
 ## 5. 迁移与验证
 
-| 批  | 内容                          | 验证锚点                                  |
-| --- | ----------------------------- | ----------------------------------------- |
-| 0   | 本篇 + 接口 + tokens          | lint/typecheck                            |
-| 1   | html 内核 + TEXT/STICKY 迁移  | widgets.spec + 手动                       |
-| 2   | LINE 迁移（descriptor 工厂）  | 线上文字组 E2E                            |
-| 3   | mind 并入（plain 内核）       | mindService.test + mind.spec 像素对齐/IME |
-| 4   | 交叉互斥桩测试 + 编辑专项 E2E | 全套 E2E + 区分验证                       |
+| 批  | 内容                          | 验证锚点                                          |
+| --- | ----------------------------- | ------------------------------------------------- |
+| 0   | 本篇 + 接口 + tokens          | lint/typecheck                                    |
+| 1   | html 内核 + TEXT/STICKY 迁移  | textEditText.spec + 手动                          |
+| 2   | LINE 迁移（descriptor 工厂）  | 线上文字组 E2E                                    |
+| 3   | mind 并入（plain 内核）       | mindService.test + mindNodeEdit.spec 像素对齐/IME |
+| 4   | 交叉互斥桩测试 + 编辑专项 E2E | 全套 E2E + 区分验证                               |
 
 每批一 commit 全量三件套后推送；协议修订回写本篇。
 

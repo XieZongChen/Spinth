@@ -146,7 +146,7 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 （update dispatch 跳过校验直接生成）；darwin/linux 双平台各 5 张基线。
 
 当前实测基线：`pnpm verify` 通过；983 单测（core 894 + react 51 + app 38）；
-E2E 23 spec / 211 用例全绿（视觉 4/4 双平台；图片/资产专项 10/10；a11y 6/6；
+E2E 44 spec / 211 用例全绿（视觉 4/4 双平台；图片/资产专项 10/10；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 
 下一阶段顺序：发布前工程债（拆大文件、纹理保活、边缘自动滚屏、运行时收窄）
