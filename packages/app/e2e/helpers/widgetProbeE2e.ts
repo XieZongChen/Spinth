@@ -114,3 +114,28 @@ export async function barPick(page: Page, trigger: string, option: string): Prom
   await page.locator(`[data-spinth-action-bar] button[aria-label="${trigger}"]`).click();
   await page.locator(`[data-spinth-popover-panel] button[aria-label="${option}"]`).first().click();
 }
+
+export async function lineSelectionState(page: Page): Promise<{
+  segments: Array<{ x: number; y: number }> | null;
+  segmentActive: number | null;
+  endpointActive: number | null;
+}> {
+  return page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinth: {
+          __debug: {
+            lineSegments: Array<{ x: number; y: number }> | null;
+            lineSegmentActive: number | null;
+            lineEndpointActive: number | null;
+          };
+        };
+      }
+    ).__spinth.__debug;
+    return {
+      segments: d.lineSegments,
+      segmentActive: d.lineSegmentActive,
+      endpointActive: d.lineEndpointActive,
+    };
+  });
+}
