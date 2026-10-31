@@ -201,7 +201,7 @@ maxBytes: 32 * 1024 * 1024; // 空闲纹理估算显存上限（32 MiB）
 
 ```ts
 export interface IImageKeepAliveBudget {
-  /** 空闲窗口；<=0 = 关闭保活（release 即销毁） */
+  /** 空闲窗口；0 = 关闭保活（release 即销毁）；负数/非有限由构造侧钳回默认 */
   windowMs: number;
   /** 空闲条目数上限 */
   maxEntries: number;
@@ -353,22 +353,22 @@ sdk.imageTextures = new ImageTextureCache(source, browserImageCodec, {
 
 ## 6. 边界与竞态
 
-| 场景                                    | 期望行为                                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `build()` 刚写入条目、refs 暂为 0       | **不得**在 build 路径登记空闲；只有 release 到 0 才 `hold`                                           |
-| 同一租约重复 release                    | 闭包 `released` 保护；不重复减、不重复 hold                                                          |
-| 到期回调与 acquire 同一 tick            | JS 单线程；先到者生效：先到期则 acquire 重建（丢一次复用），先 acquire 则 wake                       |
-| dispose 时仍有空闲条目                  | 摘监听 → `dropAll` 取消全部计时 → 逐条销毁；之后到期回调不再存在                                     |
-| dispose 与在途 build                    | 现有 pending then 兜底销毁；不得再发租约（现状 `missing`）                                           |
-| 重复 `setImageTextures`（VM 重注入）    | 旧 controller dispose → release → 空闲；新会话 acquire 立即 wake，同一纹理                           |
-| 单条估算显存 > `maxBytes`               | 不登记，直接销毁（不产生「插入即逐出」抖动）                                                         |
-| `windowMs = 0`                          | 直接销毁，等价旧行为（降级开关）                                                                     |
-| 一次释放后 4.9s 再次 acquire 又释放     | 计时从最后一次归零重新起算                                                                           |
-| pagehide（含 bfcache `persisted=true`） | 只清空闲；在租纹理保留，避免恢复后 sprite 引用已销毁纹理                                             |
-| 多标签                                  | 缓存与计时器均为每标签私有；writer 的 GC 看不到 reader 的 refs（既有边界），保活不扩大也不缩小该窗口 |
-| GC 正在跑时存在空闲条目                 | 空闲条目持有 URL 租约 → `sweepOrphans` 跳过该行，下个会话的 GC 再清；不误删                          |
-| 纹理销毁时 sprite 仍引用                | 由不变量 3 排除：空闲只在 controller 归还租约后产生，而归还前 sprite 已销毁                          |
-| 回调抛错                                | `destroyEntry` 已对 `texture.destroy` 兜底；`source.release` 为 AssetStore 同步操作，不吞错          |
+| 场景                                    | 期望行为                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `build()` 刚写入条目、refs 暂为 0       | **不得**在 build 路径登记空闲；只有 release 到 0 才 `hold`                                                                      |
+| 同一租约重复 release                    | 闭包 `released` 保护；不重复减、不重复 hold                                                                                     |
+| 到期回调与 acquire 同一 tick            | JS 单线程；先到者生效：先到期则 acquire 重建（丢一次复用），先 acquire 则 wake                                                  |
+| dispose 时仍有空闲条目                  | 摘监听 → `dropAll` 取消全部计时 → 逐条销毁；之后到期回调不再存在                                                                |
+| dispose 与在途 build                    | 现有 pending then 兜底销毁；不得再发租约（现状 `missing`）                                                                      |
+| 重复 `setImageTextures`（VM 重注入）    | 前置：先 `destroySprite`（sprite 引用与租约解耦），再旧 controller dispose → release → 空闲；新会话 acquire 立即 wake，同一纹理 |
+| 单条估算显存 > `maxBytes`               | 不登记，直接销毁（不产生「插入即逐出」抖动）                                                                                    |
+| `windowMs = 0`                          | 直接销毁，等价旧行为（降级开关）                                                                                                |
+| 一次释放后 4.9s 再次 acquire 又释放     | 计时从最后一次归零重新起算                                                                                                      |
+| pagehide（含 bfcache `persisted=true`） | 只清空闲；在租纹理保留，避免恢复后 sprite 引用已销毁纹理                                                                        |
+| 多标签                                  | 缓存与计时器均为每标签私有；writer 的 GC 看不到 reader 的 refs（既有边界），保活不扩大也不缩小该窗口                            |
+| GC 正在跑时存在空闲条目                 | 空闲条目持有 URL 租约 → `sweepOrphans` 跳过该行，下个会话的 GC 再清；不误删                                                     |
+| 纹理销毁时 sprite 仍引用                | 由不变量 3 排除：空闲只在 controller 归还租约后产生，而归还前 sprite 已销毁                                                     |
+| 回调抛错                                | `destroyEntry` 已对 `texture.destroy` 兜底；`source.release` 为 AssetStore 同步操作，不吞错                                     |
 
 ## 7. 测试方案
 
@@ -522,3 +522,30 @@ E3 的 `idle` 状态由 E1/E2 与单测覆盖；E3 只验证「复用结果」�
 | 确认 | `AGENTS.md` 计数经用户确认保留，并随新增单测更新为 1001 单测（core 912）/ 212 E2E                                              | bfeb790  |
 
 验证：返工后 `pnpm verify` 0 退出（1001 单测）；定向 `imageLifecycle` + `imageAsset` 9/9 通过。生产代码零改动（仅测试断言组织、注释与文档）。
+
+## 13.2 返工后复审
+
+结论：返工有效，P2 已收口；新增 3 个单测后 core 912 / 总 1001，`pnpm verify` 0 退出，定向图片 E2E 9/9，E2E `--list` 212 不变。无生产回归。
+
+残留（均 P3，不阻塞）：
+
+- 预算合同不一致：`IImageKeepAliveBudget.windowMs` 与 `IImageTextureCacheOptions` 注释写「<=0 = 关闭」，但 `clampBudget` 把负数回退默认 5s；§4.4 与 §5.2 也互相矛盾。建议统一为「0 = 关闭；负数/非有限回退默认」，并补负数 windowMs 用例。
+- `docs/15-testing.md` 的 coverage 基线未随本批更新：实测 67.56 / 59.19 / 69.46 / 58.07（语句/分支/行/函数）。
+- 新增「windowMs NaN」用例的注释把 windowMs 与 maxEntries/maxBytes 的失效模式混写：windowMs 为 NaN 时真实 `setTimeout` 是立即到期，不是「逐出比较恒假」。
+- §6「重复 setImageTextures」行未写 `destroySprite` 前置条件，但 `imageVm.ts` 注释已引用该行；建议补一句「重注入前先 destroySprite」。
+- `maxBytes` 的 NaN/负数钳制分支仍无单测（windowMs NaN / maxEntries 负值已覆盖）。
+- E4 的复合 poll 仍含两次 `page.evaluate`（count 与 refs/urls）；窗口已缩到毫秒级，可接受；若要严格原子可合并为一次 evaluate。
+
+### 13.3 残留收口处置
+
+| 残留              | 处置                                                                                                                             | 提交     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 预算契约不一致    | `imageKeepAlive.ts` / `imageTextureCache.ts` / §5.2 契约注释统一为「0 = 关闭；负数/非有限钳回默认」，与 §4.4 一致                | 收口笔 B |
+| windowMs 负值用例 | NaN 用例扩为 NaN+负值双段（同一 pick 分支）：负数回退默认 5s、不立即销毁                                                         | d8541b8  |
+| maxBytes 钳制用例 | 新增 NaN 用例：3000×3000（36MB）刻意越过回退后的 32MiB 默认——NaN 直传比较恒假（永不逐出）与回退默认（立即销毁）可区分            | d8541b8  |
+| NaN 注释混写      | 改为分模式写准：windowMs NaN 直传 = `setTimeout(fn, NaN)` 视为 0 立即到期；maxEntries/maxBytes NaN 直传 = 逐出比较恒假           | d8541b8  |
+| §6 重注入行       | 期望行为列补前置「先 destroySprite（sprite 引用与租约解耦）」                                                                    | 收口笔 B |
+| coverage 漂移     | docs/15 按收口后实测更新为 67.56 / 59.19 / 69.46 / 58.07（语句/分支/行/函数）                                                    | 收口笔 B |
+| E4 两次 evaluate  | 采纳复审结论「毫秒级窗口可接受」，不合并（合并需把 count 探针与 assetStore 私有 Map 读数塞进同一段页内脚本，可读性换不来可靠性） | —        |
+
+验证：`pnpm verify` 0 退出（1002 单测，core 913）；`pnpm test:coverage` 阈值通过。生产代码零逻辑改动（源码仅注释）。

@@ -57,7 +57,8 @@ interface ICacheEntry {
 
 /** 构造可选项（组合根可调；不进 IBoardConfig、不从 index.ts 导出） */
 export interface IImageTextureCacheOptions {
-  /** 保活预算；windowMs<=0 = 关闭保活（release 即销毁，等价旧行为） */
+  /** 保活预算；windowMs 0 = 关闭保活（release 即销毁，等价旧行为）；
+   *  各字段负数/非有限一律钳回默认（clampBudget），不会变成关闭或恒不逐出 */
   keepAlive?: Partial<IImageKeepAliveBudget>;
   /** 计时器端口（单测注入假实现） */
   timers?: IImageKeepAliveTimers;
