@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
 
 /**
- * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-4）。
+ * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-5）。
  *
  * 坐标纪律：一律 canvas boundingBox + 公开 `toScreenPoint`/`vpBounds$` 换算，
  * 禁止裸写页面坐标（顶栏高度会变）。跟手断言用既有 `__debug.selectionFrame`
@@ -210,4 +210,106 @@ test('E-4 反例（D6）：边缘按下但未过阻尼 → 不滚屏', async ({ 
   await page.waitForTimeout(100);
   const data = await vmGeom(page, id);
   expect(Math.abs(data.x - worldX)).toBeLessThan(2); // 且未发生位移
+});
+
+interface MindNode {
+  id: string;
+  text: string;
+  worldRect: { x: number; y: number; width: number; height: number };
+}
+
+async function mindNodes(page: Page): Promise<MindNode[]> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinth: { __debug: { mindNodes: MindNode[] } };
+        }
+      ).__spinth.__debug.mindNodes,
+  );
+}
+
+test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图落在指针世界位附近', async ({ page }) => {
+  await openBoardDoc(page, `e2e-edge-scroll-mind-${Date.now()}`);
+  // 建脑图（默认根 + Tab 一个右子），同 mindSelect 4.9 的建树节奏
+  await page.getByRole('button', { name: /脑图/ }).click();
+  await page.mouse.click(600, 320);
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape'); // 退出根编辑
+  await page.waitForTimeout(120);
+  await page.mouse.click(610, 330); // 选中根（焦点）
+  await page.waitForTimeout(150);
+  await page.keyboard.press('Tab'); // 建右子并进入编辑
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape'); // 保留默认文本退出
+  await page.waitForTimeout(150);
+
+  const nodes = await mindNodes(page);
+  const root = nodes.find((n) => n.text.includes('中心'))!;
+  const child = nodes.find((n) => n.id !== root.id && n.worldRect.x > root.worldRect.x)!;
+  const box = (await page.locator('#stage-container').boundingBox())!;
+  const childCenter = {
+    x: child.worldRect.x + child.worldRect.width / 2,
+    y: child.worldRect.y + child.worldRect.height / 2,
+  };
+  const childScreen = await toScreen(page, childCenter);
+  const before = await vpBounds(page);
+  const modelCount0 = await page.evaluate(
+    () =>
+      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
+        .modelCount,
+  );
+  expect(modelCount0).toBe(1);
+
+  await page.mouse.move(box.x + childScreen.x, box.y + childScreen.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + childScreen.x + 24, box.y + childScreen.y, { steps: 4 }); // 过判拖阈值
+  const holdScreen = { x: box.width - 12, y: childScreen.y };
+  await page.mouse.move(box.x + holdScreen.x, box.y + holdScreen.y, { steps: 8 });
+  await page.waitForFunction(
+    (x0) =>
+      (
+        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
+      ).__spinth.vpBounds$.getValue().x >
+      x0 + 40,
+    before.x,
+    { timeout: 5_000 },
+  );
+  // 松手瞬间的指针世界位 = 新图落点（dragEnd 空白分支 createMindMap(world)）
+  const scale = await page.evaluate(() =>
+    (
+      window as unknown as { __spinth: { vpScale$: { getValue(): number } } }
+    ).__spinth.vpScale$.getValue(),
+  );
+  const atRelease = await vpBounds(page);
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  const modelCount1 = await page.evaluate(
+    () =>
+      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
+        .modelCount,
+  );
+  expect(modelCount1).toBe(2); // 原图 + 拖出成新图
+  const mapCount = await page.evaluate(
+    () =>
+      (
+        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
+      ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'MIND_MAP').length,
+  );
+  expect(mapCount).toBe(2);
+  const expected = {
+    x: atRelease.x + holdScreen.x / scale,
+    y: atRelease.y + holdScreen.y / scale,
+  };
+  // nodesDebug 只遍历焦点图（松手后 = 新图）：新图根 = 被拖子节点，
+  // 落点在松手瞬间指针世界位附近（根节点相对图原点居中，布局容差 120）
+  const nodes2 = await mindNodes(page);
+  const landed = nodes2.find(
+    (n) =>
+      !n.text.includes('中心') &&
+      Math.abs(n.worldRect.x + n.worldRect.width / 2 - expected.x) < 120 &&
+      Math.abs(n.worldRect.y + n.worldRect.height / 2 - expected.y) < 120,
+  );
+  expect(landed).toBeTruthy();
 });
