@@ -146,12 +146,18 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 仪式，脚本不强制）、基线齐全护栏接入 verify 与 CI gate、visual job 真门禁
 （update dispatch 跳过校验直接生成）；darwin/linux 双平台各 5 张基线。
 
-当前实测基线：`pnpm verify` 通过；1002 单测（core 913 + react 51 + app 38）；
-E2E 44 spec / 213 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+边缘自动滚屏已落地（specs/edge-auto-scroll）：元素/脑图节点拖拽进 56px 边缘
+热区按帧平移视口（三档 180/480/1080 屏幕 px/s、dt 钳 50ms），补偿走输入层
+`replayLastPointerMove`（同一屏幕坐标重放 move，世界坐标每帧现算）；越阻尼
+才启用、松手/取消/离容器/管线拒发即停，落库语义不变（一次拖拽一次撤销）。
+
+当前实测基线：`pnpm verify` 通过；1033 单测（core 944 + react 51 + app 38）；
+E2E 45 spec / 218 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 
-下一阶段顺序：发布前工程债余项（拆大文件与纹理保活已完成，specs/
-split-large-files、specs/texture-keepalive；剩边缘自动滚屏、运行时收窄）
+下一阶段顺序：发布前工程债余项（拆大文件、纹理保活、边缘自动滚屏已完成，
+specs/split-large-files、specs/texture-keepalive、specs/edge-auto-scroll；
+仅剩运行时收窄）
 → 开源发布 v1.0（发布清仓、仓库公开、CI 实证、GitHub Pages）
 → 1.0 后可访问性与平台遗留；协同最后（docs/10，不进入默认启动路径）。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与

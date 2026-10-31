@@ -61,7 +61,9 @@ viewport
 
 - 裸滚轮 = 平移；按住 `metaKey/ctrlKey` 时切缩放。
 - cursor 模式下暂停 viewport drag；hand/space 模式才拖拽平移。
-- 监听 `moved` + 微任务合并，派发 `vpScale$ / vpBounds$ / vpTransform$`。
+- 程序化平移入口是 `panBy`，边缘自动滚屏按帧走同一条路径（docs/05 §4.5）。
+- 监听 `moved` + 微任务合并，派发 `vpScale$ / vpBounds$ / vpTransform$`；
+  `panBy` 路径同步派发（滚屏每帧一次）。
 - `setPageScale` 必须带 position：pixi-viewport 在无 position 时只改 scale 不 emit
   `moved`，状态流会滞后。缺省取当前视口中心世界坐标补齐。
 - 首次进入不恢复上次视角；`zoomToFit` 按 widgetLayer 包围盒计算，padding 默认 100。

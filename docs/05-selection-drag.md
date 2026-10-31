@@ -99,8 +99,28 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 
 ### 4.5 边缘自动滚屏
 
-当前未实现。规格保留：拖拽到屏幕边缘热区时 rAF 平移 viewport，并按当前屏幕坐标
-重放 dragMove 补偿；速度按距边缘距离分档。
+拖拽（元素拖拽与脑图节点拖拽）进入视口边缘热区时按帧自动平移视口，被拖元素始终
+跟手。规格与实现细节见 `specs/edge-auto-scroll`；要点契约：
+
+- 作用域：元素拖拽 + 脑图节点拖拽；框选、缩放/旋转手柄、创建类手势不滚屏
+  （框选挂账 1.0 后，docs/13 §3）。
+- 热区 56 屏幕像素（与缩放无关），两轴独立判定，四角斜向各自满档。
+- 速度三档（屏幕 px/s）：慢 180 / 中 480 / 快 1080，按深度 `t = 1 − d/56` 分档；
+  帧位移 = 速度 × dt，dt 钳制 [0, 50ms]（后台标签页回前台不瞬移）。
+- 方向：右/下边缘 `panBy` 传负值（panBy 正值 = 内容右/下移 = 露出左侧/上方世界）。
+- 补偿：每帧 `panBy` 后以最后一次指针**屏幕**坐标重放一次 move
+  （`viewport.replayLastPointerMove()`），世界坐标按当前视口现算重走完整闸门；
+  不做位置加法补偿——元素屏幕位置天然不变（§1 坐标零漂移的滚屏延续）。
+- 启用条件：只在拖拽越过阻尼阈值后（`dragState.moved` / 脑图 `isDragMoved`）；
+  按下即滚屏会把世界坐标推过阈值，造成「没动鼠标却开始拖拽」。
+- 停止条件：指针离热区 / 未过阻尼 / 松手 / 手势取消（Esc、切工具、只读降级、
+  blur、pointercancel）/ 指针离开画布容器（pointerleave）/ 输入管线拒发（回滚
+  本帧）/ 进入编辑会话 / dispose。
+- 落库语义不变：一次拖拽一次 `transact` = 一次撤销；松手用最后一帧
+  `lastDx/lastDy`（docs/14 规则 5）。
+- 实现位置：`platform/viewport/edgeScrollMath.ts`（纯函数）+
+  `edgeAutoScrollService.ts`（帧循环，独占 rAF）；`SelectorService` 仅在
+  move/up/cancel 处上报指针位置与起停。
 
 ## 5. 高频合并策略
 

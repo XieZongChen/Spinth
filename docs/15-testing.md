@@ -13,8 +13,8 @@
 
 ## 2. 当前基线
 
-- 单测：1002 passed（core 913 + react 51 + app 38）。
-- E2E：44 个 spec（主配置 43 + pwa 1）、213 例（分层：fast 204 / timing+bench 5 / visual 4；
+- 单测：1033 passed（core 944 + react 51 + app 38）。
+- E2E：45 个 spec（主配置 44 + pwa 1）、218 例（分层：fast 209 / timing+bench 5 / visual 4；
   混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
