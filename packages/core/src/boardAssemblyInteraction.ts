@@ -9,6 +9,7 @@ import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
 import { CullingService } from './platform/spatial/cullingService';
+import { EdgeAutoScrollService } from './platform/viewport/edgeAutoScrollService';
 import type { BoardSDK } from './app';
 
 /**
@@ -35,6 +36,9 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.history = new HistoryService(sdk.engine!);
   sdk.history.initialize();
   sdk.refLine = new RefLineService(sdk.viewport!, sdk.vmEngine!, () => sdk.selector!, sdk.engine!);
+  // 边缘自动滚屏（specs/edge-auto-scroll §5.4，docs/05 §4.5）：先于 selector
+  // 构造（selector 上报指针位置与起停，服务独占 rAF 与热区数学）
+  sdk.edgeScroll = new EdgeAutoScrollService(sdk.viewport!);
   sdk.selector = new SelectorService(
     sdk.viewport!,
     sdk.vmEngine!,
@@ -42,6 +46,7 @@ export function assembleInteraction(sdk: BoardSDK): void {
     sdk.history!,
     () => sdk.refLine!,
     () => sdk.group!,
+    sdk.edgeScroll,
   );
   // 编组（docs/18）：选择聚合层服务——点击扩展/框选口径/建组解组命令
   sdk.group = new GroupService(sdk.engine!, sdk.vmEngine!, sdk.selector!, sdk.history!);
@@ -64,6 +69,9 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.layer = new LayerService(sdk.engine!, sdk.vmEngine!, sdk.selector!, sdk.history!);
   // 统一编辑会话（docs/17 批 1：TEXT/STICKY 先接入；LINE 批 2、mind 批 3）
   sdk.editingService = new EditingService(sdk.viewport!, sdk.engine!, sdk.selector!, sdk.history!);
+  // 编辑会话闸门（specs/edge-auto-scroll S7）：进会话即停滚屏（订阅随服务
+  // 生命周期，同下方 toolOption/resizeMove 订阅先例）
+  sdk.editingService.session$.subscribe(() => sdk.edgeScroll?.stop());
   sdk.textService = new TextService(
     sdk.viewport!,
     sdk.engine!,

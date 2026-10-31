@@ -9,6 +9,7 @@ import { BoardFacade } from './boardFacade';
 import { composeBoard } from './boardComposition';
 import { RectEditorService } from './platform/rectEditor/rectEditorService';
 import { RefLineService } from './platform/refLine/refLineService';
+import type { EdgeAutoScrollService } from './platform/viewport/edgeAutoScrollService';
 import { LayerService } from './platform/layer/layerService';
 import { KeyboardService } from './platform/keyboard/keyboardService';
 import { ClipboardService } from './platform/clipboard/clipboardService';
@@ -84,6 +85,8 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
    *  构造器只存宿主引用（类字段初始化顺序 = 声明顺序，此刻服务字段尚 null） */
   protected readonly outputs = new BoardOutputs(this);
   viewport: IViewportService | null = null;
+  /** 边缘自动滚屏（specs/edge-auto-scroll）：交互装配阶段构造，selector 上报驱动 */
+  edgeScroll: EdgeAutoScrollService | null = null;
   engine: DataEngineService | null = null;
   vmEngine: IVmEngineService | null = null;
   history: IHistoryService | null = null;

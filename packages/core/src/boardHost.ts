@@ -43,10 +43,13 @@ import type { AwarenessVm } from './platform/awareness/awarenessVm';
 import type { ImageService } from './widgets/image/imageService';
 import type { AssetStore } from './platform/dataEngine/assetStore';
 import type { ImageTextureCache } from './widgets/image/imageTextureCache';
+import type { EdgeAutoScrollService } from './platform/viewport/edgeAutoScrollService';
 
 /** BoardSDK 的全部服务字段（组装前为 null；键始终存在） */
 export interface IBoardServices {
   viewport: IViewportService | null;
+  /** 边缘自动滚屏（specs/edge-auto-scroll）：交互装配阶段构造，selector 上报驱动 */
+  edgeScroll: EdgeAutoScrollService | null;
   engine: DataEngineService | null;
   vmEngine: IVmEngineService | null;
   history: IHistoryService | null;

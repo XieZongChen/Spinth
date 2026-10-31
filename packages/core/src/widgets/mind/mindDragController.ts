@@ -91,6 +91,12 @@ export class MindDragController extends Disposable {
     return this.drag !== null;
   }
 
+  /** 拖拽已越过判拖阈值（宿主 isDragMoved 契约——边缘自动滚屏的启用条件，
+   *  specs/edge-auto-scroll §5.2：按下即滚屏会把世界坐标推过阈值） */
+  get moved(): boolean {
+    return this.drag?.moved ?? false;
+  }
+
   /** dev 调试探针：落点预置块（E2E/单测断言落点位置——数据探针优先于截图） */
   get dropPreviewDebug(): IRect | null {
     return this.dropPreview?.lastBlock ?? null;

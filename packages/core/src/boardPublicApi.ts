@@ -90,6 +90,7 @@ export type BoardInternalMember =
   | 'registry'
   | 'commands'
   | 'viewport'
+  | 'edgeScroll'
   | 'engine'
   | 'vmEngine'
   | 'history'

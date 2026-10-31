@@ -263,6 +263,12 @@ export class MindService extends Disposable {
     return this.dragCtl.active;
   }
 
+  /** IMindDragDelegate.isDragMoved（specs/edge-auto-scroll §5.2）：节点拖拽已过
+   *  判拖阈值——边缘自动滚屏的启用条件（缺省视为未拖起） */
+  get isDragMoved(): boolean {
+    return this.dragCtl.moved;
+  }
+
   /** 按下子节点即建立节点级选中态（selector 委托；IMindDragDelegate 契约） */
   focusNode(_mapId: string, nodeId: string): void {
     this.focusCtl.focusNode(_mapId, nodeId);

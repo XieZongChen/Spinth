@@ -5,6 +5,7 @@ import { markRender } from '../../common/render';
 import type { IPoint, IRect } from '../../common/geometry';
 import type {
   IDataEngineService,
+  IEdgeAutoScrollService,
   IHistoryService,
   IMindDragDelegate,
   IPointerEventInfo,
@@ -58,6 +59,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     private getRefLine: () => RefLineService,
     /** 编组服务惰性获取（docs/18 §4）：null = 无组语义（单测桩环境老行为） */
     getGroups: () => GroupService | null = () => null,
+    private edgeScroll: IEdgeAutoScrollService | null = null,
   ) {
     super();
     this.getGroups = getGroups;
@@ -241,10 +243,12 @@ export class SelectorService extends Disposable implements ISelectorService {
       // 浮层（ActionBar/＋ 按钮）拖拽中隐藏：桥接层订阅 dragMove$（docs/12 §3）。
       // 脑图节点拖拽走独立通道，此前不发此流 → 拖拽中浮动栏压在节点上
       this.dragMove$.next();
+      this.edgeScroll?.update(e.screen, this.mindDragDelegate.isDragMoved ?? false);
       return;
     }
     if (this.dragState) {
       applyDragMove(this.dragCtx, this.dragState, e);
+      this.edgeScroll?.update(e.screen, this.dragState.moved);
       return;
     }
     if (this.marquee) {
@@ -264,6 +268,7 @@ export class SelectorService extends Disposable implements ISelectorService {
   }
 
   private onPointerCancel(): void {
+    this.edgeScroll?.stop();
     if (this.dragState) {
       cancelDrag(this.dragCtx, this.dragState); // 预览回弹 + 参考线收起；清空归本类
       this.dragState = null;
@@ -282,6 +287,7 @@ export class SelectorService extends Disposable implements ISelectorService {
   }
 
   private onPointerUp(e: IPointerEventInfo): void {
+    this.edgeScroll?.stop();
     if (this.mindDragging && this.mindDragDelegate) {
       const result = this.mindDragDelegate.dragEnd(e.world);
       this.mindDragging = false;

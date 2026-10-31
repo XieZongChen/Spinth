@@ -35,6 +35,7 @@ export function disposeBoard(host: IBoardTeardownHost): void {
   host.imageService?.dispose();
   host.mindService?.dispose();
   host.contextMenu?.dispose();
+  host.edgeScroll?.dispose(); // 滚屏 rAF 先于其上报方 selector 停止
   host.selector?.dispose();
   host.history?.dispose();
   host.vmEngine?.dispose(); // 只退订（不逐 VM dispose）——缓存销毁必须自洽
