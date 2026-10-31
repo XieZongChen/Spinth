@@ -13,7 +13,7 @@
 
 ## 2. 当前基线
 
-- 单测：1001 passed（core 912 + react 51 + app 38）。
+- 单测：1002 passed（core 913 + react 51 + app 38）。
 - E2E：44 个 spec（主配置 43 + pwa 1）、212 例（分层：fast 203 / timing+bench 5 / visual 4；
   混跑不作门禁，
   各层跑法见 `.github/workflows/ci.yml`）。

@@ -420,17 +420,48 @@ describe('ImageTextureCache（fake source + fake codec + 假计时器）', () =>
     cache.dispose();
   });
 
-  it('预算钳制：windowMs NaN 回退默认 5s 窗口（不关闭、不恒假）', async () => {
-    const { cache, fake, textures } = makeCache({ keepAlive: { windowMs: Number.NaN } });
+  it('预算钳制：windowMs NaN/负值回退默认 5s 窗口（不立即销毁、不关闭）', async () => {
+    // 失效模式区分：windowMs 直传 NaN 时 setTimeout(fn, NaN) 视为 0 立即到期
+    // （窗口形同虚设）；maxEntries/maxBytes 直传 NaN 才是逐出比较恒假、永不逐出。
+    // 两种非法输入都由 clampBudget 的同一 pick 分支回退默认。
+    const nan = makeCache({ keepAlive: { windowMs: Number.NaN } });
+    const r1 = await nan.cache.acquire(SRC);
+    if (r1.kind !== 'ok') throw new Error('expect ok');
+    r1.lease.release();
+    expect(nan.textures[0]!.destroy).not.toHaveBeenCalled(); // NaN 未被当作 <=0 关闭保活
+    nan.fake.tick(4_999);
+    expect(nan.textures[0]!.destroy).not.toHaveBeenCalled(); // 默认窗口仍在跑（直传则已立即到期销毁）
+    nan.fake.tick(1);
+    expect(nan.textures[0]!.destroy).toHaveBeenCalledTimes(1); // 5s 到期——钳制回退默认生效
+    expect(nan.fake.pendingCount()).toBe(0);
+    nan.cache.dispose();
+
+    const neg = makeCache({ keepAlive: { windowMs: -1 } });
+    const r2 = await neg.cache.acquire(SRC);
+    if (r2.kind !== 'ok') throw new Error('expect ok');
+    r2.lease.release();
+    expect(neg.textures[0]!.destroy).not.toHaveBeenCalled(); // 负数回退默认 5s（未被当作关闭开关）
+    neg.fake.tick(4_999);
+    expect(neg.textures[0]!.destroy).not.toHaveBeenCalled();
+    neg.fake.tick(1);
+    expect(neg.textures[0]!.destroy).toHaveBeenCalledTimes(1);
+    expect(neg.fake.pendingCount()).toBe(0);
+    neg.cache.dispose();
+  });
+
+  it('预算钳制：maxBytes NaN 回退默认 32MiB——超大纹理单条不保活', async () => {
+    const { cache, textures } = makeCache({ keepAlive: { maxBytes: Number.NaN } });
     const r = await cache.acquire(SRC);
     if (r.kind !== 'ok') throw new Error('expect ok');
+    // 3000×3000=36MB 估算刻意越过回退后的默认 32MiB——NaN 直传时比较恒假
+    // （永不逐出）与本用例的「立即销毁」可区分，断言才有区分度
+    (textures[0] as unknown as { source: { width: number; height: number } }).source = {
+      width: 3_000,
+      height: 3_000,
+    };
     r.lease.release();
-    expect(textures[0]!.destroy).not.toHaveBeenCalled(); // NaN 未被当作 <=0 关闭保活
-    fake.tick(4_999);
-    expect(textures[0]!.destroy).not.toHaveBeenCalled(); // 默认窗口仍在跑（NaN 直传会让逐出比较恒假、永不销毁）
-    fake.tick(1);
-    expect(textures[0]!.destroy).toHaveBeenCalledTimes(1); // 5s 到期——钳制回退默认生效
-    expect(fake.pendingCount()).toBe(0);
+    expect(textures[0]!.destroy).toHaveBeenCalledTimes(1); // 回退默认上限生效：单条超限不保活
+    expect(cache.debug().keepAlive).toEqual({ count: 0, bytes: 0 });
     cache.dispose();
   });
 

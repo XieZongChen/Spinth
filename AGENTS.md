@@ -146,7 +146,7 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 仪式，脚本不强制）、基线齐全护栏接入 verify 与 CI gate、visual job 真门禁
 （update dispatch 跳过校验直接生成）；darwin/linux 双平台各 5 张基线。
 
-当前实测基线：`pnpm verify` 通过；1001 单测（core 912 + react 51 + app 38）；
+当前实测基线：`pnpm verify` 通过；1002 单测（core 913 + react 51 + app 38）；
 E2E 44 spec / 212 用例全绿（视觉 4/4 双平台；图片/资产专项 11/11；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 
