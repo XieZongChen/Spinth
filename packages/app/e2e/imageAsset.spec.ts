@@ -295,10 +295,19 @@ test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到
     ).__spinth;
     w.engine.removeByIds(w.__debug.selectedIds);
   });
-  await expect.poll(async () => (await imageState(page)).count, { timeout: 5_000 }).toBe(0);
-  r = await refs();
-  expect(r.refs).toBe(1); // 保活期持有（specs/texture-keepalive D1：租约随窗口）
-  expect(r.urls).toBe(1);
+  // 删除生效 + 保活持有（specs/texture-keepalive D1：租约随窗口）在同一次轮询内
+  // 判定——拆两次往返时，CI 停顿跨过 5s 窗口会让 1/1 断言在到期后假红；
+  // count 条件保留（未删除的 1/1 不得通过）
+  await expect
+    .poll(
+      async () => {
+        if ((await imageState(page)).count !== 0) return false;
+        const r = await refs();
+        return r.refs === 1 && r.urls === 1;
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
   // 窗口到期（5s + 余量）：计数归零且 URL revoke（第三轮审查不变式）
   await expect.poll(async () => (await refs()).refs, { timeout: 9_000 }).toBe(0);
   r = await refs();

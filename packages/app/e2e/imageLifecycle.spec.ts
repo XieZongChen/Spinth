@@ -49,12 +49,16 @@ test('纹理共享（L2）：同图两实例一份纹理一份 URL 计数；删�
       async () => {
         const p = await textureProbes(page);
         const e = p.entries[0];
-        return e && e.refs === 0 && e.idle ? p.keepAlive.count : -1;
+        const leases = Object.values(p.leases);
+        // 空闲 + 租约仍 1 在同一次探针往返内判定——拆两次往返时，CI 停顿跨过
+        // 5s 窗口会让随后的租约断言在到期后假红
+        return e && e.refs === 0 && e.idle && leases.length === 1 && leases[0] === 1
+          ? p.keepAlive.count
+          : -1;
       },
       { timeout: 5_000 },
     )
     .toBe(1);
-  expect(Object.values((await textureProbes(page)).leases)).toEqual([1]); // 租约仍 1
   await expect
     .poll(async () => (await textureProbes(page)).entries.length, { timeout: 9_000 }) // 5s 窗口 + 余量
     .toBe(0);

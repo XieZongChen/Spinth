@@ -420,6 +420,52 @@ describe('ImageTextureCache（fake source + fake codec + 假计时器）', () =>
     cache.dispose();
   });
 
+  it('预算钳制：windowMs NaN 回退默认 5s 窗口（不关闭、不恒假）', async () => {
+    const { cache, fake, textures } = makeCache({ keepAlive: { windowMs: Number.NaN } });
+    const r = await cache.acquire(SRC);
+    if (r.kind !== 'ok') throw new Error('expect ok');
+    r.lease.release();
+    expect(textures[0]!.destroy).not.toHaveBeenCalled(); // NaN 未被当作 <=0 关闭保活
+    fake.tick(4_999);
+    expect(textures[0]!.destroy).not.toHaveBeenCalled(); // 默认窗口仍在跑（NaN 直传会让逐出比较恒假、永不销毁）
+    fake.tick(1);
+    expect(textures[0]!.destroy).toHaveBeenCalledTimes(1); // 5s 到期——钳制回退默认生效
+    expect(fake.pendingCount()).toBe(0);
+    cache.dispose();
+  });
+
+  it('预算钳制：maxEntries 负值回退默认 8——两条空闲共存不误逐', async () => {
+    const { cache, fake, textures } = makeCache({ keepAlive: { maxEntries: -1 } });
+    const a = await cache.acquire(SRC);
+    const b = await cache.acquire(SRC_B);
+    if (a.kind !== 'ok' || b.kind !== 'ok') throw new Error('expect ok');
+    a.lease.release();
+    b.lease.release(); // 若 -1 直传会令 size > -1 恒真、插入即逐出
+    expect(textures[0]!.destroy).not.toHaveBeenCalled();
+    expect(textures[1]!.destroy).not.toHaveBeenCalled();
+    expect(cache.debug().keepAlive.count).toBe(2);
+    expect(fake.pendingCount()).toBe(2);
+    fake.tick(5_000);
+    expect(textures[0]!.destroy).toHaveBeenCalledTimes(1);
+    expect(textures[1]!.destroy).toHaveBeenCalledTimes(1);
+    cache.dispose();
+  });
+
+  it('显存估算：texture.source 宽高优先于 texture.width（PIXI v8 source 是尺寸真相源）', async () => {
+    const { cache, textures } = makeCache();
+    const r = await cache.acquire(SRC);
+    if (r.kind !== 'ok') throw new Error('expect ok');
+    // fake 纹理与条目 texture 是同一对象引用：补 source 尺寸模拟真实 Texture
+    // （50×60=12000B 应优先于 width/height=100 的 40000B 估算）
+    (textures[0] as unknown as { source: { width: number; height: number } }).source = {
+      width: 50,
+      height: 60,
+    };
+    r.lease.release();
+    expect(cache.debug().keepAlive).toEqual({ count: 1, bytes: 50 * 60 * 4 });
+    cache.dispose();
+  });
+
   it('C9：undo 复用——窗口内恢复不重新 decode；窗口到期后再 acquire 才第二次 decode', async () => {
     const { cache, fake, decode, createTexture, textures } = makeCache();
     const r1 = await cache.acquire(SRC);
