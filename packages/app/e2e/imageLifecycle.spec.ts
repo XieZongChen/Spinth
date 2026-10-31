@@ -103,6 +103,78 @@ test('窗口内 undo 复用（L2）：删图后立即撤销——同一纹理未
   }, docId);
 });
 
+test('pagehide（L2）：清空闲条目、保留在租纹理——验证组合根 window 接线', async ({ page }) => {
+  const docId = `e2e-pagehide-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  const salt = Date.now() % 0xffffffff;
+
+  // A：贴图后删除 → 空闲条目（URL 租约仍 1）
+  const idleB64 = await saltedPngB64(page, (salt ^ 0x11111111) >>> 0);
+  await pasteB64(page, idleB64);
+  await expect.poll(async () => (await imageState(page)).count, { timeout: 8_000 }).toBe(1);
+  await expect
+    .poll(async () => (await textureProbes(page)).loads[0]?.state ?? '', { timeout: 8_000 })
+    .toBe('loaded');
+  const idleHash = (await textureProbes(page)).entries[0]!.key;
+  await removeFirstImage(page);
+  await expect
+    .poll(
+      async () => {
+        const p = await textureProbes(page);
+        const e = p.entries.find((x) => x.key === idleHash);
+        return e !== undefined && e.refs === 0 && e.idle && (p.leases[idleHash] ?? 0) === 1;
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+
+  // B：不同内容 → 在租条目，pagehide 后必须保留
+  const liveB64 = await saltedPngB64(page, (salt ^ 0x22222222) >>> 0);
+  await pasteB64(page, liveB64);
+  await expect.poll(async () => (await imageState(page)).count, { timeout: 8_000 }).toBe(1);
+  await expect
+    .poll(async () => (await textureProbes(page)).loads[0]?.state ?? '', { timeout: 8_000 })
+    .toBe('loaded');
+  const liveHash = (await textureProbes(page)).entries.find((e) => !e.idle)!.key;
+  expect(liveHash).not.toBe(idleHash);
+
+  // 合成 pagehide：单测只覆盖假 EventTarget，这里验证组合根确实把 window 接上
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await expect
+    .poll(
+      async () => {
+        const p = await textureProbes(page);
+        const live = p.entries.find((e) => e.key === liveHash);
+        return (
+          p.entries.every((e) => e.key !== idleHash) &&
+          (p.leases[idleHash] ?? 0) === 0 &&
+          live?.refs === 1 &&
+          live.idle === false &&
+          (p.leases[liveHash] ?? 0) === 1
+        );
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+
+  // 在租 sprite 未被 pagehide 破坏（只清空闲）
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+          }
+        ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+    ),
+  ).toBe(true);
+
+  await page.evaluate((id) => {
+    void indexedDB.deleteDatabase(`spinth-doc:${id}`);
+  }, docId);
+});
+
 test('切 src 计数配平（L1）：A 切 B 后 A 进入保活、B 恰 1；窗口到期 A 租约归零', async ({
   page,
 }) => {

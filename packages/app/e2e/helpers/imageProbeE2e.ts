@@ -89,17 +89,21 @@ export function textureProbes(page: Page): Promise<{
   });
 }
 
-/** 尾部盐唯一 PNG（共用 base64 会内容寻址跨 doc 去重，计数判读须唯一化） */
-export function saltedPngB64(page: Page): Promise<string> {
-  return page.evaluate((b64) => {
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length + 4);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    new DataView(bytes.buffer).setUint32(bin.length, Date.now() % 0xffffffff);
-    let s = '';
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-  }, PNG_B64);
+/** 尾部盐唯一 PNG（共用 base64 会内容寻址跨 doc 去重，计数判读须唯一化）。
+ *  salt 可显式传入：同一用例需要两张不同内容时固定盐，避免 Date.now 同毫秒撞车。 */
+export function saltedPngB64(page: Page, salt = Date.now() % 0xffffffff): Promise<string> {
+  return page.evaluate(
+    ({ b64, s }) => {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length + 4);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      new DataView(bytes.buffer).setUint32(bin.length, s);
+      let out = '';
+      for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+      return btoa(out);
+    },
+    { b64: PNG_B64, s: salt },
+  );
 }
 
 export function pasteB64(page: Page, b64: string): Promise<void> {
