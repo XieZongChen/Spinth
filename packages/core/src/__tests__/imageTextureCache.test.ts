@@ -449,7 +449,7 @@ describe('ImageTextureCache（fake source + fake codec + 假计时器）', () =>
     neg.cache.dispose();
   });
 
-  it('预算钳制：maxBytes NaN 回退默认 32MiB——超大纹理单条不保活', async () => {
+  it('预算钳制：maxBytes NaN/负值回退默认 32MiB——超大纹理单条不保活', async () => {
     const { cache, textures } = makeCache({ keepAlive: { maxBytes: Number.NaN } });
     const r = await cache.acquire(SRC);
     if (r.kind !== 'ok') throw new Error('expect ok');
@@ -463,6 +463,19 @@ describe('ImageTextureCache（fake source + fake codec + 假计时器）', () =>
     expect(textures[0]!.destroy).toHaveBeenCalledTimes(1); // 回退默认上限生效：单条超限不保活
     expect(cache.debug().keepAlive).toEqual({ count: 0, bytes: 0 });
     cache.dispose();
+
+    // 负值与 NaN 走 clampBudget 的同一 pick 回退分支；同样按 32MiB 判定超限
+    const neg = makeCache({ keepAlive: { maxBytes: -1 } });
+    const r2 = await neg.cache.acquire(SRC);
+    if (r2.kind !== 'ok') throw new Error('expect ok');
+    (neg.textures[0] as unknown as { source: { width: number; height: number } }).source = {
+      width: 3_000,
+      height: 3_000,
+    };
+    r2.lease.release();
+    expect(neg.textures[0]!.destroy).toHaveBeenCalledTimes(1);
+    expect(neg.cache.debug().keepAlive).toEqual({ count: 0, bytes: 0 });
+    neg.cache.dispose();
   });
 
   it('预算钳制：maxEntries 负值回退默认 8——两条空闲共存不误逐', async () => {
