@@ -13,7 +13,7 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 1002 单测（core 913 + react 51 + app 38）、E2E 44 spec / 212 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 11/11、`pnpm verify` 通过
+- [x] 1002 单测（core 913 + react 51 + app 38）、E2E 44 spec / 213 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
 当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
 
@@ -81,7 +81,8 @@
 - [x] 租约/GC 语义：保活条目继续持有 URL 租约并计入 GC 持活（窗口结束才归还），
       GC 不误删仍可复用的资产。
 - [x] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose/pagehide 清理；
-      undo 恢复路径断言不重复 decode（注入计数）+ E2E uid 复用断言。
+      undo 恢复路径断言不重复 decode（注入计数）+ E2E uid 复用断言；pagehide
+      接线 E2E（清空闲/留在租）。
 - 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在空闲前/空闲中/到期后
   平衡（1/1 → 1/1 → 0/0）。
 - 规格：docs/19 §3、specs/texture-keepalive（已实施）、specs/assets-lifecycle §3.2。

@@ -410,6 +410,7 @@ sdk.imageTextures = new ImageTextureCache(source, browserImageCodec, {
 | E2   | 切 src 计数配平（现有）      | 切到 B 后：A 为空闲条目（`refs=0,idle=true`，租约 1）、B 在租（refs 1，租约 1）；8s 内 A 的租约归 0                                                    |
 | E3   | **新增**：窗口内 undo 复用   | 删图后**立即** `ControlOrMeta+z`（undo 前不插轮询，避免 CI 停顿吃掉 5s 窗口）→ 同一 `textureUid`、refs 1、idle false、租约 1；uid 相同即证明未重新解码 |
 | E4   | objectURL 配平（imageAsset） | 删图后先断言空闲持有 URL 1/1；轮询 8s 到期归零 0/0；undo 后重新 open 为 1/1（删去「200ms 内归零」断言）                                                |
+| E5   | **新增**：pagehide 接线      | A 贴图删除→空闲；B 贴图在租；`window.dispatchEvent(new Event('pagehide'))` → A 条目/租约清、B 仍在租且 sprite 保留（验证组合根 window 接线）           |
 
 探针扩展：`imageProbeE2e.ts` 的 entries 类型加 `idle`，返回 `keepAlive`；`projectFileE2e.ts` 的 `__debug` 类型同步。旧断言里「立即归零」全部改为「先 idle、后到期归零」。
 
@@ -569,3 +570,14 @@ E3 的 `idle` 状态由 E1/E2 与单测覆盖；E3 只验证「复用结果」�
 | maxBytes 负值     | maxBytes 用例扩为 NaN/负值双段：两者都按回退默认 32MiB 判定，36MB 单条不保活         | c9162f7 |
 
 验证：`pnpm verify` 0 退出（1002 单测，core 913）；coverage 阈值通过。源码仅注释改动。
+
+## 13.6 浏览器验证（收口后）
+
+- 全量 E2E：主配置 207 passed（6.3m）、pwa 配置 exit 0（6 例，`--list` 计数），合计 213 例；新增 E5 pagehide 接线通过。
+- §7.4 手工矩阵的覆盖：
+  - 步骤 1（两图删/undo 不闪烁）：E3（uid 不变）。
+  - 步骤 2（6s 后 undo 重解码）：E4（到期归零后 undo 复开）+ C9（decode 计数）；浏览器侧 E4 覆盖。
+  - 步骤 3（20 图上限）：P4/P5/C7 单测覆盖；未做 20 图浏览器批量。
+  - 步骤 4（后台 10s 节流）：无自动化；5s 尽力而为已写在 §4.5，保留人工验收。
+  - 步骤 5（bfcache）：E5 覆盖 pagehide 接线；真实 bfcache 往返保留人工。
+  - 步骤 6（移动端 390）：keep-alive 不改布局；mobile 9/9 覆盖布局，未单独跑移动端保活。
