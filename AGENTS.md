@@ -149,9 +149,11 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 边缘自动滚屏已落地（specs/edge-auto-scroll）：元素/脑图节点拖拽进 56px 边缘
 热区按帧平移视口（三档 180/480/1080 屏幕 px/s、dt 钳 50ms），补偿走输入层
 `replayLastPointerMove`（同一屏幕坐标重放 move，世界坐标每帧现算）；越阻尼
-才启用、松手/取消/离容器/管线拒发即停，落库语义不变（一次拖拽一次撤销）。
+才启用、松手/取消/离容器/管线拒发即停，落库语义不变（一次拖拽一次撤销）；
+复审返工补齐回归测试与异常兜底、抽 `selectorMarquee.ts`（selectorService
+386 行）；手工验收五项待人工（specs/edge-auto-scroll §13.5）。
 
-当前实测基线：`pnpm verify` 通过；1033 单测（core 944 + react 51 + app 38）；
+当前实测基线：`pnpm verify` 通过；1036 单测（core 947 + react 51 + app 38）；
 E2E 45 spec / 218 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
 
