@@ -199,13 +199,21 @@ export class ViewportService extends Disposable implements IViewportService {
     };
   }
 
-  /** 程序化平移（屏幕像素）：正 dx/dy 視口右/下移，内容视觉左/上移（docs/11 §7 焦点跟随） */
+  /** 程序化平移（屏幕像素）：正 dx/dy = 内容视觉右/下移 = 露出左侧/上方世界
+   *  （pixi-viewport position 直加；注释曾与实现相反，specs/edge-auto-scroll
+   *  §2.3-① 核实改写——docs/11 §7 焦点跟随对右/下越界传负值正是此方向） */
   panBy(dx: number, dy: number): void {
     if (!dx && !dy) return;
     this.viewport.x += dx;
     this.viewport.y += dy;
     markRender();
     this.syncViewportState();
+  }
+
+  /** @internal 以最后一次已投递 move 的屏幕坐标重放（specs/edge-auto-scroll
+   *  D3）：世界坐标按当前视口现算，走完整 dispatch 闸门；false = 管线拒发 */
+  replayLastPointerMove(): boolean {
+    return this.pointerInput?.replayLastMove() ?? false;
   }
 
   toWorld(screen: { x: number; y: number }): Point {

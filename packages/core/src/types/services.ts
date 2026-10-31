@@ -88,6 +88,10 @@ export interface IViewportService {
   /** 视口平移（屏幕像素，正 = 内容右/下移 = 露出左侧/上方世界——pixi-viewport
    *  position 直加，注释曾与实现相反，specs/edge-auto-scroll §2.3-① 核实改写） */
   panBy(dx: number, dy: number): void;
+  /** @internal 以最后一次已投递 move 的屏幕坐标重放一次 move（边缘自动滚屏
+   *  的每帧补偿）：世界坐标按当前视口现算，走完整 dispatch 闸门。
+   *  返回 false = 管线拒发（只读/断网/当前模式无 handler） */
+  replayLastPointerMove(): boolean;
 
   /** immediate = 跳过 200ms 动画精确设置（zoom100 专用——AnimatePlugin 收敛式
    *  插值在慢环境停在残差） */
