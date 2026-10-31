@@ -42,6 +42,12 @@ class FakeClock implements IEdgeScrollClock {
     }
     return frames;
   }
+  /** 执行到期回调但不推进时间（构造 dt=0 的同毫秒帧——§13.2-② 路径） */
+  runFrameWithoutAdvancing(): void {
+    const cbs = [...this.pending.values()];
+    this.pending.clear();
+    for (const cb of cbs) cb();
+  }
 }
 
 interface ViewportStub {
@@ -101,6 +107,18 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     svc.dispose();
   });
 
+  it('T12b 首帧 dt=0（同毫秒帧）→ 不自杀停：scrolling 保持、panBy 0 次、预约下一帧（§13.2-② 回归：按位移判停会立即终止）', () => {
+    const s = createViewportStub();
+    const clock = new FakeClock();
+    const svc = new EdgeAutoScrollService(s.viewport, clock);
+    svc.update(HOT_RIGHT, true);
+    clock.runFrameWithoutAdvancing(); // start 置 lastFrameAt=now，首帧 dt=0
+    expect(svc.scrolling).toBe(true);
+    expect(s.panBy).not.toHaveBeenCalled();
+    expect(clock.pending.size).toBe(1);
+    svc.dispose();
+  });
+
   it('T13 连推 3 帧 → panBy 三次，累计位移 ≈ v × 总时长', () => {
     const s = createViewportStub();
     const clock = new FakeClock();
@@ -151,6 +169,24 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     expect(s.listeners.get('pointerleave')).toBeTruthy(); // 监听器只挂一份
     clock.advance(16.7);
     expect(s.panBy).toHaveBeenCalledTimes(1);
+    svc.dispose();
+  });
+
+  it('T16b 重放路径同步重入 update → 不双调度、监听器不重复（§13.2-① 回归：frameId 守卫会指数加倍）', () => {
+    const s = createViewportStub();
+    const clock = new FakeClock();
+    const svc = new EdgeAutoScrollService(s.viewport, clock);
+    // 复现真实重放路径：replay → onPointerMove → update 同参数重入
+    s.replay.mockImplementation(() => {
+      svc.update(HOT_RIGHT, true);
+      return true;
+    });
+    svc.update(HOT_RIGHT, true);
+    clock.advance(16.7); // 该帧内 replay 同步重入 update
+    expect(clock.pending.size).toBe(1); // 不翻倍（旧守卫下 ≥2）
+    expect(s.listeners.size).toBe(1); // pointerleave 不重复挂载
+    clock.advance(16.7 * 3); // 后续帧稳定：panBy 线性不爆炸
+    expect(s.panBy).toHaveBeenCalledTimes(4); // 1 + 3
     svc.dispose();
   });
 
