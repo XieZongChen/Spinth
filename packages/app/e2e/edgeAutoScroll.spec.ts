@@ -4,8 +4,9 @@ import { openBoardDoc } from './helpers/boardE2e';
 /**
  * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-5）。
  *
- * 坐标纪律：一律 canvas boundingBox + 公开 `toScreenPoint`/`vpBounds$` 换算，
- * 禁止裸写页面坐标（顶栏高度会变）。跟手断言用既有 `__debug.selectionFrame`
+ * 坐标纪律：页面坐标一律 canvas boundingBox 盒相对（顶栏高度会变，禁止裸写
+ * 页面绝对坐标/硬编码 44px 偏移）；世界 ↔ 屏幕断言走公开 `toScreenPoint`，
+ * 视口状态走公开 `vpBounds$`。跟手断言用既有 `__debug.selectionFrame`
  * 探针（选区框每帧 moveTo = 预览世界位置；D7 不新增 debug 字段）。
  * 只断言方向与下限，不断言精确像素（防 CI 抖动）。
  */
@@ -69,15 +70,13 @@ async function vmGeom(page: Page, id: string): Promise<{ x: number; y: number }>
   }, id);
 }
 
-/** 世界 → 页面坐标（canvas 顶栏 44px，同 refline 基准） */
-const sy = (worldY: number): number => worldY + 44;
-
-/** 拖拽建 120×80 矩形（世界左上角），返回新件 id（按落点 x 定位，同 refline） */
+/** 拖拽建 120×80 矩形（世界左上角 = 建件时的 canvas 局部坐标），返回新件 id */
 async function dragCreateRect(page: Page, x: number, y: number): Promise<string> {
+  const box = (await page.locator('#stage-container').boundingBox())!;
   await page.keyboard.press('r');
-  await page.mouse.move(x, sy(y));
+  await page.mouse.move(box.x + x, box.y + y);
   await page.mouse.down();
-  await page.mouse.move(x + 120, sy(y + 80), { steps: 5 });
+  await page.mouse.move(box.x + x + 120, box.y + y + 80, { steps: 5 });
   await page.waitForTimeout(60);
   await page.mouse.up();
   await page.waitForTimeout(150);
@@ -194,15 +193,15 @@ test('E-3 指针回中心 → 视口停止滚动（连续采样相等）', async
 
 test('E-4 反例（D6）：边缘按下但未过阻尼 → 不滚屏', async ({ page }) => {
   await openBoardDoc(page, `e2e-edge-scroll-${Date.now()}`);
-  // 矩形右半伸入右热区：按在 (worldX+100, worldY+40)（距右缘 40px < 56）
+  // 矩形右半伸入右热区：按在 (worldX+100, 140)（距右缘 40px < 56）
   const worldX = 1300;
   const id = await dragCreateRect(page, worldX, 100);
   const box = (await page.locator('#stage-container').boundingBox())!;
   const before = await vpBounds(page);
-  await page.mouse.move(box.x + worldX + 100, sy(100 + 40));
+  await page.mouse.move(box.x + worldX + 100, box.y + 140);
   await page.mouse.down();
   // 亚阻尼抖动（3px < 10px 阈值）：在热区内但不构成拖拽
-  await page.mouse.move(box.x + worldX + 103, sy(140 + 2), { steps: 2 });
+  await page.mouse.move(box.x + worldX + 103, box.y + 142, { steps: 2 });
   await page.waitForTimeout(300);
   const after = await vpBounds(page);
   expect(after.x).toBe(before.x); // 未过阻尼绝不滚（update 收到 dragging=false）
@@ -229,15 +228,19 @@ async function mindNodes(page: Page): Promise<MindNode[]> {
   );
 }
 
-test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图落在指针世界位附近', async ({ page }) => {
+test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴住指针屏幕位（相对断言）', async ({
+  page,
+}) => {
   await openBoardDoc(page, `e2e-edge-scroll-mind-${Date.now()}`);
-  // 建脑图（默认根 + Tab 一个右子），同 mindSelect 4.9 的建树节奏
+  // 建脑图（默认根 + Tab 一个右子），同 mindSelect 4.9 的建树节奏；
+  // 创建期点击用画布盒相对坐标（canvas 局部 (600,280)≈既有 spec 的页面 (600,320)）
+  const box0 = (await page.locator('#stage-container').boundingBox())!;
   await page.getByRole('button', { name: /脑图/ }).click();
-  await page.mouse.click(600, 320);
+  await page.mouse.click(box0.x + 600, box0.y + 280);
   await page.waitForTimeout(200);
   await page.keyboard.press('Escape'); // 退出根编辑
   await page.waitForTimeout(120);
-  await page.mouse.click(610, 330); // 选中根（焦点）
+  await page.mouse.click(box0.x + 610, box0.y + 290); // 选中根（焦点）
   await page.waitForTimeout(150);
   await page.keyboard.press('Tab'); // 建右子并进入编辑
   await page.waitForTimeout(200);
@@ -254,12 +257,13 @@ test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图�
   };
   const childScreen = await toScreen(page, childCenter);
   const before = await vpBounds(page);
-  const modelCount0 = await page.evaluate(
-    () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
-  );
-  expect(modelCount0).toBe(1);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
+          .modelCount,
+    ),
+  ).toBe(1);
 
   await page.mouse.move(box.x + childScreen.x, box.y + childScreen.y);
   await page.mouse.down();
@@ -275,17 +279,7 @@ test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图�
     before.x,
     { timeout: 5_000 },
   );
-  // 移出热区停滚后再松手：vpBounds 稳定（采样与释放之间不再平移——负载下
-  // evaluate 往返可达百 ms，热区内松手的落点断言会偏出容差）
-  const dropScreen = { x: box.width - 200, y: childScreen.y };
-  await page.mouse.move(box.x + dropScreen.x, box.y + dropScreen.y, { steps: 4 });
-  await page.waitForTimeout(150);
-  const scale = await page.evaluate(() =>
-    (
-      window as unknown as { __spinth: { vpScale$: { getValue(): number } } }
-    ).__spinth.vpScale$.getValue(),
-  );
-  const atRelease = await vpBounds(page);
+  // 热区内直接松手（边滚边落库路径——up 首行停滚，落点在松手瞬间锁定）
   await page.mouse.up();
   await page.waitForTimeout(250);
 
@@ -302,18 +296,26 @@ test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图�
       ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'MIND_MAP').length,
   );
   expect(mapCount).toBe(2);
-  const expected = {
-    x: atRelease.x + dropScreen.x / scale,
-    y: atRelease.y + dropScreen.y / scale,
-  };
-  // nodesDebug 只遍历焦点图（松手后 = 新图）：新图根 = 被拖子节点，
-  // 落点在松手瞬间指针世界位附近（根节点相对图原点居中，布局容差 120）
-  const nodes2 = await mindNodes(page);
-  const landed = nodes2.find(
-    (n) =>
-      !n.text.includes('中心') &&
-      Math.abs(n.worldRect.x + n.worldRect.width / 2 - expected.x) < 120 &&
-      Math.abs(n.worldRect.y + n.worldRect.height / 2 - expected.y) < 120,
-  );
-  expect(landed).toBeTruthy();
+  // 相对断言（对时间不变，无采样竞态）：松手后视口不再平移，新图根中心映射
+  // 屏幕 = 松手瞬间指针屏幕位（根节点相对图原点居中，布局容差 120 屏幕 px）。
+  // nodesDebug 只遍历焦点图（松手后 = 新图，单节点 = 被拖子节点）
+  const landedScreen = await page.evaluate(() => {
+    const w = (
+      window as unknown as {
+        __spinth: {
+          __debug: { mindNodes: MindNode[] };
+          toScreenPoint(p: { x: number; y: number }): { x: number; y: number };
+        };
+      }
+    ).__spinth;
+    const n = w.__debug.mindNodes.find((x) => !x.text.includes('中心'));
+    if (!n) return null;
+    return w.toScreenPoint({
+      x: n.worldRect.x + n.worldRect.width / 2,
+      y: n.worldRect.y + n.worldRect.height / 2,
+    });
+  });
+  expect(landedScreen).not.toBeNull();
+  expect(Math.abs(landedScreen!.x - holdScreen.x)).toBeLessThan(120);
+  expect(Math.abs(landedScreen!.y - holdScreen.y)).toBeLessThan(120);
 });
