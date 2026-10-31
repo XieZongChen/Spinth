@@ -275,7 +275,11 @@ test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图�
     before.x,
     { timeout: 5_000 },
   );
-  // 松手瞬间的指针世界位 = 新图落点（dragEnd 空白分支 createMindMap(world)）
+  // 移出热区停滚后再松手：vpBounds 稳定（采样与释放之间不再平移——负载下
+  // evaluate 往返可达百 ms，热区内松手的落点断言会偏出容差）
+  const dropScreen = { x: box.width - 200, y: childScreen.y };
+  await page.mouse.move(box.x + dropScreen.x, box.y + dropScreen.y, { steps: 4 });
+  await page.waitForTimeout(150);
   const scale = await page.evaluate(() =>
     (
       window as unknown as { __spinth: { vpScale$: { getValue(): number } } }
@@ -299,8 +303,8 @@ test('E-5 脑图节点拖到边缘：视口滚动 + 松手在空白处成新图�
   );
   expect(mapCount).toBe(2);
   const expected = {
-    x: atRelease.x + holdScreen.x / scale,
-    y: atRelease.y + holdScreen.y / scale,
+    x: atRelease.x + dropScreen.x / scale,
+    y: atRelease.y + dropScreen.y / scale,
   };
   // nodesDebug 只遍历焦点图（松手后 = 新图）：新图根 = 被拖子节点，
   // 落点在松手瞬间指针世界位附近（根节点相对图原点居中，布局容差 120）
