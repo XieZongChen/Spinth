@@ -85,9 +85,13 @@ export function Board({
       disconnect?.();
       detachDebug?.();
       unbindBoard();
-      // 按对象身份删除：StrictMode 第二次挂载后不误删新实例的句柄
-      if ((window as unknown as { __spinth?: unknown }).__spinth === board) {
-        delete (window as unknown as { __spinth?: unknown }).__spinth;
+      // 句柄清理同样收进 DEV 常量分支：生产构建整体 DCE，产物零 `__spinth`
+      // 字符串（scripts/check-debug-bundle 的收紧断言据此判定）
+      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+        // 按对象身份删除：StrictMode 第二次挂载后不误删新实例的句柄
+        if ((window as unknown as { __spinth?: unknown }).__spinth === board) {
+          delete (window as unknown as { __spinth?: unknown }).__spinth;
+        }
       }
       if (boardRef.current === board) boardRef.current = null;
       void ready.then(
