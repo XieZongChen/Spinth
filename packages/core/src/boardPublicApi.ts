@@ -7,7 +7,9 @@
  * - 新增成员未归类 → `_BoardKeysClassified` 红（不是静默公开）；
  * - 名单写了不存在的成员（拼写错误，Omit 对幽灵键静默放行的教训）→
  *   `_BoardKeysExist` 红。
- * 仅类型层收窄：运行时仍导出完整类（运行时收窄需破坏性版本，挂账）。
+ * 类型 + 运行时双层收窄（specs/runtime-narrowing §3.3）：类型层是下方的
+ * `Readonly<Pick>`；运行时层是 `projectBoardPublicApi`——只把 allowlist 成员
+ * 定义到冻结投影上，内部字段不可枚举、不可读、不可调用。
  */
 import type { BoardSDK } from './app';
 
@@ -128,7 +130,42 @@ export type BoardInternalMember =
   | 'disposed'
   | 'cullingForgetSub';
 
-export type BoardPublicApi = Pick<BoardSDK, BoardPublicMember>;
+export type BoardPublicApi = Readonly<Pick<BoardSDK, BoardPublicMember>>;
+
+/**
+ * 运行时 allowlist：只把 BOARD_PUBLIC_MEMBERS 定义到投影上（specs/runtime-narrowing §3.3）。
+ * - 方法：首次读取时 bind(source)，缓存函数身份；宿主拿不到未绑定 this。
+ * - 流/查询 getter：每次读取都 Reflect.get(source)，保证组装前后切换真实流
+ *  （BoardFacade 的流 getter 组装前回退 fallback 流，投影不能在构造时快照）。
+ * - 未知键不进投影；Object.freeze 后不可新增/删除/改写。
+ * 参数类型用 BoardPublicApi 而不是 BoardSDK：本文件对 app.ts 保持纯类型依赖，
+ * BoardSDK 结构上满足该类型。
+ */
+export function projectBoardPublicApi(source: BoardPublicApi): BoardPublicApi {
+  const api: Record<string, unknown> = {};
+  const bound = new Map<string, (...args: unknown[]) => unknown>();
+
+  for (const key of BOARD_PUBLIC_MEMBERS) {
+    if (!(key in source)) {
+      throw new Error(`BOARD_PUBLIC_MEMBER_MISSING: ${key}`);
+    }
+    Object.defineProperty(api, key, {
+      enumerable: true,
+      configurable: false,
+      get() {
+        const value: unknown = Reflect.get(source as object, key);
+        if (typeof value !== 'function') return value;
+        let fn = bound.get(key);
+        if (!fn) {
+          fn = value.bind(source) as (...args: unknown[]) => unknown;
+          bound.set(key, fn);
+        }
+        return fn;
+      },
+    });
+  }
+  return Object.freeze(api) as unknown as BoardPublicApi;
+}
 
 // —— 编译期分类锁：任一约束不满足，tsc 在别名声明处报错 ——
 // 私有成员（defaultToolOptionsBs/outputs 等）不在 keyof BoardSDK 里，无需分类。
