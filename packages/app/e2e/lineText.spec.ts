@@ -6,8 +6,10 @@ import { createTwoRects, lineSelectionState } from './helpers/widgetProbeE2e';
 async function lineTextState(page: Page): Promise<{ text: string; textRatio: number }> {
   return page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const l = d.find((s) => s.type === 'LINE') as unknown as { text: string; textRatio: number };
     return { text: l.text, textRatio: l.textRatio };
   });
@@ -37,8 +39,10 @@ test('批次3：线上文字沿路径滑移——拖动改 textRatio 落库、un
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -95,8 +99,11 @@ test('批次3：线上文字沿路径滑移——拖动改 textRatio 落库、un
   // 无镂空、线从框下穿过）——空内容即断线，框宽 = min-width 60px
   const knockout0 = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { lineKnockout: { width: number } | null } } })
-        .__spinth.__debug.lineKnockout,
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { lineKnockout: { width: number } | null } };
+        }
+      ).__spinthDebug.__debug.lineKnockout,
   );
   expect(knockout0).not.toBeNull();
   expect(knockout0!.width).toBeGreaterThanOrEqual(60);
@@ -104,8 +111,8 @@ test('批次3：线上文字沿路径滑移——拖动改 textRatio 落库、un
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { lineSegments: unknown } } }).__spinth.__debug
-          .lineSegments,
+        (window as unknown as { __spinthDebug: { __debug: { lineSegments: unknown } } })
+          .__spinthDebug.__debug.lineSegments,
     ),
   ).toBeNull();
   // 打字变宽即时跟随（syncEditorFrame 不等 34ms 节流落库）；
@@ -116,9 +123,9 @@ test('批次3：线上文字沿路径滑移——拖动改 textRatio 落库、un
     () =>
       (
         window as unknown as {
-          __spinth: { __debug: { lineKnockout: { width: number; height: number } | null } };
+          __spinthDebug: { __debug: { lineKnockout: { width: number; height: number } | null } };
         }
-      ).__spinth.__debug.lineKnockout,
+      ).__spinthDebug.__debug.lineKnockout,
   );
   expect(knockout1!.width).toBeGreaterThan(knockout0!.width);
   await page.keyboard.press('Escape'); // exitEdit 前冲刷节流（尾字不丢）
@@ -207,8 +214,10 @@ test('线上文字：二次进入编辑——光标落末尾无旧选区、编�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -239,8 +248,11 @@ test('线上文字：二次进入编辑——光标落末尾无旧选区、编�
   // 框镂空正常（线在标签处断开）
   const ko = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { lineKnockout: { width: number } | null } } })
-        .__spinth.__debug.lineKnockout,
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { lineKnockout: { width: number } | null } };
+        }
+      ).__spinthDebug.__debug.lineKnockout,
   );
   expect(ko).not.toBeNull();
   expect(ko!.width).toBeGreaterThanOrEqual(60);
@@ -283,8 +295,10 @@ test('线上文字：有字连线选中态——文字两侧各一个拖拽手�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -300,14 +314,14 @@ test('线上文字：有字连线选中态——文字两侧各一个拖拽手�
   const st0 = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             lineSegments: Array<{ x: number; y: number }> | null;
             lineKnockout: { x: number; width: number } | null;
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return { segments: d.lineSegments, knockout: d.lineKnockout };
   });
   expect(st0.segments).not.toBeNull();
@@ -325,8 +339,10 @@ test('线上文字：有字连线选中态——文字两侧各一个拖拽手�
   const before = await page.evaluate(
     () =>
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((s) => s.type === 'LINE') as {
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((s) => s.type === 'LINE') as {
         points: Array<[number, number]>;
         pinned?: boolean;
       },
@@ -342,8 +358,10 @@ test('线上文字：有字连线选中态——文字两侧各一个拖拽手�
   const after = await page.evaluate(
     () =>
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((s) => s.type === 'LINE') as {
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((s) => s.type === 'LINE') as {
         points: Array<[number, number]>;
         pinned?: boolean;
       },

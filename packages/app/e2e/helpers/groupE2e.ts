@@ -10,7 +10,7 @@ import { expect } from '@playwright/test';
  * 解组（快捷键）→ undo 一步（键删除投影）→ 粘贴保组（新 groupId）→
  * 混入锚定线编组键禁用 → 自由线转锚定同事务脱组。
  *
- * 坐标纪律同 align.spec：断言走 __spinth.__debug 探针；操作坐标从探针世界
+ * 坐标纪律同 align.spec：断言走 __spinthDebug.__debug 探针；操作坐标从探针世界
  * 坐标 + canvas rect 反推；修饰键必须物理键盘 down/up 包夹。
  */
 
@@ -22,7 +22,7 @@ export interface IProbe {
 
 export async function probe(page: Page): Promise<IProbe> {
   return page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: IProbe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: IProbe } }).__spinthDebug.__debug;
     return {
       modelCount: d.modelCount,
       selectedIds: [...d.selectedIds],

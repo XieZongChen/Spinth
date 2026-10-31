@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 /**
  * 性能基准（docs/16 §6，Phase 4 验收）：1000 控件（shape/text/pen 混合）
  * + 拖拽期间 rAF 帧间隔 P95 < 20ms + 3 屏外滚动 culling 翻转。
- * 探针全部走 `window.__spinth.__debug`（数据探针优先，docs/14 方法论）。
+ * 探针全部走 `window.__spinthDebug.__debug`（数据探针优先，docs/14 方法论）。
  * 批量创建走 dev 注入实例的 engine（UI 路径建 1000 个不可行）。
  */
 
@@ -28,15 +28,17 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   //    世界范围（视口 1440×900 只覆盖一角——保证大量屏外供 culling 验证）
   await page.evaluate(() => {
     const w = window as unknown as {
-      __spinth?: {
-        engine?: {
-          transact(fn: () => void): void;
-          add(data: Record<string, unknown>): void;
-          genInitialOrder(): string;
+      __spinthDebug?: {
+        __debug?: {
+          engine?: {
+            transact(fn: () => void): void;
+            add(data: Record<string, unknown>): void;
+            genInitialOrder(): string;
+          };
         };
       };
     };
-    const engine = w.__spinth!.engine!;
+    const engine = w.__spinthDebug!.__debug!.engine!;
     engine.transact(() => {
       for (let i = 0; i < 600; i++) {
         engine.add({
@@ -89,8 +91,10 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   await page.waitForFunction(
     () => {
       const d = (
-        window as unknown as { __spinth?: { __debug: { modelCount: number; vmCount: number } } }
-      ).__spinth?.__debug;
+        window as unknown as {
+          __spinthDebug?: { __debug: { modelCount: number; vmCount: number } };
+        }
+      ).__spinthDebug?.__debug;
       return !!d && d.modelCount === 1000 && d.vmCount === 1000;
     },
     undefined,
@@ -100,8 +104,8 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   // 2) culling 初始生效：视口只覆盖左上角 → 大量屏外 renderable=false
   const culledAtStart = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { culledCount: number } } }).__spinth.__debug
-        .culledCount,
+      (window as unknown as { __spinthDebug: { __debug: { culledCount: number } } }).__spinthDebug
+        .__debug.culledCount,
   );
   expect(culledAtStart).toBeGreaterThan(500);
 
@@ -140,24 +144,24 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   //（列 5 行 3：屏幕 ≈(690,360)，全程拖拽路径离四边 >100px）；
   // 工作量三断言（renderCount 增量/位置落库/culling）是门禁，绝对 p95 只注记
   const target = await page.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             vmPositions: Array<{ id: string; x: number; y: number }>;
             renderCount: number;
-          };
-          viewport: {
-            viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            viewport: {
+              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            };
           };
         };
       }
-    ).__spinth;
-    const s = w.__debug.vmPositions.find(
+    ).__spinthDebug.__debug;
+    const s = d.vmPositions.find(
       (p) => p.id.startsWith('bs') && p.x > 600 && p.x < 800 && p.y > 300 && p.y < 450,
     )!;
-    const sc = w.viewport.viewportInstance.toScreen(s.x + 40, s.y + 30);
-    return { id: s.id, wx: s.x, sx: sc.x, sy: sc.y + 44, rc: w.__debug.renderCount };
+    const sc = d.viewport.viewportInstance.toScreen(s.x + 40, s.y + 30);
+    return { id: s.id, wx: s.x, sx: sc.x, sy: sc.y + 44, rc: d.renderCount };
   });
   const canvas = page.locator('canvas').first();
   // toScreen 是 canvas 局部系；hover({position}) 也是元素相对系——不加顶栏 44px
@@ -178,8 +182,8 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   // 工作量 ①：拖拽期间持续渲染（画面冻结/拖空必红）
   const rcAfter = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { renderCount: number } } }).__spinth.__debug
-        .renderCount,
+      (window as unknown as { __spinthDebug: { __debug: { renderCount: number } } }).__spinthDebug
+        .__debug.renderCount,
   );
   expect(rcAfter - target.rc).toBeGreaterThanOrEqual(20);
   // 工作量 ②：被拖 shape 落库位移与拖拽方向一致（总位移 ≈ +600x/+145y，
@@ -187,9 +191,9 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   const movedX = await page.evaluate((id) => {
     const w = (
       window as unknown as {
-        __spinth: { __debug: { vmPositions: Array<{ id: string; x: number }> } };
+        __spinthDebug: { __debug: { vmPositions: Array<{ id: string; x: number }> } };
       }
-    ).__spinth;
+    ).__spinthDebug;
     return w.__debug.vmPositions.find((v) => v.id === id)!.x;
   }, target.id);
   expect(movedX - target.wx).toBeGreaterThan(400);
@@ -211,8 +215,8 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
       () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { culledCount: number } } }).__spinth
-              .__debug.culledCount,
+            (window as unknown as { __spinthDebug: { __debug: { culledCount: number } } })
+              .__spinthDebug.__debug.culledCount,
         ),
       { timeout: 5000 },
     )
@@ -221,8 +225,8 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   await page.mouse.wheel(0, -3000);
   const culledBack = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { culledCount: number } } }).__spinth.__debug
-        .culledCount,
+      (window as unknown as { __spinthDebug: { __debug: { culledCount: number } } }).__spinthDebug
+        .__debug.culledCount,
   );
   expect(Math.abs(culledBack - culledAtStart)).toBeLessThan(50);
 });

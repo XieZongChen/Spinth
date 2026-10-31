@@ -39,8 +39,8 @@ test('拖放创建：drop 文件到画布 → IMAGE 落库 + natural 尺寸 + �
   // 创建即选中（ActionBar 面向选中态）
   const selected = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { selectedIds: string[] } } }).__spinth.__debug
-        .selectedIds,
+      (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } }).__spinthDebug
+        .__debug.selectedIds,
   );
   expect(selected).toHaveLength(1);
 });
@@ -72,9 +72,9 @@ test('粘贴创建：paste 图片文件 → IMAGE 落库于视口中心', async 
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 8_000 },
     )

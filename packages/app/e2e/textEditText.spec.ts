@@ -47,8 +47,8 @@ test('TEXT：空文本点外退出 = 删除控件（docs/07 §7 空删语义）'
       async () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth
-              .__debug.modelCount,
+            (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } })
+              .__spinthDebug.__debug.modelCount,
         ),
       { timeout: 5_000 },
     )
@@ -68,8 +68,8 @@ test('STICKY：单击已选中进编辑 → 输入点外退出落库', async ({ 
       async () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth
-              .__debug.modelCount,
+            (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } })
+              .__spinthDebug.__debug.modelCount,
         ),
       { timeout: 5_000 },
     )
@@ -109,8 +109,8 @@ test('STICKY 输入→全删→退出：删除不丢失、内容不复活（38 �
       async () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth
-              .__debug.modelCount,
+            (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } })
+              .__spinthDebug.__debug.modelCount,
         ),
       { timeout: 5_000 },
     )
@@ -135,8 +135,8 @@ test('STICKY 输入→全删→退出：删除不丢失、内容不复活（38 �
     .not.toContain('abc');
   const count = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
+      (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+        .__debug.modelCount,
   );
   expect(count).toBe(1); // keep：空便签保留
 });
@@ -160,16 +160,18 @@ test('STICKY 编辑框全盖 + 空内容退出保留（2026-10-16 用户实测�
       async () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth
-              .__debug.modelCount,
+            (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } })
+              .__spinthDebug.__debug.modelCount,
         ),
       { timeout: 5_000 },
     )
     .toBe(1);
   const size = await page.evaluate(() => {
     const st = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => v.type === 'STICKY')!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'STICKY')!;
     return { w: st.width as number, h: st.height as number, x: st.x as number, y: st.y as number };
   });
   expect(size.w).toBeGreaterThan(40);
@@ -185,8 +187,10 @@ test('STICKY 编辑框全盖 + 空内容退出保留（2026-10-16 用户实测�
   await page.waitForTimeout(300);
   const hAfterEnter = await page.evaluate(() => {
     const st = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => v.type === 'STICKY')!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'STICKY')!;
     return st.height as number;
   });
   expect(hAfterEnter).toBe(size.h);
@@ -210,8 +214,8 @@ test('STICKY 编辑框全盖 + 空内容退出保留（2026-10-16 用户实测�
   await page.waitForTimeout(400);
   const count = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
+      (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+        .__debug.modelCount,
   );
   expect(count).toBe(1);
 });

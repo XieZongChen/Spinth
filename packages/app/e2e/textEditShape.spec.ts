@@ -17,8 +17,8 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
   const mc = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-          .modelCount,
+        (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+          .__debug.modelCount,
     );
   await page.mouse.move(560, 300);
   await page.mouse.down();
@@ -32,8 +32,8 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
   const selectedIds = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { selectedIds: string[] } } }).__spinth.__debug
-          .selectedIds,
+        (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } })
+          .__spinthDebug.__debug.selectedIds,
     );
   const c = await centerOf(page, 'SHAPE');
   await page.mouse.click(c.x, c.y);
@@ -46,18 +46,20 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
   // anchor center 对齐断言（实测①的自动化验收）：编辑器框中心 ≈ 图形真中心
   //（±4px 容差；centerOf 的 +20 是点击近似，这里用 state 几何精确换算）
   const shapeCenter = await page.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
-          __debug: { vmStates: Array<Record<string, number>> };
-          viewport: {
-            viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            vmStates: Array<Record<string, number>>;
+            viewport: {
+              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            };
           };
         };
       }
-    ).__spinth;
-    const s = w.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
-    const p = w.viewport.viewportInstance.toScreen(s.x + s.width / 2, s.y + s.height / 2);
+    ).__spinthDebug.__debug;
+    const s = d.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+    const p = d.viewport.viewportInstance.toScreen(s.x + s.width / 2, s.y + s.height / 2);
     return { x: p.x, y: p.y + 44 };
   });
   const box = (await editor.boundingBox())!;
@@ -83,9 +85,9 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
         page.evaluate(() => {
           const s = (
             window as unknown as {
-              __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+              __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
             }
-          ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
+          ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
           return s?.fontSize as number | undefined;
         }),
       { timeout: 5_000 },
@@ -100,9 +102,9 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
         page.evaluate(() => {
           const s = (
             window as unknown as {
-              __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+              __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
             }
-          ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
+          ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
           return { shapeType: String(s?.shapeType), text: String(s?.text ?? '') };
         }),
       { timeout: 5_000 },
@@ -115,9 +117,9 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
         page.evaluate(() => {
           const s = (
             window as unknown as {
-              __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+              __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
             }
-          ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
+          ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
           return String(s?.shapeType);
         }),
       { timeout: 5_000 },
@@ -157,15 +159,15 @@ test('SHAPE 图形类型四态补全（docs/04 §8）：菱形/圆角矩形切�
   const mc = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-          .modelCount,
+        (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+          .__debug.modelCount,
     );
   await expect.poll(mc, { timeout: 5_000 }).toBe(1);
   const selectedIds = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { selectedIds: string[] } } }).__spinth.__debug
-          .selectedIds,
+        (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } })
+          .__spinthDebug.__debug.selectedIds,
     );
   const c = await centerOf(page, 'SHAPE');
   await page.mouse.click(c.x, c.y);
@@ -186,8 +188,10 @@ test('SHAPE 图形类型四态补全（docs/04 §8）：菱形/圆角矩形切�
   const stateOf = () =>
     page.evaluate(() => {
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE');
       return { shapeType: String(s?.shapeType), text: String(s?.text ?? '') };
     });
 
@@ -226,8 +230,8 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
   const mc = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-          .modelCount,
+        (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+          .__debug.modelCount,
     );
   await page.mouse.move(400, 300);
   await page.mouse.down();
@@ -237,8 +241,10 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
   const shapeState = () =>
     page.evaluate(() => {
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
       return { height: Number(s.height), text: String(s.text ?? ''), autoHeight: s.autoHeight };
     });
 
@@ -261,8 +267,10 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
   const linePts = (): Promise<Array<[number, number]>> =>
     page.evaluate(() => {
       const l = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'LINE') as unknown as {
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'LINE') as unknown as {
         points: Array<[number, number]>;
         startNodeId: string | null;
       };
@@ -270,8 +278,10 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
     });
   const anchored = await page.evaluate(() => {
     const l = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'LINE') as unknown as {
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'LINE') as unknown as {
       startNodeId: string | null;
       endNodeId: string | null;
     };
@@ -288,8 +298,8 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
   const selectedIds = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { selectedIds: string[] } } }).__spinth.__debug
-          .selectedIds,
+        (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } })
+          .__spinthDebug.__debug.selectedIds,
     );
   const c = await centerOf(page, 'SHAPE');
   await page.mouse.click(c.x, c.y);
@@ -340,8 +350,10 @@ test('SHAPE autoHeight（docs/17 §6 四点拍板）：长文撑高 + 锚定线�
   // 手动拖高解除：角手柄 +30（80→110）→ autoHeight 置 false；再编辑长文不再撑
   const corner = await page.evaluate(() => {
     const s = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, number>> } } }
-    ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, number>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
     return { x: s.x + s.width, y: s.y + s.height + 44 };
   });
   await page.mouse.move(corner.x, corner.y);
@@ -386,8 +398,10 @@ test('1.7 旋转件测高同源：45° SHAPE 两次编辑提交高度稳定（�
   const shapeState = () =>
     page.evaluate(() => {
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
       return { height: Number(s.height), rotation: Number(s.rotation ?? 0) };
     });
 

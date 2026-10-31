@@ -49,7 +49,6 @@ import {
   toScreenPoint as toScreenPointImpl,
 } from './boardQueries';
 import { disposeBoard } from './boardTeardown';
-import { buildBoardDebugSnapshot } from './boardDebug';
 import {
   exportProject as exportProjectImpl,
   importProject as importProjectImpl,
@@ -65,19 +64,21 @@ import type {
 } from './types';
 
 /**
- * BoardSDK — 组合根门面（docs/04 §3）：显式装配全部服务。
+ * BoardSDK — 内部组合根门面（docs/04 §3）：显式装配全部服务，不导出到包
+ * 入口——宿主经 createBoard() 拿冻结投影（specs/runtime-narrowing）。
  * 对外只暴露「rxjs 输出流（读）+ 命令方法（写）」，UI 框架通过胶水层消费。
  * 纯委托（17 条流 getter + 31 条命令）在基类 BoardFacade；实现分区
  * （specs/api-surface）：组装 boardComposition / 命令 boardCommands +
  * alignCommands·exportCommand·styleCommands / 输出流 boardStreams / ActionBar
- * boardActionBar / 查询 boardQueries / 销毁 boardTeardown / 调试 boardDebug /
- * 项目门面 boardProject——本文件只留字段、生命周期与单行委托。
+ * boardActionBar / 查询 boardQueries / 销毁 boardTeardown / 项目门面
+ * boardProject（调试适配器 boardDebug 由 DEV 入口 @spinth/core/dev 消费）——
+ * 本文件只留字段、生命周期与单行委托。
  */
 export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   // ---------- @internal 组装/命令层（批 B 三分）共享服务字段 ----------
   // 原逐字段重复的 @internal 注释合并为本区块头（specs/api-surface Step 5）。
-  // 字段保持 public 可写：桩测注入（boardSdkDispose/alignCommand 等）与
-  // DEV 句柄（window.__spinth）依赖可写性——禁止改成 private/#private。
+  // 字段保持 public 可写：组合根 friend 函数（composeBoard/disposeBoard 等）
+  // 以字段赋值装配、core 桩测以字段注入——禁止改成 private/#private。
   registry = new ServiceRegistry();
   /** 命令区实现（批 A 三分）——委托面在 BoardFacade 基类 */
   readonly commands = new BoardCommands(this);
@@ -224,12 +225,6 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
    *  不走 BoardCommands——避免给命令类加一个只有门面在用的方法） */
   updateSelectedStyle(patch: Record<string, unknown>): void {
     return updateSelectedStyleImpl(this, patch);
-  }
-
-  /** dev 调试用：渲染链各层数量（window.__spinth.__debug）——适配器在
-   *  boardDebug.ts（specs/api-surface Step 5 迁出），聚合仍在 debugSnapshot.ts */
-  get __debug() {
-    return buildBoardDebugSnapshot(this);
   }
 
   /** 导出当前画布为 .spinth.zip（docs/20 §5.3）——门面在 boardProject.ts */

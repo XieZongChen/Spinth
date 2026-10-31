@@ -164,9 +164,9 @@ test('pagehide（L2）：清空闲条目、保留在租纹理——验证组合�
       () =>
         (
           window as unknown as {
-            __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+            __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
           }
-        ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+        ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
     ),
   ).toBe(true);
 
@@ -191,9 +191,9 @@ test('切 src 计数配平（L1）：A 切 B 后 A 进入保活、B 恰 1；窗�
     new DataView(bytes.buffer).setUint32(bin.length, (Date.now() + 1) % 0xffffffff);
     const w = (
       window as unknown as {
-        __spinth: { assetStore: { put(b: Blob): Promise<{ src: string }> } };
+        __spinthDebug: { __debug: { assetStore: { put(b: Blob): Promise<{ src: string }> } } };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     const ref = await w.assetStore.put(new File([bytes], 'b.png', { type: 'image/png' }));
     return ref.src;
   }, b64);
@@ -208,9 +208,11 @@ test('切 src 计数配平（L1）：A 切 B 后 A 进入保活、B 恰 1；窗�
   await page.evaluate((src) => {
     const w = (
       window as unknown as {
-        __spinth: { engine: { yWidgets: { toArray(): Array<{ get(k: string): unknown }> } } };
+        __spinthDebug: {
+          __debug: { engine: { yWidgets: { toArray(): Array<{ get(k: string): unknown }> } } };
+        };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     const img = w.engine.yWidgets.toArray().find((m) => m.get('type') === 'IMAGE');
     (img as unknown as { set(k: string, v: string): void }).set('src', src);
   }, srcB);
@@ -271,15 +273,17 @@ test('自动重试（L3）：http 图前两次失败第三次成功——命中 
   await page.evaluate((url) => {
     const w = (
       window as unknown as {
-        __spinth: {
-          engine: {
-            transact(fn: () => void): void;
-            genInitialOrder(): string;
-            add(d: Record<string, unknown>): void;
+        __spinthDebug: {
+          __debug: {
+            engine: {
+              transact(fn: () => void): void;
+              genInitialOrder(): string;
+              add(d: Record<string, unknown>): void;
+            };
           };
         };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     w.engine.transact(() => {
       w.engine.add({
         id: 'w-autoretry',
@@ -324,15 +328,17 @@ test('手动重试（L3）：missing 引用 → put 资产行 → 双击画布�
   await page.evaluate((h) => {
     const w = (
       window as unknown as {
-        __spinth: {
-          engine: {
-            transact(fn: () => void): void;
-            genInitialOrder(): string;
-            add(d: Record<string, unknown>): void;
+        __spinthDebug: {
+          __debug: {
+            engine: {
+              transact(fn: () => void): void;
+              genInitialOrder(): string;
+              add(d: Record<string, unknown>): void;
+            };
           };
         };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     w.engine.transact(() => {
       w.engine.add({
         id: 'w-manual',
@@ -355,9 +361,9 @@ test('手动重试（L3）：missing 引用 → put 资产行 → 双击画布�
       () =>
         (
           window as unknown as {
-            __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+            __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
           }
-        ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite,
+        ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite,
     ),
   ).toBe(false);
 
@@ -367,20 +373,24 @@ test('手动重试（L3）：missing 引用 → put 资产行 → 双击画布�
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     const w = (
-      window as unknown as { __spinth: { assetStore: { put(b: Blob): Promise<unknown> } } }
-    ).__spinth;
+      window as unknown as {
+        __spinthDebug: { __debug: { assetStore: { put(b: Blob): Promise<unknown> } } };
+      }
+    ).__spinthDebug.__debug;
     await w.assetStore.put(new File([bytes], 'm.png', { type: 'image/png' }));
   }, b64);
   // 双击图中心（精确换算：世界 → client，顶栏/视口平移无关）
   const at = await page.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
-          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+          };
         };
       }
-    ).__spinth;
-    return w.viewport.worldToClient({ x: 430, y: 320 });
+    ).__spinthDebug.__debug;
+    return d.viewport.worldToClient({ x: 430, y: 320 });
   });
   await page.mouse.dblclick(at.x, at.y);
 
@@ -394,9 +404,9 @@ test('手动重试（L3）：missing 引用 → put 资产行 → 双击画布�
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 8_000 },
     )

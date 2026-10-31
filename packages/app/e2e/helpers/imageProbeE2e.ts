@@ -20,9 +20,11 @@ export async function imageState(
   return page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: { __debug: { modelCount: number; vmStates: Array<Record<string, unknown>> } };
+        __spinthDebug: {
+          __debug: { modelCount: number; vmStates: Array<Record<string, unknown>> };
+        };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     const s = d.vmStates.find((v) => v.type === 'IMAGE');
     return {
       count: d.modelCount,
@@ -45,9 +47,9 @@ export async function persisted(page: Page): Promise<void> {
         page.evaluate(() =>
           (
             window as unknown as {
-              __spinth: { engine: { persistState$: { getValue(): string } } };
+              __spinth: { persistState$: { getValue(): string } };
             }
-          ).__spinth.engine.persistState$.getValue(),
+          ).__spinth.persistState$.getValue(),
         ),
       { timeout: 5_000 },
     )
@@ -66,7 +68,7 @@ export function textureProbes(page: Page): Promise<{
   return page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             imageTextures: {
               entries: Array<{ key: string; refs: number; uid: number; idle: boolean }>;
@@ -78,7 +80,7 @@ export function textureProbes(page: Page): Promise<{
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return {
       entries: d.imageTextures.entries,
       pending: d.imageTextures.pending,
@@ -123,13 +125,15 @@ export function removeFirstImage(page: Page): Promise<void> {
   return page.evaluate(() => {
     const w = (
       window as unknown as {
-        __spinth: {
-          __debug: { vmStates: Array<Record<string, unknown>> };
-          engine: { removeByIds(ids: string[]): void };
+        __spinthDebug: {
+          __debug: {
+            vmStates: Array<Record<string, unknown>>;
+            engine: { removeByIds(ids: string[]): void };
+          };
         };
       }
-    ).__spinth;
+    ).__spinthDebug;
     const img = w.__debug.vmStates.find((v) => v.type === 'IMAGE');
-    if (img) w.engine.removeByIds([String(img.id)]);
+    if (img) w.__debug.engine.removeByIds([String(img.id)]);
   });
 }

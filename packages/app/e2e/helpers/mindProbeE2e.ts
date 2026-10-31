@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /** 脑图 E2E 公共探针 helper（specs/split-large-files §5.3）：
- *  断言用 `__spinth.__debug` 数据探针（docs/14：截图会撒谎，探针优先）。 */
+ *  断言用 `__spinthDebug.__debug` 数据探针（docs/14：截图会撒谎，探针优先）。 */
 
 export interface Probe {
   modelCount: number;
@@ -23,7 +23,7 @@ export interface Probe {
 
 export async function probe(page: Page): Promise<Probe> {
   return page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return {
       modelCount: d.modelCount,
       renderCount: d.renderCount,

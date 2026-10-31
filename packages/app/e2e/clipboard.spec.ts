@@ -31,7 +31,7 @@ async function ready(page: Page): Promise<void> {
 
 async function probe(page: Page): Promise<IProbe> {
   return page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: IProbe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: IProbe } }).__spinthDebug.__debug;
     return { modelCount: d.modelCount, selectedIds: [...d.selectedIds], vmStates: d.vmStates };
   });
 }

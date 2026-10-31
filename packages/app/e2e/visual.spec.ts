@@ -74,9 +74,9 @@ test('视觉快照 @visual：delay 扁高守界（30×240 退化窄月牙不出 
   const st = await page.evaluate(() => {
     const s0 = (
       window as unknown as {
-        __spinth: { __debug: { vmStates: Array<Record<string, number | string>> } };
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, number | string>> } };
       }
-    ).__spinth.__debug.vmStates.find((v) => String(v.shapeType) === 'delay')!;
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.shapeType) === 'delay')!;
     return { w: Number(s0.width), h: Number(s0.height) };
   });
   expect(st).toEqual({ w: 30, h: 240 });
@@ -124,9 +124,9 @@ test('视觉快照 @visual：主题双态整帧（同文档 light/dark）', asyn
       page.evaluate(() =>
         (
           window as unknown as {
-            __spinth: { __debug: { vmStates: Array<{ type: string; text?: string }> } };
+            __spinthDebug: { __debug: { vmStates: Array<{ type: string; text?: string }> } };
           }
-        ).__spinth.__debug.vmStates.some(
+        ).__spinthDebug.__debug.vmStates.some(
           (s) => s.type === 'TEXT' && String(s.text ?? '').includes('主题探针'),
         ),
       ),
@@ -179,7 +179,7 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
       page.evaluate(() => {
         const spans = (
           window as unknown as {
-            __spinth: {
+            __spinthDebug: {
               __debug: {
                 textSpans: Array<{
                   bold?: boolean;
@@ -190,7 +190,7 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
               };
             };
           }
-        ).__spinth.__debug.textSpans;
+        ).__spinthDebug.__debug.textSpans;
         return (
           spans.some((s) => s.bold === true) &&
           spans.some((s) => s.italic === true) &&
@@ -205,13 +205,13 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
   const b = await page.evaluate(() => {
     const s = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             vmStates: Array<{ type: string; x: number; y: number; width: number; height: number }>;
           };
         };
       }
-    ).__spinth.__debug.vmStates.find((v) => v.type === 'TEXT')!;
+    ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'TEXT')!;
     return { x: s.x, y: s.y, width: s.width, height: s.height };
   });
   await expect(page.locator('canvas').first()).toHaveScreenshot('marks-render.png', {
@@ -244,14 +244,14 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
   const probe = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             vmStates: Array<Record<string, unknown>>;
             rotateHandle: { x: number; y: number };
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     const s0 = d.vmStates.find((v) => String(v.type) === 'SHAPE')!;
     return {
       x: s0.x as number,
@@ -263,15 +263,12 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
   });
   const c = await page.evaluate(
     ([cx, cy]) => {
+      // 世界 → 屏幕走公开查询 toScreenPoint（specs/runtime-narrowing §3.8）
       const s = (
         window as unknown as {
-          __spinth: {
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
-          };
+          __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
         }
-      ).__spinth.viewport.viewportInstance.toScreen(cx, cy);
+      ).__spinth.toScreenPoint({ x: cx, y: cy });
       return { x: Math.round(s.x), y: Math.round(s.y + 44) };
     },
     [probe.x + probe.w / 2, probe.y + probe.h / 2],
@@ -281,17 +278,15 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
   const hs = await page.evaluate(
     ([,]) => {
       const p = (
-        window as unknown as { __spinth: { __debug: { rotateHandle: { x: number; y: number } } } }
-      ).__spinth.__debug.rotateHandle;
+        window as unknown as {
+          __spinthDebug: { __debug: { rotateHandle: { x: number; y: number } } };
+        }
+      ).__spinthDebug.__debug.rotateHandle;
       const s = (
         window as unknown as {
-          __spinth: {
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
-          };
+          __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
         }
-      ).__spinth.viewport.viewportInstance.toScreen(p.x, p.y);
+      ).__spinth.toScreenPoint({ x: p.x, y: p.y });
       return { x: Math.round(s.x), y: Math.round(s.y + 44) };
     },
     [0],
@@ -312,8 +307,10 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
   // 3. 数据探针：θ ≈ π/4 落库
   const rot = await page.evaluate(() => {
     const s0 = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
     return Number(s0.rotation ?? 0);
   });
   expect(rot).toBeCloseTo(Math.PI / 4, 2);

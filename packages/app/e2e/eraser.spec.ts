@@ -20,8 +20,10 @@ test('eraser 分段橡皮：扫过中部一分为二 + undo 一步恢复 + 全�
   const penState = () =>
     page.evaluate(() => {
       const d = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug;
       const pens = d.vmStates.filter((v) => String(v.type) === 'PEN');
       const pts = pens.reduce((n, p) => n + ((p.points as unknown[] | undefined)?.length ?? 0), 0);
       return { count: pens.length, pts };
@@ -37,8 +39,8 @@ test('eraser 分段橡皮：扫过中部一分为二 + undo 一步恢复 + 全�
       async () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { lineAnchors: unknown } } }).__spinth
-              .__debug.lineAnchors,
+            (window as unknown as { __spinthDebug: { __debug: { lineAnchors: unknown } } })
+              .__spinthDebug.__debug.lineAnchors,
         ),
       { timeout: 5_000 },
     )
@@ -95,8 +97,8 @@ test('eraser 分段橡皮：扫过中部一分为二 + undo 一步恢复 + 全�
   const radiusOf = () =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { eraserRadius: number } } }).__spinth.__debug
-          .eraserRadius,
+        (window as unknown as { __spinthDebug: { __debug: { eraserRadius: number } } })
+          .__spinthDebug.__debug.eraserRadius,
     );
   await page.keyboard.press(']');
   await page.keyboard.press(']');
@@ -137,8 +139,8 @@ test('1.11③ eraser 切割保组：编组笔擦断后新段继承 groupId', asy
     (
       await page.evaluate(
         () =>
-          (window as unknown as { __spinth: { __debug: { selectedIds: string[] } } }).__spinth
-            .__debug.selectedIds,
+          (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } })
+            .__spinthDebug.__debug.selectedIds,
       )
     ).length,
   ).toBeGreaterThan(0);
@@ -147,8 +149,10 @@ test('1.11③ eraser 切割保组：编组笔擦断后新段继承 groupId', asy
   const gid = (
     await page.evaluate(() => {
       const d = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug;
       return d.vmStates.filter((s) => s.type === 'PEN').map((s) => String(s.groupId ?? ''));
     })
   )[0];
@@ -164,8 +168,10 @@ test('1.11③ eraser 切割保组：编组笔擦断后新段继承 groupId', asy
 
   const gids = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
     return d.vmStates.filter((s) => s.type === 'PEN').map((s) => String(s.groupId ?? ''));
   });
   expect(gids.length).toBe(2); // 一分为二

@@ -20,7 +20,7 @@ test('浮动 UI 跟随焦点节点：＋ 按钮贴节点两侧、删除按钮在
     const right = document.querySelector('[title="添加右侧子主题"]') as HTMLElement | null;
     const left = document.querySelector('[title="添加左侧子主题"]') as HTMLElement | null;
     const bar = document.querySelector('[data-spinth-action-bar]') as HTMLElement | null;
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return {
       canvas: { left: cr.left, top: cr.top },
       focus: d.mindFocus,
@@ -76,7 +76,7 @@ test('拖拽落点预置块落在被悬停的那一侧，且拖拽中隐藏浮�
 
   const geo = await page.evaluate(() => {
     const canvas = document.querySelector('canvas')!.getBoundingClientRect();
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return { canvas: { left: canvas.left, top: canvas.top }, nodes: d.mindNodes };
   });
   const root = geo.nodes.find((n) => n.text === '中心主题')!;
@@ -97,7 +97,7 @@ test('拖拽落点预置块落在被悬停的那一侧，且拖拽中隐藏浮�
   await page.waitForTimeout(200);
 
   const mid = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const canvas = document.querySelector('canvas')!.getBoundingClientRect();
     return {
       preview: d.dropPreview,
@@ -186,7 +186,7 @@ test('4.9 子节点 Delete：删节点、焦点转同侧后兄弟（既有设计
   await page.waitForTimeout(200);
 
   const geo = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes.find((n) => n.text === '中心主题')!;
     const kids = d.mindNodes
@@ -230,7 +230,7 @@ test('4.9 Tab/Enter 作用于选中子节点：建子 / 建同级（焦点与选
   await page.waitForTimeout(200);
   // 记下子1 身份与屏幕坐标
   const c1 = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes.find((n) => n.text === '中心主题')!;
     const n = d.mindNodes.find((x) => x !== root)!;
@@ -285,7 +285,7 @@ test('4.9 ActionBar 按节点出操作：删除按钮只删焦点节点', async 
   await page.mouse.click(610, 330); // 选中根（探针复活）
   await page.waitForTimeout(200);
   const c1 = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes.find((n) => n.text === '中心主题')!;
     const n = d.mindNodes.find((x) => x !== root)!;
@@ -324,7 +324,7 @@ test('4.9 框选：命中子节点 = 节点级选中、框中根本体 = 整图'
   await page.waitForTimeout(250);
 
   const geo = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes.find((n) => n.text === '中心主题')!;
     const child = d.mindNodes.find((n) => n !== root)!;

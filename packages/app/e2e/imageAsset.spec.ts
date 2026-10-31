@@ -33,8 +33,8 @@ test('资产服务（Batch 2）：贴图入资产库——src 是 spinth-asset �
       () =>
         page.evaluate(
           () =>
-            (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth
-              .__debug.modelCount,
+            (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } })
+              .__spinthDebug.__debug.modelCount,
         ),
       { timeout: 15_000 },
     )
@@ -43,8 +43,10 @@ test('资产服务（Batch 2）：贴图入资产库——src 是 spinth-asset �
   const src = await page.evaluate(() =>
     String(
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
     ),
   );
   expect(src).toMatch(/^spinth-asset:[0-9a-f]{64}$/); // 引用格式（sha256 hex）
@@ -68,9 +70,9 @@ test('资产服务（Batch 2）：贴图入资产库——src 是 spinth-asset �
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
         ),
       { timeout: 15_000 },
     )
@@ -84,9 +86,9 @@ test('资产服务（Batch 2）：贴图入资产库——src 是 spinth-asset �
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 15_000 },
     )
@@ -109,19 +111,22 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
   // 造旧式文档：engine.add 直写 data URL（Batch 2 资产路径之前的存量形态）
   await page.evaluate((b64) => {
     const w = window as unknown as {
-      __spinth: {
-        engine: {
-          transact(fn: () => void): void;
-          add(d: unknown): void;
-          genInitialOrder(): string;
+      __spinthDebug: {
+        __debug: {
+          engine: {
+            transact(fn: () => void): void;
+            add(d: unknown): void;
+            genInitialOrder(): string;
+          };
         };
       };
     };
-    w.__spinth.engine.transact(() => {
-      w.__spinth.engine.add({
+    const engine = w.__spinthDebug.__debug.engine;
+    engine.transact(() => {
+      engine.add({
         id: 'w-mig-e2e',
         type: 'IMAGE',
-        zOrder: w.__spinth.engine.genInitialOrder(),
+        zOrder: engine.genInitialOrder(),
         src: `data:image/png;base64,${b64}`,
         x: 100,
         y: 100,
@@ -134,8 +139,10 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
   const before = await page.evaluate(() =>
     String(
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
     ),
   );
   expect(before.startsWith('data:')).toBe(true); // 前提：确是存量形态
@@ -151,9 +158,9 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
           () =>
             (
               window as unknown as {
-                __spinth: { lastAssetMaintenance: { migrated: number } | null };
+                __spinthDebug: { __debug: { lastAssetMaintenance: { migrated: number } | null } };
               }
-            ).__spinth.lastAssetMaintenance?.migrated ?? -1,
+            ).__spinthDebug.__debug.lastAssetMaintenance?.migrated ?? -1,
         ),
       { timeout: 20_000 },
     )
@@ -165,9 +172,9 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
           String(
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
           ),
         ),
       { timeout: 8_000 },
@@ -181,9 +188,9 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 8_000 },
     )
@@ -200,9 +207,9 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
           () =>
             (
               window as unknown as {
-                __spinth: { lastAssetMaintenance: { migrated: number } | null };
+                __spinthDebug: { __debug: { lastAssetMaintenance: { migrated: number } | null } };
               }
-            ).__spinth.lastAssetMaintenance?.migrated ?? -1,
+            ).__spinthDebug.__debug.lastAssetMaintenance?.migrated ?? -1,
         ),
       { timeout: 20_000 },
     )
@@ -210,8 +217,10 @@ test('存量迁移（Batch 2 二期）：旧式 dataURL 文档 → 启动迁移�
   const after = await page.evaluate(() =>
     String(
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
     ),
   );
   expect(after).toMatch(/^spinth-asset:/);
@@ -256,9 +265,9 @@ test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 8_000 },
     )
@@ -268,11 +277,16 @@ test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到
     page.evaluate(() => {
       const store = (
         window as unknown as {
-          __spinth: {
-            assetStore: { objectUrlRefs: Map<string, number>; objectUrls: Map<string, string> };
+          __spinthDebug: {
+            __debug: {
+              assetStore: {
+                objectUrlRefs: Map<string, number>;
+                objectUrls: Map<string, string>;
+              };
+            };
           };
         }
-      ).__spinth.assetStore;
+      ).__spinthDebug.__debug.assetStore;
       let refs = 0;
       for (const v of store.objectUrlRefs.values()) refs += v;
       return { refs, urls: store.objectUrls.size };
@@ -287,13 +301,15 @@ test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到
   await page.evaluate(() => {
     const w = (
       window as unknown as {
-        __spinth: {
-          __debug: { selectedIds: string[] };
-          engine: { removeByIds(ids: string[]): void };
+        __spinthDebug: {
+          __debug: {
+            selectedIds: string[];
+            engine: { removeByIds(ids: string[]): void };
+          };
         };
       }
-    ).__spinth;
-    w.engine.removeByIds(w.__debug.selectedIds);
+    ).__spinthDebug;
+    w.__debug.engine.removeByIds(w.__debug.selectedIds);
   });
   // 删除生效 + 保活持有（specs/texture-keepalive D1：租约随窗口）在同一次轮询内
   // 判定——拆两次往返时，CI 停顿跨过 5s 窗口会让 1/1 断言在到期后假红；
@@ -323,9 +339,9 @@ test('objectURL 配平回归（第三轮审查）：删图进保活持 1/1、到
           () =>
             (
               window as unknown as {
-                __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+                __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
               }
-            ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
+            ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.hasSprite ?? false,
         ),
       { timeout: 8_000 },
     )
@@ -371,8 +387,10 @@ test('资产 GC（Batch 2 二期）：删图 → 下会话启动清孤儿 blob',
   const src = await page.evaluate(() =>
     String(
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'IMAGE')?.src ?? '',
     ),
   );
   expect(src).toMatch(/^spinth-asset:[0-9a-f]{64}$/);
@@ -382,13 +400,15 @@ test('资产 GC（Batch 2 二期）：删图 → 下会话启动清孤儿 blob',
   await page.evaluate(() => {
     const w = (
       window as unknown as {
-        __spinth: {
-          __debug: { selectedIds: string[] };
-          engine: { removeByIds(ids: string[]): void };
+        __spinthDebug: {
+          __debug: {
+            selectedIds: string[];
+            engine: { removeByIds(ids: string[]): void };
+          };
         };
       }
-    ).__spinth;
-    w.engine.removeByIds(w.__debug.selectedIds);
+    ).__spinthDebug;
+    w.__debug.engine.removeByIds(w.__debug.selectedIds);
   });
   await expect.poll(async () => (await imageState(page)).count, { timeout: 5_000 }).toBe(0);
   await persisted(page); // 删除更新先落盘（否则 reload 后引用仍在，GC 不删）
@@ -403,9 +423,9 @@ test('资产 GC（Batch 2 二期）：删图 → 下会话启动清孤儿 blob',
           () =>
             (
               window as unknown as {
-                __spinth: { lastAssetMaintenance: { removed: number } | null };
+                __spinthDebug: { __debug: { lastAssetMaintenance: { removed: number } | null } };
               }
-            ).__spinth.lastAssetMaintenance?.removed ?? -1,
+            ).__spinthDebug.__debug.lastAssetMaintenance?.removed ?? -1,
         ),
       { timeout: 20_000 },
     )

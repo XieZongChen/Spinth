@@ -45,14 +45,14 @@ test('脑图工具：选中不创建、幽灵示意跟随、悬停已有图隐�
   const rootC = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             vmPositions: Array<{ x: number; y: number }>;
             vmStates: Array<Record<string, unknown>>;
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const pos = d.vmPositions[0]!;
     const w = Number(d.vmStates[0]?.width ?? 100);

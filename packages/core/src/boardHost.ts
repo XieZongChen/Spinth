@@ -125,7 +125,7 @@ export interface IBoardTeardownHost extends IBoardServices {
 /** 项目文件门面宿主（NOT_READY 守卫读 projectFile） */
 export type IBoardProjectHost = Pick<IBoardServices, 'projectFile'>;
 
-/** 调试探针适配器：只读服务 + 会话工具默认值（defaultToolOptions$ 的 .value） */
+/** DEV 调试入口适配器（@spinth/core/dev）：只读服务 + 会话工具默认值（defaultToolOptions$ 的 .value） */
 export interface IBoardDebugHost extends Pick<
   IBoardServices,
   | 'engine'

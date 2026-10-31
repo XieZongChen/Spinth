@@ -86,8 +86,10 @@ test('排版打磨（docs/17 §4）：ActionBar 改字号落库 + TEXT 高度重
   const stateOf = () =>
     page.evaluate(() => {
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'TEXT');
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'TEXT');
       return {
         fontSize: s?.fontSize as number | undefined,
         align: s?.align as string | undefined,
@@ -138,8 +140,10 @@ test('排版打磨（docs/17 §4）：文字颜色选色落库 + undo 回退（�
   const colorOf = () =>
     page.evaluate(() => {
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => v.type === 'TEXT');
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'TEXT');
       return s?.textColor as string | undefined;
     });
   expect(await colorOf()).toBeUndefined(); // 默认随主题，非实例值
@@ -218,7 +222,7 @@ test('marks 渲染（docs/17 §4）：富文本粘贴 → 退出后渲染层含 
       () =>
         (
           window as unknown as {
-            __spinth: {
+            __spinthDebug: {
               __debug: {
                 textSpans: Array<{
                   text: string;
@@ -230,7 +234,7 @@ test('marks 渲染（docs/17 §4）：富文本粘贴 → 退出后渲染层含 
               };
             };
           }
-        ).__spinth.__debug.textSpans,
+        ).__spinthDebug.__debug.textSpans,
     );
   await expect
     .poll(

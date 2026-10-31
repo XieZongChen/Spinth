@@ -6,7 +6,7 @@ import {} from '@playwright/test';
  *
  * 语义：面板可见性 = 工具激活的纯派生状态（激活现身 / 切走隐藏 / 点选切默认型
  * 面板保持）。本文件也是**首例工具坞 UI 点击基建**（此前 E2E 全走快捷键）。
- * 断言纪律：数据走 __spinth.__debug 探针（defaultShapeType/vmStates/cursorMode$），
+ * 断言纪律：数据走 __spinthDebug.__debug 探针（defaultShapeType/vmStates/cursorMode$），
  * UI 走 aria（toolbar role / menuitemradio / aria-checked）。
  */
 
@@ -14,8 +14,10 @@ import {} from '@playwright/test';
 export async function centerOf(page: Page, type: string): Promise<{ x: number; y: number }> {
   return page.evaluate((t) => {
     const s = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, number>> } } }
-    ).__spinth.__debug.vmStates.find((v) => String(v.type) === t)!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, number>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === t)!;
     return { x: s.x + s.width / 2, y: s.y + s.height / 2 + 44 };
   }, type);
 }

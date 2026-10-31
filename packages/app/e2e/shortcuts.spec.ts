@@ -62,9 +62,11 @@ test('快捷键面：Ctrl+0 精确回 100%（immediate 路径 + 世界中心在�
     page.evaluate(() => {
       const vp = (
         window as unknown as {
-          __spinth: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          __spinthDebug: {
+            __debug: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          };
         }
-      ).__spinth.viewport.viewportInstance;
+      ).__spinthDebug.__debug.viewport.viewportInstance;
       return { x: vp.center.x, y: vp.center.y };
     });
   const c0 = await centerWorld(); // 初始 scale=1 无平移的世界中心（canvas 局部系，y=428）
@@ -155,9 +157,11 @@ test('P0-7 缩放锚点：屏幕中心的世界点在缩放前后不动（animat
     page.evaluate(() => {
       const vp = (
         window as unknown as {
-          __spinth: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          __spinthDebug: {
+            __debug: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          };
         }
-      ).__spinth.viewport.viewportInstance;
+      ).__spinthDebug.__debug.viewport.viewportInstance;
       return { x: vp.center.x, y: vp.center.y };
     });
   const scaleOf = () =>

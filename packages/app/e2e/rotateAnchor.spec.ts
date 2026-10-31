@@ -92,22 +92,26 @@ test('锚定线扫角无穿体（2026-10-16 用户实测揪出——quantizeJoin
     await page.evaluate((d) => {
       const eng = (
         window as unknown as {
-          __spinth: {
-            engine: {
-              yWidgets: { toArray(): Array<{ get(k: string): unknown }> };
-              getModelById(id: string): { update(p: Record<string, unknown>): void };
+          __spinthDebug: {
+            __debug: {
+              engine: {
+                yWidgets: { toArray(): Array<{ get(k: string): unknown }> };
+                getModelById(id: string): { update(p: Record<string, unknown>): void };
+              };
             };
           };
         }
-      ).__spinth.engine;
+      ).__spinthDebug.__debug.engine;
       const shape = eng.yWidgets.toArray().find((w) => w.get('type') === 'SHAPE')!;
       eng.getModelById(shape.get('id') as string).update({ rotation: (d * Math.PI) / 180 });
     }, deg);
     await page.waitForTimeout(350);
     const r = await page.evaluate(() => {
       const d = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates;
       const a = d.find((v) => v.type === 'SHAPE')!;
       const l = d.find((v) => v.type === 'LINE')!;
       return {

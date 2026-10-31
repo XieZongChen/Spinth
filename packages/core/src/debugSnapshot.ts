@@ -2,9 +2,9 @@ import type { IRect } from './common/geometry';
 import { htmlToDoc } from './platform/textEngine/htmlDoc';
 
 /**
- * dev/E2E 探针快照（Batch 2 · app.ts 拆分第一刀，2026-10-18）：原 BoardSDK
- * `__debug` getter 内联 ~126 行——抽出为纯聚合函数，app.ts 瘦身、探针可单测。
- * 字段契约与 E2E 消费面零改动（getter 转发同签名）。
+ * dev/E2E 探针快照纯聚合：消费方是 boardDebug.ts 适配器（DEV 调试入口
+ * window.__spinthDebug.__debug，specs/runtime-narrowing §3.5）。字段契约与
+ * E2E 消费面零改动；本文件不 import 具体服务，依赖经 IDebugSnapshotDeps 注入。
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- 探针跨服务读内部映射与

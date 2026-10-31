@@ -33,9 +33,9 @@ async function drawShape(page: Page): Promise<void> {
 async function selectedIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const w = window as unknown as {
-      __spinth?: { selector: { selected$: { getValue(): string[] } } };
+      __spinth?: { selected$: { getValue(): string[] } };
     };
-    return w.__spinth?.selector.selected$.getValue() ?? [];
+    return w.__spinth?.selected$.getValue() ?? [];
   });
 }
 

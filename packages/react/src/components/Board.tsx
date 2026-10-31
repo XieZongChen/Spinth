@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BoardSDK, type IBoardConfig } from '@spinth/core';
+import { createBoard, type BoardPublicApi, type IBoardConfig } from '@spinth/core';
 import { bindBoard, unbindBoard } from '../store/commands';
 import { connectBoard } from '../store/bridge';
 import { useSpinthStore } from '../store/spinthStore';
@@ -11,6 +11,9 @@ const STAGE_HELP_ID = 'spinth-stage-help';
 /**
  * 画板容器（docs/12 §4）：挂载点 + 生命周期。
  * StrictMode 双挂载防御：异步 initialize 完成前被卸载则立即 dispose。
+ * 经 createBoard() 拿冻结公共投影（specs/runtime-narrowing §3.6）：DEV 下
+ * `window.__spinth` = 公开投影、`window.__spinthDebug.__debug` = 调试面，
+ * 两者原子曝光、生产构建剥离。
  */
 export function Board({
   config,
@@ -23,7 +26,7 @@ export function Board({
   theme?: 'light' | 'dark';
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const sdkRef = useRef<BoardSDK | null>(null);
+  const boardRef = useRef<BoardPublicApi | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -32,32 +35,43 @@ export function Board({
     // 保证任何时刻只有一个实例写 IndexedDB / 绑定快捷键
     const controller = new AbortController();
     let disconnect: (() => void) | undefined;
-    const sdk = new BoardSDK();
-    sdkRef.current = sdk;
-    const ready = sdk.initialize(config, el, controller.signal);
-    if (theme) sdk.setTheme(theme); // 就绪前的主题态在 initialize 后立即注入
-    ready
-      .then(() => {
+    let detachDebug: (() => void) | undefined;
+    let cleanedUp = false;
+    const board = createBoard();
+    boardRef.current = board;
+    const ready = board.initialize(config, el, controller.signal);
+    if (theme) board.setTheme(theme); // 就绪前的主题态在 initialize 后立即注入
+    void ready
+      .then(async () => {
         if (controller.signal.aborted) {
-          sdk.dispose();
+          board.dispose();
           return;
         }
-        bindBoard(sdk);
-        disconnect = connectBoard(sdk);
+        bindBoard(board);
+        disconnect = connectBoard(board);
         // 纯渲染面对屏读隐藏（specs/a11y-closeout §8.1）：画布语义在宿主 div
         //（role=application + 帮助文本），canvas 本体不可达
         ref.current
           ?.querySelectorAll('canvas')
           .forEach((c) => c.setAttribute('aria-hidden', 'true'));
-        // dev 调试句柄（对齐既有设计 window.app 约定；生产构建剥离）
         if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-          (window as unknown as Record<string, unknown>).__spinth = sdk;
+          // 先等调试入口就绪，再同一同步块曝光两个全局（原子曝光）：
+          // E2E 的 waitForSynced 只等 __spinth，不能让它看到「有公开面、
+          // 没调试面」的中间态；加载失败不挂 __spinth（E2E 明确红）
+          try {
+            const { attachBoardDebug } = await import('@spinth/core/dev');
+            if (controller.signal.aborted || cleanedUp) return;
+            detachDebug = attachBoardDebug(board, window);
+            (window as unknown as Record<string, unknown>).__spinth = board;
+          } catch (err) {
+            console.warn('[spinth] 调试探针加载失败', err);
+          }
         }
         onReady?.();
       })
       .catch((err) => {
         if ((err as DOMException)?.name === 'AbortError') {
-          sdk.dispose();
+          board.dispose();
           return;
         }
         console.error('[spinth] Board 初始化失败', err);
@@ -66,21 +80,28 @@ export function Board({
         useSpinthStore.setState({ initError: String((err as Error)?.message ?? err) });
       });
     return () => {
+      cleanedUp = true;
       controller.abort();
       disconnect?.();
+      detachDebug?.();
       unbindBoard();
+      // 按对象身份删除：StrictMode 第二次挂载后不误删新实例的句柄
+      if ((window as unknown as { __spinth?: unknown }).__spinth === board) {
+        delete (window as unknown as { __spinth?: unknown }).__spinth;
+      }
+      if (boardRef.current === board) boardRef.current = null;
       void ready.then(
-        () => sdk.dispose(),
-        () => sdk.dispose(),
+        () => board.dispose(),
+        () => board.dispose(),
       );
     };
     // config 变化不重装画板（docId 等由外层路由控制）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 主题注入（docs/17 C2）：sdk 就绪后跟随 app 壳主题态（含首载与切换）
+  // 主题注入（docs/17 C2）：board 就绪后跟随 app 壳主题态（含首载与切换）
   useEffect(() => {
-    if (theme) sdkRef.current?.setTheme(theme);
+    if (theme) boardRef.current?.setTheme(theme);
   }, [theme]);
 
   return (

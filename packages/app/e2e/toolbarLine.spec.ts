@@ -14,8 +14,10 @@ test('line 常驻二级菜单：默认线型切换 + 双创建链（工具拉线
   const lineOf = () =>
     page.evaluate(() => {
       const l = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'LINE') as
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'LINE') as
         { lineType?: string; strokeWidth?: number } | undefined;
       return l ? `${l.lineType}:${l.strokeWidth}` : '';
     });
@@ -37,9 +39,11 @@ test('line 常驻二级菜单：默认线型切换 + 双创建链（工具拉线
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['line']?.['type'],
+          ).__spinthDebug.__debug.defaultToolOptions['line']?.['type'],
       ),
     )
     .toBe('STRAIGHT');
@@ -87,8 +91,10 @@ test('line 线宽：flyout 第二组切档建件随宽 + ActionBar 改宽 undo �
   const lineWidthOf = () =>
     page.evaluate(() => {
       const l = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'LINE') as
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'LINE') as
         { strokeWidth?: number } | undefined;
       return l?.strokeWidth ?? 0;
     });
@@ -102,9 +108,11 @@ test('line 线宽：flyout 第二组切档建件随宽 + ActionBar 改宽 undo �
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['line']?.['width'],
+          ).__spinthDebug.__debug.defaultToolOptions['line']?.['width'],
       ),
     )
     .toBe('8');

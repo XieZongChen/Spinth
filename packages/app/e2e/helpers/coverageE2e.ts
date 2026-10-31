@@ -26,7 +26,7 @@ export async function probe(page: Page): Promise<VProbe> {
   return page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             modelCount: number;
             vmStates: Array<Record<string, unknown>>;
@@ -35,7 +35,7 @@ export async function probe(page: Page): Promise<VProbe> {
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return {
       count: d.modelCount,
       shapes: d.vmStates
@@ -65,16 +65,18 @@ export async function worldToScreen(
 ): Promise<{ x: number; y: number }> {
   return page.evaluate(
     ([wx, wy]) => {
-      const w = (
+      const d = (
         window as unknown as {
-          __spinth: {
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+          __spinthDebug: {
+            __debug: {
+              viewport: {
+                viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+              };
             };
           };
         }
-      ).__spinth;
-      const s = w.viewport.viewportInstance.toScreen(wx, wy);
+      ).__spinthDebug.__debug;
+      const s = d.viewport.viewportInstance.toScreen(wx, wy);
       return { x: Math.round(s.x), y: Math.round(s.y + 44) };
     },
     [x, y],

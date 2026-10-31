@@ -15,7 +15,7 @@ export async function probe(page: Page): Promise<WProbe> {
   return page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             modelCount: number;
             editorFrame: WProbe['editorFrame'];
@@ -24,7 +24,7 @@ export async function probe(page: Page): Promise<WProbe> {
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     const byType = (t: string) =>
       d.vmStates.find((s) => s.type === t) as { points: Array<[number, number]> } | undefined;
     return {
@@ -51,10 +51,12 @@ export interface ILineProbe {
 
 export async function lineProbe(page: Page): Promise<ILineProbe> {
   return page.evaluate(() => {
-    const s = (
+    // 公开面（cursorMode$）与调试面拆两个断言，避免 __spinth 形状残留 __debug
+    const pub = (window as unknown as { __spinth: { cursorMode$: { getValue(): string } } })
+      .__spinth;
+    const d = (
       window as unknown as {
-        __spinth: {
-          cursorMode$: { getValue(): string };
+        __spinthDebug: {
           __debug: {
             modelCount: number;
             selectedIds: string[];
@@ -67,17 +69,17 @@ export async function lineProbe(page: Page): Promise<ILineProbe> {
           };
         };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     return {
-      modelCount: s.__debug.modelCount,
-      selectedIds: s.__debug.selectedIds,
-      lineAnchors: s.__debug.lineAnchors,
-      lineAnchorActive: s.__debug.lineAnchorActive,
-      linePreview: s.__debug.linePreview,
-      lineGhost: s.__debug.lineGhost,
-      lineGhostMode: s.__debug.lineGhostMode,
-      lineGhostBounds: s.__debug.lineGhostBounds,
-      cursorMode: s.cursorMode$.getValue(),
+      modelCount: d.modelCount,
+      selectedIds: d.selectedIds,
+      lineAnchors: d.lineAnchors,
+      lineAnchorActive: d.lineAnchorActive,
+      linePreview: d.linePreview,
+      lineGhost: d.lineGhost,
+      lineGhostMode: d.lineGhostMode,
+      lineGhostBounds: d.lineGhostBounds,
+      cursorMode: pub.cursorMode$.getValue(),
     };
   });
 }
@@ -123,7 +125,7 @@ export async function lineSelectionState(page: Page): Promise<{
   return page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             lineSegments: Array<{ x: number; y: number }> | null;
             lineSegmentActive: number | null;
@@ -131,7 +133,7 @@ export async function lineSelectionState(page: Page): Promise<{
           };
         };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return {
       segments: d.lineSegments,
       segmentActive: d.lineSegmentActive,

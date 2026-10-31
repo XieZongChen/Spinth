@@ -32,8 +32,8 @@ test('常驻二级菜单：工具坞点击激活 → 切默认型 → 建件随�
   // 放行——布局守卫必须含下界
   const shapeIds = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { shapeTypeOptions: string[] } } }).__spinth
-        .__debug.shapeTypeOptions,
+      (window as unknown as { __spinthDebug: { __debug: { shapeTypeOptions: string[] } } })
+        .__spinthDebug.__debug.shapeTypeOptions,
   );
   await expect(flyout.locator('button[role="menuitemradio"]')).toHaveCount(shapeIds.length);
   const box = await flyout.evaluate((el) => ({ w: el.offsetWidth, h: el.offsetHeight }));
@@ -46,8 +46,8 @@ test('常驻二级菜单：工具坞点击激活 → 切默认型 → 建件随�
     .poll(() =>
       page.evaluate(
         () =>
-          (window as unknown as { __spinth: { __debug: { defaultShapeType: string } } }).__spinth
-            .__debug.defaultShapeType,
+          (window as unknown as { __spinthDebug: { __debug: { defaultShapeType: string } } })
+            .__spinthDebug.__debug.defaultShapeType,
       ),
     )
     .toBe('ellipse');
@@ -65,9 +65,11 @@ test('常驻二级菜单：工具坞点击激活 → 切默认型 → 建件随�
       page.evaluate(() => {
         const s = (
           window as unknown as {
-            __spinth: { __debug: { vmStates: Array<Record<string, unknown>>; modelCount: number } };
+            __spinthDebug: {
+              __debug: { vmStates: Array<Record<string, unknown>>; modelCount: number };
+            };
           }
-        ).__spinth.__debug;
+        ).__spinthDebug.__debug;
         return s.modelCount === 1
           ? String((s.vmStates[0] as { shapeType?: string }).shapeType)
           : '';
@@ -95,8 +97,10 @@ test('pen 常驻二级菜单：默认颜色切换 + 新笔随色（swatch 型选
   const penOf = () =>
     page.evaluate(() => {
       const p = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates
         .filter((v) => String(v.type) === 'PEN')
         .at(-1) as { color?: string; strokeWidth?: number } | undefined;
       return p ? `${p.color}:${p.strokeWidth ?? 'def'}` : '';
@@ -119,9 +123,11 @@ test('pen 常驻二级菜单：默认颜色切换 + 新笔随色（swatch 型选
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['pen']?.['color'],
+          ).__spinthDebug.__debug.defaultToolOptions['pen']?.['color'],
       ),
     )
     .toBe('#dc2626');
@@ -147,9 +153,11 @@ test('pen 常驻二级菜单：默认颜色切换 + 新笔随色（swatch 型选
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['pen']?.['width'],
+          ).__spinthDebug.__debug.defaultToolOptions['pen']?.['width'],
       ),
     )
     .toBe('12');
@@ -183,8 +191,10 @@ test('sticky 常驻二级菜单：默认底色切换 + 新便签随色', async (
   const stickyOf = () =>
     page.evaluate(() => {
       const p = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'STICKY') as
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'STICKY') as
         { color?: string } | undefined;
       return p?.color ?? '';
     });
@@ -205,9 +215,11 @@ test('sticky 常驻二级菜单：默认底色切换 + 新便签随色', async (
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['sticky']?.['color'],
+          ).__spinthDebug.__debug.defaultToolOptions['sticky']?.['color'],
       ),
     )
     .toBe('#c9e3f7');
@@ -238,8 +250,10 @@ test('text 常驻二级菜单：默认字号切换 + 新文本随档（text 型�
   const textState = () =>
     page.evaluate(() => {
       const t = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.find((v) => String(v.type) === 'TEXT') as
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'TEXT') as
         { fontSize?: number; height?: number } | undefined;
       return t ? { fontSize: t.fontSize, height: t.height } : null;
     });
@@ -260,9 +274,11 @@ test('text 常驻二级菜单：默认字号切换 + 新文本随档（text 型�
         () =>
           (
             window as unknown as {
-              __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+              __spinthDebug: {
+                __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+              };
             }
-          ).__spinth.__debug.defaultToolOptions['text']?.['fontSize'],
+          ).__spinthDebug.__debug.defaultToolOptions['text']?.['fontSize'],
       ),
     )
     .toBe('24');
@@ -287,20 +303,22 @@ test('eraser 常驻二级菜单：大小档直设 + 圆指示即刻跟随 + 方�
       () =>
         (
           window as unknown as {
-            __spinth: {
+            __spinthDebug: {
               __debug: { eraserRadius: number; defaultToolOptions: Record<string, string> };
             };
           }
-        ).__spinth.__debug.eraserRadius,
+        ).__spinthDebug.__debug.eraserRadius,
     );
   const aggRadius = () =>
     page.evaluate(
       () =>
         (
           window as unknown as {
-            __spinth: { __debug: { defaultToolOptions: Record<string, Record<string, string>> } };
+            __spinthDebug: {
+              __debug: { defaultToolOptions: Record<string, Record<string, string>> };
+            };
           }
-        ).__spinth.__debug.defaultToolOptions['eraser']?.['size'],
+        ).__spinthDebug.__debug.defaultToolOptions['eraser']?.['size'],
     );
 
   // 1. 'e' 激活 → 面板现身（圆点梯度五档；10px 不在档位表 → 无选中态，符合语义）
@@ -336,8 +354,10 @@ test('形状 20 型：新型切换 + 带字建件内接 + undo（扩展批守卫
     page.evaluate(() => {
       // 取最后一个 SHAPE（第 3 段新建的是第二件——首件停留在 triangle-up）
       const s = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates
         .filter((v) => String(v.type) === 'SHAPE')
         .at(-1)!;
       return {

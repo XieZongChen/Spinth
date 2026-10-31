@@ -20,9 +20,11 @@ test('只读视图操作：抓手平移 + 快捷键缩放可用（白名单放�
     pageB.evaluate(() => {
       const vp = (
         window as unknown as {
-          __spinth: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          __spinthDebug: {
+            __debug: { viewport: { viewportInstance: { center: { x: number; y: number } } } };
+          };
         }
-      ).__spinth.viewport.viewportInstance;
+      ).__spinthDebug.__debug.viewport.viewportInstance;
       return { x: vp.center.x, y: vp.center.y };
     });
   const centerBefore = await centerOf();
@@ -72,14 +74,16 @@ test('follower 右键：不建选区、无操作栏、菜单只读降级（画�
 
   // follower 右键元素中心（世界→client 精确换算，docs/15 §3）
   const at = await pageB.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
-          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+          };
         };
       }
-    ).__spinth;
-    return w.viewport.worldToClient({ x: 580, y: 360 });
+    ).__spinthDebug.__debug;
+    return d.viewport.worldToClient({ x: 580, y: 360 });
   });
   await pageB.mouse.click(at.x, at.y, { button: 'right' });
 
@@ -186,9 +190,9 @@ test('只读标签不跑资产维护链：leader 跑过（assetMaint=1）、foll
   const maintOf = (p: Page) =>
     p.evaluate(() => {
       const w = window as unknown as {
-        __spinth: { lastAssetMaintenance: { when: number } | null };
+        __spinthDebug: { __debug: { lastAssetMaintenance: { when: number } | null } };
       };
-      return w.__spinth.lastAssetMaintenance;
+      return w.__spinthDebug.__debug.lastAssetMaintenance;
     });
   await expect.poll(() => maintOf(page), { timeout: 15_000 }).not.toBeNull();
   // follower 侧 app 传 assetMaintenance=false 且 composeBoard 双重闸门——从未跑
@@ -213,15 +217,17 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
   await page.evaluate(() => {
     const w = (
       window as unknown as {
-        __spinth: {
-          engine: {
-            transact(fn: () => void): void;
-            genInitialOrder(): string;
-            add(d: Record<string, unknown>): void;
+        __spinthDebug: {
+          __debug: {
+            engine: {
+              transact(fn: () => void): void;
+              genInitialOrder(): string;
+              add(d: Record<string, unknown>): void;
+            };
           };
         };
       }
-    ).__spinth;
+    ).__spinthDebug.__debug;
     w.engine.transact(() => {
       w.engine.add({
         id: 'w-mt-missing',
@@ -245,9 +251,9 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
         pageB.evaluate(() => {
           const d = (
             window as unknown as {
-              __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+              __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
             }
-          ).__spinth.__debug;
+          ).__spinthDebug.__debug;
           const img = d.vmStates.find((v) => v.type === 'IMAGE');
           return img === undefined ? '' : String((img.imageLoad as { state?: string })?.state);
         }),
@@ -262,9 +268,9 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
     pageB.evaluate(() => {
       const d = (
         window as unknown as {
-          __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } };
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
         }
-      ).__spinth.__debug;
+      ).__spinthDebug.__debug;
       const img = d.vmStates.find((v) => v.type === 'IMAGE');
       const l = img?.imageLoad as { state?: string; acquires?: number } | undefined;
       return { state: String(l?.state ?? ''), acquires: Number(l?.acquires ?? 0) };
@@ -273,14 +279,16 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
   const errors: string[] = [];
   pageB.on('pageerror', (err) => errors.push(String(err)));
   const at = await pageB.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
-          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+          };
         };
       }
-    ).__spinth;
-    return w.viewport.worldToClient({ x: 430, y: 320 });
+    ).__spinthDebug.__debug;
+    return d.viewport.worldToClient({ x: 430, y: 320 });
   });
   await pageB.mouse.dblclick(at.x, at.y);
   await expect.poll(async () => (await loadProbe()).acquires, { timeout: 5_000 }).toBe(2); // 重试真实发起
@@ -291,11 +299,11 @@ test('follower 双击 missing 图：允许重试（纯本地渲染），不报�
         pageB.evaluate(() => {
           const d = (
             window as unknown as {
-              __spinth: {
+              __spinthDebug: {
                 __debug: { modelCount: number; vmStates: Array<Record<string, unknown>> };
               };
             }
-          ).__spinth.__debug;
+          ).__spinthDebug.__debug;
           return { count: d.modelCount, img: d.vmStates.find((v) => v.type === 'IMAGE') };
         }),
       { timeout: 5_000 },

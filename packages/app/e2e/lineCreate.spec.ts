@@ -122,8 +122,10 @@ test('批次1：拖动锚定图形时连线实时跟随（预览跟随 + 松手�
   await page.waitForTimeout(300);
   const lp = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   expect(lp[lp.length - 1]![0]).toBeGreaterThan(900); // 模型终点跟随 B 的新位置
@@ -131,8 +133,10 @@ test('批次1：拖动锚定图形时连线实时跟随（预览跟随 + 松手�
   // 路由质量（用户实测回归：移动后穿模）：连线不得穿过任一矩形内部
   const rects = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return d
       .filter((s) => s.type === 'SHAPE')
       .map((s) => ({

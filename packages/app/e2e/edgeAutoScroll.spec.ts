@@ -48,24 +48,28 @@ async function toScreen(
  *  分两次 evaluate 会跨帧撕裂——同帧配对才有「跟手」断言意义） */
 async function selectionFrameScreen(page: Page): Promise<{ x: number; y: number } | null> {
   return page.evaluate(() => {
-    const w = (
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
       window as unknown as {
-        __spinth: {
-          __debug: { selectionFrame: { x: number; y: number } | null };
-          toScreenPoint(p: { x: number; y: number }): { x: number; y: number };
-        };
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
       }
     ).__spinth;
-    const f = w.__debug.selectionFrame;
-    return f ? w.toScreenPoint({ x: f.x, y: f.y }) : null;
+    const f = (
+      window as unknown as {
+        __spinthDebug: { __debug: { selectionFrame: { x: number; y: number } | null } };
+      }
+    ).__spinthDebug.__debug.selectionFrame;
+    return f ? pub.toScreenPoint({ x: f.x, y: f.y }) : null;
   });
 }
 
 async function vmGeom(page: Page, id: string): Promise<{ x: number; y: number }> {
   return page.evaluate((wid) => {
     const s = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => v.id === wid)!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => v.id === wid)!;
     return { x: Number(s.x), y: Number(s.y) };
   }, id);
 }
@@ -82,8 +86,10 @@ async function dragCreateRect(page: Page, x: number, y: number): Promise<string>
   await page.waitForTimeout(150);
   const id = await page.evaluate((tx) => {
     const states = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'SHAPE');
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.filter((v) => String(v.type) === 'SHAPE');
     const s = states.find((v) => Math.abs(Number(v.x) - tx) < 2)!;
     return String(s.id);
   }, x);
@@ -222,9 +228,9 @@ async function mindNodes(page: Page): Promise<MindNode[]> {
     () =>
       (
         window as unknown as {
-          __spinth: { __debug: { mindNodes: MindNode[] } };
+          __spinthDebug: { __debug: { mindNodes: MindNode[] } };
         }
-      ).__spinth.__debug.mindNodes,
+      ).__spinthDebug.__debug.mindNodes,
   );
 }
 
@@ -260,8 +266,8 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-          .modelCount,
+        (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+          .__debug.modelCount,
     ),
   ).toBe(1);
 
@@ -285,15 +291,17 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
 
   const modelCount1 = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
+      (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+        .__debug.modelCount,
   );
   expect(modelCount1).toBe(2); // 原图 + 拖出成新图
   const mapCount = await page.evaluate(
     () =>
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'MIND_MAP').length,
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.filter((v) => String(v.type) === 'MIND_MAP').length,
   );
   expect(mapCount).toBe(2);
   // 相对断言（对时间不变，无采样竞态）：松手后新图根中心映射屏幕 ≈ 松手瞬间
@@ -303,17 +311,17 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
   // px 量级）仍足够。nodesDebug 只遍历焦点图（松手后 = 新图，单节点 = 被拖
   // 子节点）
   const landedScreen = await page.evaluate(() => {
-    const w = (
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
       window as unknown as {
-        __spinth: {
-          __debug: { mindNodes: MindNode[] };
-          toScreenPoint(p: { x: number; y: number }): { x: number; y: number };
-        };
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
       }
     ).__spinth;
-    const n = w.__debug.mindNodes.find((x) => !x.text.includes('中心'));
+    const n = (
+      window as unknown as { __spinthDebug: { __debug: { mindNodes: MindNode[] } } }
+    ).__spinthDebug.__debug.mindNodes.find((x) => !x.text.includes('中心'));
     if (!n) return null;
-    return w.toScreenPoint({
+    return pub.toScreenPoint({
       x: n.worldRect.x + n.worldRect.width / 2,
       y: n.worldRect.y + n.worldRect.height / 2,
     });

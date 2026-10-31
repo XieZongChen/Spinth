@@ -246,12 +246,15 @@ test('保存失败态：顶栏红色「保存失败」→ 面板「重试保存�
   await page.goto(`/?doc=${docId}`);
   await ready(page);
 
-  // 注入 persistState=failed（真实状态机由 dbProvider 单测覆盖）
+  // 注入 persistState=failed（真实状态机由 dbProvider 单测覆盖）——公开流不可
+  // 写（投影只读），经调试逃生口拿内部 engine 的真实 Subject
   await page.evaluate(() => {
     const w = window as unknown as {
-      __spinth: { engine: { persistState$: { next(v: 'saved' | 'saving' | 'failed'): void } } };
+      __spinthDebug: {
+        __debug: { engine: { persistState$: { next(v: 'saved' | 'saving' | 'failed'): void } } };
+      };
     };
-    w.__spinth.engine.persistState$.next('failed');
+    w.__spinthDebug.__debug.engine.persistState$.next('failed');
   });
   const button = page.locator('[data-spinth-storage-button]');
   await expect(button).toHaveText(/保存失败/);

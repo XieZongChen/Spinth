@@ -126,7 +126,6 @@ export type BoardInternalMember =
   | 'storageStatus'
   | 'initialized'
   | 'syncToolOption'
-  | '__debug'
   | 'disposed'
   | 'cullingForgetSub';
 

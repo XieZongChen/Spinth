@@ -1,7 +1,8 @@
 /**
- * __debug 调试探针适配器（specs/api-surface §3.6）——debugSnapshot.ts 保持
- * 纯聚合（不 import 具体服务），本文件做「服务实例 → 结构化窄类型」的适配，
- * 自 app.ts 800-834 行逐字段照搬。E2E 162 处 __debug 引用是形状硬断言。
+ * DEV 调试入口的快照适配器（specs/runtime-narrowing §3.5）——debugSnapshot.ts
+ * 保持纯聚合（不 import 具体服务），本文件做「服务实例 → 结构化窄类型」的
+ * 适配。消费方是 boardDevTools（@spinth/core/dev，挂 window.__spinthDebug.__debug，
+ * 生产构建不进产物）；E2E 探针引用是形状硬断言，逐字段语义不变。
  */
 import { buildDebugSnapshot } from './debugSnapshot';
 import { BoardApplication } from './platform/viewport/boardApplication';

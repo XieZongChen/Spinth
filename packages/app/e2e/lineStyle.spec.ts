@@ -8,8 +8,10 @@ async function lineStyle(
 ): Promise<{ lineType: string; startArrow: string; endArrow: string }> {
   return page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const l = d.find((s) => s.type === 'LINE') as unknown as {
       lineType: string;
       startArrow: string;
@@ -40,8 +42,10 @@ test('批次3：ActionBar 线型/箭头切换——折线与菱形落库 + undo 
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -90,8 +94,10 @@ test('批次4：曲线线型——ActionBar 切换 CURVE 落库 + undo + 选中�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -171,8 +177,10 @@ test('ActionBar v2：多级 popover + 中文 tooltip + bar 收窄（参考视频
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -238,8 +246,10 @@ test('ActionBar v2：多级 popover + 中文 tooltip + bar 收窄（参考视频
   await page.waitForTimeout(250);
   const color = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return String((d.find((s) => s.type === 'LINE') as { color: string }).color);
   });
   expect(color).toBe('#2563eb');

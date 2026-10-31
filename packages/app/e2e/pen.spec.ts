@@ -75,9 +75,9 @@ test('4.10 画笔可拖：points 整体平移 @timing', async ({ page }) => {
         ([x, y]) => {
           const f = (
             window as unknown as {
-              __spinth: { __debug: { selectionFrame: { x: number; y: number } | null } };
+              __spinthDebug: { __debug: { selectionFrame: { x: number; y: number } | null } };
             }
-          ).__spinth.__debug.selectionFrame;
+          ).__spinthDebug.__debug.selectionFrame;
           return f !== null && Math.abs(f.x - x) <= 1 && Math.abs(f.y - y) <= 1;
         },
         [ex, ey],
@@ -197,8 +197,8 @@ test('1.9/1.10 手势取消面：pen 拖拽中 pointercancel 不留孤儿笔；�
   await page.waitForTimeout(350);
   const count = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
+      (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+        .__debug.modelCount,
   );
   expect(count).toBe(1); // 笔已成形（≥2 点）保留；cancel 后无孤儿/无悬空（修复前 drawingId 悬空）
   await page.keyboard.press('v');
@@ -208,9 +208,9 @@ test('1.9/1.10 手势取消面：pen 拖拽中 pointercancel 不留孤儿笔；�
   const before = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: { __debug: { vmPositions: Array<{ id: string; x: number; y: number }> } };
+        __spinthDebug: { __debug: { vmPositions: Array<{ id: string; x: number; y: number }> } };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return d.vmPositions[0]!;
   });
   await page.mouse.move(550, 330);
@@ -222,9 +222,9 @@ test('1.9/1.10 手势取消面：pen 拖拽中 pointercancel 不留孤儿笔；�
   const after = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: { __debug: { vmPositions: Array<{ id: string; x: number; y: number }> } };
+        __spinthDebug: { __debug: { vmPositions: Array<{ id: string; x: number; y: number }> } };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return d.vmPositions[0]!;
   });
   expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1); // 数据未落库（cancel 语义）

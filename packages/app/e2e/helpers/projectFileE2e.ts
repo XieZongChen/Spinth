@@ -33,16 +33,16 @@ export async function ready(page: Page): Promise<void> {
   );
 }
 
-/** 页面调试快照；导航间隙（__spinth 未挂/换页中）返回 null——poll 兜底重试 */
+/** 页面调试快照；导航间隙（__spinthDebug 未挂/换页中）返回 null——poll 兜底重试 */
 export async function debug(page: Page): Promise<Debug | null> {
   return page.evaluate(() => {
-    const w = window as unknown as { __spinth?: { __debug: Debug } };
-    if (!w.__spinth) return null;
+    const w = window as unknown as { __spinthDebug?: { __debug: Debug } };
+    if (!w.__spinthDebug) return null;
     return {
-      modelCount: w.__spinth.__debug.modelCount,
-      vmStates: w.__spinth.__debug.vmStates,
-      imageTextures: w.__spinth.__debug.imageTextures,
-      assetLeases: w.__spinth.__debug.assetLeases,
+      modelCount: w.__spinthDebug.__debug.modelCount,
+      vmStates: w.__spinthDebug.__debug.vmStates,
+      imageTextures: w.__spinthDebug.__debug.imageTextures,
+      assetLeases: w.__spinthDebug.__debug.assetLeases,
     };
   });
 }
@@ -75,15 +75,19 @@ export async function textContent(page: Page): Promise<string> {
 export async function setFirstImageExternal(page: Page, url: string): Promise<void> {
   await page.evaluate((u) => {
     const w = window as unknown as {
-      __spinth: {
-        engine: {
-          yWidgets: {
-            toArray(): Array<{ get(k: string): unknown; set(k: string, v: string): void }>;
+      __spinthDebug: {
+        __debug: {
+          engine: {
+            yWidgets: {
+              toArray(): Array<{ get(k: string): unknown; set(k: string, v: string): void }>;
+            };
           };
         };
       };
     };
-    const img = w.__spinth.engine.yWidgets.toArray().find((m) => m.get('type') === 'IMAGE');
+    const img = w.__spinthDebug.__debug.engine.yWidgets
+      .toArray()
+      .find((m) => m.get('type') === 'IMAGE');
     img?.set('src', u);
   }, url);
 }
@@ -95,9 +99,9 @@ export async function persisted(page: Page): Promise<void> {
         page.evaluate(() =>
           (
             window as unknown as {
-              __spinth: { engine: { persistState$: { getValue(): string } } };
+              __spinth: { persistState$: { getValue(): string } };
             }
-          ).__spinth.engine.persistState$.getValue(),
+          ).__spinth.persistState$.getValue(),
         ),
       { timeout: 5_000 },
     )

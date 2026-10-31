@@ -17,8 +17,10 @@ test('批次2：端点拖拽重锚定——拖离解绑为自由端、拖入新�
   await page.waitForTimeout(250);
   const pts0 = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   // 回 cursor 并点线身选中（切模式清选区——须重新点选）
@@ -35,8 +37,10 @@ test('批次2：端点拖拽重锚定——拖离解绑为自由端、拖入新�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const endPt = pts[pts.length - 1]!;
@@ -50,8 +54,10 @@ test('批次2：端点拖拽重锚定——拖离解绑为自由端、拖入新�
   await page.waitForTimeout(250);
   let d = await page.evaluate(() => {
     const dd = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return dd.find((s) => s.type === 'LINE') as unknown as {
       endNodeId: string | null;
       points: Array<[number, number]>;
@@ -74,8 +80,10 @@ test('批次2：端点拖拽重锚定——拖离解绑为自由端、拖入新�
   await page.waitForTimeout(250);
   d = await page.evaluate(() => {
     const dd = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return dd.find((s) => s.type === 'LINE') as unknown as { endNodeId: string | null };
   });
   expect(d.endNodeId).not.toBeNull(); // 重锚定到 B
@@ -95,8 +103,10 @@ test('批次2：解绑——删除锚定形状，连线保留且端点保持原�
   await page.waitForTimeout(250);
   const before = await page.evaluate(() => {
     const dd = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return {
       line: dd.find((s) => s.type === 'LINE') as unknown as {
         points: Array<[number, number]>;
@@ -112,8 +122,10 @@ test('批次2：解绑——删除锚定形状，连线保留且端点保持原�
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => {
     const dd = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const line = dd.find((s) => s.type === 'LINE') as unknown as
       | { points: Array<[number, number]>; startNodeId: string | null; endNodeId: string | null }
       | undefined;

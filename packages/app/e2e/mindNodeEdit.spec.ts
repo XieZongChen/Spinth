@@ -18,9 +18,9 @@ test('脑图节点编辑器与画布节点逐像素对齐（页面坐标 = 画�
     const canvas = document.querySelector('canvas') as HTMLCanvasElement | null;
     const d = (
       window as unknown as {
-        __spinth: { __debug: { vmPositions: Array<{ x: number; y: number }> } };
+        __spinthDebug: { __debug: { vmPositions: Array<{ x: number; y: number }> } };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     if (!ta || !canvas) return null;
     const taRect = ta.getBoundingClientRect();
     const cRect = canvas.getBoundingClientRect();
@@ -49,7 +49,7 @@ test('子节点：点一次出蓝框（框在本体）、再点一次进编辑�
   await page.keyboard.press('Tab'); // 建子节点
   await page.waitForTimeout(250);
   const geo = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const n = d.mindNodes.find((x) => x.text !== '中心主题')!;
     return {
@@ -68,7 +68,7 @@ test('子节点：点一次出蓝框（框在本体）、再点一次进编辑�
   await page.mouse.click(geo.center.x, geo.center.y);
   await page.waitForTimeout(250);
   const after = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return {
       focus: d.mindFocus,
       frame: d.selectionFrame,
@@ -111,7 +111,7 @@ test('按下瞬间选中框即落点击节点（编辑器 blur 不抢焦点回�
 
   // 先点根（建图后编辑器场景下根可能仍在编辑态——正是触发路径）
   const geo = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes[0]!;
     const child = d.mindNodes.find((x) => x.text !== '中心主题')!;
@@ -136,7 +136,7 @@ test('按下瞬间选中框即落点击节点（编辑器 blur 不抢焦点回�
   await page.mouse.down();
   await page.waitForTimeout(150);
   const during = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return { focusIsRoot: d.mindFocus?.isRoot, frame: d.selectionFrame };
   });
   // 按下瞬间：焦点已是子节点、框画在子节点本体（曾闪现在根）
@@ -173,7 +173,7 @@ test('中文输入法首键竞态：合成首键（keyCode 229）不污染文本
     const ta = document.querySelector('body > textarea') as HTMLTextAreaElement | null;
     if (!ta) return null;
     (ta as unknown as { __imeMarker: boolean }).__imeMarker = true; // 记号：后续验证未重建
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     return {
       value: ta.value,
       selLen: ta.selectionEnd - ta.selectionStart,

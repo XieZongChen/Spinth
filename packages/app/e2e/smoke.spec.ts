@@ -4,7 +4,7 @@ import { persisted } from './helpers/projectFileE2e';
 
 /**
  * 冒烟链路（docs/15 §3）：刷新进入 → 工具创建控件 → 拖拽移动 → undo 复位 → 刷新恢复。
- * 断言全部基于 `window.__spinth.__debug`（dev 调试句柄）——视觉断言的辅助手段见
+ * 断言全部基于 `window.__spinthDebug.__debug`（dev 调试句柄）——视觉断言的辅助手段见
  * docs/14 调试方法论（截图会撒谎，数据探针优先）。
  */
 
@@ -17,11 +17,11 @@ interface VmState {
 
 async function debug(page: Page): Promise<{ modelCount: number; vms: VmState[] }> {
   return page.evaluate(() => {
-    const handle = (window as unknown as { __spinth?: { __debug: unknown } }).__spinth;
+    const handle = (window as unknown as { __spinthDebug?: { __debug: unknown } }).__spinthDebug;
     const d = handle?.__debug as
       | { modelCount: number; vmStates: Array<{ id: string; type: string; x: number; y: number }> }
       | undefined;
-    if (!d) throw new Error('__spinth 调试句柄未就绪（dev 模式才注入）');
+    if (!d) throw new Error('__spinthDebug 调试句柄未就绪（dev 模式才注入）');
     return {
       modelCount: d.modelCount,
       vms: d.vmStates.map((s) => ({ id: s.id, type: s.type, x: s.x, y: s.y })),
@@ -61,20 +61,20 @@ test('创建 → 拖拽 → undo → 刷新恢复', async ({ page }) => {
   //    toScreen 是 canvas 局部坐标，page.mouse 用页坐标——必须补顶栏 44px，
   //    否则落点偏进选中态 ActionBar 浮层区域被其拦截（2尾-3 落地后实测揪出）
   const center = await page.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: { __debug: { vmPositions: Array<{ x: number; y: number }> } };
-      }
-    ).__spinth;
-    const vpi = (
-      w as unknown as {
-        viewport: {
-          viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            vmPositions: Array<{ x: number; y: number }>;
+            viewport: {
+              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            };
+          };
         };
       }
-    ).viewport.viewportInstance;
-    const p = w.__debug.vmPositions[0]!;
-    const s = vpi.toScreen(p.x + 80, p.y + 60);
+    ).__spinthDebug.__debug;
+    const p = d.vmPositions[0]!;
+    const s = d.viewport.viewportInstance.toScreen(p.x + 80, p.y + 60);
     return { x: Math.round(s.x), y: Math.round(s.y + 44) };
   });
   await page.mouse.move(center.x, center.y);
@@ -146,14 +146,16 @@ test('1.22 只读态 UI：updateEditable(false) → 徽标 + 写面禁用 + 运�
   await expect.poll(async () => (await debug(page)).modelCount).toBe(1);
   await page.getByTitle('选择 (V)').click();
   const at = await page.evaluate(() => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
-          viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+        __spinthDebug: {
+          __debug: {
+            viewport: { worldToClient(p: { x: number; y: number }): { x: number; y: number } };
+          };
         };
       }
-    ).__spinth;
-    return w.viewport.worldToClient({ x: 580, y: 360 });
+    ).__spinthDebug.__debug;
+    return d.viewport.worldToClient({ x: 580, y: 360 });
   });
   await page.mouse.click(at.x, at.y);
   await expect(page.locator('[data-spinth-action-bar]')).toHaveCount(1); // 选中 → 操作栏可见
@@ -274,15 +276,13 @@ test('单机启动：wsState=off、无 wsProvider、无外部网络请求', asyn
   await waitBoardReady(page);
 
   const state = await page.evaluate(() => {
-    const w = window as unknown as {
-      __spinth: {
-        wsState$: { getValue(): string };
-        engine: { wsProvider: unknown };
-      };
+    const pub = window as unknown as { __spinth: { wsState$: { getValue(): string } } };
+    const dbg = window as unknown as {
+      __spinthDebug: { __debug: { engine: { wsProvider: unknown } } };
     };
     return {
-      wsState: w.__spinth.wsState$.getValue(),
-      wsProvider: w.__spinth.engine.wsProvider,
+      wsState: pub.__spinth.wsState$.getValue(),
+      wsProvider: dbg.__spinthDebug.__debug.engine.wsProvider,
     };
   });
   expect(state.wsState).toBe('off');

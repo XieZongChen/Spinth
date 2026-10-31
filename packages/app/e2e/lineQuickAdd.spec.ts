@@ -52,8 +52,10 @@ test('批次2：选中形状四点常显；hover 连接点放大出影子；拖�
   expect(p.modelCount).toBe(3); // 2 rect + 1 line
   const line = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const l = d.find((s) => s.type === 'LINE') as unknown as {
       startNodeId: string | null;
       endNodeId: string | null;
@@ -98,9 +100,12 @@ test('批次2：点击连接点 = quick-add（连线 + 默认矩形自动创建�
   const d = await page.evaluate(() => {
     const dd = (
       window as unknown as {
-        __spinth: { __debug: { vmStates: Array<Record<string, unknown>> }; selectedIds: string[] };
+        __spinthDebug: {
+          __debug: { vmStates: Array<Record<string, unknown>> };
+          selectedIds: string[];
+        };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     const shapes = dd.vmStates.filter((s) => s.type === 'SHAPE');
     const lineVm = dd.vmStates.find((s) => s.type === 'LINE') as unknown as {
       startNodeId: string | null;
@@ -139,8 +144,10 @@ test('批次2：quick-add 方向被形状占据 → 只建连线锚定它（参�
   // 从探针取 A 实测 bounds → B 放在 A 右侧 quick-add 落位矩形处（坐标反推铁律）
   const a = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const s = d.find((v) => v.type === 'SHAPE') as {
       x: number;
       y: number;
@@ -172,9 +179,11 @@ test('批次2：quick-add 方向被形状占据 → 只建连线锚定它（参�
   const d = await page.evaluate(() => {
     const dd = (
       window as unknown as {
-        __spinth: { __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] } };
+        __spinthDebug: {
+          __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
+        };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return {
       shapes: dd.vmStates.filter((s) => s.type === 'SHAPE'),
       line: dd.vmStates.find((s) => s.type === 'LINE') as unknown as
@@ -204,8 +213,10 @@ test('批次2：quick-add 方向被形状占据 → 只建连线锚定它（参�
   const after = await page.evaluate(
     () =>
       (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates.filter((s) => s.type === 'SHAPE').length,
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.filter((s) => s.type === 'SHAPE').length,
   );
   expect(after).toBe(3); // 空闲方向正常建新形状
 });
@@ -221,8 +232,10 @@ test('批次2：quick-add 方向已有带连线元素 → 新形状一上一下�
   // A 实测 bounds；B 放 A 右侧正对落位（先作为无连线孤立元素被接入）
   const a = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const s = d.find((v) => v.type === 'SHAPE') as {
       x: number;
       y: number;
@@ -254,11 +267,11 @@ test('批次2：quick-add 方向已有带连线元素 → 新形状一上一下�
     page.evaluate(() => {
       const dd = (
         window as unknown as {
-          __spinth: {
+          __spinthDebug: {
             __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
           };
         }
-      ).__spinth.__debug;
+      ).__spinthDebug.__debug;
       return {
         shapes: dd.vmStates.filter((s) => s.type === 'SHAPE') as Array<{
           id: string;
@@ -323,8 +336,10 @@ test('批次2：quick-add 垂直方向已有带连线元素 → 新形状一右�
 
   const a = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const s = d.find((v) => v.type === 'SHAPE') as {
       x: number;
       y: number;
@@ -358,8 +373,10 @@ test('批次2：quick-add 垂直方向已有带连线元素 → 新形状一右�
   await clickDot();
   const first = await page.evaluate(() => {
     const dd = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
     return dd.vmStates.filter((v) => v.type === 'SHAPE') as Array<{ id: string; x: number }>;
   });
   expect(first).toHaveLength(2);
@@ -372,9 +389,11 @@ test('批次2：quick-add 垂直方向已有带连线元素 → 新形状一右�
   const s = await page.evaluate(() => {
     const dd = (
       window as unknown as {
-        __spinth: { __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] } };
+        __spinthDebug: {
+          __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
+        };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return {
       shapes: dd.vmStates.filter((v) => v.type === 'SHAPE') as Array<{
         id: string;
@@ -411,8 +430,10 @@ test('批次2：quick-add 手势被打断（pointercancel）→ 零长草稿线�
   await createRect(page, 450, 350);
   const a = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const s = d.find((v) => v.type === 'SHAPE') as {
       x: number;
       y: number;
@@ -435,8 +456,8 @@ test('批次2：quick-add 手势被打断（pointercancel）→ 零长草稿线�
   await page.waitForTimeout(200);
   const during = await page.evaluate(
     () =>
-      (window as unknown as { __spinth: { __debug: { modelCount: number } } }).__spinth.__debug
-        .modelCount,
+      (window as unknown as { __spinthDebug: { __debug: { modelCount: number } } }).__spinthDebug
+        .__debug.modelCount,
   );
   expect(during).toBe(2); // A + 按下即建的草稿线
 
@@ -448,9 +469,11 @@ test('批次2：quick-add 手势被打断（pointercancel）→ 零长草稿线�
   const after = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: { __debug: { vmStates: Array<Record<string, unknown>>; modelCount: number } };
+        __spinthDebug: {
+          __debug: { vmStates: Array<Record<string, unknown>>; modelCount: number };
+        };
       }
-    ).__spinth.__debug;
+    ).__spinthDebug.__debug;
     return { modelCount: d.modelCount, lines: d.vmStates.filter((v) => v.type === 'LINE').length };
   });
   expect(after.lines).toBe(0); // 零长草稿线被 settleDrawing 清理（曾裸退残留）

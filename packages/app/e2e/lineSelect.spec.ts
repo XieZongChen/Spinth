@@ -8,8 +8,10 @@ async function lineSegState(
 ): Promise<{ points: Array<[number, number]>; pinned: boolean }> {
   return page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     const l = d.find((s) => s.type === 'LINE') as unknown as {
       points: Array<[number, number]>;
       pinned: boolean;
@@ -52,8 +54,8 @@ test('4.10 线不可整体拖动/缩放：拖线身与拖缩放角均无效果',
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { lineSegments: unknown[] | null } } })
-          .__spinth.__debug.lineSegments,
+        (window as unknown as { __spinthDebug: { __debug: { lineSegments: unknown[] | null } } })
+          .__spinthDebug.__debug.lineSegments,
     ),
   ).not.toBeNull();
 
@@ -121,8 +123,10 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -146,8 +150,8 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: { selectionFrame: unknown } } }).__spinth
-          .__debug.selectionFrame,
+        (window as unknown as { __spinthDebug: { __debug: { selectionFrame: unknown } } })
+          .__spinthDebug.__debug.selectionFrame,
     ),
   ).toBeNull();
 
@@ -164,8 +168,10 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
   const expectCursor = await page.evaluate(
     ([target]) => {
       const d = (
-        window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-      ).__spinth.__debug.vmStates;
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates;
       const p = (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
       // 与 core majorSegments 同款过滤找第 target 个主段的段号，再按段向取拖向光标
       const majors: number[] = [];
@@ -230,8 +236,10 @@ test('批次3：段滑移——拖中段落库 pinned、undo 回退、锚定移�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);
@@ -361,8 +369,10 @@ test('批次3.7：首末段滑移——锚点端保持、被拖段跟随（参�
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
   const pts = await page.evaluate(() => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
     return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
   });
   const midI = Math.floor(pts.length / 2);

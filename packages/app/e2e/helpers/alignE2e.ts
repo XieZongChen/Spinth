@@ -8,7 +8,7 @@ import { expect } from '@playwright/test';
  * 单选无对齐键）、自由线 points 平移参与、锚定线跟随宿主（对齐后重路由 +
  * undo 一步形状与线同回——单事务含重路由合并的守卫）。
  *
- * 坐标纪律：断言一律走 __spinth.__debug 探针（vmStates/selectedIds/selectionFrame
+ * 坐标纪律：断言一律走 __spinthDebug.__debug 探针（vmStates/selectedIds/selectionFrame
  * 世界坐标）；点击/框选操作坐标从探针与 canvas rect 反推，禁手写裸屏数字。
  * PEN 不单设用例——commitDrag 平移既有护栏（widgets 4.10），对齐只是新调用方。
  */
@@ -27,7 +27,7 @@ export interface IProbe {
 
 export async function probe(page: Page): Promise<IProbe> {
   return page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: IProbe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: IProbe } }).__spinthDebug.__debug;
     return {
       modelCount: d.modelCount,
       selectedIds: [...d.selectedIds],

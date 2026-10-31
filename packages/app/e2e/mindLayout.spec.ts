@@ -21,7 +21,7 @@ test('docs/11 §9：Tab 连建 10 层布局收敛稳定；undo 10 次逐步回�
 
   const snap = (): Promise<Array<{ cx: number; x: number; y: number }>> =>
     page.evaluate(() => {
-      const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+      const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
       return d.mindNodes
         .map((n) => ({
           cx: n.worldRect.y + n.worldRect.height / 2,
@@ -44,7 +44,8 @@ test('docs/11 §9：Tab 连建 10 层布局收敛稳定；undo 10 次逐步回�
   const count = (): Promise<number> =>
     page.evaluate(
       () =>
-        (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug.mindNodes.length,
+        (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug.mindNodes
+          .length,
     );
   for (let i = 10; i >= 1; i--) {
     await page.keyboard.press('ControlOrMeta+z');
@@ -70,7 +71,7 @@ test('docs/11 §9：长文本 360px 上限自动换行；根增高子树联动�
     child: { x: number; y: number };
   }> =>
     page.evaluate(() => {
-      const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+      const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
       // 根的文案会被长文本替换——以「子节点 1」（首个子节点恒名）锚定子节点
       const child = d.mindNodes.find((n) => n.text === '子节点 1')!;
       const root = d.mindNodes.find((n) => n !== child)!;
@@ -81,7 +82,7 @@ test('docs/11 §9：长文本 360px 上限自动换行；根增高子树联动�
   // 点根一次：关掉可能开着的子编辑器（textarea blur）+ 选中根；再点一次进编辑。
   // 注意不能 Escape 代替——选中态（非编辑态）按 Escape 会清焦点
   const c = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const canvas = document.querySelector('canvas')!.getBoundingClientRect();
     const child = d.mindNodes.find((n) => n.text === '子节点 1')!;
     const root = d.mindNodes.find((n) => n !== child)!;
@@ -121,7 +122,7 @@ test('docs/11 §9：拖节点到空白处成新图——原树正确移除、新
   await page.waitForTimeout(250);
 
   const geo = await page.evaluate(() => {
-    const d = (window as unknown as { __spinth: { __debug: Probe } }).__spinth.__debug;
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
     const c = document.querySelector('canvas')!.getBoundingClientRect();
     const root = d.mindNodes.find((n) => n.text === '中心主题')!;
     const child = d.mindNodes.find((n) => n !== root)!;

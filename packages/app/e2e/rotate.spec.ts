@@ -21,9 +21,9 @@ test('拖旋转柄 90°：rotation 落库（rad）+ undo 一步回未旋转', as
     () =>
       (
         window as unknown as {
-          __spinth: { __debug: { rotateHandle: { x: number; y: number } | null } };
+          __spinthDebug: { __debug: { rotateHandle: { x: number; y: number } | null } };
         }
-      ).__spinth.__debug.rotateHandle,
+      ).__spinthDebug.__debug.rotateHandle,
   );
   const diag = Math.SQRT1_2;
   expect(hWorld!.x).toBeCloseTo(s0.x - diag * 20, 0);

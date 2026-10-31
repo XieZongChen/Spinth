@@ -284,3 +284,34 @@ test('P6 多标签不互踩：A 点刷新只 reload A，B 转已就绪且仍可�
     );
   }
 });
+
+test('P7 正常流量零探针：无 ?e2e=1 时两个全局均不挂载且画布可编辑', async ({ page }) => {
+  const docId = docIdOf('p7');
+  // 不带 &e2e=1：生产只读探针按 URL 精确挂载（§17.4 P2-4），正常流量零暴露。
+  // 就绪信号只能用 UI（canvas + 建件）——此时 window.__spinth 本就不存在，
+  // 不能拿探针当 waitForFunction 条件（specs/runtime-narrowing §3.7 形状）
+  await page.goto(`${BASE}?doc=${docId}`);
+  await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 10_000 });
+  await page.keyboard.press('r');
+  await page
+    .locator('canvas')
+    .first()
+    .click({ position: { x: 480, y: 300 } });
+  // 建件成功 = 撤销键可用（画布真的在跑且可编辑）
+  await expect(page.getByTitle('撤销 (Cmd+Z)')).toBeEnabled({ timeout: 10_000 });
+
+  // DEV 双句柄生产剥离 + 只读探针未挂 → 两个全局都不得存在
+  const probes = await page.evaluate(() => {
+    const w = window as unknown as Record<string, unknown>;
+    return { spinth: w.__spinth, spinthDebug: w.__spinthDebug };
+  });
+  expect(probes.spinth).toBeUndefined();
+  expect(probes.spinthDebug).toBeUndefined();
+
+  await page.evaluate(
+    ([id]) => {
+      indexedDB.deleteDatabase(`spinth-doc:${id}`);
+    },
+    [docId],
+  );
+});

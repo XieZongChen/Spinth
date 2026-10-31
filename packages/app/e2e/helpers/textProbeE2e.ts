@@ -6,8 +6,10 @@ import type { Page } from '@playwright/test';
 export async function textOf(page: Page, type: string): Promise<string | undefined> {
   return page.evaluate((t) => {
     const d = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
     const s = d.vmStates.find((v) => String(v.type) === t);
     return s === undefined ? undefined : String(s.text ?? '');
   }, type);
@@ -15,26 +17,25 @@ export async function textOf(page: Page, type: string): Promise<string | undefin
 
 export async function centerOf(page: Page, type: string): Promise<{ x: number; y: number }> {
   return page.evaluate((t) => {
-    const w = (
+    const d = (
       window as unknown as {
-        __spinth: {
+        __spinthDebug: {
           __debug: {
             vmStates: Array<Record<string, unknown>>;
             vmPositions: Array<{ x: number; y: number }>;
-          };
-          viewport: {
-            viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            viewport: {
+              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
+            };
           };
         };
       }
-    ).__spinth;
-    const d = w.__debug;
+    ).__spinthDebug.__debug;
     const i = Math.max(
       0,
       d.vmStates.findIndex((s) => String(s.type) === t),
     );
     const p = d.vmPositions[i] ?? { x: 0, y: 0 };
-    const s = w.viewport.viewportInstance.toScreen(p.x, p.y + 20);
+    const s = d.viewport.viewportInstance.toScreen(p.x, p.y + 20);
     return { x: Math.round(s.x), y: Math.round(s.y + 44) };
   }, type);
 }

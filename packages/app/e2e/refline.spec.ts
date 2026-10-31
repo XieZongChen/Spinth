@@ -27,8 +27,10 @@ const sy = (worldY: number): number => worldY + 44;
 async function geomOf(page: Page, id: string): Promise<{ x: number; y: number }> {
   return page.evaluate((wid) => {
     const s = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.find((v) => v.id === wid)!;
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => v.id === wid)!;
     return { x: Number(s.x), y: Number(s.y) };
   }, id);
 }
@@ -44,8 +46,10 @@ async function dragCreateRect(page: Page, x: number, y: number): Promise<string>
   await page.waitForTimeout(150);
   const id = await page.evaluate((tx) => {
     const states = (
-      window as unknown as { __spinth: { __debug: { vmStates: Array<Record<string, unknown>> } } }
-    ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'SHAPE');
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.filter((v) => String(v.type) === 'SHAPE');
     const s = states.find((v) => Math.abs(Number(v.x) - tx) < 2)!;
     return String(s.id);
   }, x);
@@ -113,9 +117,9 @@ test('B 等间距参考线：拖中间件两侧间隙相等 → 橙色徽标 + �
   const gaps = await page.evaluate(() => {
     const d = (
       window as unknown as {
-        __spinth: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
+        __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
       }
-    ).__spinth.__debug.spacingGaps;
+    ).__spinthDebug.__debug.spacingGaps;
     return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
   });
   expect(gaps).toEqual(['x:80', 'x:80']); // 两段间隙徽标（世界单位 80）

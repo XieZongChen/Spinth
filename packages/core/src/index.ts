@@ -1,14 +1,13 @@
 /**
  * @spinth/core — 框架无关的白板 SDK（PIXI 8 + Yjs）。
- * 唯一组合根：BoardSDK（docs/04 §3）。UI 框架经胶水层消费输出流与命令。
+ * 唯一公开构造入口 createBoard()（docs/04 §3）；UI 框架经胶水层消费输出流与命令。
  */
 
 // zod 运行时配置（jitless）必须先于任何 schema parse 执行（common/zodRuntime.ts）
 import './common/zodRuntime';
 
-export { BoardSDK } from './app';
-// 运行时收窄过渡（specs/runtime-narrowing S2）：createBoard 返回冻结投影，
-// BoardSDK 导出在 S5 宿主切换后移除
+// 唯一公开构造入口：返回 BOARD_PUBLIC_MEMBERS 冻结投影（specs/runtime-narrowing
+// §3.4）；内部组合根类 BoardSDK 不导出（core 单测与 friend 装配走 src/app.ts）
 export { createBoard } from './createBoard';
 export type { IBoardConfig } from './boardConfig';
 
@@ -111,13 +110,12 @@ export {
 } from './widgets/mind/mindNodeVm';
 
 /**
- * BoardSDK 的窄公开面（Batch 2 · 类型层收窄）：宿主集成契约 = 生命周期 +
- * 输出流 + 查询 + 命令——由 boardPublicApi.ts 的 `BOARD_PUBLIC_MEMBERS`
- * allowlist 显式列举（新增公开成员必须手动加表，未归类成员令 typecheck 红，
- * 分类编译锁见彼处三条 `_BoardKeys*`）。@internal 服务字段（组装/命令层
- * 共享面）与 debug 探针不在此面。BoardSDK 类导出保留（组合根与既有宿主
- * 兼容）；宿主可用 `const board: BoardPublicApi = sdk` 收窄依赖防漂移。
- * 运行时收窄（不导出 internal 字段）需破坏性版本化——挂账。
+ * 宿主公共面 = 生命周期 + 输出流 + 查询 + 命令——由 boardPublicApi.ts 的
+ * `BOARD_PUBLIC_MEMBERS` allowlist 显式列举（新增公开成员必须手动加表，
+ * 未归类成员令 typecheck 红，分类编译锁见彼处三条 `_BoardKeys*`）。
+ * 类型与运行时同源收窄：createBoard() 返回该 allowlist 的冻结投影，
+ * internal 服务字段不可枚举、不可读、不可调用（specs/runtime-narrowing）；
+ * DEV 调试入口经 @spinth/core/dev 子路径，不在此面。
  */
 export type { BoardPublicApi, BoardPublicMember } from './boardPublicApi';
 export { BOARD_PUBLIC_MEMBERS } from './boardPublicApi';

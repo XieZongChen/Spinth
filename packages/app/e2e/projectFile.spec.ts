@@ -142,9 +142,9 @@ test('导入失败：坏 ZIP / 版本过新 / 缺资产 / 坏哈希——错误�
   await expect(page.locator('[data-spinth-project-menu-panel]')).toBeVisible();
   await page.evaluate(() => {
     const w = window as unknown as {
-      __spinth: { assetStore: { put: (b: Blob) => Promise<unknown> } };
+      __spinthDebug: { __debug: { assetStore: { put: (b: Blob) => Promise<unknown> } } };
     };
-    w.__spinth.assetStore.put = async () => {
+    w.__spinthDebug.__debug.assetStore.put = async () => {
       throw new Error('注入：配额不足');
     };
   });
