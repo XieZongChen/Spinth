@@ -1,4 +1,4 @@
-import { Point, Rectangle } from 'pixi.js';
+import { Point } from 'pixi.js';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
 import { markRender } from '../../common/render';
@@ -13,7 +13,8 @@ import type {
   IViewportService,
   IVmEngineService,
 } from '../../types';
-import { SelectorVm, marqueeRectOf, type MarqueeState } from './selectorVm';
+import { SelectorVm } from './selectorVm';
+import { MarqueeSession, type IMarqueeContext } from './selectorMarquee';
 import { SelectionVm } from '../selection/selectionVm';
 import {
   applyDragMove,
@@ -40,9 +41,10 @@ export class SelectorService extends Disposable implements ISelectorService {
   private dragState: DragState | null = null;
   /** 拖拽操作上下文（initialize 后构造；ops 无状态——状态归本类字段） */
   private dragCtx!: ISelectorDragContext;
-  private marquee: MarqueeState | null = null;
-  /** marquee 组过滤闭包（docs/18 §4.3）：手势开始建、结束清；null = 无组语义 */
-  private marqueeGroupFilter: ((hitIds: string[], rect: IRect) => string[]) | null = null;
+  /** 框选会话（状态封装于会话内；本类只持可空引用参与 isDragging 判定） */
+  private marquee: MarqueeSession | null = null;
+  /** 框选会话上下文（initialize 后构造） */
+  private marqueeCtx!: IMarqueeContext;
   /** 脑图节点级拖拽进行中（委托 MindService，docs/11 §6） */
   private mindDragging = false;
   /** 按下时该脑图是否已选中（松手未拖动 → 激活编辑的判据，同通用拖拽的 wasSelected） */
@@ -84,6 +86,12 @@ export class SelectorService extends Disposable implements ISelectorService {
       getRefLine: () => this.getRefLine(),
       onDragCommitted: (ids, dx, dy) => this.onDragCommitted?.(ids, dx, dy),
       syncSelectionVm: () => this.syncSelectionVm(),
+    };
+    this.marqueeCtx = {
+      vmEngine: this.vmEngine,
+      setSelected: (ids) => this.setSelected(ids),
+      mindDragDelegate: () => this.mindDragDelegate,
+      selectorVm: this.selectorVm,
     };
     this.addDisposable(this.selected$.subscribe(() => this.syncSelectionVm()));
 
@@ -230,10 +238,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);
       }
-      this.marquee = { start: e.world.clone(), cur: e.world.clone() };
-      // 组索引快照按手势建一次（docs/18 §4.3：拖框期间组籍/成员不变）
-      this.marqueeGroupFilter = this.getGroups()?.createMarqueeFilter() ?? null;
-      this.selectorVm.show(marqueeRectOf(this.marquee));
+      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, this.getGroups());
     }
   }
 
@@ -252,18 +257,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       return;
     }
     if (this.marquee) {
-      this.marquee.cur = e.world.clone();
-      const rect = marqueeRectOf(this.marquee);
-      this.selectorVm.update(rect);
-      const hits = this.vmEngine.getVmByRect(
-        new Rectangle(rect.x, rect.y, rect.width, rect.height),
-      );
-      let hitIds = hits.map((vm) => vm.id);
-      if (this.marqueeGroupFilter) {
-        // 整组全入框口径（docs/18 §4.3）：过程即最终结果，不闪变
-        hitIds = this.marqueeGroupFilter(hitIds, rect);
-      }
-      this.setSelected(hitIds);
+      this.marquee.move(e.world);
     }
   }
 
@@ -274,9 +268,8 @@ export class SelectorService extends Disposable implements ISelectorService {
       this.dragState = null;
     }
     if (this.marquee) {
+      this.marquee.cancel();
       this.marquee = null;
-      this.marqueeGroupFilter = null;
-      this.selectorVm.hide();
     }
     if (this.mindDragging) {
       this.mindDragDelegate?.dragCancel?.();
@@ -332,16 +325,9 @@ export class SelectorService extends Disposable implements ISelectorService {
       return;
     }
     if (this.marquee) {
-      const rect = marqueeRectOf(this.marquee);
-      this.marquee = null;
-      this.marqueeGroupFilter = null;
-      this.selectorVm.hide();
-      // 4.9 框选节点级命中：MIND_MAP 命中后委托脑图服务细化焦点——框中根本体 =
-      // 整图（焦点回根），框中子节点 bbox = 节点级选中（docs/11 §0 修订）
-      for (const id of this.selected$.value) {
-        const vm = this.vmEngine.getVmById(id);
-        if (vm?.type === 'MIND_MAP') this.mindDragDelegate?.focusFromMarquee?.(rect, id);
-      }
+      const m = this.marquee;
+      this.marquee = null; // 先置空再收尾——收尾回调期 isDragging 已为 false（原时序）
+      m.finish(this.selected$.value);
       return;
     }
     // 单击「已选中」的元素 = 进入编辑（docs/05 §3；编辑入口由外部注入）
