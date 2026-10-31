@@ -99,9 +99,10 @@ export class EdgeAutoScrollService extends Disposable implements IEdgeAutoScroll
           this.viewport.panBy(-dx, -dy);
           return this.stop();
         }
-      } catch {
+      } catch (err) {
         // rAF 回调抛错会跳过帧尾预约：frameId 停在 null 而 scrolling 卡 true，
         // 守卫将拒绝再次 start（一次手势内滚屏失效）——兜底停滚，update 可重启
+        console.warn('[spinth:edge-scroll] 帧循环异常，兜底停滚', err);
         this.stop();
         return;
       }

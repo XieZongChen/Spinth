@@ -55,14 +55,20 @@ interface ViewportStub {
   panBy: ReturnType<typeof vi.fn>;
   replay: ReturnType<typeof vi.fn>;
   listeners: Map<string, () => void>;
+  /** addEventListener 调用计数（按事件名）——Map 桩会覆盖同键，计数才能钉住重复挂载 */
+  addCounts: Map<string, number>;
 }
 
 function createViewportStub(replayResult = true): ViewportStub {
   const panBy = vi.fn();
   const replay = vi.fn(() => replayResult);
   const listeners = new Map<string, () => void>();
+  const addCounts = new Map<string, number>();
   const container = {
-    addEventListener: (event: string, cb: () => void) => void listeners.set(event, cb),
+    addEventListener: (event: string, cb: () => void) => {
+      addCounts.set(event, (addCounts.get(event) ?? 0) + 1);
+      listeners.set(event, cb);
+    },
     removeEventListener: (event: string) => void listeners.delete(event),
   };
   const viewport = {
@@ -71,7 +77,7 @@ function createViewportStub(replayResult = true): ViewportStub {
     getClientSize: () => ({ width: 1000, height: 800 }),
     container,
   } as unknown as IViewportService;
-  return { viewport, panBy, replay, listeners };
+  return { viewport, panBy, replay, listeners, addCounts };
 }
 
 const HOT_RIGHT = { x: 995, y: 400 };
@@ -184,7 +190,7 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     svc.update(HOT_RIGHT, true);
     clock.advance(16.7); // 该帧内 replay 同步重入 update
     expect(clock.pending.size).toBe(1); // 不翻倍（旧守卫下 ≥2）
-    expect(s.listeners.size).toBe(1); // pointerleave 不重复挂载
+    expect(s.addCounts.get('pointerleave')).toBe(1); // 监听器只挂一份（旧守卫下 ≥2）
     clock.advance(16.7 * 3); // 后续帧稳定：panBy 线性不爆炸
     expect(s.panBy).toHaveBeenCalledTimes(4); // 1 + 3
     svc.dispose();
@@ -254,10 +260,11 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     svc.dispose();
   });
 
-  it('T20b replay 抛错 → 兜底停滚（不卡 scrolling）且 update 可重启', () => {
+  it('T20b replay 抛错 → 兜底停滚（不卡 scrolling、留诊断日志）且 update 可重启', () => {
     const s = createViewportStub();
     const clock = new FakeClock();
     const svc = new EdgeAutoScrollService(s.viewport, clock);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     s.replay.mockImplementation(() => {
       throw new Error('pipeline boom');
     });
@@ -266,6 +273,10 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     expect(svc.scrolling).toBe(false); // 未卡死在 scrolling=true
     expect(clock.pending.size).toBe(0);
     expect(s.panBy).toHaveBeenCalledTimes(1); // 只有正向一次，抛错不回滚
+    expect(warn.mock.calls.some((args) => String(args[0]).includes('spinth:edge-scroll'))).toBe(
+      true,
+    ); // 静默吞掉等于无诊断（二轮复审 P3）
+    warn.mockRestore();
     // 可重启：下一次 update（新手势/新帧）恢复正常
     s.replay.mockImplementation(() => true);
     svc.update(HOT_RIGHT, true);

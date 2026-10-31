@@ -296,9 +296,12 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
       ).__spinth.__debug.vmStates.filter((v) => String(v.type) === 'MIND_MAP').length,
   );
   expect(mapCount).toBe(2);
-  // 相对断言（对时间不变，无采样竞态）：松手后视口不再平移，新图根中心映射
-  // 屏幕 = 松手瞬间指针屏幕位（根节点相对图原点居中，布局容差 120 屏幕 px）。
-  // nodesDebug 只遍历焦点图（松手后 = 新图，单节点 = 被拖子节点）
+  // 相对断言（对时间不变，无采样竞态）：松手后新图根中心映射屏幕 ≈ 松手瞬间
+  // 指针屏幕位。120 容差同时吸收两项：① 根节点相对图原点居中的布局偏移；
+  // ② 松手后 followFocus 把越界新图拉回可视区的再平移（holdScreen 距右缘仅
+  // 12px，节点右缘越界 → 约几十 px）——有效余量 ~60px，挡「补偿失效」（数百
+  // px 量级）仍足够。nodesDebug 只遍历焦点图（松手后 = 新图，单节点 = 被拖
+  // 子节点）
   const landedScreen = await page.evaluate(() => {
     const w = (
       window as unknown as {
