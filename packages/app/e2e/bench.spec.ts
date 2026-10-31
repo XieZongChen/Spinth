@@ -134,7 +134,10 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   const idleP95 = pct(idle, 0.95);
 
   // 拖真件（prompt §2.3.3：拖拽起点必须命中控件——此前 (300,300) 空白区，
-  // rAF 照跑但无每帧重绘，帧率绿≠画面动）：探针取视口内 shape 换算屏幕中心；
+  // rAF 照跑但无每帧重绘，帧率绿≠画面动）：探针取视口内 shape 换算屏幕中心。
+  // 选靶必须避开 56px 边缘热区（specs/edge-auto-scroll：起点在热区内会触发
+  // 拖拽自动滚屏，平移视口 → 污染 culling 前后对比与帧率采样），取网格中部
+  //（列 5 行 3：屏幕 ≈(690,360)，全程拖拽路径离四边 >100px）；
   // 工作量三断言（renderCount 增量/位置落库/culling）是门禁，绝对 p95 只注记
   const target = await page.evaluate(() => {
     const w = (
@@ -150,7 +153,9 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
         };
       }
     ).__spinth;
-    const s = w.__debug.vmPositions.find((p) => p.id.startsWith('bs'))!;
+    const s = w.__debug.vmPositions.find(
+      (p) => p.id.startsWith('bs') && p.x > 600 && p.x < 800 && p.y > 300 && p.y < 450,
+    )!;
     const sc = w.viewport.viewportInstance.toScreen(s.x + 40, s.y + 30);
     return { id: s.id, wx: s.x, sx: sc.x, sy: sc.y + 44, rc: w.__debug.renderCount };
   });
