@@ -54,7 +54,9 @@ export class ImageVm extends BaseWidgetVm<ImageData & IRect> {
   }
 
   /** 纹理端口注入（组合根接线，onVmCreated$ 内同步完成——先于首帧 render）。
-   *  幂等：重复注入先 dispose 旧 controller（租约全数归还） */
+   *  当前仅在 VM 创建期注入一次；若未来支持重注入：须先 destroySprite 再
+   *  dispose 旧 controller——先释放租约会触发缓存归零/保活，新会话提交前
+   *  sprite 可能仍引用已销毁纹理（specs/texture-keepalive §6 重注入行） */
   setImageTextures(port: IImageTexturePort): void {
     this.loader?.dispose();
     this.loader = new ImageLoadController(port, this.hostCallbacks());

@@ -29,10 +29,10 @@ src = "spinth-asset:<sha256>"
 2. `ImageTextureCache`：同 assetId 只解码/建纹一次，多实例各持一份纹理租约
    （引用计数）；归零进入保活窗口（默认 5s / 空闲 8 条 / 估算显存 32MiB，
    超限按 LRU 逐出，specs/texture-keepalive），窗口内重新 acquire 直接复用
-   同一纹理，窗口结束或被预算逐出才 `texture.destroy(true)` 并归还 URL
-   租约——同图 N 实例 = 1 次解码、1 份 GPU 纹理、1 份 objectURL 计数；
-   `pagehide` 只清空闲条目（在租条目仍被 sprite 引用，销毁会破 bfcache
-   恢复画面），`dispose` 全量销毁。
+   同一纹理，窗口结束、预算逐出或生命周期结束（`dispose` 全量销毁 /
+   `pagehide` 只清空闲——在租条目仍被 sprite 引用，销毁会破 bfcache 恢复
+   画面）才 `texture.destroy(true)` 并归还 URL 租约——同图 N 实例 =
+   1 次解码、1 份 GPU 纹理、1 份 objectURL 计数。
 3. data URL / http 不共享（data URL 超长不可作 Map key；http 内容可变），
    每次加载独立建纹、释放即销毁。
 4. 切换 src 期间旧图保持显示（防闪烁）；新图提交或失败后才替换 sprite 与
