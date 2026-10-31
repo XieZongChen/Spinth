@@ -3,7 +3,7 @@ import type { Texture } from 'pixi.js';
 /** 保活预算：只约束空闲条目（在租纹理不受限——保活是回收策略，不是渲染准入） */
 export interface IImageKeepAliveBudget {
   /** 空闲窗口；0 = 关闭保活（release 即销毁）。负数/非有限由缓存构造侧
-   *  clampBudget 钳回默认——直传池的 windowMs 恒为非负，<=0 即 ===0 */
+   *  clampBudget 钳回默认——经缓存构造后传入池的 windowMs 恒为非负，<=0 即 ===0 */
   windowMs: number;
   /** 空闲条目数上限 */
   maxEntries: number;
