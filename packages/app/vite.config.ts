@@ -72,13 +72,25 @@ export default defineConfig({
   },
   plugins: [react(), tailwindcss(), cspInject()],
   resolve: {
-    alias: {
-      '@spinth/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
-      '@spinth/react': fileURLToPath(new URL('../react/src/index.ts', import.meta.url)),
-    },
+    // 数组 + regex 精确匹配：`@spinth/core/dev` 必须先于根 alias，否则被
+    // 前缀匹配到 index.ts（specs/runtime-narrowing §3.9 F3）
+    alias: [
+      {
+        find: /^@spinth\/core\/dev$/,
+        replacement: fileURLToPath(new URL('../core/src/dev.ts', import.meta.url)),
+      },
+      {
+        find: /^@spinth\/core$/,
+        replacement: fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      },
+      {
+        find: /^@spinth\/react$/,
+        replacement: fileURLToPath(new URL('../react/src/index.ts', import.meta.url)),
+      },
+    ],
   },
   optimizeDeps: {
-    exclude: ['@spinth/core', '@spinth/react'],
+    exclude: ['@spinth/core', '@spinth/core/dev', '@spinth/react'],
   },
   build: {
     // Batch 2 · 分包（2026-10-18 审查 6.2）：1.41MB 主 chunk 拆三层 vendor——
