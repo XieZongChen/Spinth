@@ -7,6 +7,9 @@
 import './common/zodRuntime';
 
 export { BoardSDK } from './app';
+// 运行时收窄过渡（specs/runtime-narrowing S2）：createBoard 返回冻结投影，
+// BoardSDK 导出在 S5 宿主切换后移除
+export { createBoard } from './createBoard';
 export type { IBoardConfig } from './boardConfig';
 
 // 多选几何命令（docs/05 §7）
