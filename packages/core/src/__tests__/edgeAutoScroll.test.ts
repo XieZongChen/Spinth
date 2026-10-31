@@ -253,4 +253,25 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     expect(s.panBy).not.toHaveBeenCalled();
     svc.dispose();
   });
+
+  it('T20b replay 抛错 → 兜底停滚（不卡 scrolling）且 update 可重启', () => {
+    const s = createViewportStub();
+    const clock = new FakeClock();
+    const svc = new EdgeAutoScrollService(s.viewport, clock);
+    s.replay.mockImplementation(() => {
+      throw new Error('pipeline boom');
+    });
+    svc.update(HOT_RIGHT, true);
+    expect(() => clock.advance(16.7)).not.toThrow(); // rAF 回调不得向外抛
+    expect(svc.scrolling).toBe(false); // 未卡死在 scrolling=true
+    expect(clock.pending.size).toBe(0);
+    expect(s.panBy).toHaveBeenCalledTimes(1); // 只有正向一次，抛错不回滚
+    // 可重启：下一次 update（新手势/新帧）恢复正常
+    s.replay.mockImplementation(() => true);
+    svc.update(HOT_RIGHT, true);
+    expect(svc.scrolling).toBe(true);
+    clock.advance(16.7);
+    expect(s.panBy).toHaveBeenCalledTimes(2);
+    svc.dispose();
+  });
 });

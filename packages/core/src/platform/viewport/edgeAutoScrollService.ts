@@ -92,11 +92,18 @@ export class EdgeAutoScrollService extends Disposable implements IEdgeAutoScroll
     const dx = (this.velocity.x * dt) / 1000;
     const dy = (this.velocity.y * dt) / 1000;
     if (dx || dy) {
-      this.viewport.panBy(dx, dy);
-      if (!this.viewport.replayLastPointerMove()) {
-        // S6 管线拒发（滚屏中途转只读/断网）：回滚本帧，避免画布空转、元素脱手
-        this.viewport.panBy(-dx, -dy);
-        return this.stop();
+      try {
+        this.viewport.panBy(dx, dy);
+        if (!this.viewport.replayLastPointerMove()) {
+          // S6 管线拒发（滚屏中途转只读/断网）：回滚本帧，避免画布空转、元素脱手
+          this.viewport.panBy(-dx, -dy);
+          return this.stop();
+        }
+      } catch {
+        // rAF 回调抛错会跳过帧尾预约：frameId 停在 null 而 scrolling 卡 true，
+        // 守卫将拒绝再次 start（一次手势内滚屏失效）——兜底停滚，update 可重启
+        this.stop();
+        return;
       }
     }
     // 重放路径内 update 可能已 stop（指针回中心/拖拽终止）——不再预约下一帧
