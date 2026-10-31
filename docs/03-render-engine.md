@@ -34,7 +34,7 @@ BoardApplication:
 ```
 
 - 每个 Vm 的 render 尾部、每个 Service 修改交互层视觉后显式调用 `markRender()`。
-- 不依赖装饰器魔法；调试时可用 `__spinth.__debug.renderCount` 观察是否多渲染。
+- 不依赖装饰器魔法；调试时可用 `__spinthDebug.__debug.renderCount` 观察是否多渲染。
 - 视口动画使用 pixi-viewport 内建 `animate`，不引入额外补间库。
 
 ## 4. 舞台分层

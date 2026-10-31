@@ -97,7 +97,7 @@ editStyleOf` 统一解析。
 ### C2 默认文字色主题化
 
 TEXT/LINE 没有 per-实例 `textColor` 时，默认色随主题切换：app 壳 theme state →
-`Board` theme prop → `BoardSDK.setTheme` → `setTextTheme` +
+`Board` theme prop → 门面 `setTheme`（公共投影）→ `setTextTheme` +
 `vmEngine.refreshAll()`。light/dark 两套色值放在
 `packages/core/src/platform/textEngine/theme.ts`；per-实例 override 优先。
 STICKY/SHAPE 的底色固定，文字默认色不参与主题化。

@@ -13,7 +13,7 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 1036 单测（core 947 + react 51 + app 38）、E2E 45 spec / 218 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+- [x] 1052 单测（core 963 + react 51 + app 38）、E2E 46 spec / 222 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
 当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
 
@@ -104,17 +104,230 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 #### 1.4 运行时收窄
 
-- [ ] 公开面从类型 allowlist 变为运行时 allowlist：宿主拿到的实例只含
-      `BOARD_PUBLIC_MEMBERS`；internal 字段不可枚举、不可读、不可调用。
-- [ ] 调试面分离：DEV/E2E 的内部探针收敛到 `__debug` 单一入口；生产构建不携带
-      调试面，`SPINTH_E2E` 构建保留只读探针。
-- [ ] 迁移现有 E2E `__debug` 探针与桩测：优先改用公开查询/命令；必须保留的内部
-      断言改走调试入口。
-- [ ] 1.0 前完成并作为公开 API 基线；1.0 后不再做破坏性收窄。
-- [ ] 测试：运行时 allowlist（未列成员不可见/不可调用）、生产构建探针不存在、
-      E2E 全量绿；`BoardPublicApi` 类型锁继续保留。
+- [x] 公开面从类型 allowlist 变为运行时 allowlist：`createBoard()` 唯一构造入口
+      返回 `BOARD_PUBLIC_MEMBERS` 冻结投影；internal 字段不可枚举、不可读、不可调用
+      （specs/runtime-narrowing §3.3/§3.4）。
+- [x] 调试面分离：DEV 下 `window.__spinth` = 公开投影、`window.__spinthDebug.__debug`
+      = 内部探针（四个不可枚举逃生口：engine/viewport/assetStore/
+      lastAssetMaintenance）；生产构建四标记字节级零残留（产物扫描
+      check-debug-bundle 接入 build），`SPINTH_E2E` 构建保留只读探针
+      （`__spinth` 公开子集 + `__spinthDebug.__debug.modelCount`）。
+- [x] 迁移现有 E2E 探针：内部断言改走 `__spinthDebug.__debug`；能换公开查询/
+      命令的已换（`toScreenPoint`/`persistState# 13 — 路线图与决策台账
+
+## 1. 当前基线
+
+已完成单机基线：
+
+- [x] Yjs 文档 + IndexedDB 双 store + undo/redo + compaction
+- [x] PIXI 画布、视口、按需渲染、空间索引、culling
+- [x] SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP
+- [x] 多选、编组、对齐/分布、旋转、参考线吸附
+- [x] 富文本编辑、排版 override、marks、橡皮分段擦除
+- [x] 本地资产库、图片 GC、失败回退、资产/图片生命周期（加载会话/纹理共享/保活窗口/重试/GC 分片）
+- [x] 390px 移动端工具菜单
+- [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
+      （docs/21 §4 只读可交互面矩阵）
+- [x] 1052 单测（core 963 + react 51 + app 38）、E2E 46 spec / 222 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+
+当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
+
+## 2. 阶段路线
+
+当前执行顺序固定为四段：
+
+| 阶段 | 主题          | 交付                                              |
+| ---- | ------------- | ------------------------------------------------- |
+| 1    | 发布前工程债  | 拆大文件、纹理保活、边缘自动滚屏、运行时收窄      |
+| 2    | 开源发布 v1.0 | 发布清仓、仓库公开、CI 实证、GitHub Pages、v1.0.0 |
+| 3    | 1.0 后        | 可访问性大项、平台人工验收、可选能力              |
+| 4    | 协同          | 最后评估；不进入默认启动路径                      |
+
+排序约束：
+
+- 运行时收窄是破坏性内部 API 变更，必须在 1.0 公开前完成；1.0 后只做兼容演进。
+- 拆大文件先行，降低后续三项的审查与回滚成本。
+- 纹理保活与边缘自动滚屏不改 Yjs 数据面，可独立提交、独立回退。
+- 开源发布要求代码面与仓库卫生稳定，排在工程债之后。
+- 协同依赖真实公开使用反馈，放最后；当前不建服务端、不改默认启动路径。
+
+### 阶段 1 — 发布前工程债
+
+阶段 1 内部顺序：拆大文件 → 纹理保活 → 边缘自动滚屏 → 运行时收窄。
+前三项已完成（specs/split-large-files、specs/texture-keepalive、
+specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针二次迁移。
+
+#### 1.1 拆大文件
+
+目标：非测试源码单文件 < 400 行；单测与 E2E 按文件/功能域拆分，不套用 400 行上限，也不机械卡行数。
+
+- [x] 核心源码（10 个 >400 行文件）：`lineMath` 拆为 geometry/route/path/handles
+      域模块 + 显式 barrel；`lineService` 抽 `LineDrawSession` + `lineHitTest`；
+      `dbProvider` 拆 `dbSchema`/`dbWriteQueue`/`dbMaintenance`；`viewportService`
+      拆 `viewportPointerInput`/`viewportZoom`；`selectorService` 抽
+      `selectorDragOps`；`boardComposition` 拆 5 个装配阶段 helper + 维护调度；
+      `textService` 拆 `textEditStyle`/`textCommit`；`lineVm` 拆
+      `lineVmText`/`lineVmHit`；`lineHoverOverlay` 抽 `lineHoverMath`；
+      `types/widget` 外移 ActionBar 契约至 `types/actionBar`（re-export 保持
+      import 路径）。
+- [x] 单测（5 个 >400 行文件）：拆为 lineGeometry/lineRoute/linePinned/linePath/
+      lineHandles/lineSchema、mindBuild/mindTool/mindEdit/mindSelect、dbProvider.store/
+      writeQueue/compaction/readonly、mindDragLegality/Text/Drop、
+      shapeInset/Height/VmRender + 3 个 `__tests__/helpers/` fixture。
+- [x] E2E spec（10 个 >400 行文件）：widgets→line*/pen/eraser 8 个、
+      mind→Tool/Layout/Select/NodeEdit 4 个、textEdit→Text/Shape/Style 3 个、
+      image→Create/Asset/Lifecycle 3 个、toolbar→Menu/Line 2 个、align→基础+
+      Anchor 2 个、group→Create/Ops 2 个、coverage→historyLayer/styleResize/
+      shortcuts 3 个、multiTab→Role/Readonly 2 个、rotate→基础+Anchor 2 个；
+      公共探针抽 `e2e/helpers/`（board/widget/mind/text/image + 各域 helper）。
+- 拆分纪律：只移动 + 改 import，不改断言/实现/默认值；每拆一个文件独立提交；
+  测试数与拆分前一致；`pnpm verify` 与相关 E2E 全绿。
+- E2E 拆分排在最后：按 spec 域逐文件提交，先拆 `widgets`/`mind`/`textEdit`，
+  不阻塞阶段 1 其余三项与阶段 2。
+- 方案与审查：[specs/split-large-files.md](../specs/split-large-files.md)。
+
+#### 1.2 纹理保活
+
+- [x] `ImageTextureCache` 引用归零后进入保活窗口（默认 5s，构造参数可配）；窗口内
+      重新 acquire 复用同一纹理，窗口结束仍为零引用才 `destroy(true)`。
+- [x] 双上限：保活条目数 + 估算显存；超限按 LRU 立即销毁。`dispose` 全量销毁；
+      页面 `pagehide` 只清**空闲**条目与保活定时器（在租条目保留，防 bfcache
+      恢复后画面破损）。
+- [x] 租约/GC 语义：保活条目继续持有 URL 租约并计入 GC 持活（窗口结束才归还），
+      GC 不误删仍可复用的资产。
+- [x] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose/pagehide 清理；
+      undo 恢复路径断言不重复 decode（注入计数）+ E2E uid 复用断言；pagehide
+      接线 E2E（清空闲/留在租）。
+- 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在空闲前/空闲中/到期后
+  平衡（1/1 → 1/1 → 0/0）。
+- 规格：docs/19 §3、specs/texture-keepalive（已实施）、specs/assets-lifecycle §3.2。
+
+#### 1.3 边缘自动滚屏
+
+- [x] 拖拽进入视口边缘热区时 rAF 平移 viewport，并按当前屏幕坐标重放 dragMove
+      补偿；速度按距边缘距离分档（docs/05 §4.5）。
+- [x] 停止条件：松手、Esc、指针离开窗口、切只读、进入文本编辑；停止时清 rAF。
+- [x] 覆盖画布控件拖拽与脑图节点拖拽（`isDragMoved` 同一滚屏服务）。
+- [x] 与参考线吸附、选区框、ActionBar 跟随、最后一帧落库一致；禁止增量累加。
+- [x] 测试：热区分档/速度曲线/停止条件/坐标补偿单测；E2E 拖到边缘后画布滚动且
+      落点正确。
+- 规格：specs/edge-auto-scroll（已实施）。
+- 验收：`pnpm verify` + E2E 全量绿；无 rAF 泄漏；一次拖拽只写一次 Yjs。
+- [ ] 手工验收五项待人工执行（specs/edge-auto-scroll §13.5）：四边四角多选/
+      编组手感、0.05x/4x 缩放、Esc/切工具/只读三种停滚、脑图大树跨屏拖影、
+      390px 触摸真机——机制路径已由单测/E2E 覆盖，此项为手感与真机确认。
+
+/`selected# 13 — 路线图与决策台账
+
+## 1. 当前基线
+
+已完成单机基线：
+
+- [x] Yjs 文档 + IndexedDB 双 store + undo/redo + compaction
+- [x] PIXI 画布、视口、按需渲染、空间索引、culling
+- [x] SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP
+- [x] 多选、编组、对齐/分布、旋转、参考线吸附
+- [x] 富文本编辑、排版 override、marks、橡皮分段擦除
+- [x] 本地资产库、图片 GC、失败回退、资产/图片生命周期（加载会话/纹理共享/保活窗口/重试/GC 分片）
+- [x] 390px 移动端工具菜单
+- [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
+      （docs/21 §4 只读可交互面矩阵）
+- [x] 1052 单测（core 963 + react 51 + app 38）、E2E 46 spec / 222 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+
+当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
+
+## 2. 阶段路线
+
+当前执行顺序固定为四段：
+
+| 阶段 | 主题          | 交付                                              |
+| ---- | ------------- | ------------------------------------------------- |
+| 1    | 发布前工程债  | 拆大文件、纹理保活、边缘自动滚屏、运行时收窄      |
+| 2    | 开源发布 v1.0 | 发布清仓、仓库公开、CI 实证、GitHub Pages、v1.0.0 |
+| 3    | 1.0 后        | 可访问性大项、平台人工验收、可选能力              |
+| 4    | 协同          | 最后评估；不进入默认启动路径                      |
+
+排序约束：
+
+- 运行时收窄是破坏性内部 API 变更，必须在 1.0 公开前完成；1.0 后只做兼容演进。
+- 拆大文件先行，降低后续三项的审查与回滚成本。
+- 纹理保活与边缘自动滚屏不改 Yjs 数据面，可独立提交、独立回退。
+- 开源发布要求代码面与仓库卫生稳定，排在工程债之后。
+- 协同依赖真实公开使用反馈，放最后；当前不建服务端、不改默认启动路径。
+
+### 阶段 1 — 发布前工程债
+
+阶段 1 内部顺序：拆大文件 → 纹理保活 → 边缘自动滚屏 → 运行时收窄。
+前三项已完成（specs/split-large-files、specs/texture-keepalive、
+specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针二次迁移。
+
+#### 1.1 拆大文件
+
+目标：非测试源码单文件 < 400 行；单测与 E2E 按文件/功能域拆分，不套用 400 行上限，也不机械卡行数。
+
+- [x] 核心源码（10 个 >400 行文件）：`lineMath` 拆为 geometry/route/path/handles
+      域模块 + 显式 barrel；`lineService` 抽 `LineDrawSession` + `lineHitTest`；
+      `dbProvider` 拆 `dbSchema`/`dbWriteQueue`/`dbMaintenance`；`viewportService`
+      拆 `viewportPointerInput`/`viewportZoom`；`selectorService` 抽
+      `selectorDragOps`；`boardComposition` 拆 5 个装配阶段 helper + 维护调度；
+      `textService` 拆 `textEditStyle`/`textCommit`；`lineVm` 拆
+      `lineVmText`/`lineVmHit`；`lineHoverOverlay` 抽 `lineHoverMath`；
+      `types/widget` 外移 ActionBar 契约至 `types/actionBar`（re-export 保持
+      import 路径）。
+- [x] 单测（5 个 >400 行文件）：拆为 lineGeometry/lineRoute/linePinned/linePath/
+      lineHandles/lineSchema、mindBuild/mindTool/mindEdit/mindSelect、dbProvider.store/
+      writeQueue/compaction/readonly、mindDragLegality/Text/Drop、
+      shapeInset/Height/VmRender + 3 个 `__tests__/helpers/` fixture。
+- [x] E2E spec（10 个 >400 行文件）：widgets→line*/pen/eraser 8 个、
+      mind→Tool/Layout/Select/NodeEdit 4 个、textEdit→Text/Shape/Style 3 个、
+      image→Create/Asset/Lifecycle 3 个、toolbar→Menu/Line 2 个、align→基础+
+      Anchor 2 个、group→Create/Ops 2 个、coverage→historyLayer/styleResize/
+      shortcuts 3 个、multiTab→Role/Readonly 2 个、rotate→基础+Anchor 2 个；
+      公共探针抽 `e2e/helpers/`（board/widget/mind/text/image + 各域 helper）。
+- 拆分纪律：只移动 + 改 import，不改断言/实现/默认值；每拆一个文件独立提交；
+  测试数与拆分前一致；`pnpm verify` 与相关 E2E 全绿。
+- E2E 拆分排在最后：按 spec 域逐文件提交，先拆 `widgets`/`mind`/`textEdit`，
+  不阻塞阶段 1 其余三项与阶段 2。
+- 方案与审查：[specs/split-large-files.md](../specs/split-large-files.md)。
+
+#### 1.2 纹理保活
+
+- [x] `ImageTextureCache` 引用归零后进入保活窗口（默认 5s，构造参数可配）；窗口内
+      重新 acquire 复用同一纹理，窗口结束仍为零引用才 `destroy(true)`。
+- [x] 双上限：保活条目数 + 估算显存；超限按 LRU 立即销毁。`dispose` 全量销毁；
+      页面 `pagehide` 只清**空闲**条目与保活定时器（在租条目保留，防 bfcache
+      恢复后画面破损）。
+- [x] 租约/GC 语义：保活条目继续持有 URL 租约并计入 GC 持活（窗口结束才归还），
+      GC 不误删仍可复用的资产。
+- [x] 测试：假定时器覆盖窗口内复用/窗口后销毁/超限逐出/dispose/pagehide 清理；
+      undo 恢复路径断言不重复 decode（注入计数）+ E2E uid 复用断言；pagehide
+      接线 E2E（清空闲/留在租）。
+- 验收：`pnpm verify`；无定时器泄漏；纹理与 URL 计数在空闲前/空闲中/到期后
+  平衡（1/1 → 1/1 → 0/0）。
+- 规格：docs/19 §3、specs/texture-keepalive（已实施）、specs/assets-lifecycle §3.2。
+
+#### 1.3 边缘自动滚屏
+
+- [x] 拖拽进入视口边缘热区时 rAF 平移 viewport，并按当前屏幕坐标重放 dragMove
+      补偿；速度按距边缘距离分档（docs/05 §4.5）。
+- [x] 停止条件：松手、Esc、指针离开窗口、切只读、进入文本编辑；停止时清 rAF。
+- [x] 覆盖画布控件拖拽与脑图节点拖拽（`isDragMoved` 同一滚屏服务）。
+- [x] 与参考线吸附、选区框、ActionBar 跟随、最后一帧落库一致；禁止增量累加。
+- [x] 测试：热区分档/速度曲线/停止条件/坐标补偿单测；E2E 拖到边缘后画布滚动且
+      落点正确。
+- 规格：specs/edge-auto-scroll（已实施）。
+- 验收：`pnpm verify` + E2E 全量绿；无 rAF 泄漏；一次拖拽只写一次 Yjs。
+- [ ] 手工验收五项待人工执行（specs/edge-auto-scroll §13.5）：四边四角多选/
+      编组手感、0.05x/4x 缩放、Esc/切工具/只读三种停滚、脑图大树跨屏拖影、
+      390px 触摸真机——机制路径已由单测/E2E 覆盖，此项为手感与真机确认。
+
+）。
+
+- [x] 1.0 前完成并作为公开 API 基线；1.0 后不再做破坏性收窄。
+- [x] 测试：运行时 allowlist（core 单测 + debugSurface.spec 3 例）、生产构建
+      探针不存在（扫描 + pwa P7 零探针）、E2E 全量绿；`BoardPublicApi` 类型锁继续保留。
 - 验收：`pnpm verify` + E2E 全量；宿主侧无 internal 字段可读。
-- 规格：specs/api-surface §1.2/A9、docs/12。
+- 规格：specs/runtime-narrowing（已实施）、specs/api-surface §1.2/A9、docs/12。
 
 ### 阶段 2 — 开源发布 v1.0
 
@@ -189,7 +402,7 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 ## 3. 决策与挂账
 
 - 阶段顺序：工程债 → 开源发布 → 1.0 后 → 协同；协同不进入当前版本默认路径。
-- 1.0 是首个公开 API 基线：运行时收窄在 1.0 前完成；1.0 后破坏性变更走主版本。
+- 1.0 是首个公开 API 基线：运行时公共面 = `createBoard()` 冻结投影 + DEV 调试入口（specs/runtime-narrowing）；1.0 后破坏性变更走主版本。
 - 纹理保活窗口期条目继续持有 URL 租约并计入 GC 持活（specs/texture-keepalive D1）；保活不让 GC 误删仍可复用的资产（docs/19 §3）。
 - 边缘自动滚屏只作用于拖拽，不改视口持久化；速度分档与停止条件按 docs/05 §4.5。
   本批只覆盖元素拖拽与脑图节点拖拽；**框选路径挂账到 1.0 发布后**（前置：marquee 自带

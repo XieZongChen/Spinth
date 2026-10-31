@@ -47,8 +47,9 @@ interface SpinthUiState {
 undo/redo、removeSelected、copy/cut/paste、图层、ActionBar 样式、脑图节点、对齐/分布。
 
 桥与命令模块经 `BoardPublicApi` 收窄消费（公共面 = allowlist + 编译期分类锁，
-`BOARD_PUBLIC_MEMBERS` 见 core 的 boardPublicApi.ts）：allowlist 漏成员时这两个
-模块先编译红——它们是公开面的真实验证面。
+`BOARD_PUBLIC_MEMBERS` 见 core 的 boardPublicApi.ts）；运行时同源：`createBoard()`
+返回该 allowlist 的冻结投影（内部字段不可枚举/不可读/不可调用，specs/runtime-narrowing）。
+allowlist 漏成员时这两个模块先编译红——它们是公开面的真实验证面。
 
 ## 3. DOM UI 与画布坐标同步
 
@@ -75,23 +76,23 @@ ActionBar / MindAddButtons：纯算术定位
 
 ## 4. 组件清单
 
-| 组件             | 职责                                                                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御）+ 主题注入；画布宿主语义（`role=application` + 白板描述 + 快捷键帮助文本 + canvas aria-hidden，specs/a11y-closeout §8）             |
-| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                                                                                                    |
-| `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数；roving 焦点（单 Tab 停靠，方向键在按钮间移动）                                                                                             |
-| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）                                                                                                                     |
-| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                   |
-| `ZoomControl`    | 缩放胶囊（−/百分比/＋）；三钮 aria-label（适应屏幕钮名称带当前百分比）                                                                                                                           |
-| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                                                                                                              |
-| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态）；面板 roving + 关闭回焦触发钮                                                   |
-| `Announcer`      | 唯一 polite live region（sr-only 常驻，role=status + aria-atomic）：store 六字段差分播报（加载完成/选中变化/工具切换/保存失败/只读切换），200ms 防抖合并；文案源在 `a11y/announcement.ts` 纯函数 |
-| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                                                                                                 |
-| `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                                                                                                   |
-| `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                                                                                                     |
-| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                                                                                                              |
-| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                                                                                                    |
-| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                                                                                                      |
+| 组件             | 职责                                                                                                                                                                                                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御；经 `createBoard()` 拿冻结公共投影，DEV 原子挂载 `__spinth` 公开投影与 `__spinthDebug.__debug` 调试面，生产构建剥离）+ 主题注入；画布宿主语义（`role=application` + 白板描述 + 快捷键帮助文本 + canvas aria-hidden，specs/a11y-closeout §8） |
+| `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                                                                                                                                                                                                            |
+| `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数；roving 焦点（单 Tab 停靠，方向键在按钮间移动）                                                                                                                                                                                                     |
+| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）                                                                                                                                                                                                                             |
+| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                                                                                                                           |
+| `ZoomControl`    | 缩放胶囊（−/百分比/＋）；三钮 aria-label（适应屏幕钮名称带当前百分比）                                                                                                                                                                                                                                   |
+| `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                                                                                                                                                                                                                      |
+| `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态）；面板 roving + 关闭回焦触发钮                                                                                                                                                           |
+| `Announcer`      | 唯一 polite live region（sr-only 常驻，role=status + aria-atomic）：store 六字段差分播报（加载完成/选中变化/工具切换/保存失败/只读切换），200ms 防抖合并；文案源在 `a11y/announcement.ts` 纯函数                                                                                                         |
+| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                                                                                                                                                                                                         |
+| `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                                                                                                                                                                                                           |
+| `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                                                                                                                                                                                                             |
+| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                                                                                                                                                                                                                      |
+| `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                                                                                                                                                                                                            |
+| `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                                                                                                                                                                                                              |
 
 Roving 焦点协议（specs/a11y-closeout §5）：纯函数 `a11y/rovingFocus.ts`（方向键步进/
 跳禁用/wrap）+ hook `a11y/useRovingFocus`（容器级 keydown/focusin，单 Tab 停靠）；
@@ -155,7 +156,7 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
   持久化只发生在用户显式切换；无保存偏好时跟随系统主题变化。
 - 画布底色与点阵由 DOM 承载（PIXI `backgroundAlpha: 0`）；换肤即 CSS 令牌切换。
 - core 默认文字色（TEXT/LINE 无 override）随主题：app theme state → Board theme prop →
-  `BoardSDK.setTheme` → `setTextTheme + vmEngine.refreshAll()`。
+  门面 `setTheme`（公共投影）→ `setTextTheme + vmEngine.refreshAll()`。
 - 字体：Nunito Variable（@fontsource，离线可用）；CJK 回退系统字。
 - `@source '../../react/src'` 必须保留：react 源码直引不经 node_modules，
   缺此行组件全部丢样式。

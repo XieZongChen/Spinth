@@ -6,7 +6,8 @@
 
 单机阶段没有跨标签实时同步（docs/02 §10）：follower 显示的是它打开时的快照；接管 =
 整页刷新后以 leader 身份重载最新落盘状态。角色在应用壳（`packages/app`）取得，SDK 只
-消费 `editable`；绕过 app 壳直接 `new BoardSDK()` 的宿主没有多标签保护（已知边界）。
+消费 `editable`；宿主一律经 `createBoard()` 公共投影接入，多标签保护由 app 壳的
+TabSessionService 承担（包入口无 BoardSDK 类）。
 
 ## 2. 角色与锁
 
@@ -132,7 +133,7 @@ UI：顶栏只读徽标（`data-spinth-readonly-pill`，按角色区分提示文
 - E2E：`packages/app/e2e/multiTabRole.spec.ts` + `multiTabReadonly.spec.ts`（同 context 双 page：leader/follower、接管、
   只读不写盘、不同 docId 并行、无锁降级、只读视图操作、390px、手动刷新、只读标签
   不跑资产维护链、只读标签双击 missing 图可重试、只读右键降级——
-  `lastAssetMaintenance`/`selected$`/`__debug` 探针）；
+  `__spinthDebug.__debug.lastAssetMaintenance`/`selected$` 探针）；
   `smoke.spec.ts` 1.22（运行时降级收口：徽标/三键禁用/选区清除/降级后工具复位；
   只读态宿主直调写工具被钳回 cursor）。
 - 单测（react）：`packages/react/src/__tests__/readonlyGate.test.tsx`（工具坞三键只读

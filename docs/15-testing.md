@@ -31,7 +31,10 @@
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
   24 下限、intersects、noDocHScroll；断言只用 `data-spinth-*` 标记，坐标从 canvas
-  box / `__spinth` 探针推导）。
+  box / `__spinth`·`__spinthDebug` 探针推导）。
+- 运行时公共面/调试面：debugSurface.spec 3 例（`__spinth` = 65 成员冻结投影、
+  内部字段不可见不可写、方法绑定与身份稳定、`__spinthDebug.__debug` 快照与逃生口）
+  - pwa P7（无 `?e2e=1` 时两全局零探针且画布可编辑；specs/runtime-narrowing §6.2）。
 - 单机断网不变量：core `networkService`（默认离线不阻断/blockOnOffline 三态翻转/
   构造即离线/dispose 摘监听）+ smoke 断网 E2E（断言 `navigator.onLine===false` 前置
   → 创建/撤销/落盘照常 → OfflineBar 与只读 pill 均 0；断网中不 reload）。
@@ -72,7 +75,7 @@
 
 ## 3. 断言纪律
 
-- 数据探针优先：断言 `window.__spinth.__debug` 或 SDK 状态，不靠截图代替数据。
+- 数据探针优先：断言 `window.__spinthDebug.__debug`（DEV 调试入口）或公开查询，不靠截图代替数据。
 - E2E 坐标从探针世界坐标反推屏幕坐标（加画布偏移与顶栏 44px），禁手写屏幕数字。
 - 修过一次的编排 bug 必须留下桩测试；新护栏做区分验证（旧实现跑新用例应红）。
 - 单测不依赖真实网络、真实计时器、真实浏览器下载；E2E 不依赖未跟踪 actuals。

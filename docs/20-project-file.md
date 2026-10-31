@@ -294,7 +294,7 @@ exportProject(opts?: IProjectExportOptions): Promise<IProjectExportResult>;
 importProject(file: Blob, opts?: IProjectImportOptions): Promise<IProjectImportResult>;
 ```
 
-- `BoardSDK` 只做门面委托（boardProject.ts）；`projectFile` 不在 `BoardPublicApi`
+- 门面委托在内部类 `BoardSDK`（boardProject.ts；类不导出，宿主经 `createBoard()` 公共投影调用）；`projectFile` 不在 `BoardPublicApi`
   allowlist（服务字段归 internal，分类锁见 boardPublicApi.ts），并在 `dispose()` 中
   `projectFile?.dispose()`。
 - `spinthCommands` 增加同名薄转发；board 未绑定时返回 `null`（沿用现有命令的空操作语义）。

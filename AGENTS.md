@@ -153,14 +153,23 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 复审返工补齐回归测试与异常兜底、抽 `selectorMarquee.ts`（selectorService
 386 行）；手工验收五项待人工（specs/edge-auto-scroll §13.5）。
 
-当前实测基线：`pnpm verify` 通过；1036 单测（core 947 + react 51 + app 38）；
-E2E 45 spec / 218 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；pwa 6/6 + dev 不注册 1）。
+运行时收窄已落地（specs/runtime-narrowing，S1–S7 全量）：`createBoard()` 唯一
+公开构造入口返回 `BOARD_PUBLIC_MEMBERS` 65 成员冻结投影（内部字段不可枚举、
+不可读、不可调用；`BoardSDK` 不再导出）；DEV 双句柄 `window.__spinth` = 公开
+投影、`window.__spinthDebug.__debug` = 内部探针（engine/viewport/assetStore/
+lastAssetMaintenance 四个不可枚举逃生口，经 `@spinth/core/dev` 动态入口、原子
+曝光、按身份卸载）；生产构建 `__spinth`/`__spinthDebug`/`__debug`/
+`spinth:core-dev-debug` 四标记字节级零残留（check-debug-bundle 接入 build，
+负向注入验证真跑），`SPINTH_E2E=1` 构建保留只读探针（公开子集 + modelCount）；
+E2E 探针路径全量迁移 `__spinthDebug.__debug`，公开化 `toScreenPoint`/
+`persistState$`/`selected$`，新增 debugSurface.spec 与 pwa P7 零探针用例。
 
-下一阶段顺序：发布前工程债余项（拆大文件、纹理保活、边缘自动滚屏已完成，
-specs/split-large-files、specs/texture-keepalive、specs/edge-auto-scroll；
-仅剩运行时收窄）
-→ 开源发布 v1.0（发布清仓、仓库公开、CI 实证、GitHub Pages）
+当前实测基线：`pnpm verify` 通过；1052 单测（core 963 + react 51 + app 38）；
+E2E 46 spec / 222 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；debugSurface 3/3；pwa 7/7 含
+P7 零探针 + dev 不注册 1）。
+
+下一阶段顺序：开源发布 v1.0（发布清仓、仓库公开、CI 实证、GitHub Pages）
 → 1.0 后可访问性与平台遗留；协同最后（docs/10，不进入默认启动路径）。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 待人工项（iOS/Android 真机添加到主屏幕的启动

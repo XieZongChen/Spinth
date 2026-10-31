@@ -105,7 +105,7 @@ descriptor（控件侧声明）→ EditingService.begin → 内核 attach
 editStyleOf` 统一「model override → 控件常量默认」。
 - 主题化默认色：`platform/textEngine/theme.ts`（light/dark 两套）；per-实例
   `textColor` 优先；STICKY/SHAPE 文字不主题化（底色固定）。
-  切换经 `BoardSDK.setTheme` → `vmEngine.refreshAll()`。
+  切换经门面 `setTheme`（`createBoard()` 公共投影）→ `vmEngine.refreshAll()`。
 - ActionBar 排版项（字号/对齐/文字色/行高）与改档高度重排见 docs/17 §4。
 
 ## 8. 实现边界

@@ -1,6 +1,6 @@
 # 运行时收窄 — 技术设计与实施规格
 
-> 状态：**设计定稿（待实施）**。范围：[docs/13 §1.4](../docs/13-roadmap.md)（阶段 1 最后一项）。
+> 状态：**已实施（S1–S7 全量落地，见 §13 实施记录）**。范围：[docs/13 §1.4](../docs/13-roadmap.md)（阶段 1 最后一项）。
 > 关联：[specs/api-surface.md](api-surface.md)（类型层收口）。本文只做设计与审查，
 > 实施按 §5 的步骤由实施方执行；每一处「现状」都以当前代码为准。
 
@@ -791,3 +791,37 @@ grep -rn "@spinth/core/dev" packages/react/src packages/app/src                 
 - 禁止把 `@spinth/core/dev` 静态 import 进生产路径。
 - 禁止用 `--no-verify` 绕过门禁。
 - 禁止把本设计文档的实施流水账写进 `docs/`。
+
+## 13. 实施记录（specs 允许过程文档）
+
+S1–S7 按 §5 顺序各一笔提交（2ca12a8 / c3f655d / 76887d8 / 870c902 / 0b78315 /
+59a019d / 本笔），每笔 `pnpm verify` 全绿后推送；S5 为原子提交（55 文件）。
+
+与设计的偏差（均按代码现实处理，不改语义）：
+
+- `BoardInternalMember` 实为 40 项（§2.1 写 39），删 `'__debug'` 后 39 项。
+- §3.8 表的「20 处内部字段」为设计期快照；实改含探索漏计的 4 处——
+  `bench.spec.ts` `__spinth!.engine`、`a11yKeyboard.spec.ts` `selector.selected$`
+  （改公开 `selected$`）、`imageLifecycle.spec.ts` `assetStore.put`/`engine.yWidgets`
+  ×2、`smoke.spec.ts`/`multiTabReadonly.spec.ts` `viewport.worldToClient` ×3，
+  合计 29 处全部迁移，grep 清零。
+- §3.6 样例里句柄清理（按身份 `delete window.__spinth`）在 DEV 常量分支**外**，
+  生产产物会残留 `__spinth` 字符串（实测 2 处）——S6 把清理收进 DEV 分支后
+  四标记清零成立；这是 §3.6 与 §3.9 的一处内在矛盾，以扫描断言为准修正。
+
+负向验证（§9.3，均真跑）：
+
+1. 公共面写入：`Object.defineProperty(冻结投影, …)` 抛 TypeError——由
+   debugSurface.spec 固化（evaluate 序列化后不保证严格模式，故用 defineProperty
+   而非赋值语句）。
+2. 生产注入：main.tsx 临时挂 `__spinthDebug` → `pnpm build` 退出 1 并报
+   `assets/index-*.js: 残留调试面（__spinth=0 __spinthDebug=1 __debug=1）`；
+   恢复后绿。
+3. E2E 探针：e2eProbe 的 `__spinthDebug.__debug.modelCount` 临时改返
+   undefined → pwa P2 红（modelCount 断言）；恢复后绿。
+4. 多实例：StrictMode 双挂载由全套主配置 E2E 覆盖（刷新/换页全绿）。
+
+实测数字（2026-11-01）：1052 单测（core 963 + react 51 + app 38）；
+coverage 68.42/60.99/58.93/70.34（阈值 66/58/57/68）；E2E 46 spec / 222 用例
+（主配置 215 + pwa 7 含 P7）；普通构建四标记 0 处、E2E 构建三探针在位 +
+入口标记 0（check-debug-bundle 双模式通过）。
