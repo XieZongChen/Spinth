@@ -47,9 +47,9 @@ describe('edgeScrollMath 纯数学（specs/edge-auto-scroll T1-T10）', () => {
     // 跨档跳变核验：档位只有三档值，不出现中间值
     const seen = new Set<number>();
     for (let d = 0; d <= 55; d += 1) seen.add(edgeScrollAxisVelocity(d, SIZE.width));
-    expect([...seen].every((v) => (EDGE_SCROLL_TIERS_PX_PER_S as readonly number[]).includes(v))).toBe(
-      true,
-    );
+    expect(
+      [...seen].every((v) => (EDGE_SCROLL_TIERS_PX_PER_S as readonly number[]).includes(v)),
+    ).toBe(true);
   });
 
   it('T6 直角区两轴同时非 0（不做矢量归一化）', () => {
@@ -71,7 +71,10 @@ describe('edgeScrollMath 纯数学（specs/edge-auto-scroll T1-T10）', () => {
 
   it('T8 extent ≤ 0（未布局）→ 两轴 0', () => {
     expect(resolveEdgeScroll({ x: 0, y: 0 }, { width: 0, height: 0 })).toEqual({ x: 0, y: 0 });
-    expect(resolveEdgeScroll({ x: 500, y: 400 }, { width: -10, height: 800 })).toEqual({ x: 0, y: 0 });
+    expect(resolveEdgeScroll({ x: 500, y: 400 }, { width: -10, height: 800 })).toEqual({
+      x: 0,
+      y: 0,
+    });
   });
 
   it('T9 clampFrameDt：负归 0、超限钳 50、正常值直通', () => {
