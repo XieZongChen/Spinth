@@ -85,7 +85,8 @@ export interface IViewportService {
   getPageBounds(): IRect;
   /** 画布可视区尺寸（CSS 像素；焦点跟随等屏幕空间计算的边界输入） */
   getClientSize(): { width: number; height: number };
-  /** 视口平移（屏幕像素，正 = 视口右/下移 → 内容左/上移）——程序化平移入口 */
+  /** 视口平移（屏幕像素，正 = 内容右/下移 = 露出左侧/上方世界——pixi-viewport
+   *  position 直加，注释曾与实现相反，specs/edge-auto-scroll §2.3-① 核实改写） */
   panBy(dx: number, dy: number): void;
 
   /** immediate = 跳过 200ms 动画精确设置（zoom100 专用——AnimatePlugin 收敛式
@@ -94,6 +95,20 @@ export interface IViewportService {
   zoomIn(): void;
   zoomOut(): void;
   zoomToFit(padding?: number): void;
+}
+
+/** @internal 边缘自动滚屏（specs/edge-auto-scroll，docs/05 §4.5）：拖拽进入
+ *  视口边缘热区时按帧平移视口并重放最后一次 move 补偿。仅组合根装配，
+ *  selector 在拖拽 move/up/cancel 处上报，不进公开 API */
+export interface IEdgeAutoScrollService {
+  /** 拖拽中指针 move 上报。dragging=false（未过阻尼/非拖拽）→ 立即停止。
+   *  幂等：同一 (screen, dragging) 重复调用不改变行为（重放路径会重复调用） */
+  update(screen: IPoint, dragging: boolean): void;
+  /** 停 rAF、清速度、摘 pointerleave 监听。可重复调用 */
+  stop(): void;
+  /** 是否在滚屏（单测断言用；E2E 优先看 vpBounds$） */
+  readonly scrolling: boolean;
+  dispose(): void;
 }
 
 export interface IDataEngineService {
@@ -170,6 +185,9 @@ export interface IMindDragDelegate {
   /** 框选节点级命中（4.9）：框中根本体 = 整图（焦点回根）；框中子节点 bbox =
    *  节点级选中（既有设计 MIND_NODE 参与 hitTestRect）。选中集仍由 selector 管理 */
   focusFromMarquee?(rect: IRect, mapId: string): void;
+  /** 节点拖拽是否已越过判拖阈值（边缘自动滚屏的启用条件；缺省视为未拖起，
+   *  按下即滚屏会把世界坐标推过阈值造成「没动鼠标却开始拖拽」） */
+  readonly isDragMoved?: boolean;
   readonly isDragging: boolean;
 }
 

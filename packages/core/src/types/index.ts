@@ -4,6 +4,7 @@ export type {
   IPointerHandlers,
   IPointerEventInfo,
   IViewportService,
+  IEdgeAutoScrollService,
   IDataEngineService,
   IVmEngineService,
   ISelectorService,
