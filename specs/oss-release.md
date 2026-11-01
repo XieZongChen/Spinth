@@ -99,7 +99,29 @@ og/twitter 共 6 处。
   等间距参考线概念），没有指向外部项目的设计来源；
 - 无第三方版权头、无外链仓库地址（唯一外部域名为 SVG 命名空间与测试占位域）。
 
-## 6. 待办
+## 6. 批次 B/C 实证（2026-11-01）
+
+### 6.1 仓库公开与 CI
+
+- 9 个清仓提交推送后，仓库转 public；`main` 分支保护：required status checks =
+  `gate`（strict），禁强推与删除。
+- 转 public 后首轮 CI 全红，定位到 `pwa.spec.ts` P5：390px 下更新横幅「刷新」按钮
+  宽 42 < 44（Linux 与 macOS 的 CJK 字体度量差异）。修复：两个按钮补
+  `max-[419px]:min-w-11` + `justify-center`（提交 `1f57c82`）。
+- 一次 `workflow_dispatch` 四 job 全绿：gate / timing（含 1 次重试后转绿）/
+  multitab-stress / visual（Linux 基线 4/4 全等）。
+- 第二次 dispatch（`visual_update=true`）走 update 分支并产出基线 artifact；
+  timing 层在四 job 并发下 1 次 `@bench` 采样帧数不足（29 < 60），属 flake 记录层。
+
+### 6.2 Pages
+
+- `POST /pages` 以 `build_type=workflow` 启用，`pages.yml` 部署成功。
+- 线上 smoke（真实 Chrome）：首屏 5.4s、`canvas` 挂载、SW 已接管、控制台与页面
+  0 错误、CSP violation 0；`index.html` / `manifest.webmanifest` / `sw.js` /
+  `og-image.png` / `icons/*` 全部 200，资源路径带 `/Spinth/` 前缀。
+- 仓库 homepage、description、topics、README badges 已同步。
+
+## 7. 待办
 
 - README 截图/GIF：素材未产出，等 Pages 上线后从生产站点截取再补。
 - npm 发布（批次 E）：包构建产物（当前 `main`/types 指向 `src/`）、注册

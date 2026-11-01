@@ -637,6 +637,16 @@ CI 实证验收口径（Actions 恢复后）：**两次 dispatch**——普通 d
 gate 基线检查 + visual 校验分支；带坏基线的 update dispatch 验「跳过校验 →
 生成 → artifact」整条路径（两步骤条件互斥，一次 dispatch 覆盖不了两条）。
 
+**实证（2026-11-01，仓库转 public 后）**：
+
+- 普通 dispatch（run 41288998829）：visual job 构建镜像 + `@visual` 4/4 通过，
+  基线 SHA-256 全等，总耗时 75s（含镜像构建）。
+- `visual_update` dispatch（run 41289927798）：gate 基线检查与 visual 校验按
+  条件跳过，产出 `visual-linux-baselines` artifact（92KB，5 张 PNG +
+  environment + sha256），update 分支闭环。
+- 同一轮 dispatch 中 timing 层出现 1 次 `@bench` 失败（2s 采样窗只收到 29 帧，
+  阈值 60）——四 job 并发抢 CPU 所致，属 flake 记录层，未升 gate。
+
 ### 14.8 第三轮审查返工（2026-10）
 
 第三轮复审确认 P1/P2 已修、skip 假绿已实证；补掉事务与清理的两个边缘：

@@ -4,6 +4,8 @@
 
 [English](./README.md) · [简体中文](./README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE) [![Demo](https://img.shields.io/badge/demo-live-8f7dff)](https://xiezongchen.github.io/Spinth/)
+
 spinth 是一块无限画布：形状、文本、便签、图片、自由画笔、连线和思维导图都在这里。
 文档、撤销历史和图片资产全部保存在浏览器本地（IndexedDB）——不需要账号、不连服务端、
 没有任何埋点。

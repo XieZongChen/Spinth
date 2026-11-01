@@ -4,6 +4,8 @@
 
 [English](./README.md) · [简体中文](./README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE) [![Demo](https://img.shields.io/badge/demo-live-8f7dff)](https://xiezongchen.github.io/Spinth/)
+
 Spinth is an infinite canvas for shapes, text, sticky notes, images, freehand drawing,
 connectors and mind maps. Documents, undo history and image assets live in the browser
 (IndexedDB): there is no account, no server and no telemetry.

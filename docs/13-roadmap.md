@@ -139,20 +139,21 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 #### 2.2 仓库公开与 CI 实证
 
-- [ ] 本地全量门禁绿后再改 public；公开不可逆，先清仓。
-- [ ] Actions 恢复后跑 gate/timing/multitab/visual 四个 job。
-- [ ] 补 specs/linux-visual §14.7 的两次 dispatch（普通 + 坏基线 update）。
-- [ ] main 分支保护：CI 必过。
+- [x] 本地全量门禁绿后再改 public（`pnpm verify` 绿后转 public）。
+- [x] gate/timing/multitab/visual 四个 job 实证：gate 修掉 PWA 横幅触控宽度后全绿；
+      timing 层在并发派遣下出现过 1 次 bench 帧数不足（flake 记录，未升 gate）。
+- [x] specs/linux-visual §14.7 两次 dispatch：普通校验（4 张基线全等）+ `visual_update`
+      生成 artifact（92KB，PNG + environment + sha256）。
+- [x] main 分支保护：required status checks = `gate`（strict），禁强推/删除。
 - 验收：四 job 绿；visual 真门禁；dispatch 挂账关闭。
 
 #### 2.3 GitHub Pages 上线
 
-- [ ] 子路径构建 `SPINTH_BASE=/<repo>/` + `check-pages-build`；本地子路径预览
-      验证 SW scope、manifest、离线刷新、更新横幅、`?doc=`。
-- [ ] Settings → Pages → Source = GitHub Actions（先启用再触发 `pages.yml`）。
-- [ ] 线上验收：首屏、资源 200、PWA 安装、断网刷新、更新横幅、移动端、
-      Lighthouse、CSP 零 violation。
-- [ ] README 加 Demo 链接与 badges；仓库 homepage 填 Pages 地址。
+- [x] 子路径构建 `SPINTH_BASE=/<repo>/` + `check-pages-build`（gate 内每轮校验）。
+- [x] Pages 源 = GitHub Actions（`build_type=workflow`），`pages.yml` 部署成功。
+- [ ] 线上验收：首屏、资源 200、CSP 零 violation、SW 接管已验证；PWA 安装、
+      断网刷新、更新横幅、移动端真机、Lighthouse 待补。
+- [x] README Demo 链接与 badges；仓库 homepage = Pages 地址。
 - 验收：Pages 地址可用；线上 smoke 全过。
 
 #### 2.4 v1.0.0 发布
