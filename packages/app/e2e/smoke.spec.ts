@@ -61,20 +61,18 @@ test('创建 → 拖拽 → undo → 刷新恢复', async ({ page }) => {
   //    toScreen 是 canvas 局部坐标，page.mouse 用页坐标——必须补顶栏 44px，
   //    否则落点偏进选中态 ActionBar 浮层区域被其拦截（2尾-3 落地后实测揪出）
   const center = await page.evaluate(() => {
-    const d = (
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
       window as unknown as {
-        __spinthDebug: {
-          __debug: {
-            vmPositions: Array<{ x: number; y: number }>;
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
-          };
-        };
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
       }
-    ).__spinthDebug.__debug;
-    const p = d.vmPositions[0]!;
-    const s = d.viewport.viewportInstance.toScreen(p.x + 80, p.y + 60);
+    ).__spinth;
+    const p = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmPositions: Array<{ x: number; y: number }> } };
+      }
+    ).__spinthDebug.__debug.vmPositions[0]!;
+    const s = pub.toScreenPoint({ x: p.x + 80, y: p.y + 60 });
     return { x: Math.round(s.x), y: Math.round(s.y + 44) };
   });
   await page.mouse.move(center.x, center.y);

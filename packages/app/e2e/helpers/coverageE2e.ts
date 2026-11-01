@@ -57,7 +57,7 @@ export async function probe(page: Page): Promise<VProbe> {
   });
 }
 
-/** 屏幕坐标换算（探针世界 → canvas 局部 + 顶栏 44） */
+/** 屏幕坐标换算（探针世界 → canvas 局部 + 顶栏 44）——公开查询 toScreenPoint */
 export async function worldToScreen(
   page: Page,
   x: number,
@@ -65,18 +65,11 @@ export async function worldToScreen(
 ): Promise<{ x: number; y: number }> {
   return page.evaluate(
     ([wx, wy]) => {
-      const d = (
+      const s = (
         window as unknown as {
-          __spinthDebug: {
-            __debug: {
-              viewport: {
-                viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-              };
-            };
-          };
+          __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
         }
-      ).__spinthDebug.__debug;
-      const s = d.viewport.viewportInstance.toScreen(wx, wy);
+      ).__spinth.toScreenPoint({ x: wx, y: wy });
       return { x: Math.round(s.x), y: Math.round(s.y + 44) };
     },
     [x, y],

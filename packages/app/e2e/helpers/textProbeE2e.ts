@@ -17,15 +17,18 @@ export async function textOf(page: Page, type: string): Promise<string | undefin
 
 export async function centerOf(page: Page, type: string): Promise<{ x: number; y: number }> {
   return page.evaluate((t) => {
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
+      window as unknown as {
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
+      }
+    ).__spinth;
     const d = (
       window as unknown as {
         __spinthDebug: {
           __debug: {
             vmStates: Array<Record<string, unknown>>;
             vmPositions: Array<{ x: number; y: number }>;
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
           };
         };
       }
@@ -35,7 +38,7 @@ export async function centerOf(page: Page, type: string): Promise<{ x: number; y
       d.vmStates.findIndex((s) => String(s.type) === t),
     );
     const p = d.vmPositions[i] ?? { x: 0, y: 0 };
-    const s = d.viewport.viewportInstance.toScreen(p.x, p.y + 20);
+    const s = pub.toScreenPoint({ x: p.x, y: p.y + 20 });
     return { x: Math.round(s.x), y: Math.round(s.y + 44) };
   }, type);
 }

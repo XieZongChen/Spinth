@@ -46,20 +46,18 @@ test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → �
   // anchor center 对齐断言（实测①的自动化验收）：编辑器框中心 ≈ 图形真中心
   //（±4px 容差；centerOf 的 +20 是点击近似，这里用 state 几何精确换算）
   const shapeCenter = await page.evaluate(() => {
-    const d = (
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
       window as unknown as {
-        __spinthDebug: {
-          __debug: {
-            vmStates: Array<Record<string, number>>;
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
-          };
-        };
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
       }
-    ).__spinthDebug.__debug;
-    const s = d.vmStates.find((v) => String(v.type) === 'SHAPE')!;
-    const p = d.viewport.viewportInstance.toScreen(s.x + s.width / 2, s.y + s.height / 2);
+    ).__spinth;
+    const s = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, number>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
+    const p = pub.toScreenPoint({ x: s.x + s.width / 2, y: s.y + s.height / 2 });
     return { x: p.x, y: p.y + 44 };
   });
   const box = (await editor.boundingBox())!;

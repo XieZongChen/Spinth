@@ -144,15 +144,18 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   //（列 5 行 3：屏幕 ≈(690,360)，全程拖拽路径离四边 >100px）；
   // 工作量三断言（renderCount 增量/位置落库/culling）是门禁，绝对 p95 只注记
   const target = await page.evaluate(() => {
+    // 公开面（toScreenPoint）与调试面拆两个断言（specs/runtime-narrowing §3.8）
+    const pub = (
+      window as unknown as {
+        __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
+      }
+    ).__spinth;
     const d = (
       window as unknown as {
         __spinthDebug: {
           __debug: {
             vmPositions: Array<{ id: string; x: number; y: number }>;
             renderCount: number;
-            viewport: {
-              viewportInstance: { toScreen(x: number, y: number): { x: number; y: number } };
-            };
           };
         };
       }
@@ -160,7 +163,7 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
     const s = d.vmPositions.find(
       (p) => p.id.startsWith('bs') && p.x > 600 && p.x < 800 && p.y > 300 && p.y < 450,
     )!;
-    const sc = d.viewport.viewportInstance.toScreen(s.x + 40, s.y + 30);
+    const sc = pub.toScreenPoint({ x: s.x + 40, y: s.y + 30 });
     return { id: s.id, wx: s.x, sx: sc.x, sy: sc.y + 44, rc: d.renderCount };
   });
   const canvas = page.locator('canvas').first();
