@@ -15,7 +15,7 @@
       （docs/21 §4 只读可交互面矩阵）
 - [x] 1052 单测（core 963 + react 51 + app 38）、E2E 46 spec / 222 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
-当前版本 `1.0.0`（尚未打 tag），仓库尚未公开发布；1.0 是首个公开 API 基线。
+当前版本 `1.0.0`（已打 tag `v1.0.0`），仓库已开源；1.0 是首个公开 API 基线。
 
 ## 2. 阶段路线
 
@@ -151,15 +151,17 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 - [x] 子路径构建 `SPINTH_BASE=/<repo>/` + `check-pages-build`（gate 内每轮校验）。
 - [x] Pages 源 = GitHub Actions（`build_type=workflow`），`pages.yml` 部署成功。
-- [ ] 线上验收：首屏、资源 200、CSP 零 violation、SW 接管已验证；PWA 安装、
-      断网刷新、更新横幅、移动端真机、Lighthouse 待补。
+- [x] 线上验收（specs/oss-release §6.2/§8）：首屏、资源 200、CSP 零 violation、
+      SW 接管、断网刷新、更新横幅全链路、Lighthouse（desktop 全阈值达标）；
+      PWA 安装点击与移动端真机六项待人工（specs/oss-release §8.5）。
 - [x] README Demo 链接与 badges；仓库 homepage = Pages 地址。
 - 验收：Pages 地址可用；线上 smoke 全过。
 
 #### 2.4 v1.0.0 发布
 
-- [ ] 打 tag + GitHub Release；release notes 按用户价值写。
-- [ ] 同步 docs/13 与 AGENTS 基线；1.0.x 只修 bug。
+- [x] 打 tag `v1.0.0`（annotated，指向 1.0.0 功能提交）。
+- [ ] GitHub Release：release notes 按用户价值写（待建）。
+- [x] 同步 docs/13 与 AGENTS 基线；1.0.x 只修 bug。
 - 验收：Release 完整；后续破坏性变更走主版本。
 
 ### 阶段 3 — 1.0 后
@@ -238,3 +240,4 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 - npm 发布（1.0 打 tag 之后）：`@spinth/core`、`@spinth/react` 发到 public registry；
   前置是包构建产物（当前 `main` 指向 `src/`）、注册 `@spinth` scope，以及
   `yjs`/`pixi.js` 是否转 peer 依赖的取舍。
+- 版本策略（1.0 起）：1.0.x 只修 bug，破坏性变更走主版本。

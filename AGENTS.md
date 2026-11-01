@@ -169,9 +169,12 @@ E2E 46 spec / 222 用例全绿（视觉 4/4 双平台；图片/资产专项 12/1
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；debugSurface 3/3；pwa 7/7 含
 P7 零探针 + dev 不注册 1）。
 
-下一阶段顺序：开源发布 v1.0（发布清仓、仓库公开、CI 实证、GitHub Pages）
-→ 1.0 后可访问性与平台遗留；协同最后（docs/10，不进入默认启动路径）。
+发布状态：当前版本 `1.0.0` 已打 tag（`v1.0.0`），GitHub Release 待建；仓库
+public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
+check 为 `gate`。
+
+下一阶段：1.0 后可访问性与平台遗留 → 协同最后（docs/10，
+不进入默认启动路径）。
 可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
-specs/a11y-closeout §13.5；PWA 待人工项（iOS/Android 真机添加到主屏幕的启动
-形态与图标裁切）见 specs/pwa.md §14；Linux 视觉 CI 实证（Actions 恢复后
-普通 + update 两次 dispatch 补验）见 specs/linux-visual §14.7。
+specs/a11y-closeout §13.5；PWA 安装与移动端真机待人工项见 specs/pwa.md §14
+与 specs/oss-release.md §8.5。
