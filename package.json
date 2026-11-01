@@ -14,6 +14,8 @@
     "build": "pnpm --filter @spinth/app build",
     "preview": "pnpm --filter @spinth/app preview",
     "hygiene": "node scripts/check-hygiene.mjs",
+    "licenses": "node scripts/check-licenses.mjs",
+    "licenses:notices": "node scripts/gen-third-party-notices.mjs",
     "hygiene:staged": "node scripts/check-hygiene.mjs --staged",
     "prepare": "node scripts/install-git-hooks.mjs",
     "lint": "eslint .",
@@ -23,7 +25,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
-    "verify": "pnpm hygiene && pnpm lint && prettier --check . && pnpm typecheck && node scripts/check-visual-baselines.mjs && pnpm -r test && pnpm build",
+    "verify": "pnpm hygiene && pnpm lint && prettier --check . && pnpm typecheck && pnpm licenses && node scripts/gen-third-party-notices.mjs --check && node scripts/check-visual-baselines.mjs && pnpm -r test && pnpm build",
     "verify:log": "bash scripts/verify-log.sh",
     "test:e2e": "NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test && NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 playwright test --config playwright.pwa.config.ts",
     "visual:linux": "node scripts/visual-linux.mjs"
