@@ -118,7 +118,12 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
   it('单独修饰键 → true（不干扰组合键判定）', () => {
     for (const key of ['control', 'meta', 'alt', 'shift']) {
       expect(
-        shortcutGateAllows({ editableAtCapture: false, uiModalOpen: false, target: plainTarget, key }),
+        shortcutGateAllows({
+          editableAtCapture: false,
+          uiModalOpen: false,
+          target: plainTarget,
+          key,
+        }),
       ).toBe(true);
     }
   });

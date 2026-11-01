@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { probe } from './helpers/widgetProbeE2e';
 
 /**
  * 键盘协议 E2E（specs/a11y-closeout §5.8，批次 B W1）：菜单遍历/触发、
@@ -96,6 +97,73 @@ test('菜单期快捷键闸门：菜单开着按 Delete 不删选中（D3）', a
   // 闸门静默：选中与元素原样（不是「菜单背后的选中被删掉」）
   expect(await selectedIds(page)).toHaveLength(1);
   await expect(menu).toBeVisible();
+});
+
+// 宿主浮层闸门（specs/a11y-closeout §13.5-1）：与右键菜单同源并入 filter，
+// 面板根节点 data-spinth-ui-modal 标记 ⟺ 打开。点顶栏按钮本身会让建件残留的
+// 内联编辑器失焦落库——之后 Delete 静默的唯一来源就是浮层闸门（防假绿）。
+test('宿主浮层闸门：项目菜单开着 Delete/方向键全静默（§13.5-1）', async ({ page }) => {
+  await openBoard(page, `e2e-kb7-${Date.now()}`);
+  await drawShape(page);
+  expect(await selectedIds(page), '前置：建件后应有 1 个选中').toHaveLength(1);
+  await page.click('[data-spinth-project-menu]');
+  const pm = page.locator('[data-spinth-project-menu-panel]');
+  await expect(pm).toBeVisible();
+  const before = await probe(page);
+  expect(before.modelCount, '前置 modelCount 应为 1').toBe(1);
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(300);
+  const afterDelete = await probe(page);
+  expect(
+    afterDelete.modelCount,
+    `菜单开着 Delete 后 modelCount 应仍 1（实际 ${afterDelete.modelCount}）`,
+  ).toBe(1);
+  expect((await selectedIds(page)).length, 'Delete 后选中应仍为 1').toBe(1);
+  // 方向键同样静默：选中几何逐字段全等（闸门失效时会微移 1px）
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(200);
+  const afterArrow = await probe(page);
+  const f1 = afterDelete.selectionFrame!;
+  const f2 = afterArrow.selectionFrame!;
+  expect(f2.x, `ArrowRight 后 selectionFrame.x 应不变（${f1.x} → ${f2.x}）`).toBe(f1.x);
+  expect(f2.y, `ArrowRight 后 selectionFrame.y 应不变（${f1.y} → ${f2.y}）`).toBe(f1.y);
+  expect(f2.width, `ArrowRight 后 selectionFrame.width 应不变（${f1.width} → ${f2.width}）`).toBe(
+    f1.width,
+  );
+  expect(
+    f2.height,
+    `ArrowRight 后 selectionFrame.height 应不变（${f1.height} → ${f2.height}）`,
+  ).toBe(f1.height);
+  await page.keyboard.press('Escape');
+  await expect(pm).toBeHidden();
+});
+
+test('宿主浮层闸门：存储面板开着按 Delete 不删（§13.5-1）', async ({ page }) => {
+  await openBoard(page, `e2e-kb8-${Date.now()}`);
+  await drawShape(page);
+  await page.click('[data-spinth-storage-button]');
+  const sp = page.locator('#spinth-storage-panel');
+  await expect(sp).toBeVisible();
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(300);
+  const p = await probe(page);
+  expect(p.modelCount, `存储面板开着 Delete 后 modelCount 应仍 1（实际 ${p.modelCount}）`).toBe(1);
+  expect((await selectedIds(page)).length, 'Delete 后选中应仍为 1').toBe(1);
+  await page.keyboard.press('Escape');
+  await expect(sp).toBeHidden();
+});
+
+test('宿主浮层闸门不残留：面板关闭后 Delete 恢复删除（§13.5-1）', async ({ page }) => {
+  await openBoard(page, `e2e-kb9-${Date.now()}`);
+  await drawShape(page);
+  await page.click('[data-spinth-project-menu]');
+  const pm = page.locator('[data-spinth-project-menu-panel]');
+  await expect(pm).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(pm).toBeHidden();
+  await page.keyboard.press('Delete');
+  // 关面板后标记随条件渲染消失 → 闸门放行（防「恒 true」实现蒙混过关）
+  await expect.poll(async () => (await probe(page)).modelCount, { timeout: 3000 }).toBe(0);
 });
 
 test('Tab 序：8 次内达 stage；工具坞单停靠；ProjectMenu 方向键可达', async ({ page }) => {
