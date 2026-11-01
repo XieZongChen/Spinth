@@ -126,3 +126,66 @@ og/twitter 共 6 处。
 - README 截图/GIF：素材未产出，等 Pages 上线后从生产站点截取再补。
 - npm 发布（批次 E）：包构建产物（当前 `main`/types 指向 `src/`）、注册
   `@spinth` scope、`yjs`/`pixi.js` 是否转 peer 依赖。
+
+## 8. 线上验收记录（2026-11-01）
+
+> v1.0 收尾批次（任务 B）。首屏/资源 200/SW 接管/断网刷新/CSP 零 violation/
+> 390px 无横滚已在 §6.2 落账，本节不复验。真机项见 §8.5 挂账，不阻塞 1.0.0。
+
+### 8.1 PWA 安装前置（自动验证）
+
+- `manifest.webmanifest` 200：`name`/`short_name` 齐全、`display: standalone`、
+  `start_url: "."`（相对 manifest 解析为站点根）。
+- 图标三项全 200：192×192（any，约 10KB）、512×512（any，约 53KB）、
+  512×512（maskable，约 52KB）——满足安装前提（≥192 与 ≥512 any + maskable）。
+- SW：scope `https://xiezongchen.github.io/Spinth/`，activated 且控制页面；
+  注册参数 `updateViaCache: 'none'`（`packages/app/src/pwa/serviceWorker.ts`）。
+- Lighthouse 12 已移除 PWA 分类与 installability 审计
+  （`--only-audits=installable-manifest` 不存在），安装形态以人工为准。
+
+### 8.2 更新横幅（真实部署验证）
+
+部署载体 `46811d8`：Pages 构建此前不注入 `SPINTH_BUILD_TAG`，线上
+`data-spinth-build` 恒为空，且仅测试/文档类提交不改变产物字节——SW 无版本
+差，更新链路不可观测。该提交给 pages 构建注入短 sha 构建标记后，每次部署
+产生真实 SW 版本更替，版本标记成为可观测证据。
+
+| 步骤                                                 | 结果                                                                                                                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 旧 tab 持旧 SW（`data-spinth-build=""`），新部署上线 | 线上 JS 产物确认含新标记                                                                                                                                         |
+| 触发更新检测 `registration.update()`                 | updatefound → waiting → 横幅「新版本可用」出现（role=status）                                                                                                    |
+| 点「稍后」                                           | 横幅消失；sessionStorage `spinth.pwa.update-dismissed=1`；再触发 update 不回弹；waiting 保留                                                                     |
+| 新开 tab（新会话，dismissed 清除）                   | 横幅加载即现（返回访客：waiting 直接提示路径）                                                                                                                   |
+| 点「刷新」                                           | 单次整页刷新（navigation type=reload、单文档、会话标记跨刷新存续）；新 SW activated；旧 shell 缓存清除（仅剩新版本）；`data-spinth-build` = 部署短 sha；横幅消失 |
+| 他页（已 dismissed 的旧 tab）                        | 不自动刷新（specs/pwa D11），横幅被 dismissed 抑制                                                                                                               |
+
+触发方式说明：自动化浏览器的 tab 切换不派发真实 visibilitychange，更新检测
+由 `registration.update()` 直接发起——与应用 `checkForUpdate` 内部调用的
+同一 API；横幅出现证明 updatefound → waiting → available 接线完整。
+「稍后」为 sessionStorage 语义：本会话（含刷新）不再提示、新会话再次提示。
+
+### 8.3 390px 真机（待人工）
+
+设备与系统版本待补。清单：首屏顶栏 6 控件不裁切/工具坞在视口内/无横滚；
+触摸拖拽建件松手落库、撤销可回退；双指缩放以手指中心为锚点不漂移；软键盘
+不遮编辑框、失焦落库；工具坞二级菜单 portal 定位不越界可点；刘海与底部
+指示条不压工具坞。
+
+### 8.4 Lighthouse
+
+| 端                          | Performance | Accessibility | Best Practices | SEO |
+| --------------------------- | ----------- | ------------- | -------------- | --- |
+| desktop（阈值 90/95/95/90） | 98          | 100           | 100            | 100 |
+| mobile（只记录）            | 85          | 100           | 100            | 100 |
+
+- desktop 关键指标：LCP 1.0s / TBT 80ms / FCP 0.5s / CLS 0.001 / SI 1.0s。
+- mobile 拖分归因（不阻塞，优化单独立项）：pixi 画布引擎整包加载的 unused JS
+  约 385KB、CDN 长缓存策略提示约 570KB、LCP 2.9s / TBT 190ms——画布重型
+  应用的已知特性。
+
+### 8.5 人工挂账汇总
+
+- B1 桌面安装点击：地址栏安装图标 → standalone 窗口（无地址栏）→ 断网打开
+  仍可进入空画布。
+- B1 iOS Safari / Android Chrome 添加到主屏幕（与 specs/pwa §14 合并跟踪）。
+- B3 390px 真机六项（§8.3，与 specs/pwa §14 移动端部分合并跟踪）。
