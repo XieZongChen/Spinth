@@ -169,7 +169,7 @@ E2E 46 spec / 222 用例全绿（视觉 4/4 双平台；图片/资产专项 12/1
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；debugSurface 3/3；pwa 7/7 含
 P7 零探针 + dev 不注册 1）。
 
-发布状态：当前版本 `1.0.0` 已发布（tag `v1.0.0` + GitHub Release）；仓库
+发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
 check 为 `gate`。
 
