@@ -288,10 +288,13 @@ test('P6 多标签不互踩：A 点刷新只 reload A，B 转已就绪且仍可�
 test('P7 正常流量零探针：无 ?e2e=1 时两个全局均不挂载且画布可编辑', async ({ page }) => {
   const docId = docIdOf('p7');
   // 不带 &e2e=1：生产只读探针按 URL 精确挂载（§17.4 P2-4），正常流量零暴露。
-  // 就绪信号只能用 UI（canvas + 建件）——此时 window.__spinth 本就不存在，
-  // 不能拿探针当 waitForFunction 条件（specs/runtime-narrowing §3.7 形状）
+  // 就绪信号只能用 UI——此时 window.__spinth 本就不存在，不能拿探针当等待条件
+  // （specs/runtime-narrowing §3.7 形状）。空态提示出现 = !loading && editable
+  // && modelCount===0 三合一（角色已定 + docState synced + 画布可交互），先等它
+  // 再按键/点击，防慢 CI 下输入被加载遮罩吞掉
   await page.goto(`${BASE}?doc=${docId}`);
   await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(page.locator('[data-spinth-empty-hint]')).toBeVisible({ timeout: 10_000 });
   await page.keyboard.press('r');
   await page
     .locator('canvas')

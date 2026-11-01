@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
+import { debugOf } from './helpers/debugE2e';
 
 /**
  * 运行时公共面 / 调试面 E2E（specs/runtime-narrowing §6.2）：
@@ -75,30 +76,27 @@ test('公共面：方法绑定与身份稳定，命令生效', async ({ page }) 
 
 test('调试面：__spinthDebug.__debug 快照与逃生口在位', async ({ page }) => {
   await openBoardDoc(page, `e2e-debug-surface-dbg-${Date.now()}`);
-  const dbg = await page.evaluate(() => {
-    const w = window as unknown as {
-      __spinthDebug?: {
-        __debug?: {
-          modelCount: number;
-          engine: unknown;
-          assetStore: unknown;
-          viewport: unknown;
-        };
-      };
-    };
-    const d = w.__spinthDebug?.__debug;
+  // 快照字段走统一 helper（specs/runtime-narrowing §3.8-4 新用例优先用）
+  const snapshot = await debugOf<{ modelCount: number }>(page);
+  expect(snapshot).not.toBeNull();
+  expect(typeof snapshot!.modelCount).toBe('number');
+  // 逃生口是不可枚举 getter：序列化不保证带上——evaluate 内直读并只返回标量
+  const escapes = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug?: { __debug?: { engine: unknown; assetStore: unknown; viewport: unknown } };
+      }
+    ).__spinthDebug?.__debug;
     if (!d) return null;
     return {
-      modelCount: d.modelCount,
       engine: d.engine === null ? 'null' : typeof d.engine,
       assetStore: d.assetStore === null ? 'null' : typeof d.assetStore,
       viewport: d.viewport === null ? 'null' : typeof d.viewport,
     };
   });
-  expect(dbg).not.toBeNull();
-  expect(typeof dbg!.modelCount).toBe('number');
+  expect(escapes).not.toBeNull();
   // 初始化后内部服务已组装（逃生口读到实例而非 null）
-  expect(dbg!.engine).toBe('object');
-  expect(dbg!.assetStore).toBe('object');
-  expect(dbg!.viewport).toBe('object');
+  expect(escapes!.engine).toBe('object');
+  expect(escapes!.assetStore).toBe('object');
+  expect(escapes!.viewport).toBe('object');
 });

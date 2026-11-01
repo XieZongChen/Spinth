@@ -51,7 +51,8 @@
 | `packages/core/src/boardHost.ts` `IBoardDebugHost`                                        | 已存在，供 `buildBoardDebugSnapshot` 使用          | 调试适配器只差一个 DEV 入口                          |
 
 `BoardPublicApi` 当前 = 生命周期 2 + 输出流 19 + 查询 6 + 命令 38 = **65 个成员**；
-内部 = 服务字段、组装态、`lastAssetMaintenance`、`syncToolOption`、`__debug` 等 **39 个**。
+内部 = 服务字段、组装态、`lastAssetMaintenance`、`syncToolOption`、`__debug` 等 **40 个**
+（设计期误计 39，按代码现实修正；删 `__debug` 后 39——见 §13 实施记录）。
 
 ### 2.2 依赖面（谁能被改坏）
 
@@ -355,8 +356,12 @@ useEffect(() => {
     disconnect?.();
     detachDebug?.();
     unbindBoard();
-    if ((window as unknown as { __spinth?: unknown }).__spinth === board) {
-      delete (window as unknown as { __spinth?: unknown }).__spinth;
+    // 句柄清理收进 DEV 常量分支（S6 修正）：裸的读/删 window.__spinth 会让
+    // 生产产物残留 __spinth 字符串，四标记清零断言不成立（§13 实施记录）
+    if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+      if ((window as unknown as { __spinth?: unknown }).__spinth === board) {
+        delete (window as unknown as { __spinth?: unknown }).__spinth;
+      }
     }
     if (boardRef.current === board) boardRef.current = null;
     void ready.then(
@@ -422,7 +427,10 @@ export function attachE2eProbe(): void {
 | `__spinth.assetStore`           | `__spinthDebug.__debug.assetStore`           | 2    | 读租约计数 / 注入 `put` 失败                                                   |
 | `__spinth.lastAssetMaintenance` | `__spinthDebug.__debug.lastAssetMaintenance` | 4    | 启动资产维护统计                                                               |
 
-20 处非 `__debug` 内部字段的文件分布（169 处 `__spinth.__debug` 不在此表重复）：
+非 `__debug` 内部字段的文件分布（169 处 `__spinth.__debug` 不在此表重复）。
+下表为**设计期快照**（当时统计 20 处）；实施时另发现 4 类漏计共 9 处（bench
+`engine!`、a11yKeyboard `selector.selected$`、imageLifecycle ×2、`worldToClient` ×3
+等），实改合计 29 处，逐条见 §13 实施记录：
 
 | 文件                            | 旧访问                                    | 数量   | 迁移                                            |
 | ------------------------------- | ----------------------------------------- | ------ | ----------------------------------------------- |
@@ -522,7 +530,8 @@ optimizeDeps: {
 
 ### 4.2 内部成员
 
-`BoardInternalMember` 删除 `'__debug'`（成员已从类上移除）；其余 38 项保留。
+`BoardInternalMember` 删除 `'__debug'`（成员已从类上移除）；其余 39 项保留
+（原始名单实为 40 项，见 §13 实施记录）。
 删除是强制的：三条编译锁里的 `_BoardKeysExist` 会因为名单里有不存在的成员而让
 `tsc` 红——这是本批的「成员删除也会被锁住」护栏。
 
@@ -825,3 +834,17 @@ S1–S7 按 §5 顺序各一笔提交（2ca12a8 / c3f655d / 76887d8 / 870c902 / 
 coverage 68.42/60.99/58.93/70.34（阈值 66/58/57/68）；E2E 46 spec / 222 用例
 （主配置 215 + pwa 7 含 P7）；普通构建四标记 0 处、E2E 构建三探针在位 +
 入口标记 0（check-debug-bundle 双模式通过）。
+
+复审返工（2026-11-01 第二轮，三笔 33b6bf1/cfc66dd/本笔）：
+
+- P1：S7 的 perl 文档替换串含 `` $` ``（Perl `$PREMATCH`），把 docs/13 的匹配
+  前缀整段插回，路线图损坏（438 行、章节 ×3）。已从 59a019d 恢复并用编辑工具
+  重放三处更新；教训：含 `$`/反引号的替换一律不用 perl/JS 替换串，走编辑工具。
+- P2：`toScreen` 公开化收尾——另有 6 处 `viewportInstance.toScreen` 改公开
+  `toScreenPoint`（smoke/textEditShape/bench + textProbe/coverage/rotate 三
+  helper；后两者整函数公开化）。`viewport` 逃生口仅剩 `center`/`worldToClient`
+  等无公开等价物的消费方。
+- P3：debugOf 在 debugSurface 启用（快照字段走 helper、逃生口仍 evaluate 直读）；
+  pwa P7 加固就绪等待（`[data-spinth-empty-hint]` = !loading && editable &&
+  modelCount===0 三合一）；本文 §2.1/§3.6/§3.8/§4.2 正文对齐当前事实；
+  commands.ts/store README/app.ts 三处过时注释更新。

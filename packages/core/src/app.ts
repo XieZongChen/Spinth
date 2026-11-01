@@ -161,7 +161,8 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   /** 工具默认参数聚合表（各 service 会话态流合成；docs/04 §2 工具默认参数节）——
    *  react 单字段镜像 + Toolbar 按 mode/key 查表。**嵌套结构**（线宽笔宽批升级）：
    *  一工具多参数（line 存 {type,width}、pen 存 {color,width}），外层 key = CursorMode、
-   *  内层 key = 参数名、value = 选项 id。写通道与 __debug 读 .value 均在本文件
+   *  内层 key = 参数名、value = 选项 id。写通道在本文件；.value 读取由 DEV 调试
+   *  入口的适配器（boardDebug.ts）经 defaultToolOptions$ 完成
    *  （specs/api-surface §3.4：写通道不是纯输出，不迁 BoardOutputs） */
   private readonly defaultToolOptionsBs = new BehaviorSubject<
     Record<string, Record<string, string>>
