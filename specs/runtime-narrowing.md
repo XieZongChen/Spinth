@@ -428,9 +428,14 @@ export function attachE2eProbe(): void {
 | `__spinth.lastAssetMaintenance` | `__spinthDebug.__debug.lastAssetMaintenance` | 4    | 启动资产维护统计                                                               |
 
 非 `__debug` 内部字段的文件分布（169 处 `__spinth.__debug` 不在此表重复）。
-下表为**设计期快照**（当时统计 20 处）；实施时另发现 4 类漏计共 9 处（bench
-`engine!`、a11yKeyboard `selector.selected$`、imageLifecycle ×2、`worldToClient` ×3
-等），实改合计 29 处，逐条见 §13 实施记录：
+下表为**设计期快照**，只统计了直接链 20 处；实施时按迁移前版本（870c902）
+grep 实证，内部字段访问点共 **40 处** = 直接链 22（engine 10 含 bench `!.engine`、
+viewport 5、assetStore 2、lastAssetMaintenance 4、selector 1）+ 间接 18（经
+`w = __spinth` 再读：`worldToClient` 4、viewport 换算块 6、直删/写注入 8 =
+`removeByIds` ×2、`transact` ×3、`put` ×2、`yWidgets` ×1）。表外补迁移 **20 处**
+= 直接链 2（bench `engine!`、a11yKeyboard `selector`→公开 `selected$`）+
+`worldToClient` 4 + viewport 换算 6（复审 P2 公开化 `toScreenPoint` 的那 6 处）+
+直删/写注入 8。验收以 grep 清零为准，逐条见 §13 实施记录：
 
 | 文件                            | 旧访问                                    | 数量   | 迁移                                            |
 | ------------------------------- | ----------------------------------------- | ------ | ----------------------------------------------- |
@@ -809,11 +814,11 @@ S1–S7 按 §5 顺序各一笔提交（2ca12a8 / c3f655d / 76887d8 / 870c902 / 
 与设计的偏差（均按代码现实处理，不改语义）：
 
 - `BoardInternalMember` 实为 40 项（§2.1 写 39），删 `'__debug'` 后 39 项。
-- §3.8 表的「20 处内部字段」为设计期快照；实改含探索漏计的 4 处——
-  `bench.spec.ts` `__spinth!.engine`、`a11yKeyboard.spec.ts` `selector.selected$`
-  （改公开 `selected$`）、`imageLifecycle.spec.ts` `assetStore.put`/`engine.yWidgets`
-  ×2、`smoke.spec.ts`/`multiTabReadonly.spec.ts` `viewport.worldToClient` ×3，
-  合计 29 处全部迁移，grep 清零。
+- §3.8 表的「20 处内部字段」为设计期快照（只统计直接链）；按迁移前版本
+  （870c902）grep 实证，实迁内部字段访问点共 **40 处**（直接链 22 + 间接 18），
+  表外补迁移 **20 处**（直接链 2：bench `engine!`、a11yKeyboard `selector`→公开
+  `selected$`；`worldToClient` 4；viewport 换算块 6；直删/写注入 8），全部迁移、
+  grep 清零——口径与 §3.8 注一致。
 - §3.6 样例里句柄清理（按身份 `delete window.__spinth`）在 DEV 常量分支**外**，
   生产产物会残留 `__spinth` 字符串（实测 2 处）——S6 把清理收进 DEV 分支后
   四标记清零成立；这是 §3.6 与 §3.9 的一处内在矛盾，以扫描断言为准修正。
@@ -848,3 +853,8 @@ coverage 68.42/60.99/58.93/70.34（阈值 66/58/57/68）；E2E 46 spec / 222 用
   pwa P7 加固就绪等待（`[data-spinth-empty-hint]` = !loading && editable &&
   modelCount===0 三合一）；本文 §2.1/§3.6/§3.8/§4.2 正文对齐当前事实；
   commands.ts/store README/app.ts 三处过时注释更新。
+
+终审收尾（2026-11-01 第三轮复审 Approve 后，本笔）：§3.8 注与上文「4 处/9 处/
+29 处」为设计期粗计，已按迁移前版本（870c902）grep 实证统一为「总计 40 处 =
+直接链 22 + 间接 18，表外补 20」的自洽口径；全量 E2E 双配置复跑留发布前证据
+（主 215 + pwa 7 = 222 全绿，数字与上轮一致）。
