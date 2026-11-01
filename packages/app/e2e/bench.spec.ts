@@ -201,12 +201,16 @@ test('1000 控件：拖拽 rAF P95 < 20ms + 滚动 culling 生效 @bench', async
   // 污染帧间隔统计；steps 拆步保证 pointermove 事件流持续喂进拖拽循环）。
   // 前 30 步 sweep（净位移 ≈ +600x，movedX 门禁依赖它）；之后在终点附近
   // jiggle 维持事件流，直到页面内 __sampleDone 置位（每 5 步查一次，
-  // 400 步硬顶防死循环——极端慢 runner 下窗口按 maxMs 自行收窗）
+  // 400 步硬顶防死循环——极端慢 runner 下窗口按 maxMs 自行收窗）。
+  //
+  // 收手判据必须带 i >= 30：快 runner 上采样器可能在前 30 步内就凑满 80 帧
+  // （≈1.3s），此时提前 break 会把落点截在 +300 附近，movedX 门禁（>400）直接红
+  // ——那是驱动时序 bug，不是性能结论。
   for (let i = 0; i < 400; i++) {
     const jx = i < 30 ? px + 20 + i * 20 : px + 600 + (i % 2) * 10;
     const jy = i < 30 ? py + i * 5 : py + 145;
     await page.mouse.move(jx, jy, { steps: 3 });
-    if (i % 5 === 4) {
+    if (i >= 30 && i % 5 === 4) {
       const done = await page.evaluate(
         () => (window as unknown as { __sampleDone?: boolean }).__sampleDone === true,
       );
