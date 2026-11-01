@@ -164,10 +164,17 @@ lastAssetMaintenance 四个不可枚举逃生口，经 `@spinth/core/dev` 动态
 E2E 探针路径全量迁移 `__spinthDebug.__debug`，公开化 `toScreenPoint`/
 `persistState$`/`selected$`，新增 debugSurface.spec 与 pwa P7 零探针用例。
 
-当前实测基线：`pnpm verify` 通过；1054 单测（core 965 + react 51 + app 38）；
-E2E 46 spec / 222 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；debugSurface 3/3；pwa 7/7 含
-P7 零探针 + dev 不注册 1）。
+可访问性遗留 P0 批次已落地（specs/a11y-closeout §13.5 第 1/7/8/9 条）：宿主浮层
+（项目菜单/存储面板）打 `data-spinth-ui-modal` 标记、经 `IBoardConfig.isUiModalOpen`
+注入并入快捷键闸门（`menuOpen`→`uiModalOpen`，与右键菜单取或）；指针主键过滤补
+真值表单测与 CDP 触摸/笔 E2E；操作栏定位几何抽 `actionBarLayout.ts`、安全区移入
+layout effect 并随 resize/orientationchange 重算；roving autoFocus 补「重渲染不抢
+焦点」定点单测。PWA 更新横幅等非模态浮层的闸门覆盖仍挂账（§13.5-10）。
+
+当前实测基线：`pnpm verify` 通过；1075 单测（core 972 + react 65 + app 38）；
+E2E 47 spec / 228 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；touchPen 2/2；debugSurface
+3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
