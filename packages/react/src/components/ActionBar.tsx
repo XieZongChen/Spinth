@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
-import { readSafeInsets } from '../a11y/safeArea';
+import { readSafeInsets, type ISafeInsets } from '../a11y/safeArea';
+import { BAR_WIDTH_FALLBACK, computeBarLayout, ZERO_INSETS } from './actionBarLayout';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { PopoverControl } from './PopoverControl';
@@ -11,22 +12,17 @@ import type { IActionBarSchema } from '@spinth/core';
 /**
  * 选中浮动操作栏（docs/12 §4/§5）：schema 驱动动态渲染——一级 bar 只放
  * 「当前值图标 + ▾」单按钮位（popover 字段）与 toggle，选项收进二级面板，
- * 文字说明收进 tooltip（2026-10-03 参考视频对齐；各元素类型只维护
+ * 文字说明收进 tooltip（2023-10-03 参考视频对齐；各元素类型只维护
  * core 侧 schema，样式与交互全部由本组件体系统一承载）。
  * 定位用纯算术（选区屏幕外接矩形上方居中 + 视口钳制）——单锚点场景
  * 不引入 floating-ui（决策差异记录于 docs/12 §5）。
  *
- * 坐标系（2026-09 遮挡 bug 修正）：bridge 给的 bounds 是 canvas 局部坐标，
+ * 坐标系（2023-09 遮挡 bug 修正）：bridge 给的 bounds 是 canvas 局部坐标，
  * 而本组件挂在 <main>（relative，画布区域）内、style.top 参照 main——两者同系，
  * 直接使用即可，禁止再 +TOPBAR_HEIGHT（否则顶栏偏移双计，栏压在图形上）。
+ * 定位几何在 actionBarLayout.ts 纯函数；宽度/容器宽/安全区全部在
+ * useLayoutEffect 内测量（渲染期零 DOM 读取），resize/orientationchange 失效重算。
  */
-
-/** 操作栏出现在选区上方的间距（视觉规格） */
-const OFFSET_Y = 12;
-/** 操作栏预估高度（上方放不下时翻到下方；实际由内容撑开 ≈38px） */
-const BAR_HEIGHT_EST = 40;
-/** 实测宽度就绪前的渲染帧宽度兜底（useLayoutEffect 校正发生在绘制前） */
-const BAR_WIDTH_FALLBACK = 320;
 
 function ToggleControl({
   item,
@@ -110,43 +106,61 @@ export function ActionBar() {
   const { schema, bounds } = actionBar;
 
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
-  // 视觉不居中（2026-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
+  // 视觉不居中（2023-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
   // （同步 setState → 重渲染），用户看不到中间帧。
+  // 安全区与几何同窗测量（specs/a11y-closeout §13.5-8）：渲染期读
+  // getComputedStyle 是纯度+性能债，且没有失效路径——真机旋转/软键盘/
+  // 地址栏收缩都会改 inset，靠 resize/orientationchange 失效重算。
   const barRef = useRef<HTMLDivElement | null>(null);
-  const [measured, setMeasured] = useState<{ barW: number; areaW: number } | null>(null);
+  const [measured, setMeasured] = useState<{
+    barW: number;
+    areaW: number;
+    safe: ISafeInsets;
+  } | null>(null);
+  const [rev, setRev] = useState(0);
+  useEffect(() => {
+    const bump = (): void => setRev((v) => v + 1);
+    window.addEventListener('resize', bump);
+    window.addEventListener('orientationchange', bump);
+    return () => {
+      window.removeEventListener('resize', bump);
+      window.removeEventListener('orientationchange', bump);
+    };
+  }, []);
   useLayoutEffect(() => {
     const el = barRef.current;
     if (!el) return;
     const barW = el.offsetWidth;
     const areaW = el.parentElement?.clientWidth ?? window.innerWidth;
+    const safe = readSafeInsets();
     setMeasured((prev) =>
-      prev && Math.abs(prev.barW - barW) < 0.5 && prev.areaW === areaW ? prev : { barW, areaW },
+      prev &&
+      Math.abs(prev.barW - barW) < 0.5 &&
+      prev.areaW === areaW &&
+      prev.safe.top === safe.top &&
+      prev.safe.right === safe.right &&
+      prev.safe.bottom === safe.bottom &&
+      prev.safe.left === safe.left
+        ? prev
+        : { barW, areaW, safe },
     );
-    // 依赖 schema/bounds：栏内容或选区几何变化时重量（相等短路保证不循环）
-  }, [schema, bounds]);
+    // 依赖 schema/bounds/rev：栏内容/选区几何变化或视口失效时重量
+    //（相等短路保证不循环）
+  }, [schema, bounds, rev]);
 
   // 只读早退（hooks 之后，顺序稳定）：选区在只读态本就不存在（右键不建选区、
   // 降级即清），操作栏附着于选区——隐藏是语义结果而非特判，六个写控件不出现
   if (!editable || !schema || !bounds) return null;
 
-  const barW = measured?.barW ?? BAR_WIDTH_FALLBACK;
-  const areaW = measured?.areaW ?? window.innerWidth;
-  // 以选区水平中心居中，画布区域内钳制——左右留白计入安全区（specs/a11y-closeout
-  // §7.4：横屏刘海下操作栏不压 inset；桌面 inset=0 时与原 8px 逐像素一致）
-  const safe = readSafeInsets();
-  const padL = 8 + safe.left;
-  const padR = 8 + safe.right;
-  const left = Math.min(
-    Math.max(bounds.x + bounds.width / 2 - barW / 2, padL),
-    Math.max(areaW - barW - padR, padL),
-  );
-  // 上方放得下则悬于选区上方；否则翻到下方（main 区域内最小留白 4px）。
-  // 可快速创建的类型（选中态有外置连接点 + 快捷按钮，形状外 ~24px）→
-  // 操作栏额外上移让位，避免盖住顶部连接点（用户实测反馈 #2）
-  const QUICK_CAPABLE = new Set(['SHAPE', 'STICKY', 'TEXT', 'IMAGE']);
-  const quickClear = QUICK_CAPABLE.has(schema.type) ? 34 : 0;
-  const aboveY = bounds.y - OFFSET_Y - BAR_HEIGHT_EST - quickClear;
-  const top = aboveY >= 4 ? aboveY : bounds.y + bounds.height + OFFSET_Y;
+  // 渲染期兜底零 DOM 读取：areaW=0 的钳制结果由 computeBarLayout 的
+  // Math.max(..., padL) 兜住；layout effect 在绘制前以真实测量校正
+  const { left, top } = computeBarLayout({
+    bounds,
+    barW: measured?.barW ?? BAR_WIDTH_FALLBACK,
+    areaW: measured?.areaW ?? 0,
+    safe: measured?.safe ?? ZERO_INSETS,
+    type: schema.type,
+  });
 
   return (
     <div
