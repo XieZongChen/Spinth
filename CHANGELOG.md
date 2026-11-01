@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-01
+
+### Fixed
+
+- Zoom animations now land exactly on the target scale: pressing zoom N times gives the
+  precise `1.2^N` factor instead of stopping 1.6%–3% short. The HUD and the
+  level-of-detail thresholds read the same value, so what you see is what the editor
+  thinks it is.
+
+### Changed
+
+- Performance benchmarks keep their workload assertions and a 250 ms freeze guard in CI,
+  but frame-time deltas are recorded rather than gated: shared runners cannot produce a
+  portable measurement. The performance budget is checked locally and manually.
+
 ## [1.0.0] - 2026-11-01
 
 First public release. Spinth is a local-first whiteboard and mind map editor that keeps
