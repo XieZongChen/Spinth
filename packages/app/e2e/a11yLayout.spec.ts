@@ -248,4 +248,26 @@ test.describe('S1-b 横屏左右 inset', () => {
     expect(abBox!.x, `操作栏进左安全区（x=${abBox!.x}）`).toBeGreaterThanOrEqual(SAFE_L + 8 - 0.5);
     expect(abBox!.x + abBox!.width).toBeLessThanOrEqual(SAFE_R + 8 + 0.5);
   });
+
+  // §13.5-8：安全区在 layout effect 内测量——操作栏已挂载后 inset 变化必须
+  // 经 resize 失效重算（无失效路径的实现此条必红：首次测量后不再读 inset）
+  test('S1-d 操作栏：安全区注入后 resize 重算（挂载晚于注入的反序）', async ({ page }) => {
+    await openBoard(page, `e2e-s1d-${Date.now()}`);
+    // 先挂载：此时 inset=0，操作栏按无安全区定位
+    await drawShape(page, { x: 30, y: 120 }, { x: 120, y: 180 });
+    const ab = page.locator('[data-spinth-action-bar]');
+    await expect(ab).toBeVisible();
+    const before = await ab.boundingBox();
+    // 注入左 inset=44 → 派发 resize → 失效重算
+    await applySafeArea(page, { left: 44 });
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await expect
+      .poll(async () => (await ab.boundingBox())?.x ?? -1, { timeout: 3000 })
+      .toBeGreaterThanOrEqual(44 + 8 - 0.5);
+    const after = await ab.boundingBox();
+    expect(
+      after!.x,
+      `resize 重算后 x 应 ≥52（重算前 ${before!.x}，重算后 ${after!.x}）`,
+    ).toBeGreaterThanOrEqual(44 + 8 - 0.5);
+  });
 });
