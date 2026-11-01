@@ -6,5 +6,7 @@ test-results/
 playwright-report/
 coverage/
 .spinth/
+# 生成物：第三方许可声明由脚本产出，按原文排版，不参与 prettier 重排
+THIRD_PARTY_NOTICES.md
 # 本地隐藏工具目录（不入库）
 .*/

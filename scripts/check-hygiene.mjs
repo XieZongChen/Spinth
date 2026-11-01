@@ -77,6 +77,13 @@ const genericRules = [
   },
 ];
 
+/**
+ * 逐文件豁免（按 reason 精确匹配，不放宽整类规则）：
+ * THIRD_PARTY_NOTICES.md 由脚本生成，必须逐字保留上游版权行，其中含上游作者
+ * 公开邮箱——与本机隐私无关；同文件的其他规则（本机路径/密钥/拒绝词）照常生效。
+ */
+const FILE_EXEMPTIONS = new Map([['THIRD_PARTY_NOTICES.md', new Set(['邮箱地址'])]]);
+
 const docsRules = [
   {
     re: /^\s*#{1,6}\s*(?:\d+[.、]\s*)?(?:变更记录|更新记录|历史记录|验收记录|实施记录)(?:\s|$|[（(：:])/m,
@@ -167,7 +174,9 @@ function main() {
       ...scopedRules,
       ...(isDoc ? docsRules : []),
     ];
+    const exempt = FILE_EXEMPTIONS.get(file) ?? new Set();
     for (const rule of rules) {
+      if (exempt.has(rule.reason)) continue;
       if (rule.re.test(text)) add(file, rule.reason);
     }
   }
