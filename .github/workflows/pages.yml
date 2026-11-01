@@ -36,7 +36,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: 构建（子路径）
         run: |
-          SPINTH_BASE="/${GITHUB_REPOSITORY#*/}/" pnpm build
+          SPINTH_BASE="/${GITHUB_REPOSITORY#*/}/" SPINTH_BUILD_TAG="${GITHUB_SHA::7}" pnpm build
+          # BUILD_TAG 进 App 根节点 data-spinth-build 并改变产物 hash → 每次部署
+          # SW 版本真实更替，线上更新横幅链路才可被观测（specs/pwa §11.3 机制的生产接线）
       - name: 校验产物
         run: |
           node scripts/check-pages-build.mjs packages/app/dist "/${GITHUB_REPOSITORY#*/}/"
