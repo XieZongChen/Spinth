@@ -123,8 +123,14 @@ test('宿主浮层闸门：项目菜单开着 Delete/方向键全静默（§13.5
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(200);
   const afterArrow = await probe(page);
-  const f1 = afterDelete.selectionFrame!;
-  const f2 = afterArrow.selectionFrame!;
+  const f1 = afterDelete.selectionFrame;
+  const f2 = afterArrow.selectionFrame;
+  // 空帧是夹具问题（选中丢失），不是闸门结论——先给可读报错再比较
+  if (!f1 || !f2) {
+    throw new Error(
+      `selectionFrame 缺失（Delete 后 ${JSON.stringify(f1)}，Arrow 后 ${JSON.stringify(f2)}）`,
+    );
+  }
   expect(f2.x, `ArrowRight 后 selectionFrame.x 应不变（${f1.x} → ${f2.x}）`).toBe(f1.x);
   expect(f2.y, `ArrowRight 后 selectionFrame.y 应不变（${f1.y} → ${f2.y}）`).toBe(f1.y);
   expect(f2.width, `ArrowRight 后 selectionFrame.width 应不变（${f1.width} → ${f2.width}）`).toBe(

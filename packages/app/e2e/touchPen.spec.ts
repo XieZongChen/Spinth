@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openBoard } from './helpers/layoutE2e';
 
 /**
  * 触摸/笔指针通道 E2E（specs/a11y-closeout §13.5-7）：真实浏览器 CDP 注入
@@ -8,19 +9,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-
-async function openBoard(page: Page, docId: string): Promise<void> {
-  await page.goto(`/?doc=${docId}`);
-  await page.waitForFunction(
-    () => {
-      const w = window as unknown as { __spinth?: { docState$: { getValue(): string } } };
-      return !!w.__spinth && w.__spinth.docState$.getValue() === 'synced';
-    },
-    undefined,
-    { timeout: 20_000 },
-  );
-  await page.evaluate(() => document.fonts.ready);
-}
 
 /** 断言前等两帧 rAF：触摸事件到 pixi 建件是异步管线，防时序 flake（计划 §10） */
 async function waitTwoFrames(page: Page): Promise<void> {
