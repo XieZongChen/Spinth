@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Live demo
+    url: https://xiezongchen.github.io/Spinth/
+    about: Try the editor before opening an issue.
+  - name: Documentation
+    url: https://github.com/XieZongChen/Spinth/tree/main/docs
+    about: Specifications and architecture notes.
+  - name: Security report
+    url: https://github.com/XieZongChen/Spinth/security/advisories/new
+    about: Report vulnerabilities privately, never in a public issue.
