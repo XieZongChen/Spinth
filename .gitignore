@@ -17,6 +17,8 @@ playwright-report/
 HANDOFF*
 *handoff*.md
 .hygiene.local.json
+# 交给其它 agent 执行的计划目录（只在本机）
+plan/
 
 # SW 构建期侧车（specs/pwa.md D5，只给校验脚本用）
 .sw-manifest.json
