@@ -164,7 +164,7 @@ lastAssetMaintenance 四个不可枚举逃生口，经 `@spinth/core/dev` 动态
 E2E 探针路径全量迁移 `__spinthDebug.__debug`，公开化 `toScreenPoint`/
 `persistState$`/`selected$`，新增 debugSurface.spec 与 pwa P7 零探针用例。
 
-当前实测基线：`pnpm verify` 通过；1052 单测（core 963 + react 51 + app 38）；
+当前实测基线：`pnpm verify` 通过；1054 单测（core 965 + react 51 + app 38）；
 E2E 46 spec / 222 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 9/9；a11yLayout 9/9；debugSurface 3/3；pwa 7/7 含
 P7 零探针 + dev 不注册 1）。

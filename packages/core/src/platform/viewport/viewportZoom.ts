@@ -59,6 +59,14 @@ export class ViewportZoom {
       time: 200,
       scale: clamped,
       position: target,
+      // Animate 的 scale 是**收敛式插值**（每帧按 ease 逼近目标），收尾留
+      // 1.6%~3% 残差（CI 实测 1.3934 vs 目标 1.44）。缩放次数、HUD 与 LOD 都按
+      // 精确倍数解读——残差会让「按三次放大」拿不到 1.728。收尾一次性对齐目标值；
+      // 中心由 Animate.complete() 的 moveCenter(position) 负责，这里只补 scale。
+      callbackOnComplete: () => {
+        viewport.scale.set(clamped);
+        this.host.onMoved();
+      },
     });
   }
 
