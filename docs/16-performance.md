@@ -86,8 +86,11 @@ P3  TextVm.render 全量重建（平移复用已落地）
 
 ## 7. 性能基准
 
-- bench：程序化创建 1000 控件（shape/text/pen），拖拽 rAF 绝对 p95 <25ms、
-  相对增量 <8ms；3 屏外滚动 culling 翻转计数。
+- bench：程序化创建 1000 控件（shape/text/pen），拖拽 rAF 帧间隔 + 3 屏外滚动
+  culling 翻转计数。
+- CI（共享 runner）只守工作量门禁（持续重绘、落点位移、culling）与 250ms 灾难线；
+  Δp95 仅注记——同一份代码本地 2.8ms、CI 39–51ms，差异来自邻居负载而非产品回归。
+  性能预算（Δp95 < 8ms）由本地/手动基准守。
 - headless 软渲染空转 p95 ≈18ms 是环境噪声；load >8 时边缘可能超限 26–28ms。
 - 启动维护链走 `requestIdleCallback`，超时兜底 3s；GC 单轮软预算 1500ms、
   每篇扫描/每块删除协作让出。

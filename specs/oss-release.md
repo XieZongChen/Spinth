@@ -189,3 +189,22 @@ og/twitter 共 6 处。
   仍可进入空画布。
 - B1 iOS Safari / Android Chrome 添加到主屏幕（与 specs/pwa §14 合并跟踪）。
 - B3 390px 真机六项（§8.3，与 specs/pwa §14 移动端部分合并跟踪）。
+
+### 8.6 CI timing 层（A3 收口）
+
+两次 `workflow_dispatch` 实证：gate / visual / multitab 全绿，timing 连红两次，
+且两次原因不同：
+
+1. **bench 拖拽被提前收手**：采样器在快 runner 上于 sweep 完成前就凑满 80 帧，
+   `__sampleDone` 提前置位 → 循环 break → 落点截在 +300，`movedX > 400` 门禁红。
+   修复：收手判据补 `i >= 30`（提交 `ea85d2e`）。
+2. **Δp95 在共享 runner 上不可移植**：修复后实测 Δp95 = 39.3ms / 51.6ms，
+   预算 8ms；同一份代码本地 2.8ms。1000 控件拖拽是 CPU-bound 软光栅负载，
+   帧成本随邻居负载浮动。CI 改为「工作量门禁 + 250ms 灾难线」，Δp95 仅注记；
+   性能预算由本地/手动基准守（docs/16 §7）。
+3. **P0-7 缩放锚点 1.3934 vs 阈值 1.4**：pixi-viewport 的 Animate 是收敛式插值，
+   收尾留 1.6%~3% 残差。修复：`setPageScale` 的 animate 分支加
+   `callbackOnComplete` 把 scale 对齐目标值（中心由 Animate.complete() 的
+   moveCenter 负责），并补单测 `viewportZoomSnap.test.ts`。
+
+结论：timing 仍是 flake 记录层，不作为分支保护必需项。
