@@ -49,14 +49,14 @@ export function PwaUpdateBanner() {
           type="button"
           onClick={pwa.apply}
           disabled={pwa.applying}
-          className="flex min-h-6 items-center rounded-full bg-accent-fill px-3 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover max-[419px]:min-h-11"
+          className="flex min-h-6 items-center justify-center rounded-full bg-accent-fill px-3 text-xs font-semibold text-on-accent transition-colors duration-100 hover:bg-accent-fill-hover max-[419px]:min-h-11 max-[419px]:min-w-11"
         >
           刷新
         </button>
         <button
           type="button"
           onClick={dismiss}
-          className="flex min-h-6 items-center rounded-full px-3 text-xs font-semibold text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink max-[419px]:min-h-11"
+          className="flex min-h-6 items-center justify-center rounded-full px-3 text-xs font-semibold text-ink-2 transition-colors duration-150 hover:bg-surface-hover hover:text-ink max-[419px]:min-h-11 max-[419px]:min-w-11"
         >
           稍后
         </button>
