@@ -125,7 +125,7 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 #### 2.1 发布清仓
 
 - [x] 许可证与第三方声明：`LICENSE`（MIT）、`THIRD_PARTY_NOTICES`（脚本生成，
-      `pnpm licenses` 白名单门禁接入 verify）。
+      `pnpm license:check` 白名单门禁接入 verify）。
 - [x] 对外 README：英文主文档 + 中文版（`README.zh-CN.md`），含在线 Demo、功能、
       快速开始、架构、浏览器支持、隐私、License、Contributing；截图/GIF 待补
       （specs/oss-release.md）。

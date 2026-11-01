@@ -47,7 +47,7 @@ E npm 包可发布化。
   立即报红；
 - 许可表达式按 `OR` / `AND` / `WITH` 拆原子判断，任一原子不在白名单即失败。
 
-接入 `pnpm verify`：`typecheck` 之后依次跑 `pnpm licenses` 与
+接入 `pnpm verify`：`typecheck` 之后依次跑 `pnpm license:check` 与
 `gen-third-party-notices --check`。
 
 ### 3.4 对外文档
