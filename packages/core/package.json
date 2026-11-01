@@ -1,6 +1,6 @@
 {
   "name": "@spinth/core",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "description": "spinth board SDK — framework-agnostic rendering / data / interaction core (PIXI 8 + Yjs)",

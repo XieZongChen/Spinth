@@ -15,7 +15,7 @@
       （docs/21 §4 只读可交互面矩阵）
 - [x] 1052 单测（core 963 + react 51 + app 38）、E2E 46 spec / 222 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
-当前版本 `0.0.1`，仓库尚未公开发布；1.0 是首个公开 API 基线。
+当前版本 `1.0.0`（尚未打 tag），仓库尚未公开发布；1.0 是首个公开 API 基线。
 
 ## 2. 阶段路线
 
@@ -124,11 +124,15 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 #### 2.1 发布清仓
 
-- [ ] 许可证与第三方声明：LICENSE（MIT 候选，待拍板）、THIRD_PARTY_NOTICES。
-- [ ] 对外 README：定位、在线 Demo、截图/GIF、功能、快速开始、架构、浏览器支持、
-      隐私（无账号/无遥测）、License、Contributing；语言策略待拍板。
-- [ ] 社区文件：CONTRIBUTING、CODE_OF_CONDUCT、SECURITY、Issue/PR 模板、CHANGELOG。
-- [ ] 版本与页面元信息：1.0.0、OG/Twitter/canonical/robots、社交预览图。
+- [x] 许可证与第三方声明：`LICENSE`（MIT）、`THIRD_PARTY_NOTICES`（脚本生成，
+      `pnpm licenses` 白名单门禁接入 verify）。
+- [x] 对外 README：英文主文档 + 中文版（`README.zh-CN.md`），含在线 Demo、功能、
+      快速开始、架构、浏览器支持、隐私、License、Contributing；截图/GIF 待补
+      （specs/oss-release.md）。
+- [x] 社区文件：CONTRIBUTING、CODE_OF_CONDUCT、SECURITY、Issue/PR 模板、CHANGELOG；
+      举报通道走 GitHub 私有渠道，不写入邮箱。
+- [x] 版本与页面元信息：1.0.0、OG/Twitter/canonical/robots、社交预览图
+      （`packages/app/public/og-image.png`）。
 - [ ] 仓库卫生：`pnpm hygiene`、全历史密钥/邮箱/本机路径扫描、依赖许可证、
       大文件检查。
 - 验收：README 可对外；`pnpm verify` 绿；无隐私/来源残留。
@@ -225,5 +229,11 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
   （portal 方案与 390px 裁剪约束冲突，需另案权衡）、指针主键过滤的 touch/pen
   自动化覆盖、ActionBar 渲染期读安全区的性能小债、roving autoFocus 重渲染
   不抢焦点的定点单测——specs/a11y-closeout §13.5。
-- 开源发布待拍板：LICENSE（MIT 候选）、README 语言、作者邮箱/历史提交元数据
-  是否重写、是否使用自定义域名。
+- 开源发布定案：许可 MIT；对外文档双语（`README.md` 英文主文档 + `README.zh-CN.md`）；
+  提交元数据保留原样，不重写历史；暂不使用自定义域名，Demo 与 canonical 固定为
+  `https://xiezongchen.github.io/Spinth/`。
+- 第三方许可声明由脚本生成并进 verify（`THIRD_PARTY_NOTICES.md` 不手改）；
+  依赖许可白名单含 13 项，`MPL-2.0` 只允许出现在构建期依赖。
+- npm 发布（1.0 打 tag 之后）：`@spinth/core`、`@spinth/react` 发到 public registry；
+  前置是包构建产物（当前 `main` 指向 `src/`）、注册 `@spinth` scope，以及
+  `yjs`/`pixi.js` 是否转 peer 依赖的取舍。
