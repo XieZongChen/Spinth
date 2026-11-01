@@ -13,4 +13,7 @@ export interface IBoardConfig {
    *  GC 全库扫描（indexedDB.databases() × 每 doc 盘上重建）在并行页面下
    *  是 IO 压力源，E2E 仅专项用例显式开启 */
   assetMaintenance?: boolean;
+  /** 宿主浮层（项目菜单/存储面板…）开着：与右键菜单同源并入快捷键闸门
+   *  （specs/a11y-closeout §13.5-1）。默认不提供 = 只有右键菜单生效 */
+  isUiModalOpen?: () => boolean;
 }

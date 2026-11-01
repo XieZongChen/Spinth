@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Icon, readSafeInsets, useRovingFocus, useSpinthStore } from '@spinth/react';
+import { Icon, readSafeInsets, UI_MODAL_ATTR, useRovingFocus, useSpinthStore } from '@spinth/react';
 import { spinthCommands } from '@spinth/react';
 import {
   ProjectFileError,
@@ -276,6 +276,7 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
           aria-label="项目"
           aria-busy={busy !== null}
           data-spinth-project-menu-panel=""
+          {...{ [UI_MODAL_ATTR]: '' }}
           onKeyDown={onKeyDown}
           onFocus={onFocus}
           className="z-30 rounded-xl border border-edge bg-surface px-2 py-1.5 shadow-pop"

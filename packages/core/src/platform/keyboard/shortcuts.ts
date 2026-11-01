@@ -155,15 +155,15 @@ export const NATIVE_UI_KEYS = new Set([
 export interface IShortcutGateInput {
   /** capture 相输入态快照（见 KeyboardService.editableAtCapture 注释） */
   editableAtCapture: boolean;
-  /** UI 模态浮层开着（右键菜单）：全静默（D3——菜单内容基于打开瞬间的选中集，
-   *  撤销/删除会让它指向已失效对象；菜单内操作走菜单项） */
-  menuOpen: boolean;
+  /** UI 模态浮层（右键菜单 / 宿主面板）开着：全静默（D3——菜单内容基于打开
+   *  瞬间的选中集，撤销/删除会让它指向已失效对象；菜单内操作走菜单项） */
+  uiModalOpen: boolean;
   target: EventTarget | null;
   key: string;
 }
 
 /**
- * 快捷键总闸门（顺序即优先级）：输入态 → false；菜单开着 → false；
+ * 快捷键总闸门（顺序即优先级）：输入态 → false；UI 模态浮层开着 → false；
  * 单独修饰键 → true（不干扰组合键判定）；其余 → true（只读白名单由
  * bindAll 的 handler 守卫兜底，docs/09 §2）。抽纯函数的唯一动机：
  * 闸门规则真值表可单测（specs/a11y-closeout §5.8）。
@@ -171,7 +171,7 @@ export interface IShortcutGateInput {
 export function shortcutGateAllows(input: IShortcutGateInput): boolean {
   if (input.editableAtCapture) return false;
   if (isEditableTarget(input.target)) return false;
-  if (input.menuOpen) return false;
+  if (input.uiModalOpen) return false;
   if (['control', 'meta', 'alt', 'shift'].includes(input.key)) return true;
   return true;
 }

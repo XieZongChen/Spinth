@@ -102,10 +102,13 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     mindNavigate: (key) => sdk.mindService?.navigate(key) ?? false,
   });
   sdk.keyboard.isBlocked = () => sdk.network?.editBlocked$.value ?? false;
-  // 菜单期快捷键闸门（specs/a11y-closeout §5.5）：菜单开着时 hotkeys 全静默
-  // （D3——菜单内容基于打开瞬间的选中集，撤销/删除会让它指向已失效对象）。
+  // UI 模态浮层快捷键闸门（specs/a11y-closeout §5.5/§13.5-1）：右键菜单或
+  // 宿主浮层（项目菜单/存储面板）任一开着，hotkeys 全静默（D3——菜单内容
+  // 基于打开瞬间的选中集，撤销/删除会让它指向已失效对象）。宿主谓词经
+  // config 注入（@spinth/react 的 data-spinth-ui-modal 标记查询）。
   // 闭包惰性引用 contextMenu（先于此构造，顺序已有注释）
-  sdk.keyboard.isUiModalOpen = () => sdk.contextMenu?.options$.value.show ?? false;
+  sdk.keyboard.isUiModalOpen = () =>
+    (sdk.contextMenu?.options$.value.show ?? false) || (config.isUiModalOpen?.() ?? false);
   (sdk.viewport as ViewportService).isEditBlocked = () => sdk.network?.editBlocked$.value ?? false;
   sdk.keyboard.initialize();
   sdk.clipboard = new ClipboardService(

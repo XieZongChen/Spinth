@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from 'react';
-import { formatBytes, formatPercent, type IStorageStatus } from '@spinth/react';
+import { formatBytes, formatPercent, UI_MODAL_ATTR, type IStorageStatus } from '@spinth/react';
 
 /**
  * 本地存储面板（docs/02 §6.1 / docs/12 顶栏）：纯展示组件——状态来自
@@ -60,6 +60,7 @@ export function StoragePanel(props: StoragePanelProps) {
       aria-labelledby="spinth-storage-panel-title"
       tabIndex={-1}
       data-spinth-storage-panel=""
+      {...{ [UI_MODAL_ATTR]: '' }}
       className="z-30 rounded-xl border border-edge bg-surface px-3 py-2.5 text-left shadow-pop outline-none"
       style={props.style ?? undefined}
     >

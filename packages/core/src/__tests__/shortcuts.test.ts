@@ -78,7 +78,7 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
     expect(
       shortcutGateAllows({
         editableAtCapture: true,
-        menuOpen: false,
+        uiModalOpen: false,
         target: plainTarget,
         key: 'z',
       }),
@@ -89,18 +89,18 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
     expect(
       shortcutGateAllows({
         editableAtCapture: false,
-        menuOpen: false,
+        uiModalOpen: false,
         target: inputTarget,
         key: 'z',
       }),
     ).toBe(false);
   });
 
-  it('菜单开着 → 全静默（含修饰组合，D3）', () => {
+  it('UI 模态浮层开着 → 全静默（含修饰组合，D3）', () => {
     expect(
       shortcutGateAllows({
         editableAtCapture: false,
-        menuOpen: true,
+        uiModalOpen: true,
         target: plainTarget,
         key: 'z',
       }),
@@ -108,7 +108,7 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
     expect(
       shortcutGateAllows({
         editableAtCapture: false,
-        menuOpen: true,
+        uiModalOpen: true,
         target: plainTarget,
         key: 'meta',
       }),
@@ -118,7 +118,7 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
   it('单独修饰键 → true（不干扰组合键判定）', () => {
     for (const key of ['control', 'meta', 'alt', 'shift']) {
       expect(
-        shortcutGateAllows({ editableAtCapture: false, menuOpen: false, target: plainTarget, key }),
+        shortcutGateAllows({ editableAtCapture: false, uiModalOpen: false, target: plainTarget, key }),
       ).toBe(true);
     }
   });
@@ -127,7 +127,7 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
     expect(
       shortcutGateAllows({
         editableAtCapture: false,
-        menuOpen: false,
+        uiModalOpen: false,
         target: plainTarget,
         key: 'v',
       }),
@@ -135,7 +135,7 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
     expect(
       shortcutGateAllows({
         editableAtCapture: false,
-        menuOpen: false,
+        uiModalOpen: false,
         target: null,
         key: 'delete',
       }),

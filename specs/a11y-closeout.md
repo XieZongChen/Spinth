@@ -283,7 +283,7 @@ DOM 契约（写进注释，消费者必须遵守）：
 // shortcuts.ts
 export interface IShortcutGateInput {
   editableAtCapture: boolean;
-  menuOpen: boolean;
+  uiModalOpen: boolean;
   target: EventTarget | null;
   key: string;
 }
@@ -299,7 +299,7 @@ isUiModalOpen: () => (boolean = () => false);
 hotkeys.filter = (event) =>
   shortcutGateAllows({
     editableAtCapture: this.editableAtCapture,
-    menuOpen: this.isUiModalOpen(),
+    uiModalOpen: this.isUiModalOpen(),
     target: event.target,
     key: (event.key ?? '').toLowerCase(),
   });

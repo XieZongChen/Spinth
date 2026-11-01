@@ -11,6 +11,7 @@ import {
   OfflineBar,
   ErrorState,
   Icon,
+  isHostUiModalOpen,
   useSpinthStore,
 } from '@spinth/react';
 import { initTheme, toggleTheme, THEME_CHANGE_EVENT, type Theme } from './theme';
@@ -172,6 +173,9 @@ export function App() {
               docId,
               editable: writable,
               assetMaintenance: assetMaintenanceBase && writable,
+              // 宿主浮层快捷键闸门（specs/a11y-closeout §13.5-1）：面板根节点
+              // data-spinth-ui-modal 标记存在 ⟺ 打开，与右键菜单同源并入闸门
+              isUiModalOpen: isHostUiModalOpen,
             }}
             onReady={handleBoardReady}
             theme={theme}

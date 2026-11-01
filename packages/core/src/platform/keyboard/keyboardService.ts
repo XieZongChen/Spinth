@@ -25,8 +25,8 @@ export class KeyboardService extends Disposable {
   /** 物理断网判定（组合根注入 NetworkService.editBlocked$——两态语义单源，docs/10 §4） */
   isBlocked: () => boolean = () => (typeof navigator !== 'undefined' ? !navigator.onLine : false);
 
-  /** UI 模态浮层判定（组合根注入右键菜单开合，specs/a11y-closeout §5.5）：
-   *  菜单开着时快捷键全静默（D3）——菜单期 hotkeys 不命中画布命令 */
+  /** UI 模态浮层判定（组合根注入「右键菜单开合 ∥ 宿主浮层谓词」，specs/a11y-closeout
+   *  §5.5/§13.5-1）：任一开着快捷键全静默（D3）——浮层期 hotkeys 不命中画布命令 */
   isUiModalOpen: () => boolean = () => false;
 
   /** capture 相输入态快照：富文本编辑器的 Esc 处理器在冒泡中途 detach 编辑器
@@ -49,11 +49,11 @@ export class KeyboardService extends Disposable {
 
   initialize(): void {
     // 总闸门走纯函数 shortcutGateAllows（specs/a11y-closeout §5.5，真值表单测在彼）：
-    // 输入态/菜单期全静默、单独修饰键放行；只读白名单由 bindAll 守卫兜底（docs/09 §2）
+    // 输入态/UI 模态浮层期全静默、单独修饰键放行；只读白名单由 bindAll 守卫兜底（docs/09 §2）
     hotkeys.filter = (event): boolean =>
       shortcutGateAllows({
         editableAtCapture: this.editableAtCapture,
-        menuOpen: this.isUiModalOpen(),
+        uiModalOpen: this.isUiModalOpen(),
         target: event.target,
         key: (event.key ?? '').toLowerCase(),
       });

@@ -35,6 +35,8 @@ export {
 // useRovingFocus 供 app 包菜单（ProjectMenu）与仓内五消费者共用（W1）
 export { readSafeInsets, parseInsetPx, type ISafeInsets } from './a11y/safeArea';
 export { useRovingFocus, type IUseRovingFocusOptions } from './a11y/useRovingFocus';
+// 宿主浮层标记（§13.5-1）：App 注入 config.isUiModalOpen，面板根节点打标记
+export { UI_MODAL_ATTR, isHostUiModalOpen } from './a11y/uiModal';
 export { Board } from './components/Board';
 export { Toolbar } from './components/Toolbar';
 export { ToolFlyout } from './components/ToolFlyout';
