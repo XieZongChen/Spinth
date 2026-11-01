@@ -2,6 +2,7 @@
   "name": "spinth-monorepo",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "description": "spinth — local-first whiteboard (mind map + canvas widgets)",
   "type": "module",
   "packageManager": "pnpm@11.28.5",

@@ -2,6 +2,7 @@
   "name": "@spinth/react",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "description": "spinth board React bindings — zustand bridge + DOM UI widgets",
   "type": "module",
   "main": "src/index.ts",

@@ -2,6 +2,7 @@
   "name": "@spinth/app",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "description": "spinth board application shell",
   "type": "module",
   "scripts": {
