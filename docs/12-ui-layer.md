@@ -67,6 +67,14 @@ ActionBar / MindAddButtons：纯算术定位
   再加 44 会双计偏移。
 - 不引入 floating-ui：位置由选区矩形 + 固定偏移 + 视口钳制直接推导；浮层间无叠放仲裁。
 - 高频跟随 UI（点阵/工具幽灵）走 zustand 命令式订阅 + ref 直写 transform。
+- 宿主浮层快捷键闸门契约：app 壳的模态面板（项目菜单/存储面板）根节点打
+  `data-spinth-ui-modal` 标记（常量 `UI_MODAL_ATTR`），App 经
+  `config.isUiModalOpen = isHostUiModalOpen` 注入 core 快捷键闸门——标记存在 ⟺
+  面板打开；新增宿主浮层必须打标（docs/09 filter 闸门）。右键菜单不打标（core
+  `contextMenu` 已是真源，双源会掩盖回归）。
+- ActionBar 定位几何在 `actionBarLayout.ts` 纯函数；宽度/容器宽/安全区全部在
+  `useLayoutEffect` 内测量（渲染期零 DOM 读取），`resize`/`orientationchange`
+  失效重算（真机旋转/软键盘改变安全区）。
 
 ### 3.1 拖拽中隐藏
 

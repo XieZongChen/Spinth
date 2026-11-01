@@ -168,10 +168,10 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 #### 3.1 可访问性
 
-- 小项先收：宿主浮层快捷键闸门、touch/pen 自动化、ActionBar 安全区性能、
-  roving autoFocus 单测。
-- 大项后做：画布内容朗读（独立内容层）、px→rem 全量迁移、ToolFlyout Tab 顺序、
-  ToolGhost/画布图形对比度（需产品判断）。
+- [x] 小项先收：宿主浮层快捷键闸门、touch/pen 自动化、ActionBar 安全区性能、
+      roving autoFocus 单测（specs/a11y-closeout §13.5 第 1/7/8/9 条已收口）。
+- [ ] 大项后做：画布内容朗读（独立内容层）、px→rem 全量迁移、ToolFlyout Tab 顺序、
+      ToolGhost/画布图形对比度（需产品判断）。
 - 规格：specs/a11y-closeout §13.5。
 
 #### 3.2 平台人工验收
@@ -229,9 +229,7 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
   px→rem 全量字号迁移（1.4.4 由页面缩放代理覆盖）、ToolGhost/画布图形对比度
   （幽灵预览非文本图形，是否抬 3:1 需产品判断）、ToolFlyout 的 Tab 顺序
-  （portal 方案与 390px 裁剪约束冲突，需另案权衡）、指针主键过滤的 touch/pen
-  自动化覆盖、ActionBar 渲染期读安全区的性能小债、roving autoFocus 重渲染
-  不抢焦点的定点单测——specs/a11y-closeout §13.5。
+  （portal 方案与 390px 裁剪约束冲突，需另案权衡）——specs/a11y-closeout §13.5。
 - 开源发布定案：许可 MIT；对外文档双语（`README.md` 英文主文档 + `README.zh-CN.md`）；
   提交元数据保留原样，不重写历史；暂不使用自定义域名，Demo 与 canonical 固定为
   `https://xiezongchen.github.io/Spinth/`。

@@ -75,9 +75,12 @@ interface IShortcutDef {
 ### filter 闸门
 
 - contentEditable / INPUT / TEXTAREA 内不触发；TipTap `.ProseMirror` 区分编辑/选中态。
-- 右键菜单开着时全静默（菜单内容基于打开瞬间的选中集，撤销/删除会让它指向已失效
-  对象）；菜单内操作走菜单项。闸门在 `shortcutGateAllows` 纯函数（shortcuts.ts，
-  真值表单测在彼）。
+- UI 模态浮层（右键菜单 / 项目菜单 / 存储面板）开着时全静默——浮层内容基于打开
+  瞬间的状态，撤销/删除会让它指向已失效对象；浮层内操作走浮层自身控件。闸门在
+  `shortcutGateAllows` 纯函数（shortcuts.ts，真值表单测在彼）；来源双源取或：
+  右键菜单开合（core `contextMenu`）∥ 宿主浮层谓词（`IBoardConfig.isUiModalOpen`
+  注入，`@spinth/react` 的 `isHostUiModalOpen` 查询面板根节点
+  `data-spinth-ui-modal` 标记——面板条件渲染，标记存在 ⟺ 打开）。
 - 脑图 Tab/Enter 无图可建时放行原生键序（handler 返回 false = 未消费）。
 - 断网态可用：视图类缩放键 + f + esc；工具键被拦；space 临时抓手指在 hotkeys 体系外。
 - 只读态：视图四键 + esc 可用；工具/删除/undo 被拦。

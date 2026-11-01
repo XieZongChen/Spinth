@@ -890,9 +890,11 @@ W1 回滚 = 菜单组件 + core 4 文件；W4 回滚 = 语义属性 + 播报组�
 
 ### 13.5 开放项与后续
 
-1. **宿主浮层快捷键闸门**：项目菜单/存储面板打开时 Delete 仍作用于画布。本批只闸
-   上下文菜单（唯一与选区语义直接冲突的核心浮层）；后续可给 KeyboardService 加
-   通用 `setUiModalOpen`，由 app 壳在开合时设置。
+1. ~~**宿主浮层快捷键闸门**~~ **已收口**（P0 批次）：闸门字段改名 `uiModalOpen` 并
+   双源取或——右键菜单开合 ∥ 宿主浮层谓词（`IBoardConfig.isUiModalOpen` 注入
+   `@spinth/react` 的 `isHostUiModalOpen`，查面板根节点 `data-spinth-ui-modal`
+   标记）。项目菜单/存储面板已打标；单测 `uiModal.test.ts` + 真值表改名 +
+   `a11yKeyboard.spec.ts` 三例（开面板 Delete/方向键静默、关面板不残留）。
 2. **画布内容朗读**：元素级文本镜像/虚拟游标，需要独立的内容层，不与本批混做。
 3. **px→rem 文本**：1.4.4 由页面缩放覆盖；纯文本缩放覆盖面有限，列为样式技术债。
 4. **ToolGhost/画布图形对比**：幽灵预览在画布上最低 1.99（sticky），属非文本图形；
@@ -902,15 +904,19 @@ W1 回滚 = 菜单组件 + core 4 文件；W4 回滚 = 语义属性 + 播报组�
    关联属性已补，屏读可感知面板存在）；键盘到达面板需穿过全部铬件。修复要动
    DOM 结构（面板挂回工具坞内或 Tab 序注入），与移动端 390 裁剪修复的 portal
    方案冲突，需另案权衡。
-7. **指针过滤的 touch/pen 自动化覆盖**：`e.button != null` 防卫已上，但现有
-   mobile E2E 用鼠标事件；后续补 `hasTouch` 上下文的落笔/拖拽用例实证触控
-   不被主键过滤误挡。
-8. **ActionBar 渲染期读安全区**：`readSafeInsets()` 在 render 中调
-   `getComputedStyle`（每渲染四向）。桌面 inset=0 结果稳定、功能正确；纯度/
-   性能小债——若平移选区出现掉帧，挪 layout effect 或按帧缓存。
-9. **autoFocus 一次性的定点单测**：E2E 已覆盖「重开聚焦首项」，但「重渲染
-   不抢非 roving 按钮焦点」（ProjectMenu busy/warning 路径）无定点断言，
-   低优缺口。
+7. ~~**指针过滤的 touch/pen 自动化覆盖**~~ **已收口**（P0 批次）：单测真值表
+   `pointerButtonFilter.test.ts`（缺省 button/0/2 与通道差异 7 例）+ 真浏览器
+   `touchPen.spec.ts`（CDP `Input.dispatchTouchEvent` 与 `pointerType:'pen'`
+   各一例，拖拽建件实证不被误挡）。
+8. ~~**ActionBar 渲染期读安全区**~~ **已收口**（P0 批次）：几何抽
+   `actionBarLayout.ts` 纯函数（单测含 safe 全 0 逐像素回归锚点）；宽度/容器宽/
+   安全区合并进同一 `useLayoutEffect`，渲染期零 DOM 读取；
+   `resize`/`orientationchange` 失效重算（`a11yLayout.spec.ts` S1-d 挂载后
+   注入再 resize 断言重算）。
+9. ~~**autoFocus 一次性的定点单测**~~ **已收口**（P0 批次）：
+   `rovingAutoFocus.render.test.tsx` 四例——挂载聚焦首项+唯一停靠位、重渲染
+   （busy 换文案）不抢非 roving 焦点、容器清空再填充重新聚焦、`autoFocus:false`
+   不聚焦但停靠位仍在。
 
 ## 14. 复审记录（2026-10-25，独立复跑门禁）
 
