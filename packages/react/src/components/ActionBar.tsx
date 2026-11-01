@@ -12,12 +12,12 @@ import type { IActionBarSchema } from '@spinth/core';
 /**
  * 选中浮动操作栏（docs/12 §4/§5）：schema 驱动动态渲染——一级 bar 只放
  * 「当前值图标 + ▾」单按钮位（popover 字段）与 toggle，选项收进二级面板，
- * 文字说明收进 tooltip（2023-10-03 参考视频对齐；各元素类型只维护
+ * 文字说明收进 tooltip（2026-10-03 参考视频对齐；各元素类型只维护
  * core 侧 schema，样式与交互全部由本组件体系统一承载）。
  * 定位用纯算术（选区屏幕外接矩形上方居中 + 视口钳制）——单锚点场景
  * 不引入 floating-ui（决策差异记录于 docs/12 §5）。
  *
- * 坐标系（2023-09 遮挡 bug 修正）：bridge 给的 bounds 是 canvas 局部坐标，
+ * 坐标系（2026-09 遮挡 bug 修正）：bridge 给的 bounds 是 canvas 局部坐标，
  * 而本组件挂在 <main>（relative，画布区域）内、style.top 参照 main——两者同系，
  * 直接使用即可，禁止再 +TOPBAR_HEIGHT（否则顶栏偏移双计，栏压在图形上）。
  * 定位几何在 actionBarLayout.ts 纯函数；宽度/容器宽/安全区全部在
@@ -106,7 +106,7 @@ export function ActionBar() {
   const { schema, bounds } = actionBar;
 
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
-  // 视觉不居中（2023-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
+  // 视觉不居中（2026-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
   // （同步 setState → 重渲染），用户看不到中间帧。
   // 安全区与几何同窗测量（specs/a11y-closeout §13.5-8）：渲染期读
   // getComputedStyle 是纯度+性能债，且没有失效路径——真机旋转/软键盘/
