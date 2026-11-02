@@ -917,10 +917,15 @@ W1 回滚 = 菜单组件 + core 4 文件；W4 回滚 = 语义属性 + 播报组�
    `rovingAutoFocus.render.test.tsx` 四例——挂载聚焦首项+唯一停靠位、重渲染
    （busy 换文案）不抢非 roving 焦点、容器清空再填充重新聚焦、`autoFocus:false`
    不聚焦但停靠位仍在。
-10. **宿主非模态浮层的闸门覆盖**（P0 复审提出）：PWA 更新横幅可聚焦但不是模态
-    （role=status，仅在 waiting 期出现），未打 `data-spinth-ui-modal`——焦点在其
-    按钮上按 Delete/方向键仍落到画布。与 §13.5-1 同机制，判据需产品拍板：横幅
-    是否算「浮层」（算则打标即收口，不算则维持现状并在 docs/09 注明例外）。
+10. ~~**宿主非模态浮层的闸门覆盖**~~ **已收口**（按焦点作用域，非 modal）：横幅
+    常驻（不处理一直在），modal 语义会长期吞全部热键——改为复用既有孤儿选择器
+    `data-spinth-ui`（`isInteractiveUiTarget` 已引用但无组件打标）抽常量
+    `UI_CHROME_ATTR`（core/shortcuts 单源，`@spinth/react` 转发），新增判定
+    `isHostChromeTarget` 进 `shortcutGateAllows`（输入态之后、模态之前，不加
+    输入字段）；横幅根节点打标。护栏：真值表 4 例（命中 delete/meta 全静默、
+    未命中/null 放行）+ pwa.spec P5 追加三断言（拖拽建件选中 → 横幅按钮 focus
+    后 Delete 静默 → 焦点回 stage Delete 恢复删除；建件必须拖拽——单击落件
+    不产生选中，静默断言会假绿）。本批只给横幅打标，工具栏等维持现状。
 
 ## 14. 复审记录（2026-10-25，独立复跑门禁）
 

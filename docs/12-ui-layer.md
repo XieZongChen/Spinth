@@ -72,6 +72,11 @@ ActionBar / MindAddButtons：纯算术定位
   `config.isUiModalOpen = isHostUiModalOpen` 注入 core 快捷键闸门——标记存在 ⟺
   面板打开；新增宿主浮层必须打标（docs/09 filter 闸门）。右键菜单不打标（core
   `contextMenu` 已是真源，双源会掩盖回归）。
+- 宿主铬件标记契约：常驻可聚焦铬件（当前只有 PWA 更新横幅）根节点打
+  `data-spinth-ui`（常量 `UI_CHROME_ATTR`，单源 core/shortcuts、`@spinth/react`
+  转发）——焦点落在该子树内时快捷键闸门按焦点作用域静默（区别于 modal 的
+  存在性判定）。新增打标前必须检查该子树是否依赖画布快捷键（打标即全静默）；
+  工具栏/菜单等现有铬件维持现状，不扩大。
 - ActionBar 定位几何在 `actionBarLayout.ts` 纯函数；宽度/容器宽/安全区全部在
   `useLayoutEffect` 内测量（渲染期零 DOM 读取），`resize`/`orientationchange`
   失效重算（真机旋转/软键盘改变安全区）。

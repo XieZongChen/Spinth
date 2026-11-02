@@ -81,6 +81,9 @@ interface IShortcutDef {
   右键菜单开合（core `contextMenu`）∥ 宿主浮层谓词（`IBoardConfig.isUiModalOpen`
   注入，`@spinth/react` 的 `isHostUiModalOpen` 查询面板根节点
   `data-spinth-ui-modal` 标记——面板条件渲染，标记存在 ⟺ 打开）。
+- 焦点在宿主铬件（`data-spinth-ui` 子树，如 PWA 更新横幅）内时全静默——铬件内
+  的按键是控件语义，不得落到画布（横幅常驻故不走 modal 闸门，按焦点作用域判定，
+  判定函数 `isHostChromeTarget` 与模态源同在 shortcuts.ts）。
 - 脑图 Tab/Enter 无图可建时放行原生键序（handler 返回 false = 未消费）。
 - 断网态可用：视图类缩放键 + f + esc；工具键被拦；space 临时抓手指在 hotkeys 体系外。
 - 只读态：视图四键 + esc 可用；工具/删除/undo 被拦。

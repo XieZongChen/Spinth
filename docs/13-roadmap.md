@@ -229,8 +229,7 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
   px→rem 全量字号迁移（1.4.4 由页面缩放代理覆盖）、ToolGhost/画布图形对比度
   （幽灵预览非文本图形，是否抬 3:1 需产品判断）、ToolFlyout 的 Tab 顺序
-  （portal 方案与 390px 裁剪约束冲突，需另案权衡）、宿主非模态浮层（PWA 更新横幅）
-  未并入快捷键闸门（焦点在横幅按钮上按 Delete 仍作用画布）——specs/a11y-closeout §13.5。
+  （portal 方案与 390px 裁剪约束冲突，需另案权衡）——specs/a11y-closeout §13.5。
 - 开源发布定案：许可 MIT；对外文档双语（`README.md` 英文主文档 + `README.zh-CN.md`）；
   提交元数据保留原样，不重写历史；暂不使用自定义域名，Demo 与 canonical 固定为
   `https://xiezongchen.github.io/Spinth/`。
