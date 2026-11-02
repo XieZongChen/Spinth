@@ -5,6 +5,12 @@ import {
   shortcutGateAllows,
 } from '../platform/keyboard/shortcuts';
 
+/** 铬件目标桩（specs/a11y-closeout §13.5-10）：closest 命中 data-spinth-ui */
+const chromeTarget = (hit: boolean) =>
+  ({
+    closest: (sel: string) => (hit && sel.includes('data-spinth-ui') ? {} : null),
+  }) as unknown as EventTarget;
+
 /**
  * 快捷键注册表结构守卫（2026-10-10 审计补测——b6980b9 产品级修复的回归窗）：
  * - cmd 系必有 ctrl 系孪生：hotkeys-js 的 cmd = metaKey 位专指（3.13.15 映射表
@@ -143,6 +149,56 @@ describe('shortcutGateAllows 真值表（specs/a11y-closeout §5.5，优先级�
         uiModalOpen: false,
         target: null,
         key: 'delete',
+      }),
+    ).toBe(true);
+  });
+
+  // 宿主铬件焦点作用域（specs/a11y-closeout §13.5-10）：焦点落在 data-spinth-ui
+  // 子树内（如 PWA 更新横幅按钮）时全静默——铬件内按键是控件语义，不得落到画布
+  it('铬件焦点 + delete → false（横幅内 Delete 不删画布选中）', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        uiModalOpen: false,
+        target: chromeTarget(true),
+        key: 'delete',
+      }),
+    ).toBe(false);
+  });
+
+  it('铬件焦点 + 单独修饰键 → false（全静默不设例外）', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        uiModalOpen: false,
+        target: chromeTarget(true),
+        key: 'meta',
+      }),
+    ).toBe(false);
+  });
+
+  it('closest 未命中铬件（普通画布目标）→ true', () => {
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        uiModalOpen: false,
+        target: chromeTarget(false),
+        key: 'delete',
+      }),
+    ).toBe(true);
+  });
+
+  it('target 为 null / 无 closest → 不抛错且 true', () => {
+    expect(
+      shortcutGateAllows({ editableAtCapture: false, uiModalOpen: false, target: null, key: 'v' }),
+    ).toBe(true);
+    // plainTarget 无 closest 方法（document 等非 Element 目标同形态）
+    expect(
+      shortcutGateAllows({
+        editableAtCapture: false,
+        uiModalOpen: false,
+        target: {} as EventTarget,
+        key: 'v',
       }),
     ).toBe(true);
   });

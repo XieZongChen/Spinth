@@ -173,6 +173,34 @@ test('P5 更新流程：真重建 → 横幅 → 点击恰好刷新一次（含�
   // 横幅 a11y（specs/pwa §10；banner 只在本环境出现，断言收口在此）
   const refresh = banner.getByRole('button', { name: '刷新' });
   const later = banner.getByRole('button', { name: '稍后' });
+
+  // 铬件闸门（specs/a11y-closeout §13.5-10，生产 preview 无调试探针 → DOM 信号）：
+  // 焦点在横幅按钮上时 Delete 是铬件内按键，不得落到画布删选中（空画布提示
+  // = modelCount 0 的可见信号）；焦点回 stage 后恢复正常删除（不过度拦截）。
+  // 建件用拖拽（同 a11yKeyboard.drawShape）——单击落件不产生选中，Delete 对
+  // 空选中是 no-op，静默断言会假绿
+  await page.keyboard.press('r');
+  await page.mouse.move(400, 250);
+  await page.mouse.down();
+  await page.mouse.move(520, 330, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  // 选中信号用 toolbar 删除按钮（disabled ⟺ 空选中）——e2e 探针公开子集无 selected$
+  const delBtn = page.getByRole('button', { name: '删除选中 (Delete)' });
+  await expect(delBtn, '前置：拖拽建件后应有选中（否则静默断言无意义）').toBeEnabled();
+  await expect(page.locator('[data-spinth-empty-hint]')).toHaveCount(0);
+  await later.focus(); // focus 而非 click——click 会触发 dismiss
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(300);
+  expect(
+    await page.locator('[data-spinth-empty-hint]').count(),
+    '焦点在横幅按钮上按 Delete 不应删除画布元素',
+  ).toBe(0);
+  await page.locator('#stage-container').focus();
+  await page.keyboard.press('Delete');
+  await expect
+    .poll(() => page.locator('[data-spinth-empty-hint]').count(), { timeout: 3000 })
+    .toBeGreaterThan(0);
   await minTarget(refresh);
   await minTarget(later);
   const colors = await page.evaluate(() => {
