@@ -8,32 +8,75 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { CACHE, ROOT, SNAPSHOTS_REL, SPEC, WORK_SRC } from './config.mjs';
-import { containerCreate, execIn, makeCleanup, rsyncWork, stripLinuxBaselines } from './docker.mjs';
+import {
+  containerCreate,
+  execIn,
+  makeCleanup,
+  readPnpmVersion,
+  rsyncWork,
+  stripLinuxBaselines,
+} from './docker.mjs';
 import { collectEnvironment, printPngHashes, writeArtifact } from './artifact.mjs';
 import { extractVisualStems } from './stems.mjs';
 import { die, log, registerCleanup, sh, tailOf, unregisterCleanup } from './util.mjs';
 
-/** 容器内依赖安装（corepack 由镜像内 node 24 自带；shim 装进 HOME/bin 供 webServer 用 pnpm） */
-export function installDeps(name) {
-  log('容器内 pnpm install（store 走持久卷）……');
+// 镜像内 pnpm 版本单源（根 package.json 的 packageManager）：installDeps 的
+// 工具链预检按它等值断言（exit 26）
+const PNPM_VERSION = readPnpmVersion();
+
+/** 工具链预检：装依赖之前先证镜像内 pnpm 在位且版本等于 package.json 的
+ *  packageManager（pnpm bake 进镜像层；base 的 Node ≥25 无 corepack，此前
+ *  「corepack: command not found」被误报为网络问题即由此缺）。退出码 26 =
+ *  工具链不符，与预检四关 21–25 连续 */
+export function probeToolchain(name, pnpmVersion) {
+  log('工具链预检（node / pnpm）……');
   try {
     const out = execIn(
       name,
       [
         'set -e',
-        'mkdir -p "$HOME/bin"',
-        'corepack enable --install-directory "$HOME/bin"',
-        'corepack pnpm install --frozen-lockfile --store-dir /work/store',
+        'node -v',
+        'pnpm -v',
+        `test "$(pnpm -v)" = "${pnpmVersion}" || { echo "pnpm=$(pnpm -v) want=${pnpmVersion}"; exit 26; }`,
       ].join('\n'),
-    );
-    console.log(tailOf(out, 4));
+    ).trim();
+    log(`工具链预检通过：${out.split('\n').join(' / ')}`);
   } catch (err) {
     console.error(tailOf(String(err.stdout ?? '') + String(err.stderr ?? ''), 30));
-    die(2, '容器内依赖安装失败（网络或 lockfile 问题）');
+    die(
+      2,
+      '容器内工具链预检失败（node/pnpm 缺失或版本不符）——检查 docker/visual.Dockerfile 的 pnpm 安装层',
+    );
   }
 }
 
-/** 预检四关（specs §5.5）：node 主版本 / playwright 版本 ×2 / CJK 字体 */
+/** 容器内依赖安装（pnpm 已 bake 进镜像层，全局可执行；store 走持久卷）。
+ *  首行工具链预检在 try 之外：工具链缺失 ≠ 安装失败，归因不能混 */
+export function installDeps(name, pnpmVersion) {
+  probeToolchain(name, pnpmVersion);
+  log('容器内 pnpm install（store 走持久卷）……');
+  try {
+    const out = execIn(
+      name,
+      ['set -e', 'pnpm install --frozen-lockfile --store-dir /work/store'].join('\n'),
+    );
+    console.log(tailOf(out, 4));
+  } catch (err) {
+    const tail = tailOf(String(err.stdout ?? '') + String(err.stderr ?? ''), 30);
+    console.error(tail);
+    const lastLine = tail.trim().split('\n').pop() ?? '';
+    die(
+      2,
+      /command not found|not found in \$PATH/i.test(lastLine)
+        ? `容器内工具链缺失（${lastLine}）——检查 docker/visual.Dockerfile 的 pnpm 安装层`
+        : `容器内依赖安装失败：${lastLine}`,
+    );
+  }
+}
+
+/** 预检四关（specs §5.5）：node 主版本 / playwright 版本 ×2 / CJK 字体。
+ *  node 大版本期望随 pinned digest 固定（当前 base 为 Node 26）——换 digest
+ *  时必须同步此断言（等值比对，不放宽） */
 export function preflight(name, pkgVersion) {
   log('预检（specs §5.5）……');
   const out = execIn(
@@ -41,8 +84,8 @@ export function preflight(name, pkgVersion) {
     [
       'set -e',
       `node_major=$(node -p 'process.versions.node.split(".")[0]')`,
-      'test "$node_major" = "24" || { echo "node=$node_major"; exit 21; }',
-      `pw_ver=$(corepack pnpm exec playwright --version | grep -oE '[0-9][0-9.]+' | head -1)`,
+      'test "$node_major" = "26" || { echo "node=$node_major"; exit 21; }',
+      `pw_ver=$(pnpm exec playwright --version | grep -oE '[0-9][0-9.]+' | head -1)`,
       `test "$pw_ver" = "${pkgVersion}" || { echo "playwright=$pw_ver"; exit 22; }`,
       `dep_ver=$(node -p 'require("/work/src/node_modules/@playwright/test/package.json").version')`,
       `test "$dep_ver" = "${pkgVersion}" || { echo "dep=$dep_ver"; exit 23; }`,
@@ -78,8 +121,7 @@ export function playwrightRun(name, update) {
   log(update ? '生成基线（--update-snapshots）……' : '校验基线……');
   const script = [
     'set -e',
-    'export PATH="$HOME/bin:$PATH"',
-    `corepack pnpm exec playwright test --grep @visual --workers=1 --retries=0${update ? ' --update-snapshots' : ''}`,
+    `pnpm exec playwright test --grep @visual --workers=1 --retries=0${update ? ' --update-snapshots' : ''}`,
   ].join('\n');
   try {
     const out = execIn(name, script, { CI: '1', E2E_VISUAL_CHANNEL: 'bundled' });
@@ -119,7 +161,7 @@ export async function runOnce(tag, pkgVersion, { update }) {
     die(code, ...msgs);
   };
   try {
-    installDeps(name);
+    installDeps(name, PNPM_VERSION);
     preflight(name, pkgVersion);
     const runCode = playwrightRun(name, update);
     if (runCode !== 0) return runCode;
@@ -186,7 +228,7 @@ export async function runOnce(tag, pkgVersion, { update }) {
       const verifyCleanup = makeCleanup(verifyName);
       let env;
       try {
-        installDeps(verifyName);
+        installDeps(verifyName, PNPM_VERSION);
         preflight(verifyName, pkgVersion);
         if (playwrightRun(verifyName, false) !== 0) {
           fail(3, '复验失败：已回滚本次回写的基线——先排查环境或截图稳定性，再重试 update');
@@ -225,7 +267,7 @@ export async function runStability(tag, pkgVersion) {
     const outDir = path.join(CACHE, 'stability', `round${round}`);
     fs.rmSync(outDir, { recursive: true, force: true });
     try {
-      installDeps(name);
+      installDeps(name, PNPM_VERSION);
       preflight(name, pkgVersion);
       const code = playwrightRun(name, true);
       if (code !== 0) {

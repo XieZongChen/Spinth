@@ -137,15 +137,15 @@ packages/app/e2e/visual.spec.ts-snapshots/*-linux.png
 
 ### 5.1 版本与平台
 
-| 项         | 固定值                                       | 说明                                     |
-| ---------- | -------------------------------------------- | ---------------------------------------- |
-| Playwright | `1.64.1`（精确，不带 ^）                     | 浏览器构建与快照算法随版本变化           |
-| 镜像 tag   | `mcr.microsoft.com/playwright:v1.64.1-noble` | 首次成功后建议改为 digest pin            |
-| 架构       | `linux/amd64`                                | CI 与当前开发机一致；arm64 不作为权威    |
-| Node       | 24（镜像内置）                               | 实施时 `node -v` 复核 major              |
-| pnpm       | 11.28.5（`packageManager`）                  | corepack 激活                            |
-| Ubuntu     | noble（24.04）                               | 与 `ubuntu-latest` 同代，减少 glibc 差异 |
-| CJK 字体   | `fonts-noto-cjk` 固定版本                    | 构建时用 `apt-cache policy` 取值写死     |
+| 项         | 固定值                                           | 说明                                                                      |
+| ---------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| Playwright | `1.64.1`（精确，不带 ^）                         | 浏览器构建与快照算法随版本变化                                            |
+| 镜像 base  | `v1.64.1-noble@sha256:2f05f8a7…76`（digest pin） | 同 tag 上游重发已实测（Node 24→26 + 移除 corepack），tag 可变即工具链漂移 |
+| 架构       | `linux/amd64`                                    | CI 与当前开发机一致；arm64 不作为权威                                     |
+| Node       | 26（pinned digest 内置）                         | 换 digest 时必须同步 preflight 断言并复核渲染字节                         |
+| pnpm       | 11.28.5（`packageManager`）                      | 构建期 `npm i -g` bake 进镜像层                                           |
+| Ubuntu     | noble（24.04）                                   | 与 `ubuntu-latest` 同代，减少 glibc 差异                                  |
+| CJK 字体   | `fonts-noto-cjk` 固定版本                        | 构建时用 `apt-cache policy` 取值写死                                      |
 
 版本升级是一个**原子动作**：改 `package.json`、改 Dockerfile base、重建镜像、重新生成 darwin 与 linux 基线、同一次提交。禁止只升其中一处。
 
@@ -153,7 +153,10 @@ packages/app/e2e/visual.spec.ts-snapshots/*-linux.png
 
 ```
 ARG PLAYWRIGHT_VERSION=1.64.1
-FROM mcr.microsoft.com/playwright:v$PLAYWRIGHT_VERSION-noble
+FROM mcr.microsoft.com/playwright:v$PLAYWRIGHT_VERSION-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+
+ARG PNPM_VERSION
+RUN npm install -g pnpm@${PNPM_VERSION} && pnpm --version
 
 ARG NOTO_CJK_VERSION
 
@@ -203,10 +206,12 @@ RUN fc-cache -f && fc-list :lang=zh | grep -q 'Noto Sans CJK SC' && fc-match san
 
 ### 5.5 预检与回退
 
-容器内运行前必须过四关：
+容器内装依赖**之前**先过工具链预检：`node -v` / `pnpm -v` 打印，且 `pnpm -v`
+等值等于 `packageManager` 版本（不符 exit 26——工具链问题在最便宜处暴露，
+且不被误报为安装失败）。装依赖后必须过四关：
 
-1. `node -v` 主版本 = 24。
-2. `npx playwright --version` = 1.64.1，且 `node_modules/@playwright/test/package.json` 版本一致。
+1. `node -v` 主版本 = 26（随 pinned digest 固定；换 digest 必须同步此断言）。
+2. `pnpm exec playwright --version` = 1.64.1，且 `node_modules/@playwright/test/package.json` 版本一致。
 3. `fc-match sans-serif` 命中 `Noto Sans CJK SC`，`fc-list :lang=zh` 非空。
 4. 浏览器 `canvas.getContext('webgl2') ?? canvas.getContext('webgl')` 非空（由 `visual.spec.ts` 的 `ready()` 在每次用例里断言，失败信息直接指向容器 flags）。
 
@@ -666,6 +671,30 @@ gate 基线检查 + visual 校验分支；带坏基线的 update dispatch 验「
   `test.skip` → `--update` exit 3；update artifact `base_digest` 单值；
   macOS visual 4/4。
 - **CI 实证**仍为两次 dispatch（普通 + 坏基线 update），见 §14.7。
+
+### 14.9 nightly visual 修复：digest pin + 镜像内置 pnpm（2026-11）
+
+nightly（run 41357664325）visual 红：上游 `v1.64.1-noble` 同 tag 重发（CI 解析到
+`sha256:2f05f8a7…76`，Node 26 且无 corepack——Node ≥25 起上游不再内置），
+`corepack: command not found` 被「网络或 lockfile 问题」文案误报，排障被带偏。
+同 tag 两个 digest 并存（本机镜像源 47b510dd 为 Node 24 + corepack）证明
+「tag 可变 + 指纹只覆盖 Dockerfile 文本」挡不住上游重发。处置：
+
+- **base 按 digest pin**（§5.2）：`v${PLAYWRIGHT_VERSION}-noble@sha256:2f05f8a7…76`，
+  版本仍以 ARG 单源；指纹机制（Dockerfile 全文入指纹）自动覆盖 digest 变化。
+- **pnpm bake 进镜像层**：`ARG PNPM_VERSION`（无默认，由
+  `readPnpmVersion()` 读根 `package.json#packageManager` 传入）+
+  `npm install -g pnpm@…`；执行器全部改用裸 `pnpm`，corepack 机制（COREPACK_HOME
+  卷/env/enable）全删。升级清理：`docker volume rm spinth-visual-corepack`
+  （本机/自托管；CI 一次性容器无此卷）。
+- **工具链预检**（§5.5）：`installDeps` 首行（try 外）`probeToolchain`——
+  `pnpm -v` 等值断言，不符 exit 26（与预检四关 21–25 连续）；失败归因
+  「工具链缺失 ≠ 安装失败」。预检四关的 node 主版本期望 24 → **26**
+  （等值断言不放宽；换 digest 时必须同步）。
+- **安装失败文案带真实尾行 + 分类**（`command not found` → 指向 Dockerfile
+  pnpm 层，其余 → 带尾行输出），不再猜「网络或 lockfile」。
+- 本机镜像源与 CI digest 不一致（daocloud 滞后），本机 `pnpm visual:linux`
+  不能作为 CI 等价验证——验收以 CI workflow_dispatch 为准。
 
 ## 15. 附录
 
