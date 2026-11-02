@@ -129,6 +129,18 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** 应用铬件标记（specs/a11y-closeout §13.5-10）：焦点落在该子树内时，全局
+ *  热键一律不接管——铬件内的按键是控件语义，不得落到画布。与模态浮层
+ *  （data-spinth-ui-modal）互补：铬件按焦点作用域判定（常驻件不吞全局），
+ *  模态按存在性判定（开着即全静默） */
+export const UI_CHROME_ATTR = 'data-spinth-ui';
+
+/** 焦点目标是否在宿主铬件子树内（鸭子类型桩可测；无 closest 的目标安全放行） */
+export function isHostChromeTarget(target: EventTarget | null): boolean {
+  const el = target as { closest?: (sel: string) => unknown } | null;
+  return typeof el?.closest === 'function' && !!el.closest(`[${UI_CHROME_ATTR}]`);
+}
+
 /** 键盘可达性守卫（2026-10-17 外部审查 4.1）：目标是可交互 UI 控件（按钮/
  *  链接/浮层面板等）时，Enter/Space/Tab/方向键是原生行为（激活按钮/焦点
  *  遍历）——快捷键层不得 preventDefault 吞掉，否则键盘用户无法选工具、
@@ -136,7 +148,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function isInteractiveUiTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el || typeof el.closest !== 'function') return false;
-  return !!el.closest('button, a, input, textarea, select, [contenteditable], [data-spinth-ui]');
+  return !!el.closest(`button, a, input, textarea, select, [contenteditable], [${UI_CHROME_ATTR}]`);
 }
 
 /** 上述 UI 目标上必须放行的原生语义键（小写比较） */
@@ -163,14 +175,15 @@ export interface IShortcutGateInput {
 }
 
 /**
- * 快捷键总闸门（顺序即优先级）：输入态 → false；UI 模态浮层开着 → false；
- * 单独修饰键 → true（不干扰组合键判定）；其余 → true（只读白名单由
- * bindAll 的 handler 守卫兜底，docs/09 §2）。抽纯函数的唯一动机：
- * 闸门规则真值表可单测（specs/a11y-closeout §5.8）。
+ * 快捷键总闸门（顺序即优先级）：输入态 → false；铬件焦点 → false；UI 模态
+ * 浮层开着 → false；单独修饰键 → true（不干扰组合键判定）；其余 → true
+ *（只读白名单由 bindAll 的 handler 守卫兜底，docs/09 §2）。抽纯函数的唯一
+ * 动机：闸门规则真值表可单测（specs/a11y-closeout §5.8）。
  */
 export function shortcutGateAllows(input: IShortcutGateInput): boolean {
   if (input.editableAtCapture) return false;
   if (isEditableTarget(input.target)) return false;
+  if (isHostChromeTarget(input.target)) return false;
   if (input.uiModalOpen) return false;
   if (['control', 'meta', 'alt', 'shift'].includes(input.key)) return true;
   return true;

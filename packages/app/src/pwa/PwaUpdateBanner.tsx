@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSpinthStore } from '@spinth/react';
+import { UI_CHROME_ATTR, useSpinthStore } from '@spinth/react';
 import { usePwaUpdate } from './useServiceWorker';
 
 /**
@@ -7,6 +7,10 @@ import { usePwaUpdate } from './useServiceWorker';
  * 二者互斥——editBlocked 优先时本横幅不渲染（单机 editBlocked 恒 false，
  * 该分支留给协同宿主）。role=status polite，出现不抢焦点；「稍后」= 本会话
  * 不再提示；关闭后若焦点曾在横幅内，归还触发元素。
+ *
+ * 根节点打 UI_CHROME_ATTR（specs/a11y-closeout §13.5-10）：横幅常驻（不处理
+ * 就一直在），不能用 modal 闸门（会长期吞掉全部热键）——焦点落在横幅内时
+ * 热键按铬件作用域静默，Delete 不再泄漏到画布删选中。
  */
 export function PwaUpdateBanner() {
   const editBlocked = useSpinthStore((s) => s.editBlocked);
@@ -41,6 +45,7 @@ export function PwaUpdateBanner() {
       ref={bannerRef}
       role="status"
       data-spinth-pwa-banner=""
+      {...{ [UI_CHROME_ATTR]: '' }}
       className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-edge bg-surface py-1 pl-4 pr-1.5 text-[12px] font-bold text-ink shadow-pop max-w-[calc(100vw-16px)]"
     >
       <span className="whitespace-nowrap">{pwa.ready ? '新版本已就绪' : '新版本可用'}</span>

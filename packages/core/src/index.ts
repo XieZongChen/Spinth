@@ -109,6 +109,10 @@ export {
   NODE_MAX_WIDTH,
 } from './widgets/mind/mindNodeVm';
 
+// 宿主铬件标记（specs/a11y-closeout §13.5-10）：快捷键闸门按焦点作用域静默；
+// 打标方（@spinth/react 消费者）与 isInteractiveUiTarget 选择器共用单源
+export { UI_CHROME_ATTR } from './platform/keyboard/shortcuts';
+
 /**
  * 宿主公共面 = 生命周期 + 输出流 + 查询 + 命令——由 boardPublicApi.ts 的
  * `BOARD_PUBLIC_MEMBERS` allowlist 显式列举（新增公开成员必须手动加表，
