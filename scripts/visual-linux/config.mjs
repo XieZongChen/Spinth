@@ -13,7 +13,6 @@ const SPEC = path.join(ROOT, 'packages/app/e2e/visual.spec.ts');
 const SNAPSHOTS_REL = 'packages/app/e2e/visual.spec.ts-snapshots';
 const DOCKERFILE = path.join(ROOT, 'docker', 'visual.Dockerfile');
 const STORE_VOLUME = 'spinth-visual-store';
-const COREPACK_VOLUME = 'spinth-visual-corepack';
 
 // noble 的 fonts-noto-cjk 固定版本（specs §5.1：构建时 apt-cache policy 实测写死）
 const NOTO_CJK_VERSION = '1:20230817+repack1-3';
@@ -37,7 +36,6 @@ export {
   SNAPSHOTS_REL,
   DOCKERFILE,
   STORE_VOLUME,
-  COREPACK_VOLUME,
   NOTO_CJK_VERSION,
   PROXY,
   MODE,

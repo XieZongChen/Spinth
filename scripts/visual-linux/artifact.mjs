@@ -30,7 +30,7 @@ export function collectEnvironment(name) {
     [
       'set -e',
       'node_v=$(node -v)',
-      'pnpm_v=$(corepack pnpm -v)',
+      'pnpm_v=$(pnpm -v)',
       'fc_m=$(fc-match sans-serif)',
       'fc_zh=$(fc-list :lang=zh family | sort -u | paste -sd ";" -)',
       'echo "node_v=$node_v"',

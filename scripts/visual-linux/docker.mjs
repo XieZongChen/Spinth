@@ -9,7 +9,6 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  COREPACK_VOLUME,
   DOCKERFILE,
   MODE,
   NOTO_CJK_VERSION,
@@ -30,6 +29,21 @@ export function readPlaywrightVersion() {
     );
   }
   return spec;
+}
+
+/** 镜像内 pnpm 版本单源：读根 package.json 的 packageManager（pnpm@x.y.z）。
+ *  bake 进镜像层（base 的 Node ≥25 无 corepack，运行期联网取 pnpm 的机制已移除），
+ *  解析失败即死——版本传错会在容器内工具链预检以 exit 26 暴露 */
+export function readPnpmVersion() {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const m = /^pnpm@(\S+)$/.exec(pkg.packageManager ?? '');
+  if (!m) {
+    die(
+      2,
+      `package.json 的 packageManager 必须形如 pnpm@<version>（当前 "${pkg.packageManager}"）`,
+    );
+  }
+  return m[1];
 }
 
 /** 解析 Dockerfile FROM 行的 base 引用（供 base digest 审计）。变量 tag 展开
@@ -114,6 +128,8 @@ export function buildImage(version) {
       '--build-arg',
       `PLAYWRIGHT_VERSION=${version}`,
       '--build-arg',
+      `PNPM_VERSION=${readPnpmVersion()}`,
+      '--build-arg',
       `NOTO_CJK_VERSION=${NOTO_CJK_VERSION}`,
       ...proxyArgs,
       '-t',
@@ -174,13 +190,10 @@ export function chownVolumes(tag) {
     'linux/amd64',
     '-v',
     `${STORE_VOLUME}:/s`,
-    '-v',
-    `${COREPACK_VOLUME}:/c`,
     tag,
     'chown',
     `${process.getuid()}:${process.getgid()}`,
     '/s',
-    '/c',
   ]);
 }
 
@@ -196,15 +209,11 @@ export function containerCreate(name, tag) {
     `${process.getuid()}:${process.getgid()}`,
     '-v',
     `${STORE_VOLUME}:/work/store`,
-    '-v',
-    `${COREPACK_VOLUME}:/work/corepack`,
     '-e',
     'HOME=/tmp/home',
-    '-e',
-    'COREPACK_HOME=/work/corepack',
   ];
   if (PROXY) {
-    // corepack/pnpm 走代理加速；localhost 除外（playwright webServer 就绪探测）
+    // npm/pnpm 走代理加速；localhost 除外（playwright webServer 就绪探测）
     runArgs.push(
       '-e',
       `http_proxy=${PROXY}`,
