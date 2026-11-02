@@ -133,8 +133,9 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
       举报通道走 GitHub 私有渠道，不写入邮箱。
 - [x] 版本与页面元信息：1.0.0、OG/Twitter/canonical/robots、社交预览图
       （`packages/app/public/og-image.png`）。
-- [ ] 仓库卫生：`pnpm hygiene`、全历史密钥/邮箱/本机路径扫描、依赖许可证、
-      大文件检查。
+- [x] 仓库卫生：本机路径/密钥/邮箱/拒绝词由 `pnpm hygiene` 守护、依赖许可由
+      `pnpm license:check` 守护（两者均在 verify 内每轮执行）；全历史一次性
+      核对通过（提交邮箱单一、密钥零残留、无 >200KB 入库文件）。
 - 验收：README 可对外；`pnpm verify` 绿；无隐私/来源残留。
 
 #### 2.2 仓库公开与 CI 实证
