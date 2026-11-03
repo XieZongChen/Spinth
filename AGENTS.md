@@ -169,9 +169,14 @@ E2E 探针路径全量迁移 `__spinthDebug.__debug`，公开化 `toScreenPoint`
 注入并入快捷键闸门（`menuOpen`→`uiModalOpen`，与右键菜单取或）；指针主键过滤补
 真值表单测与 CDP 触摸/笔 E2E；操作栏定位几何抽 `actionBarLayout.ts`、安全区移入
 layout effect 并随 resize/orientationchange 重算；roving autoFocus 补「重渲染不抢
-焦点」定点单测。PWA 更新横幅等非模态浮层的闸门覆盖仍挂账（§13.5-10）。
+焦点」定点单测。
 
-当前实测基线：`pnpm verify` 通过；1075 单测（core 972 + react 65 + app 38）；
+nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest pin（同 tag 上游
+重发已实测）、pnpm 构建期内置进镜像（不再依赖 corepack）、装依赖前工具链预检
+（node 主版本 / pnpm 版本等值断言）、安装失败文案带真实尾行；宿主常驻铬件按
+焦点作用域并入快捷键闸门（PWA 更新横幅打 `data-spinth-ui`，§13.5-10 已收口）。
+
+当前实测基线：`pnpm verify` 通过；1079 单测（core 976 + react 65 + app 38）；
 E2E 47 spec / 228 用例全绿（视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；touchPen 2/2；debugSurface
 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
