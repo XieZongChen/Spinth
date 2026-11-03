@@ -238,7 +238,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);
       }
-      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, this.getGroups());
+      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, e.screen, this.getGroups());
     }
   }
 
@@ -257,7 +257,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       return;
     }
     if (this.marquee) {
-      this.marquee.move(e.world);
+      this.marquee.move(e.world, e.screen);
     }
   }
 
