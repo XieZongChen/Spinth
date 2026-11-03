@@ -106,7 +106,9 @@ export interface IViewportService {
  *  selector 在拖拽 move/up/cancel 处上报，不进公开 API */
 export interface IEdgeAutoScrollService {
   /** 拖拽中指针 move 上报。dragging=false（未过阻尼/非拖拽）→ 立即停止。
-   *  幂等：同一 (screen, dragging) 重复调用不改变行为（重放路径会重复调用） */
+   *  幂等：同一 (screen, dragging) 重复调用不改变行为（重放路径会重复调用）。
+   *  框选口径（specs/marquee-auto-scroll D2）：dragging = MarqueeSession.moved
+   *  （屏幕位移 ≥ MARQUEE_TRACTION_SCREEN 锁存），矩形/选中不受该判据门控 */
   update(screen: IPoint, dragging: boolean): void;
   /** 停 rAF、清速度、摘 pointerleave 监听。可重复调用 */
   stop(): void;

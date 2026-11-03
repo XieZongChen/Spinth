@@ -258,6 +258,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     }
     if (this.marquee) {
       this.marquee.move(e.world, e.screen);
+      this.edgeScroll?.update(e.screen, this.marquee.moved);
     }
   }
 
