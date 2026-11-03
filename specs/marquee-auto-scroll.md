@@ -1,7 +1,7 @@
 # 框选边缘自动滚屏（marquee auto-scroll）技术方案
 
-> 状态：设计稿（待实施）。前置挂账：`specs/edge-auto-scroll` §11.1、`docs/13` §3。
-> 实施后回填 §13（提交序列、实测数字），并把本行状态改为「已实施」。
+> 状态：已实施（提交序列与实测数字见 §13.4）。前置挂账 `specs/edge-auto-scroll`
+> §11.1、`docs/13` §3 已同步收口。
 
 ## 0. 结论摘要
 
@@ -554,3 +554,28 @@ npx playwright test packages/app/e2e/edgeAutoScroll.spec.ts
 | `specs/edge-auto-scroll` §11.1 | 三个前置：起拖判据（D2）、行数（已由 R4 返工完成）、选区语义（D3 给默认，§12 待拍板） |
 | `docs/16` 性能                 | 不新增 CI 门禁，按 §7.3 本地实测                                                      |
 | `specs/runtime-narrowing`      | 不加 debug 字段、不加公开成员（D8）                                                   |
+
+### 13.4 实施回填
+
+提交序列（每步独立可回退，均含 pre-push `pnpm verify` 全绿后推送）：
+
+| 步  | 提交      | 内容                                                           |
+| --- | --------- | -------------------------------------------------------------- |
+| S1  | `3c9c75e` | MarqueeSession 判据/去重 + T1–T8（调用点随签名机械更新）       |
+| S2  | `23986f0` | marquee 分支 +1 行上报 + P1–P4 + `types/services.ts` 注释      |
+| S3  | `1446b01` | E2E M-1–M-4 + 本规格入库（含 prettier 修正 amend）             |
+| S4  | 见本笔    | docs/05 §4.5、docs/13 §3、specs/edge-auto-scroll §11.1、AGENTS |
+
+实测数字：
+
+- 单测：core 976 → **984**（新增 `selectorMarquee.test.ts` T1–T8 共 8 例；
+  `selectorEdgeScroll.test.ts` 5 → 9 例）。react 65 / app 38 不变，合计 **1087**。
+- E2E：`edgeAutoScroll.spec.ts` 5 → **9** 用例（E-1..E-5 无回归 + M-1..M-4 新增）；
+  全量 47 spec / **232** 用例绿（视觉 4/4 双平台不变）。
+- `selectorService.ts` 386 → **387** 行（< 400，R7 预期一致）；
+  `selectorMarquee.ts` 71 → 108 行。
+- 实施期发现：E2E 恒 y 拖动会得到零高度矩形——严格相交口径下永不命中屏外件，
+  M-1/M-3 的 hold 点取 y=340（与起点差 40）保证矩形有高度；另 waitForFunction
+  predicate 的自由变量不随参传入浏览器上下文，阈值 + 选中条件须打包成数组传参。
+- 手工验收四项（§8.4）待人工执行：四边四角、三档缩放手感、0.05x 升档曲线、
+  触摸真机边缘拖拽。
