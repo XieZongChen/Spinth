@@ -330,3 +330,183 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
   expect(Math.abs(landedScreen!.x - holdScreen.x)).toBeLessThan(120);
   expect(Math.abs(landedScreen!.y - holdScreen.y)).toBeLessThan(120);
 });
+
+// ---------- 框选边缘滚屏（specs/marquee-auto-scroll §8.3 M-1..M-4） ----------
+// 断言纪律同文件头：无蓝框探针（D8），用「选中集含屏外元素」作为矩形确实
+// 长过去的语义证据；屏外 fixture 走 dev `__debug.engine`（bench 先例）。
+
+/** 公开 selected$ 读取（D8：断言一律走公开面） */
+async function selectedIds(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    (
+      window as unknown as {
+        __spinth: { selected$: { getValue(): string[] } };
+      }
+    ).__spinth.selected$.getValue(),
+  );
+}
+
+/** dev engine 造屏外 SHAPE（bench 同款字段；主配置 dev server 探针可用） */
+async function addOffscreenRect(page: Page, id: string, x: number, y: number): Promise<void> {
+  await page.evaluate(
+    ([wid, x0, y0]) => {
+      const engine = (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              engine: {
+                transact(fn: () => void): void;
+                add(data: Record<string, unknown>): void;
+                genInitialOrder(): string;
+              };
+            };
+          };
+        }
+      ).__spinthDebug.__debug.engine;
+      engine.transact(() => {
+        engine.add({
+          id: wid,
+          type: 'SHAPE',
+          zOrder: engine.genInitialOrder(),
+          shapeType: 'rect',
+          color: '#e8f0fb',
+          borderStyle: 'solid',
+          x: x0,
+          y: y0,
+          width: 120,
+          height: 80,
+        });
+      });
+    },
+    [id, x, y],
+  );
+  await page.waitForFunction(
+    (wid) =>
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates.some((v) => v.id === wid),
+    id,
+  );
+}
+
+/** 框选起滚前置：B 建于世界 (1900,320)（初始屏外）→ 空白 (200,300) 按下 →
+ *  过阈 → 拖到右缘热区按住。hold 取 y=340：与起点 y 差 40 保证矩形有高度
+ *  （恒 y 拖动 = 零高度矩形，严格相交口径下永不命中 B） */
+async function startMarqueeScroll(page: Page): Promise<{
+  box: { x: number; y: number; width: number; height: number };
+  before: VpBounds;
+  id: string;
+}> {
+  const id = 'marquee-b1';
+  await addOffscreenRect(page, id, 1900, 320);
+  const box = (await page.locator('#stage-container').boundingBox())!;
+  const before = await vpBounds(page);
+  await page.mouse.move(box.x + 200, box.y + 300);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 224, box.y + 300, { steps: 4 }); // 屏幕位移 ≥10px 过阈
+  await page.mouse.move(box.x + box.width - 12, box.y + 340, { steps: 8 }); // 右缘热区按住
+  return { box, before, id };
+}
+
+test('M-1 右热区框选扩选屏外内容；松手选中集保持、零数据面写入', async ({ page }) => {
+  await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
+  const { id, before } = await startMarqueeScroll(page);
+  const count0 = await page.evaluate(
+    () => (window as unknown as { __spinth: { modelCount: number } }).__spinth.modelCount,
+  );
+  // 滚屏累积 + 矩形长过屏外元素：vpBounds.x 增长 > 400 且选中集含 B
+  await page.waitForFunction(
+    ([x0, wid]) => {
+      const w = window as unknown as {
+        __spinth: {
+          vpBounds$: { getValue(): { x: number } };
+          selected$: { getValue(): string[] };
+        };
+      };
+      return (
+        w.__spinth.vpBounds$.getValue().x > (x0 as number) + 400 &&
+        w.__spinth.selected$.getValue().includes(wid as string)
+      );
+    },
+    [before.x, id],
+    { timeout: 5_000 },
+  );
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  // 松手 = 最后一帧过程结果定稿（不从 up 坐标重算，D6）；框选零 Yjs 写（D7）
+  expect(await selectedIds(page)).toContain(id);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __spinth: { modelCount: number } }).__spinth.modelCount,
+    ),
+  ).toBe(count0);
+  expect((await vpBounds(page)).x).toBeGreaterThan(before.x + 400); // 视口不回弹
+});
+
+test('M-2 反例：热区内按下未过起拖判据（3px 抖动）→ 不滚屏', async ({ page }) => {
+  await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
+  const box = (await page.locator('#stage-container').boundingBox())!;
+  const before = await vpBounds(page);
+  const press = { x: box.width - 12, y: 300 };
+  await page.mouse.move(box.x + press.x, box.y + press.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + press.x + 3, box.y + press.y + 3, { steps: 2 }); // 亚阈值
+  await page.waitForTimeout(300);
+  const after = await vpBounds(page);
+  expect(after.x).toBe(before.x);
+  expect(after.y).toBe(before.y);
+  await page.mouse.up();
+});
+
+test('M-3 指针回中心 → 停滚；矩形收缩取消屏外选中', async ({ page }) => {
+  await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
+  const { box, before, id } = await startMarqueeScroll(page);
+  await page.waitForFunction(
+    (x0) =>
+      (
+        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
+      ).__spinth.vpBounds$.getValue().x >
+      x0 + 100,
+    before.x,
+    { timeout: 5_000 },
+  );
+  // 回画布中心（仍按住）→ 离热区停滚；cur 随指针回移 → 矩形收缩 → B 退出命中
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 });
+  await page.waitForTimeout(150);
+  const s1 = await vpBounds(page);
+  await page.waitForTimeout(250);
+  const s2 = await vpBounds(page);
+  expect(s2.x).toBe(s1.x);
+  expect(await selectedIds(page)).not.toContain(id);
+  await page.mouse.up();
+});
+
+test('M-4 滚动中切工具（r）→ 停滚且会话取消，后续指针不再改选中', async ({ page }) => {
+  await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
+  const { box, before } = await startMarqueeScroll(page);
+  await page.waitForFunction(
+    (x0) =>
+      (
+        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
+      ).__spinth.vpBounds$.getValue().x >
+      x0 + 100,
+    before.x,
+    { timeout: 5_000 },
+  );
+  await page.keyboard.press('r'); // 切 shape 工具 → 对旧模式（cursor）发 cancel
+  await page.waitForTimeout(150);
+  const s1 = await vpBounds(page);
+  await page.waitForTimeout(250);
+  const s2 = await vpBounds(page);
+  expect(s2.x).toBe(s1.x); // 停滚
+  // 会话已取消：指针移动不再生长矩形/改选中（move 已路由到 shape 模式）
+  const selBefore = await selectedIds(page);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+  await page.waitForTimeout(100);
+  expect(await selectedIds(page)).toEqual(selBefore);
+  // 断言完成后先松手再回 cursor（避免 shape 模式下继续按住误拖形状）
+  await page.mouse.up();
+  await page.keyboard.press('v');
+});
