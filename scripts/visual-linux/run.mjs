@@ -24,10 +24,15 @@ import { die, log, registerCleanup, sh, tailOf, unregisterCleanup } from './util
 // 工具链预检按它等值断言（exit 26）
 const PNPM_VERSION = readPnpmVersion();
 
-/** 工具链预检：装依赖之前先证镜像内 pnpm 在位且版本等于 package.json 的
- *  packageManager（pnpm bake 进镜像层；base 的 Node ≥25 无 corepack，此前
- *  「corepack: command not found」被误报为网络问题即由此缺）。退出码 26 =
- *  工具链不符，与预检四关 21–25 连续 */
+/** 镜像内 Node 大版本期望（随 pinned digest 固定）：工具链预检与预检四关共用
+ *  同一常量，换 digest 必须改这里并复核渲染字节（等值断言，不放宽） */
+const NODE_MAJOR = '26';
+
+/** 工具链预检：装依赖之前先证镜像内 node 主版本 = NODE_MAJOR、pnpm 在位且
+ *  版本等于 package.json 的 packageManager（pnpm bake 进镜像层；base 的
+ *  Node ≥25 无 corepack，此前「corepack: command not found」被误报为网络
+ *  问题即由此缺）。容器内断言不符即 exit 26，宿主 CLI 统一 die(2) 并打印
+ *  该断言输出；与预检四关 21–25 的语义连续 */
 export function probeToolchain(name, pnpmVersion) {
   log('工具链预检（node / pnpm）……');
   try {
@@ -36,6 +41,8 @@ export function probeToolchain(name, pnpmVersion) {
       [
         'set -e',
         'node -v',
+        `node_major=$(node -p 'process.versions.node.split(".")[0]')`,
+        `test "$node_major" = "${NODE_MAJOR}" || { echo "node=$node_major want=${NODE_MAJOR}"; exit 26; }`,
         'pnpm -v',
         `test "$(pnpm -v)" = "${pnpmVersion}" || { echo "pnpm=$(pnpm -v) want=${pnpmVersion}"; exit 26; }`,
       ].join('\n'),
@@ -75,8 +82,8 @@ export function installDeps(name, pnpmVersion) {
 }
 
 /** 预检四关（specs §5.5）：node 主版本 / playwright 版本 ×2 / CJK 字体。
- *  node 大版本期望随 pinned digest 固定（当前 base 为 Node 26）——换 digest
- *  时必须同步此断言（等值比对，不放宽） */
+ *  node 大版本期望取自 NODE_MAJOR（随 pinned digest 固定）；工具链预检已在装
+ *  依赖前拦过一次，这里是同一期望的第二道等值断言（不放宽） */
 export function preflight(name, pkgVersion) {
   log('预检（specs §5.5）……');
   const out = execIn(
@@ -84,7 +91,7 @@ export function preflight(name, pkgVersion) {
     [
       'set -e',
       `node_major=$(node -p 'process.versions.node.split(".")[0]')`,
-      'test "$node_major" = "26" || { echo "node=$node_major"; exit 21; }',
+      `test "$node_major" = "${NODE_MAJOR}" || { echo "node=$node_major want=${NODE_MAJOR}"; exit 21; }`,
       `pw_ver=$(pnpm exec playwright --version | grep -oE '[0-9][0-9.]+' | head -1)`,
       `test "$pw_ver" = "${pkgVersion}" || { echo "playwright=$pw_ver"; exit 22; }`,
       `dep_ver=$(node -p 'require("/work/src/node_modules/@playwright/test/package.json").version')`,
