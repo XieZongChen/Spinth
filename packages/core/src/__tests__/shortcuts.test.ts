@@ -3,12 +3,15 @@ import {
   DEFAULT_SHORTCUTS,
   isEditableTarget,
   shortcutGateAllows,
+  UI_CHROME_ATTR,
 } from '../platform/keyboard/shortcuts';
 
-/** 铬件目标桩（specs/a11y-closeout §13.5-10）：closest 命中 data-spinth-ui */
+/** 铬件目标桩（specs/a11y-closeout §13.5-10）：closest 必须收到与常量一致的
+ *  精确选择器——用 includes 会放过「常量改名但判定没跟上」的回归 */
+const CHROME_SELECTOR = '[' + UI_CHROME_ATTR + ']';
 const chromeTarget = (hit: boolean) =>
   ({
-    closest: (sel: string) => (hit && sel.includes('data-spinth-ui') ? {} : null),
+    closest: (sel: string) => (hit && sel === CHROME_SELECTOR ? {} : null),
   }) as unknown as EventTarget;
 
 /**
