@@ -236,7 +236,6 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
   `https://xiezongchen.github.io/Spinth/`。
 - 第三方许可声明由脚本生成并进 verify（`THIRD_PARTY_NOTICES.md` 不手改）；
   依赖许可白名单含 13 项，`MPL-2.0` 只允许出现在构建期依赖。
-- npm 发布（1.0 打 tag 之后）：`@spinth/core`、`@spinth/react` 发到 public registry；
-  前置是包构建产物（当前 `main` 指向 `src/`）、注册 `@spinth` scope，以及
-  `yjs`/`pixi.js` 是否转 peer 依赖的取舍。
+- 不做 npm 发布：无外部使用需求，交付面 = 仓库源码 + Pages demo；
+  `@spinth` scope 注册与包构建产物随之取消。
 - 版本策略（1.0 起）：1.0.x 只修 bug，破坏性变更走主版本。
