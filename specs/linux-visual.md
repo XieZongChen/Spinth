@@ -206,9 +206,10 @@ RUN fc-cache -f && fc-list :lang=zh | grep -q 'Noto Sans CJK SC' && fc-match san
 
 ### 5.5 预检与回退
 
-容器内装依赖**之前**先过工具链预检：`node -v` / `pnpm -v` 打印，且 `pnpm -v`
-等值等于 `packageManager` 版本（不符 exit 26——工具链问题在最便宜处暴露，
-且不被误报为安装失败）。装依赖后必须过四关：
+容器内装依赖**之前**先过工具链预检：`node -v` 主版本 = 26，且 `pnpm -v` 等值
+等于 `packageManager` 版本——工具链问题在最便宜处暴露，且不被误报为安装失败。
+不符时容器内以 exit 26 退出，宿主 CLI 统一 `die(2)` 并把该断言的尾部输出打到 stderr。
+装依赖后必须过四关（node 主版本是同一期望的第二道等值断言）：
 
 1. `node -v` 主版本 = 26（随 pinned digest 固定；换 digest 必须同步此断言）。
 2. `pnpm exec playwright --version` = 1.64.1，且 `node_modules/@playwright/test/package.json` 版本一致。
@@ -688,9 +689,10 @@ nightly（run 41357664325）visual 红：上游 `v1.64.1-noble` 同 tag 重发�
   卷/env/enable）全删。升级清理：`docker volume rm spinth-visual-corepack`
   （本机/自托管；CI 一次性容器无此卷）。
 - **工具链预检**（§5.5）：`installDeps` 首行（try 外）`probeToolchain`——
-  `pnpm -v` 等值断言，不符 exit 26（与预检四关 21–25 连续）；失败归因
+  node 主版本与 `pnpm -v` 双等值断言（期望值来自 `NODE_MAJOR` / `packageManager`
+  单源常量），容器内不符即 exit 26、宿主 CLI 以 `die(2)` 打印归因；失败归因
   「工具链缺失 ≠ 安装失败」。预检四关的 node 主版本期望 24 → **26**
-  （等值断言不放宽；换 digest 时必须同步）。
+  （与预检共用常量，换 digest 时必须同步）。
 - **安装失败文案带真实尾行 + 分类**（`command not found` → 指向 Dockerfile
   pnpm 层，其余 → 带尾行输出），不再猜「网络或 lockfile」。
 - 本机镜像源与 CI digest 不一致（daocloud 滞后），本机 `pnpm visual:linux`
