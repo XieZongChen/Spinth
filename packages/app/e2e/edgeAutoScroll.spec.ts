@@ -521,11 +521,15 @@ test('M-4 滚动中切工具（r）→ 停滚、选中清空且会话取消不�
   const s2 = await vpBounds(page);
   expect(s2.x).toBe(s1.x); // 停滚
   expect(await selectedIds(page)).toEqual([]); // 非空 → 空：清选区真发生了
-  // 泄漏探针：松手回 cursor 后把指针移回右热区（此时矩形若仍存活会重新覆盖
-  // B → 选中非空）；会话已取消则 hover move 对 selector 是无操作，选中恒空
+  // 泄漏探针（复审 R1）：先去画布中心让命中集变空（打破选中集去重），再回右
+  // 热区——会话若泄漏，B 会重新入选（集合变化绕过去重），且 moved 锁存会把
+  // 滚屏重新拉起；两条断言都会红。会话已取消时 hover move 对 selector 是无
+  // 操作，选中恒空、视口不动。
   await page.mouse.up();
   await page.keyboard.press('v');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
   await page.mouse.move(box.x + box.width - 12, box.y + 340, { steps: 4 });
   await page.waitForTimeout(150);
   expect(await selectedIds(page)).toEqual([]);
+  expect((await vpBounds(page)).x).toBe(s1.x);
 });
