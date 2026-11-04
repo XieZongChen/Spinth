@@ -463,13 +463,22 @@ test('M-2 反例：热区内按下未过起拖判据（3px 抖动）→ 不滚�
 test('M-3 指针回中心 → 停滚；矩形收缩取消屏外选中', async ({ page }) => {
   await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
   const { box, before, id } = await startMarqueeScroll(page);
+  // 先等 B 真正入选（B 在 world 1900、右缘 hold 1428，需滚 ≳472px 才命中）——
+  // 不等入选就断言「不再含 B」会因从未含过而恒真（复审假绿修复）
   await page.waitForFunction(
-    (x0) =>
-      (
-        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
-      ).__spinth.vpBounds$.getValue().x >
-      x0 + 100,
-    before.x,
+    ([x0, wid]) => {
+      const w = window as unknown as {
+        __spinth: {
+          vpBounds$: { getValue(): { x: number } };
+          selected$: { getValue(): string[] };
+        };
+      };
+      return (
+        w.__spinth.vpBounds$.getValue().x > (x0 as number) + 100 &&
+        w.__spinth.selected$.getValue().includes(wid as string)
+      );
+    },
+    [before.x, id],
     { timeout: 5_000 },
   );
   // 回画布中心（仍按住）→ 离热区停滚；cur 随指针回移 → 矩形收缩 → B 退出命中
@@ -483,30 +492,40 @@ test('M-3 指针回中心 → 停滚；矩形收缩取消屏外选中', async ({
   await page.mouse.up();
 });
 
-test('M-4 滚动中切工具（r）→ 停滚且会话取消，后续指针不再改选中', async ({ page }) => {
+test('M-4 滚动中切工具（r）→ 停滚、选中清空且会话取消不复活', async ({ page }) => {
   await openBoardDoc(page, `e2e-marquee-scroll-${Date.now()}`);
-  const { box, before } = await startMarqueeScroll(page);
+  const { box, before, id } = await startMarqueeScroll(page);
+  // 同 M-3：先滚到 B 入选再切工具——否则选中集为空，后续断言空==空恒真
   await page.waitForFunction(
-    (x0) =>
-      (
-        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
-      ).__spinth.vpBounds$.getValue().x >
-      x0 + 100,
-    before.x,
+    ([x0, wid]) => {
+      const w = window as unknown as {
+        __spinth: {
+          vpBounds$: { getValue(): { x: number } };
+          selected$: { getValue(): string[] };
+        };
+      };
+      return (
+        w.__spinth.vpBounds$.getValue().x > (x0 as number) + 100 &&
+        w.__spinth.selected$.getValue().includes(wid as string)
+      );
+    },
+    [before.x, id],
     { timeout: 5_000 },
   );
-  await page.keyboard.press('r'); // 切 shape 工具 → 对旧模式（cursor）发 cancel
+  // 切工具双重语义：setCursorMode 换模式先清选区，再对旧模式发 cancel
+  //（停滚 + marquee.cancel 蓝框隐藏，不复活选中）
+  await page.keyboard.press('r');
   await page.waitForTimeout(150);
   const s1 = await vpBounds(page);
   await page.waitForTimeout(250);
   const s2 = await vpBounds(page);
   expect(s2.x).toBe(s1.x); // 停滚
-  // 会话已取消：指针移动不再生长矩形/改选中（move 已路由到 shape 模式）
-  const selBefore = await selectedIds(page);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
-  await page.waitForTimeout(100);
-  expect(await selectedIds(page)).toEqual(selBefore);
-  // 断言完成后先松手再回 cursor（避免 shape 模式下继续按住误拖形状）
+  expect(await selectedIds(page)).toEqual([]); // 非空 → 空：清选区真发生了
+  // 泄漏探针：松手回 cursor 后把指针移回右热区（此时矩形若仍存活会重新覆盖
+  // B → 选中非空）；会话已取消则 hover move 对 selector 是无操作，选中恒空
   await page.mouse.up();
   await page.keyboard.press('v');
+  await page.mouse.move(box.x + box.width - 12, box.y + 340, { steps: 4 });
+  await page.waitForTimeout(150);
+  expect(await selectedIds(page)).toEqual([]);
 });
