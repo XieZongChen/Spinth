@@ -596,8 +596,9 @@ npx playwright test packages/app/e2e/edgeAutoScroll.spec.ts
   空==空。已改为复合等待「`selected$` 含 B」先建立非空选中再断言。M-4 复审
   建议的「cancel 后 B 仍在选中」前提不成立：`setCursorMode` 换工具**先清选区**
   再发 cancel（boardCommands.ts:47-49），已按真实语义改为「非空 → 清空」转换
-  断言，另加泄漏探针（回 cursor 后移入右热区：矩形若复活会重新覆盖 B → 选中
-  非空；会话已取消则恒空）。
+  断言，另加泄漏探针（回 cursor 后先移画布中心再回右热区：命中集变化绕开选中
+  去重，会话若泄漏则 B 重新入选、且 `moved` 锁存会把滚屏重新拉起——`selected$`
+  与 `vpBounds` 两条同时断言；会话已取消则两条恒真）。
 - **P3 文档偏差（Esc 停滚）**：docs/05 §4.5 停止条件原列「Esc」——实测 Esc 走
   `clearSelection`（清选中 + `setCursorMode('cursor')`），cursor 模式下同模式
   早退不发 `dispatchGestureCancel`（viewportService.ts:307），滚屏不停；已删
@@ -605,4 +606,9 @@ npx playwright test packages/app/e2e/edgeAutoScroll.spec.ts
   选中，会话去重缓存 `lastIds` 与外清后的 selected$ 短暂不一致，下一次命中集
   变化即自愈（滚动中矩形逐帧生长，命中集高频变化）。
 - §12 三条待拍板按默认值收口为拍板记录；§7.3 实测挂 §8.4 第 5 项；§2.1 行数
-  表头注明「实施前」。返工提交：`a4f25bb`（E2E 补强）+ 本笔（文档收口）。
+  表头注明「实施前」。
+- **复审二轮（探针强度）**：M-4 首版泄漏探针在「同一屏幕位 → 同一命中集」下被
+  选中去重跳过（`sameIds` 直接返回、选中保持空），探针恒过；`4d6aba0` 改为先回
+  中心再回热区的两段移动并追加 `vpBounds` 断言。负向注入（cancel 不清理会话）
+  实测探针变红，撤销后复绿。
+- 返工提交：`a4f25bb`（E2E 补强）、`33cd97a`（文档收口）、`4d6aba0`（探针强度）。
