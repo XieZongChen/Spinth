@@ -159,7 +159,7 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 写入序列去重（滚屏稳态零 `setSelected`），selector marquee 分支净增一行上报
 （387 行 < 400）；零 Yjs 写、零公开 API/调试探针变更；复审返工收口（E2E 假绿
 补强、基线数字重测、docs/05 Esc 停滚偏差修正，specs §13.5）；手工验收五项
-待人工（specs/marquee-auto-scroll §13.4–§13.5）。
+待人工（specs/marquee-auto-scroll §8.4）。
 
 运行时收窄已落地（specs/runtime-narrowing，S1–S7 全量）：`createBoard()` 唯一
 公开构造入口返回 `BOARD_PUBLIC_MEMBERS` 65 成员冻结投影（内部字段不可枚举、
