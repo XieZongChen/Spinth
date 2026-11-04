@@ -116,9 +116,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   位移 ≥10px（`MARQUEE_TRACTION_SCREEN`，锁存）为起拖判据，只门控滚屏——矩形
   与选中从 pointerdown 起「过程即结果」不受判据影响；选中集按帧与上次写入序列
   去重（滚屏稳态零 `setSelected`）。
-- 停止条件：指针离热区 / 未过阻尼 / 松手 / 手势取消（Esc、切工具、只读降级、
+- 停止条件：指针离热区 / 未过阻尼 / 松手 / 手势取消（切工具、只读降级、
   blur、pointercancel）/ 指针离开画布容器（pointerleave）/ 输入管线拒发（回滚
-  本帧）/ 进入编辑会话 / dispose。
+  本帧）/ 进入编辑会话 / dispose。（Esc 不在此列：它走清选中路径，
+  `setCursorMode` 同模式早退不发手势取消。）
 - 落库语义不变：一次拖拽一次 `transact` = 一次撤销；松手用最后一帧
   `lastDx/lastDy`（docs/14 规则 5）。框选全程零 Yjs 写、零撤销项，松手选中集
   即交互最后一帧的命中结果（世界矩形全量命中，不裁剪视口）。

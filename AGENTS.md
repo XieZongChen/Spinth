@@ -157,8 +157,9 @@ Linux 视觉基线已落地（specs/linux-visual）：`@playwright/test` 精确 
 同一 `EdgeAutoScrollService`，以屏幕位移 ≥10px（`MARQUEE_TRACTION_SCREEN` 锁存）
 为起拖判据且只门控滚屏（矩形/选中从 down 起过程即结果不变），选中集按帧与上次
 写入序列去重（滚屏稳态零 `setSelected`），selector marquee 分支净增一行上报
-（387 行 < 400）；零 Yjs 写、零公开 API/调试探针变更；手工验收四项待人工
-（specs/marquee-auto-scroll §13.4）。
+（387 行 < 400）；零 Yjs 写、零公开 API/调试探针变更；复审返工收口（E2E 假绿
+补强、基线数字重测、docs/05 Esc 停滚偏差修正，specs §13.5）；手工验收五项
+待人工（specs/marquee-auto-scroll §13.4–§13.5）。
 
 运行时收窄已落地（specs/runtime-narrowing，S1–S7 全量）：`createBoard()` 唯一
 公开构造入口返回 `BOARD_PUBLIC_MEMBERS` 65 成员冻结投影（内部字段不可枚举、
@@ -183,7 +184,7 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 （node 主版本 / pnpm 版本等值断言）、安装失败文案带真实尾行；宿主常驻铬件按
 焦点作用域并入快捷键闸门（PWA 更新横幅打 `data-spinth-ui`，§13.5-10 已收口）。
 
-当前实测基线：`pnpm verify` 通过；1087 单测（core 984 + react 65 + app 38）；
+当前实测基线：`pnpm verify` 通过；1091 单测（core 988 + react 65 + app 38）；
 E2E 47 spec / 232 用例全绿（主配置 225 + pwa 7；edgeAutoScroll 9/9 含框选
 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；touchPen 2/2；debugSurface
