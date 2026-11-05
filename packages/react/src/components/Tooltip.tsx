@@ -50,7 +50,7 @@ export function Tooltip({
         <span
           role="tooltip"
           data-spinth-tooltip=""
-          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-surface shadow-dock"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-2xs font-medium text-surface shadow-dock"
         >
           {label}
           {/* 下指小箭头（参考同款）：四向透明边框拼三角 */}

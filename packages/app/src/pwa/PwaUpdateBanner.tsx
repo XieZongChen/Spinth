@@ -46,7 +46,7 @@ export function PwaUpdateBanner() {
       role="status"
       data-spinth-pwa-banner=""
       {...{ [UI_CHROME_ATTR]: '' }}
-      className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-edge bg-surface py-1 pl-4 pr-1.5 text-[12px] font-bold text-ink shadow-pop max-w-[calc(100vw-16px)]"
+      className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-edge bg-surface py-1 pl-4 pr-1.5 text-[0.75rem] font-bold text-ink shadow-pop max-w-[calc(100vw-16px)]"
     >
       <span className="whitespace-nowrap">{pwa.ready ? '新版本已就绪' : '新版本可用'}</span>
       <span className="flex items-center gap-1">

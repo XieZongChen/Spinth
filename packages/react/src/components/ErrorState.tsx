@@ -55,7 +55,7 @@ export function ErrorState({
       {detail && (
         <p
           data-spinth-error-detail=""
-          className="max-h-32 max-w-md overflow-y-auto rounded-md bg-surface px-3 py-2 text-left text-[11px] leading-4 text-ink-3 [overflow-wrap:anywhere]"
+          className="max-h-32 max-w-md overflow-y-auto rounded-md bg-surface px-3 py-2 text-left text-2xs leading-4 text-ink-3 [overflow-wrap:anywhere]"
         >
           {detail}
         </p>

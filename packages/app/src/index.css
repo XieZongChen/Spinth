@@ -68,6 +68,15 @@
   --font-ui:
     'Nunito Variable', 'Nunito', -apple-system, 'PingFang SC', 'HarmonyOS Sans SC',
     'Microsoft YaHei', sans-serif;
+
+  /* 字号令牌（specs/rem-typography §4.3）：铬件字号只用 rem，随浏览器默认字号缩放
+     （WCAG 1.4.4）。只给字号、不带 --line-height 子键——行高照旧继承根元素的 1.5，
+     根字号 16 时与迁移前逐像素一致。按刻度位置命名：3xs=10、2xs=11、md=13（介于
+     xs 与 sm 之间）；brand 只给顶栏词标用，不是标题层级。12/14 沿用 Tailwind xs/sm。 */
+  --text-3xs: 0.625rem;
+  --text-2xs: 0.6875rem;
+  --text-md: 0.8125rem;
+  --text-brand: 0.9375rem;
 }
 
 @layer base {
@@ -81,6 +90,10 @@
   }
 
   html {
+    /* rem 的唯一锚点（specs/rem-typography §4.2）：100% 即浏览器「默认字号」设置。
+       写死像素值或 62.5% 会让用户的字号偏好失效；字号也不用 em / vw / clamp()，
+       媒体查询断点保持 px（媒体查询里的 rem 按初始字号解析，改单位会改断点语义） */
+    font-size: 100%;
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
   }

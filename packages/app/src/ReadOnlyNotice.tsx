@@ -19,7 +19,7 @@ export function ReadOnlyNotice() {
       className="absolute left-1/2 top-[calc(0.75rem+var(--spinth-safe-top))] z-30 flex max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-3 rounded-xl border border-edge bg-surface px-4 py-2.5 shadow-pop"
     >
       <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-ink">另一标签正在编辑此画布，本页只读。</p>
+        <p className="text-md font-semibold text-ink">另一标签正在编辑此画布，本页只读。</p>
         <p className="text-xs leading-5 text-ink-3">关闭那个标签后本页会自动接管并刷新。</p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">

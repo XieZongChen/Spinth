@@ -230,7 +230,7 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
             role="menuitem"
             disabled={item.disabled}
             onClick={item.action}
-            className={`group flex h-[34px] w-full items-center gap-2.5 px-2.5 text-[13px] font-semibold transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
+            className={`group flex h-[34px] w-full items-center gap-2.5 px-2.5 text-md font-semibold transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
               item.danger
                 ? 'text-danger-ink hover:bg-danger-soft'
                 : 'text-ink-2 hover:bg-surface-hover hover:text-ink'
@@ -245,7 +245,7 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
             </span>
             <span className="flex-1 text-left">{item.label}</span>
             {item.hint && (
-              <kbd className="rounded-md bg-surface-hover px-1.5 py-0.5 font-ui text-[10px] font-bold text-ink-3 tabular-nums">
+              <kbd className="rounded-md bg-surface-hover px-1.5 py-0.5 font-ui text-3xs font-bold text-ink-3 tabular-nums">
                 {item.hint}
               </kbd>
             )}

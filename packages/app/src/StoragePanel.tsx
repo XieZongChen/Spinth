@@ -65,7 +65,7 @@ export function StoragePanel(props: StoragePanelProps) {
       style={props.style ?? undefined}
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 id="spinth-storage-panel-title" className="text-[13px] font-bold text-ink">
+        <h2 id="spinth-storage-panel-title" className="text-md font-bold text-ink">
           本地存储
         </h2>
         <button
@@ -175,7 +175,7 @@ export function StoragePanel(props: StoragePanelProps) {
           <p className={BODY_CLASS}>无法读取用量</p>
         )}
         {status.estimateFailed && (
-          <p className="mt-1 text-[11px] leading-4 text-ink-3">
+          <p className="mt-1 text-2xs leading-4 text-ink-3">
             无法读取最新用量，显示的值可能不是最新。
           </p>
         )}
@@ -195,7 +195,7 @@ export function StoragePanel(props: StoragePanelProps) {
         </button>
       </div>
 
-      <p className="mt-2.5 border-t border-edge pt-2 text-[11px] leading-4 text-ink-3">
+      <p className="mt-2.5 border-t border-edge pt-2 text-2xs leading-4 text-ink-3">
         本地数据只保存在此浏览器；清理站点数据会删除画布。配额为当前站点总用量（含图片资产）。
         持久化不是备份——导出项目文件才是备份。
       </p>
