@@ -13,7 +13,7 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 1091 单测（core 988 + react 65 + app 38）、E2E 47 spec / 232 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+- [x] 1100 单测（core 988 + react 74 + app 38）、E2E 48 spec / 237 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
 当前版本 `1.0.1`（已发布，tag `v1.0.1`），仓库已开源；1.0 是首个公开 API 基线。
 
@@ -171,7 +171,10 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 
 - [x] 小项先收：宿主浮层快捷键闸门、touch/pen 自动化、ActionBar 安全区性能、
       roving autoFocus 单测（specs/a11y-closeout §13.5 第 1/7/8/9 条已收口）。
-- [ ] 大项后做：画布内容朗读（独立内容层）、px→rem 全量迁移、ToolFlyout Tab 顺序、
+- [x] 字号单位迁移（WCAG 1.4.4 文本缩放，specs/rem-typography）：铬件字号统一 rem 令牌、
+      文本承载容器随根字号缩放、菜单/操作栏定位跟随实测，`check-font-units` 护栏进
+      verify 与 CI gate（specs/a11y-closeout §13.5 第 3 条已收口）。
+- [ ] 大项后做：画布内容朗读（独立内容层）、ToolFlyout Tab 顺序、
       ToolGhost/画布图形对比度（需产品判断）。
 - 规格：specs/a11y-closeout §13.5。
 
@@ -228,9 +231,9 @@ specs/edge-auto-scroll）；运行时收窄最后，避免新代码与新探针�
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
 - 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
-  px→rem 全量字号迁移（1.4.4 由页面缩放代理覆盖）、ToolGhost/画布图形对比度
-  （幽灵预览非文本图形，是否抬 3:1 需产品判断）、ToolFlyout 的 Tab 顺序
-  （portal 方案与 390px 裁剪约束冲突，需另案权衡）——specs/a11y-closeout §13.5。
+  ToolGhost/画布图形对比度（幽灵预览非文本图形，是否抬 3:1 需产品判断）、
+  ToolFlyout 的 Tab 顺序（portal 方案与 390px 裁剪约束冲突，需另案权衡）——
+  specs/a11y-closeout §13.5；图标随字号缩放与字号刻度归一另案（specs/rem-typography §13.4）。
 - 开源发布定案：许可 MIT；对外文档双语（`README.md` 英文主文档 + `README.zh-CN.md`）；
   提交元数据保留原样，不重写历史；暂不使用自定义域名，Demo 与 canonical 固定为
   `https://xiezongchen.github.io/Spinth/`。

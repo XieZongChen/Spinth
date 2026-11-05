@@ -184,11 +184,20 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 （node 主版本 / pnpm 版本等值断言）、安装失败文案带真实尾行；宿主常驻铬件按
 焦点作用域并入快捷键闸门（PWA 更新横幅打 `data-spinth-ui`，§13.5-10 已收口）。
 
-当前实测基线：`pnpm verify` 通过；1091 单测（core 988 + react 65 + app 38）；
-E2E 47 spec / 232 用例全绿（主配置 225 + pwa 7；edgeAutoScroll 9/9 含框选
+字号单位迁移已落地（specs/rem-typography，WCAG 1.4.4 文本缩放）：铬件 13 处 px
+字号统一为 rem 令牌（`text-3xs/2xs/md/brand` 只给字号不带行高；两处 12px 写
+`text-[0.75rem]` 保继承行高），`html { font-size: 100% }` 为唯一锚点；文本承载
+容器同批随根字号缩放（菜单行 `min-h`、右键菜单宽 rem + 视口上限、Tooltip 超宽
+折行）；右键菜单定位抽 `menuPlacement` 纯函数（首帧估算、挂载后实测同帧重定位、
+按打开签名隔离），ActionBar 翻转用 max(实测栏高, 40)；`check-font-units` 护栏
+（11 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
+textScale T1–T5 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
+
+当前实测基线：`pnpm verify` 通过；1100 单测（core 988 + react 74 + app 38）；
+E2E 48 spec / 237 用例全绿（主配置 230 + pwa 7；edgeAutoScroll 9/9 含框选
 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；touchPen 2/2；debugSurface
-3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
+mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 5/5；touchPen 2/2；
+debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
@@ -196,6 +205,6 @@ check 为 `gate`。
 
 下一阶段：1.0 后可访问性与平台遗留 → 协同最后（docs/10，
 不进入默认启动路径）。
-可访问性遗留（画布内容朗读/px→rem/幽灵对比度等）见 docs/13 §3 与
+可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 安装与移动端真机待人工项见 specs/pwa.md §14
 与 specs/oss-release.md §8.5。

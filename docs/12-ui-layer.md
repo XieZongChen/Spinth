@@ -77,9 +77,14 @@ ActionBar / MindAddButtons：纯算术定位
   转发）——焦点落在该子树内时快捷键闸门按焦点作用域静默（区别于 modal 的
   存在性判定）。新增打标前必须检查该子树是否依赖画布快捷键（打标即全静默）；
   工具栏/菜单等现有铬件维持现状，不扩大。
-- ActionBar 定位几何在 `actionBarLayout.ts` 纯函数；宽度/容器宽/安全区全部在
+- ActionBar 定位几何在 `actionBarLayout.ts` 纯函数；宽度/高度/容器宽/安全区全部在
   `useLayoutEffect` 内测量（渲染期零 DOM 读取），`resize`/`orientationchange`
-  失效重算（真机旋转/软键盘改变安全区）。
+  失效重算（真机旋转/软键盘改变安全区）；上下翻转判定用 max(实测栏高, 40)——
+  栏高随根字号的 rem 缩放，根字号 16px 下实测 38–39px，位置与只用估算一致。
+- ContextMenu 定位几何在 `menuPlacement.ts` 纯函数（翻转 + 四面夹取）：首帧按估算
+  尺寸同步定位（夹取保证在视口内），`useLayoutEffect` 实测面板尺寸与估算不同才
+  重定位（绘制前完成，无中间帧）；实测值按打开签名（x/y/onWidget）隔离，菜单开着
+  时重开不残留旧尺寸。
 
 ### 3.1 拖拽中隐藏
 
@@ -95,12 +100,12 @@ ActionBar / MindAddButtons：纯算术定位
 | `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                                                                                                                                                                                                            |
 | `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数；roving 焦点（单 Tab 停靠，方向键在按钮间移动）                                                                                                                                                                                                     |
 | `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）                                                                                                                                                                                                                             |
-| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                                                                                                                           |
+| `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区，实测尺寸定位，§3）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                                                                                                         |
 | `ZoomControl`    | 缩放胶囊（−/百分比/＋）；三钮 aria-label（适应屏幕钮名称带当前百分比）                                                                                                                                                                                                                                   |
 | `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                                                                                                                                                                                                                      |
 | `PopoverControl` | ActionBar 多级控件（一级当前值 + ▾，二级面板）；触发钮遵守 schema `disabled` 契约（与 toggle/action 同款禁用态）；面板 roving + 关闭回焦触发钮                                                                                                                                                           |
 | `Announcer`      | 唯一 polite live region（sr-only 常驻，role=status + aria-atomic）：store 六字段差分播报（加载完成/选中变化/工具切换/保存失败/只读切换），200ms 防抖合并；文案源在 `a11y/announcement.ts` 纯函数                                                                                                         |
-| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制）                                                                                                                                                                                                                                                         |
+| `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制；`w-max` + 视口上限，超宽折行不撑出横滚）                                                                                                                                                                                                                 |
 | `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                                                                                                                                                                                                           |
 | `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                                                                                                                                                                                                             |
 | `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                                                                                                                                                                                                                      |
@@ -138,8 +143,9 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 重排与缩放（specs/a11y-closeout §7）：`max-[379px]` 紧凑顶栏（内边距/间距减半、
 字标隐藏、存储按钮仅圆点、胶囊加 title/aria-label——390 及以上逐像素不变，
 断点必须避开 M1 截断基线）；320×640 重排与 720×450（200% 缩放代理）布局矩阵在
-`e2e/a11yLayout.spec.ts`（Z1/Z2/R1/S1 八例，页面级无二维滚动；工具坞内部横滚
-属工具栏自身滚动区，#stage-container 豁免）。
+`e2e/a11yLayout.spec.ts`（Z1/Z2/R1/S1 十例，页面级无二维滚动；工具坞内部横滚
+属工具栏自身滚动区，#stage-container 豁免）。纯文本缩放（根字号 16→32px）的
+精确性与布局矩阵在 `e2e/textScale.spec.ts`（T1–T5，见 §5 字号单位策略）。
 
 ## 5. 主题与样式架构
 
@@ -165,6 +171,24 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
     不在测试里持有颜色字面量。
 - `index.css` 的 `@theme inline` 把令牌映射为 Tailwind 工具类；
   `data-theme` 切换 `:root` 变量即整站换肤。
+- 字号单位策略（WCAG 1.4.4 文本缩放，specs/rem-typography）：铬件字号只用 rem，
+  随浏览器默认字号缩放；画布与铬件是两套单位系统，只统一铬件内部。
+  - 根锚点：`index.css` 的 `html { font-size: 100% }`。禁止给 html/body 写死像素或
+    62.5%；字号不用 em（随父级漂移）、vw 或 clamp()（跟视口、可封顶，均无视用户偏好）。
+  - 刻度：Tailwind `text-xs`（12）/`text-sm`（14，自带行高）+ `@theme inline` 四个令牌
+    `text-3xs`（10）/`text-2xs`（11）/`text-md`（13）/`text-brand`（15，仅顶栏字标，
+    不是标题层级）。令牌只给字号、不带行高，行高继承根的 1.5；需要继承行高的 12px
+    写 `text-[0.75rem]`（换 `text-xs` 会把行高从 18px 改成 16px）。换算 px ÷ 16 写精确小数。
+  - 容器与字号同批：由文本撑高的盒子不得 px 定高（菜单行 `min-h-[2.125rem]`）；右键菜单
+    宽 `13.5rem` + `max-w-[calc(100vw-1rem)]`；Tooltip `w-max` + 视口上限。依赖面板尺寸
+    的定位跟随实测（右键菜单、ActionBar，见 §3）。
+  - px 保留区：文档 `fontSize`（世界单位，缩放由视口 zoom 承担）与 PIXI 字号、DOM 文本
+    编辑层（`richTextEditor` / `plainTextKernel`，须与画布逐像素对齐）、canvas 测量字体串、
+    交互几何常量、1px 描边/焦点环/阴影、媒体查询断点（媒体查询的 rem 按初始字号解析）、
+    图标尺寸。
+  - 护栏：`node scripts/check-font-units.mjs`（verify 与 CI gate；扫三包 src 与
+    index.html 的 px 字号三类写法，白名单为文件级并写理由，无行内豁免；每次运行先跑内置
+    夹具自检）。
 - 首绘由 index.html 内联脚本预置 `data-theme`（防暗色白屏闪烁）；
   持久化只发生在用户显式切换；无保存偏好时跟随系统主题变化。
 - 画布底色与点阵由 DOM 承载（PIXI `backgroundAlpha: 0`）；换肤即 CSS 令牌切换。

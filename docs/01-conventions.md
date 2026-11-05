@@ -69,7 +69,8 @@ pnpm test:coverage
 pnpm test:e2e     # Playwright
 pnpm lint
 pnpm typecheck
-pnpm verify       # lint + prettier + typecheck + pnpm -r test + build
+pnpm verify       # hygiene + lint + 字号单位护栏 + prettier + typecheck + 许可/声明检查
+                  # + 视觉基线齐全 + pnpm -r test + build
 ```
 
 - 提交前必须 `pnpm verify` 全绿；改交互编排补跑 `pnpm test:e2e`。

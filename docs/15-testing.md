@@ -13,20 +13,24 @@
 
 ## 2. 当前基线
 
-- 单测：1036 passed（core 947 + react 51 + app 38）。
-- E2E：45 个 spec（主配置 44 + pwa 1）、218 例（分层：fast 209 / timing+bench 5 / visual 4；
-  混跑不作门禁，
-  各层跑法见 `.github/workflows/ci.yml`）。
+- 单测：1100 passed（core 988 + react 74 + app 38）。
+- E2E：48 个 spec（主配置 47 + pwa 1）、237 例（分层：fast 228（含 pwa 7）/ timing+bench 5 /
+  visual 4；混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
   对比度。helper `a11yE2e.ts` 为 WCAG 对比度纯函数，遇 alpha 直接红）。
-- 可访问性键盘/布局专项（specs/a11y-closeout）：a11yKeyboard.spec 9 例（菜单键盘
-  协议遍历与触发/Esc 不清选区/Shift+F10/菜单期闸门/Tab 序单停靠/画布语义与播报/
-  五组控件可访问名扫描（点名三组另断言显式 aria-label）/右键不开内联编辑器）
-  - a11yLayout.spec 9 例（Z1 720×450 缩放代理 ×2、Z2 rem 200%、R1 320×640 重排 ×3、
-    S1 安全区注入 ×3：竖屏 notch / 横屏顶栏 / 浮层不进 inset）。
+- 可访问性键盘/布局专项（specs/a11y-closeout）：a11yKeyboard.spec 12 例（菜单键盘
+  协议遍历与触发/Esc 不清选区/Shift+F10/菜单期闸门/宿主浮层闸门 ×3（项目菜单与存储
+  面板开着静默、关闭后不残留）/Tab 序单停靠/画布语义与播报/五组控件可访问名扫描
+  （点名三组另断言显式 aria-label）/右键不开内联编辑器）；a11yLayout.spec 10 例
+  （Z1 720×450 缩放代理 ×2、Z2 rem 200%、R1 320×640 重排 ×3、S1 安全区注入 ×4：
+  竖屏 notch / 横屏顶栏 / 浮层不进 inset / 注入后 resize 重算）。
+- 文本缩放专项（specs/rem-typography）：textScale.spec 5 例（1440×900，根字号 16→32px）——
+  T1/T2 迁移文本的计算字号与行高、右键菜单宽逐值精确（1x 与迁移前一致、200% 全部 ×2）；
+  T3 右键菜单实测尺寸翻转夹取、行不重叠、行高 68、矮视口过高内滚；T4 项目菜单与存储
+  面板与悬停提示；T5 Shift+F10 不滚屏、Esc 归还焦点。横幅主配置不可达，字号断言在 pwa P5。
 - 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
@@ -34,7 +38,7 @@
   box / `__spinth`·`__spinthDebug` 探针推导）。
 - 运行时公共面/调试面：debugSurface.spec 3 例（`__spinth` = 65 成员冻结投影、
   内部字段不可见不可写、方法绑定与身份稳定、`__spinthDebug.__debug` 快照与逃生口）
-  - pwa P7（无 `?e2e=1` 时两全局零探针且画布可编辑；specs/runtime-narrowing §6.2）。
+  与 pwa P7（无 `?e2e=1` 时两全局零探针且画布可编辑；specs/runtime-narrowing §6.2）。
 - 单机断网不变量：core `networkService`（默认离线不阻断/blockOnOffline 三态翻转/
   构造即离线/dispose 摘监听）+ smoke 断网 E2E（断言 `navigator.onLine===false` 前置
   → 创建/撤销/落盘照常 → OfflineBar 与只读 pill 均 0；断网中不 reload）。
@@ -61,13 +65,13 @@
   复位 + 只读态宿主直调写工具被钳回 cursor）。
 - 存储状态专项：storage.spec 8 例（持久化授权/申请/配额压力/unsupported/390px/
   备份入口/保存失败入口/外部重开清旧错误；navigator.storage 经 addInitScript 桩注入）。
-- PWA 专项（specs/pwa.md）：pwa.spec 6 例（独立配置 `playwright.pwa.config.ts`——
+- PWA 专项（specs/pwa.md）：pwa.spec 7 例（独立配置 `playwright.pwa.config.ts`——
   子路径生产构建 + preview 专用 webServer：首装即受控/断网冷启动编辑撤销恢复/断网
-  另一文档/CSP 0 violation/真重建更新流程含横幅 a11y/多标签只刷新点击方）+
-  smoke 1 例（dev 不注册）。跑法 = 主配置 + pwa 配置双命令（gate 与 `test:e2e`），
-  nightly 三层只用主配置不付 preview 构建成本。生产探针为构建期开关（`SPINTH_E2E=1`）
-  - `?e2e=1` 双门控的只读桥（`src/e2eProbe.ts`），Pages 产物零暴露。
-- coverage：67.56 / 59.17 / 69.46 / 58.07（语句/分支/行/函数），阈值 66/58/68/57。
+  另一文档/CSP 0 violation/真重建更新流程含横幅 a11y 与字号 1x·200%/多标签只刷新
+  点击方/正常流量零探针）+ smoke 1 例（dev 不注册）。跑法 = 主配置 + pwa 配置双命令
+  （gate 与 `test:e2e`），nightly 三层只用主配置不付 preview 构建成本。生产探针为构建期
+  开关（`SPINTH_E2E=1`）与 `?e2e=1` 双门控的只读桥（`src/e2eProbe.ts`），Pages 产物零暴露。
+- coverage：69.04 / 61.49 / 71.03 / 59.64（语句/分支/行/函数），阈值 66/58/68/57。
 - CI gate 另跑 Pages 子路径构建（SPINTH_BASE）与产物路径校验
   （`scripts/check-pages-build.mjs`）。
 - 多标签接管另有 nightly 压力任务：`multiTabRole.spec -g 接管 --repeat-each=20 --workers=2 --retries=0`
@@ -80,6 +84,9 @@
 - 修过一次的编排 bug 必须留下桩测试；新护栏做区分验证（旧实现跑新用例应红）。
 - 单测不依赖真实网络、真实计时器、真实浏览器下载；E2E 不依赖未跟踪 actuals。
 - 布局断言双向：宽度下界 + 高度上界。
+- 文本缩放断言读 `getComputedStyle` 的字号与行高、几何用 boundingBox，不靠截图（视觉
+  基线只截画布，证不了铬件）；注入根字号只证明 rem 链路，浏览器「默认字号」设置路径
+  （同时改变媒体查询的 rem 解析）另走人工验收。
 - 浮层/幽灵类断言注意 Playwright 对 `opacity:0` 也判 visible，使用 `toHaveCSS` 或 transform 探针。
 
 ## 4. 视觉快照
