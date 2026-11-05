@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
 import { contrastRatio } from './helpers/a11yE2e';
-import { minTarget, boxWithin } from './helpers/layoutE2e';
+import { minTarget, boxWithin, setRootFontSize } from './helpers/layoutE2e';
 import { modelCount, placeText, ready } from './helpers/projectFileE2e';
 
 /**
@@ -219,6 +219,19 @@ test('P5 更新流程：真重建 → 横幅 → 点击恰好刷新一次（含�
   });
   expect(contrastRatio(colors.textFg, colors.textBg)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(colors.btnFg, colors.btnBg)).toBeGreaterThanOrEqual(4.5);
+
+  // 字号单位（specs/rem-typography §6.2；横幅主配置不可达，断言同样收口在此）：
+  // 1x 与迁移前逐像素一致（12px、继承行高 1.5），根字号 32px 时同步 ×2 且仍在视口
+  const bannerTypo = (): Promise<{ fontSize: string; lineHeight: string }> =>
+    banner.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { fontSize: cs.fontSize, lineHeight: cs.lineHeight };
+    });
+  expect(await bannerTypo()).toEqual({ fontSize: '12px', lineHeight: '18px' });
+  const restoreRootFont = await setRootFontSize(page, 32);
+  expect(await bannerTypo()).toEqual({ fontSize: '24px', lineHeight: '36px' });
+  await boxWithin(banner, page.viewportSize()!, 8);
+  await restoreRootFont();
 
   // 390px：按钮触控目标 44px、横幅不溢出（§10）
   await page.setViewportSize({ width: 390, height: 844 });

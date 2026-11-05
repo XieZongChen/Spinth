@@ -17,6 +17,16 @@ export const ZOOM_200 = { width: 720, height: 450 } as const;
 /** 顶栏高度（h-11，M1 会实测断言） */
 export const HEADER_H = 44;
 
+/** 两帧 rAF：样式注入 / 视口变化后等布局与绘制收敛 */
+export async function twoFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 /** 打开画布并等几何稳定：synced + 字体就绪 + 两帧 rAF（布局/字体抖动收敛） */
 export async function openBoard(page: Page, docId: string): Promise<void> {
   await page.goto(`/?doc=${docId}`);
@@ -29,12 +39,7 @@ export async function openBoard(page: Page, docId: string): Promise<void> {
     { timeout: 20_000 },
   );
   await page.evaluate(() => document.fonts.ready);
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }),
-  );
+  await twoFrames(page);
 }
 
 /**
@@ -129,4 +134,43 @@ export async function assertNoTextClip(locator: Locator): Promise<void> {
     m.sh,
     `${name} 纵向裁字（scrollHeight ${m.sh} > clientHeight ${m.ch}）`,
   ).toBeLessThanOrEqual(m.ch + 1);
+}
+
+/**
+ * 注入根字号（WCAG 1.4.4 纯文本缩放代理，specs/rem-typography §6.2）：覆盖 html
+ * font-size 后等两帧布局稳定。返回撤销函数——同一用例内恢复原根字号继续断言。
+ * 注入只证明 rem 链路生效；浏览器「默认字号」设置路径另走人工验收（规格 §6.4）。
+ */
+export async function setRootFontSize(page: Page, px: number): Promise<() => Promise<void>> {
+  const tag = await page.addStyleTag({ content: `html { font-size: ${px}px !important; }` });
+  await twoFrames(page);
+  return async () => {
+    await tag.evaluate((n) => (n as HTMLStyleElement).remove());
+    await twoFrames(page);
+  };
+}
+
+/**
+ * 断言行盒按 DOM 顺序互不重叠（后项 top ≥ 前项 bottom − 0.5px）——放大文本塞进定高行
+ * 时行盒溢出、相邻行压叠的回归面。少于 2 行直接红：选择器失配不能假绿。
+ */
+export async function assertRowsDisjoint(rows: Locator): Promise<void> {
+  const boxes = await rows.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom };
+    }),
+  );
+  const name = String(rows);
+  expect(boxes.length, `${name} 行数 ${boxes.length} < 2（选择器失配？）`).toBeGreaterThanOrEqual(
+    2,
+  );
+  for (let i = 1; i < boxes.length; i++) {
+    const prev = boxes[i - 1]!;
+    const cur = boxes[i]!;
+    expect(
+      cur.top,
+      `${name} 第 ${i} 行压叠上一行（top ${cur.top} < 上一行 bottom ${prev.bottom}）`,
+    ).toBeGreaterThanOrEqual(prev.bottom - 0.5);
+  }
 }

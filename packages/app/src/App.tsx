@@ -95,7 +95,10 @@ export function App() {
         {/* min-w-0 + truncate：390px 下长 docId 截断（docs/12 移动端），顶栏不换行不横滚 */}
         <div className="flex min-w-0 items-center gap-2.5 max-[379px]:gap-1.5">
           <BrandMark className="h-7 w-auto" />
-          <span className="text-brand font-extrabold tracking-tight max-[379px]:hidden">
+          <span
+            data-spinth-brand=""
+            className="text-brand font-extrabold tracking-tight max-[379px]:hidden"
+          >
             spinth
           </span>
           <span
