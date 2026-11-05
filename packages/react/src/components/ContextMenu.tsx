@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { spinthCommands, useSpinthStore } from '../index';
 import { readSafeInsets } from '../a11y/safeArea';
 import { useRovingFocus } from '../a11y/useRovingFocus';
 import { Icon, type IconName } from './Icon';
+import { estimateMenuSize, placeMenu } from './menuPlacement';
 
 /** store.contextMenu 镜像形状（core 的 IContextMenuState 未进公共面） */
 interface IMenuPanelOptions {
@@ -13,15 +14,15 @@ interface IMenuPanelOptions {
   canPaste: boolean;
 }
 
-const MENU_W = 216;
-const ITEM_H = 34;
-/** 分隔线占高（my-1 + 1px） */
-const DIVIDER_H = 9;
-
 /** 右键菜单（docs/12 §4）：contextMenuOptions$ 驱动，翻转 + 四面夹取防溢出。
- *  翻转/夹取用常量尺寸同步计算——state + effect 量宽会跨菜单打开残留旧翻转
- *  （右缘开过菜单后到中央再开，先按左侧渲染再闪回右侧，实测揪出）且
- *  修正延迟一帧造成闪烁。
+ *  定位跟随实测尺寸（specs/rem-typography §4.6）：面板宽与行高是 rem，随根字号
+ *  缩放、文本还可能折行，常量只做首帧估算——首帧按估算同步定位（夹取保证落在
+ *  视口内，键盘打开聚焦首项不会触发滚屏），useLayoutEffect 实测与估算不同才
+ *  setState，React 在绘制前同步重渲染，用户看不到中间帧。
+ *  曾经的 state + useEffect 量宽被回滚有两宗罪：跨菜单打开残留旧翻转（右缘开过
+ *  菜单后到中央再开，先按左侧渲染再闪回右侧，实测揪出）、修正晚一帧造成闪烁。
+ *  现方案用 layout effect 消除晚一帧，用打开签名（x/y/onWidget）隔离实测值消除
+ *  残留——菜单开着时再按 Shift+F10 不会重挂载面板，签名变了即回落估算。
  *  键盘协议（specs/a11y-closeout §5.3，批次 B W1）：外层只判空（hooks 顺序
  *  稳定），Panel 承担 role=menu/roving/焦点记录与归还——四条关闭路径统一走
  *  closeAndRestore()，不在各路径散写归还逻辑。 */
@@ -36,6 +37,10 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
   /** 归还目标：面板挂载瞬间（首项聚焦前——layout effect 先于 hook 的被动
    *  effect）记录 activeElement，见 §5.4 焦点归还矩阵 */
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  /** 实测面板尺寸，带打开签名：签名不符（同一面板被重开到别处）即视为未测 */
+  const [measured, setMeasured] = useState<{ sig: string; width: number; height: number } | null>(
+    null,
+  );
 
   const closeAndRestore = (): void => {
     spinthCommands.closeContextMenu();
@@ -182,21 +187,29 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
   ];
   const items = options.onWidget ? widgetItems : stageItems;
 
-  // 四面夹取（批次 B W3 §7.5）：先按常量尺寸同步翻转（跨菜单残留旧翻转实测
-  // 揪出，见顶部注释），再 clamp 进含安全区的可视矩形——同时收口 450px 高
-  // （Z1）与 320px 宽（R1）两类越界；菜单比可视区高时贴 minY + 自身滚动兜底。
-  // 高度含上下边框各 1px（R1-c 实测：漏算 2px 会底边越界 2px）
-  const menuH = items.reduce((h, i) => h + (i === 'divider' ? DIVIDER_H : ITEM_H), 12) + 2; // + py-1.5 上下 12px + 边框 2px
-  const flipX = options.x + MENU_W > window.innerWidth;
-  const flipY = options.y + menuH > window.innerHeight;
-  const inset = readSafeInsets();
-  const minX = inset.left + 8;
-  const maxX = Math.max(minX, window.innerWidth - inset.right - 8 - MENU_W);
-  const minY = inset.top + 8;
-  const maxY = Math.max(minY, window.innerHeight - inset.bottom - 8 - menuH);
-  const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
-  const left = clamp(flipX ? options.x - MENU_W : options.x, minX, maxX);
-  const top = clamp(flipY ? options.y - menuH : options.y, minY, maxY);
+  // 定位（specs/rem-typography §4.6）：实测优先、估算兜底；翻转 + 四面夹取在
+  // menuPlacement 纯函数（批次 B W3 §7.5 的 Z1 高 / R1 宽两类越界收口）
+  const sig = `${options.x},${options.y},${options.onWidget}`;
+  const dividerCount = items.filter((i) => i === 'divider').length;
+  const size =
+    measured?.sig === sig ? measured : estimateMenuSize(items.length - dividerCount, dividerCount);
+  useLayoutEffect(() => {
+    // 无依赖数组：每次渲染后对齐（禁用态/折行变化都可能改尺寸），相等短路保证
+    // 不循环；jsdom 无布局读到 0 → 保持估算
+    const el = menuRef.current;
+    if (!el) return;
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    if (width === 0 || height === 0) return;
+    if (Math.abs(width - size.width) < 0.5 && Math.abs(height - size.height) < 0.5) return;
+    setMeasured({ sig, width, height });
+  });
+  const { left, top } = placeMenu({
+    anchor: { x: options.x, y: options.y },
+    size,
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    safe: readSafeInsets(),
+  });
 
   const style: React.CSSProperties = {
     position: 'fixed',
@@ -215,7 +228,7 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
       style={style}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
-      className="max-h-[calc(100dvh-16px)] w-[216px] overflow-y-auto rounded-xl border border-edge bg-surface py-1.5 shadow-pop"
+      className="max-h-[calc(100dvh-16px)] w-[13.5rem] max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-edge bg-surface py-1.5 shadow-pop"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item, i) =>
@@ -230,7 +243,7 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
             role="menuitem"
             disabled={item.disabled}
             onClick={item.action}
-            className={`group flex h-[34px] w-full items-center gap-2.5 px-2.5 text-md font-semibold transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
+            className={`group flex min-h-[2.125rem] w-full items-center gap-2.5 px-2.5 text-md font-semibold transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
               item.danger
                 ? 'text-danger-ink hover:bg-danger-soft'
                 : 'text-ink-2 hover:bg-surface-hover hover:text-ink'

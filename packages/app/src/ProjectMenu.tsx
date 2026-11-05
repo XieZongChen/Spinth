@@ -248,7 +248,7 @@ export function ProjectMenu({ open, onOpenChange }: ProjectMenuProps) {
   };
 
   const itemClass =
-    'flex h-[34px] w-full items-center gap-2.5 rounded-lg px-2.5 text-md font-semibold text-ink transition-colors duration-100 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50';
+    'flex min-h-[2.125rem] w-full items-center gap-2.5 rounded-lg px-2.5 text-md font-semibold text-ink transition-colors duration-100 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50';
 
   return (
     <div ref={rootRef} className="relative">

@@ -7,7 +7,8 @@ import type { ISafeInsets } from '../a11y/safeArea';
 
 /** 操作栏出现在选区上方的间距（视觉规格） */
 export const OFFSET_Y = 12;
-/** 操作栏预估高度（上方放不下时翻到下方；实际由内容撑开 ≈38px） */
+/** 操作栏预估高度（实测就绪前的兜底，也是翻转判定用高的下限——根字号 16px 下
+ *  实测 38–39px，取 max 保 1x 位置不变；上方放不下时翻到下方） */
 export const BAR_HEIGHT_EST = 40;
 /** 实测宽度就绪前的渲染帧宽度兜底（useLayoutEffect 校正发生在绘制前） */
 export const BAR_WIDTH_FALLBACK = 320;
@@ -25,6 +26,9 @@ const MIN_ABOVE = 4;
 export interface IBarLayoutInput {
   bounds: { x: number; y: number; width: number; height: number };
   barW: number;
+  /** 翻转判定用的栏高（specs/rem-typography §4.6）；缺省 BAR_HEIGHT_EST——
+   *  根字号放大时栏随 rem 变高，调用方传实测值才不会压住选区 */
+  barH?: number;
   areaW: number;
   safe: ISafeInsets;
   type: string;
@@ -45,7 +49,7 @@ export function computeBarLayout(i: IBarLayoutInput): IBarLayout {
     Math.max(i.areaW - i.barW - padR, padL),
   );
   const quickClear = QUICK_CAPABLE.has(i.type) ? QUICK_CLEAR : 0;
-  const aboveY = i.bounds.y - OFFSET_Y - BAR_HEIGHT_EST - quickClear;
+  const aboveY = i.bounds.y - OFFSET_Y - (i.barH ?? BAR_HEIGHT_EST) - quickClear;
   const top = aboveY >= MIN_ABOVE ? aboveY : i.bounds.y + i.bounds.height + OFFSET_Y;
   return { left, top };
 }

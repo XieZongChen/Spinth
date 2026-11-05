@@ -2,7 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
 import { readSafeInsets, type ISafeInsets } from '../a11y/safeArea';
-import { BAR_WIDTH_FALLBACK, computeBarLayout, ZERO_INSETS } from './actionBarLayout';
+import {
+  BAR_HEIGHT_EST,
+  BAR_WIDTH_FALLBACK,
+  computeBarLayout,
+  ZERO_INSETS,
+} from './actionBarLayout';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { PopoverControl } from './PopoverControl';
@@ -108,12 +113,15 @@ export function ActionBar() {
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
   // 视觉不居中（2026-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
   // （同步 setState → 重渲染），用户看不到中间帧。
+  // 实测高度参与上下翻转判定（specs/rem-typography §4.6）：栏高随根字号的 rem 缩放，
+  // 只用估算高会让放大后的栏压住选区。
   // 安全区与几何同窗测量（specs/a11y-closeout §13.5-8）：渲染期读
   // getComputedStyle 是纯度+性能债，且没有失效路径——真机旋转/软键盘/
   // 地址栏收缩都会改 inset，靠 resize/orientationchange 失效重算。
   const barRef = useRef<HTMLDivElement | null>(null);
   const [measured, setMeasured] = useState<{
     barW: number;
+    barH: number;
     areaW: number;
     safe: ISafeInsets;
   } | null>(null);
@@ -131,18 +139,20 @@ export function ActionBar() {
     const el = barRef.current;
     if (!el) return;
     const barW = el.offsetWidth;
+    const barH = el.offsetHeight;
     const areaW = el.parentElement?.clientWidth ?? window.innerWidth;
     const safe = readSafeInsets();
     setMeasured((prev) =>
       prev &&
       Math.abs(prev.barW - barW) < 0.5 &&
+      Math.abs(prev.barH - barH) < 0.5 &&
       prev.areaW === areaW &&
       prev.safe.top === safe.top &&
       prev.safe.right === safe.right &&
       prev.safe.bottom === safe.bottom &&
       prev.safe.left === safe.left
         ? prev
-        : { barW, areaW, safe },
+        : { barW, barH, areaW, safe },
     );
     // 依赖 schema/bounds/rev：栏内容/选区几何变化或视口失效时重量
     //（相等短路保证不循环）
@@ -157,6 +167,8 @@ export function ActionBar() {
   const { left, top } = computeBarLayout({
     bounds,
     barW: measured?.barW ?? BAR_WIDTH_FALLBACK,
+    // 取 max：根字号 16px 下实测 38–39 < 40，位置与只用估算时一致；放大后用实测
+    barH: Math.max(measured?.barH ?? 0, BAR_HEIGHT_EST),
     areaW: measured?.areaW ?? 0,
     safe: measured?.safe ?? ZERO_INSETS,
     type: schema.type,

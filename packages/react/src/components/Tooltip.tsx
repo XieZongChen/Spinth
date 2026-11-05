@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
  * - hover ~400ms 延迟出现（扫过不闪）、移开/失焦立即消失；
  * - 键盘可达（focus 同样触发）；
  * - `disabled` 抑制（如 popover 展开时的触发钮不出 tooltip）；
+ * - 超宽折行（specs/rem-typography §4.5）：w-max 保持单行同宽，max-w 封顶到视口——
+ *   根字号放大时长标签折行，而不是把页面撑出横向滚动；
  * - 定位纯算术（CSS absolute + bottom-full），与 ActionBar 决策一致不引 floating-ui。
  */
 
@@ -50,7 +52,7 @@ export function Tooltip({
         <span
           role="tooltip"
           data-spinth-tooltip=""
-          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-2xs font-medium text-surface shadow-dock"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 w-max max-w-[calc(100vw-1rem)] -translate-x-1/2 rounded-md bg-ink px-2 py-1 text-2xs font-medium text-surface shadow-dock"
         >
           {label}
           {/* 下指小箭头（参考同款）：四向透明边框拼三角 */}
