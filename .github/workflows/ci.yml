@@ -58,6 +58,12 @@ jobs:
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.visual_update) }}
         run: node scripts/check-visual-baselines.mjs
 
+      # 字号单位护栏（specs/rem-typography §4.8）：同为纯 node stdlib，先于 install
+      # 快速失败——铬件字号只允许 rem，px 字号（Tailwind 任意值 / CSS / JS 赋值）
+      # 在 push/PR 即拦截；脚本每次运行先跑内置夹具自检。不受 visual_update 影响
+      - name: 字号单位检查
+        run: node scripts/check-font-units.mjs
+
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
