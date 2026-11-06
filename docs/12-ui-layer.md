@@ -145,7 +145,7 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 断点必须避开 M1 截断基线）；320×640 重排与 720×450（200% 缩放代理）布局矩阵在
 `e2e/a11yLayout.spec.ts`（Z1/Z2/R1/S1 十例，页面级无二维滚动；工具坞内部横滚
 属工具栏自身滚动区，#stage-container 豁免）。纯文本缩放（根字号 16→32px）的
-精确性与布局矩阵在 `e2e/textScale.spec.ts`（T1–T5，见 §5 字号单位策略）。
+精确性与布局矩阵在 `e2e/textScale.spec.ts`（T1–T6，见 §5 字号单位策略）。
 
 ## 5. 主题与样式架构
 
@@ -187,8 +187,8 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
     交互几何常量、1px 描边/焦点环/阴影、媒体查询断点（媒体查询的 rem 按初始字号解析）、
     图标尺寸。
   - 护栏：`node scripts/check-font-units.mjs`（verify 与 CI gate；扫三包 src 与
-    index.html 的 px 字号三类写法，白名单为文件级并写理由，无行内豁免；每次运行先跑内置
-    夹具自检）。
+    index.html 的 px 字号四类写法——Tailwind 任意值 / CSS 声明 / JS px 串 / `.tsx` 数字
+    字号，白名单为文件级并写理由，无行内豁免；每次运行先跑内置夹具自检）。
 - 首绘由 index.html 内联脚本预置 `data-theme`（防暗色白屏闪烁）；
   持久化只发生在用户显式切换；无保存偏好时跟随系统主题变化。
 - 画布底色与点阵由 DOM 承载（PIXI `backgroundAlpha: 0`）；换肤即 CSS 令牌切换。

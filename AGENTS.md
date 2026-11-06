@@ -191,12 +191,12 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 折行）；右键菜单定位抽 `menuPlacement` 纯函数（首帧估算、挂载后实测同帧重定位、
 按打开签名隔离），ActionBar 翻转用 max(实测栏高, 40)；`check-font-units` 护栏
 （14 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
-textScale T1–T5 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
+textScale T1–T6 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
 
 当前实测基线：`pnpm verify` 通过；1100 单测（core 988 + react 74 + app 38）；
-E2E 48 spec / 237 用例全绿（主配置 230 + pwa 7；edgeAutoScroll 9/9 含框选
+E2E 48 spec / 238 用例全绿（主配置 231 + pwa 7；edgeAutoScroll 9/9 含框选
 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 5/5；touchPen 2/2；
+mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 2/2；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库

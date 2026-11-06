@@ -14,7 +14,7 @@
 ## 2. 当前基线
 
 - 单测：1100 passed（core 988 + react 74 + app 38）。
-- E2E：48 个 spec（主配置 47 + pwa 1）、237 例（分层：fast 228（含 pwa 7）/ timing+bench 5 /
+- E2E：48 个 spec（主配置 47 + pwa 1）、238 例（分层：fast 229（含 pwa 7）/ timing+bench 5 /
   visual 4；混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`）。
 - 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
@@ -27,10 +27,11 @@
   （点名三组另断言显式 aria-label）/右键不开内联编辑器）；a11yLayout.spec 10 例
   （Z1 720×450 缩放代理 ×2、Z2 rem 200%、R1 320×640 重排 ×3、S1 安全区注入 ×4：
   竖屏 notch / 横屏顶栏 / 浮层不进 inset / 注入后 resize 重算）。
-- 文本缩放专项（specs/rem-typography）：textScale.spec 5 例（1440×900，根字号 16→32px）——
+- 文本缩放专项（specs/rem-typography）：textScale.spec 6 例（1440×900，根字号 16→32px）——
   T1/T2 迁移文本的计算字号与行高、右键菜单宽逐值精确（1x 与迁移前一致、200% 全部 ×2）；
   T3 右键菜单实测尺寸翻转夹取、行不重叠、行高 68、矮视口过高内滚；T4 项目菜单与存储
-  面板与悬停提示；T5 Shift+F10 不滚屏、Esc 归还焦点。横幅主配置不可达，字号断言在 pwa P5。
+  面板与悬停提示；T5 Shift+F10 不滚屏、Esc 归还焦点；T6 元素菜单（6 项）实测 432×468、
+  行高 68 与行不重叠。横幅主配置不可达，字号断言在 pwa P5。
 - 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
