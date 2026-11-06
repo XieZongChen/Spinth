@@ -190,7 +190,7 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 容器同批随根字号缩放（菜单行 `min-h`、右键菜单宽 rem + 视口上限、Tooltip 超宽
 折行）；右键菜单定位抽 `menuPlacement` 纯函数（首帧估算、挂载后实测同帧重定位、
 按打开签名隔离），ActionBar 翻转用 max(实测栏高, 40)；`check-font-units` 护栏
-（11 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
+（14 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
 textScale T1–T5 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
 
 当前实测基线：`pnpm verify` 通过；1100 单测（core 988 + react 74 + app 38）；

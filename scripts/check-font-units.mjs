@@ -6,11 +6,13 @@
  *
  * 铬件字号只允许 rem：px 字号不跟随浏览器「默认字号」偏好（WCAG 1.4.4），且与
  * 已是 rem 的文本混排时放大会层级反转。扫描 packages/{core,react,app}/src 下的
- * .ts/.tsx/.css（不含单测）与 packages/app/index.html，拦截三类写法：
+ * .ts/.tsx/.css（不含单测）与 packages/app/index.html，拦截四类写法：
  *   1. Tailwind 任意值 px 字号（text-[13px]，含变体前缀与 length: 类型提示）；
  *   2. CSS 声明 font-size 取 px 值；
- *   3. JS 字号赋值为 px 串（引号串，或以 px 结尾的模板串）。
+ *   3. JS 字号赋值为 px 串（引号串，或以 px 结尾的模板串）；
+ *   4. .tsx 里的 React 数字字号（style={{ fontSize: 13 }} 在 React 里就是 13px）。
  * 白名单是文件级并硬编码理由：DOM 文本编辑层必须与画布 px 逐像素对齐（规格 §4.7）。
+ * 第四类只扫 .tsx：.ts 里的 `fontSize: 16` 是 PIXI/文档数据的世界单位，不是 CSS 字号。
  * 不提供行内豁免——要豁免就进白名单并写理由，强制走审查。
  *
  * 每次运行先跑内置夹具自检（护栏自身的区分验证），自检不过直接失败；
@@ -54,10 +56,18 @@ const RULES = [
   {
     id: 'js-px',
     re: new RegExp(
-      String.raw`\bfontSize\s*[:=]\s*(?:(['"])\s*${NUM}px\s*\1|\x60[^\x60]*px\x60)`,
+      String.raw`\bfontSize\s*[:=]\s*\{?\s*(?:(['"])\s*${NUM}px\s*\1|\x60[^\x60]*px\x60)`,
       'g',
     ),
     hint: 'DOM 字号赋值写 rem；画布/编辑层确需 px 的文件进白名单并写理由',
+  },
+  {
+    id: 'js-number-px',
+    // 只扫 .tsx：React 内联样式数字按 px 处理；.ts 的数值 fontSize 是 PIXI/
+    // 文档世界单位，不能误伤。负向断言排除 13px / 13% 这类已有规则或非字号写法。
+    exts: ['.tsx'],
+    re: new RegExp(String.raw`\bfontSize\s*[:=]\s*\{?\s*${NUM}(?![a-zA-Z%])`, 'g'),
+    hint: 'React 数字字号按 px 处理（style={{ fontSize: 13 }}）；改 rem 字符串或令牌类',
   },
 ];
 
@@ -70,9 +80,11 @@ function isTestFile(rel) {
 function scanText(rel, text) {
   if (ALLOWLIST.has(rel)) return [];
   const hits = [];
+  const ext = path.extname(rel);
   const lines = text.split(/\r?\n/);
   lines.forEach((line, i) => {
     for (const rule of RULES) {
+      if (rule.exts && !rule.exts.includes(ext)) continue;
       rule.re.lastIndex = 0;
       for (const m of line.matchAll(rule.re)) {
         hits.push({ rel, line: i + 1, snippet: m[0], rule: rule.id });
@@ -143,6 +155,24 @@ const FIXTURES = [
     expect: [],
   },
   { name: 'CSS 百分比根字号', rel: 'x.css', text: 'html { font-size: 100%; }', expect: [] },
+  {
+    name: 'React 数字字号（tsx）',
+    rel: 'x.tsx',
+    text: 'style={{ fontSize: 13 }}',
+    expect: ['js-number-px'],
+  },
+  {
+    name: 'JSX 属性数字字号',
+    rel: 'x.tsx',
+    text: '<Foo fontSize={13} />',
+    expect: ['js-number-px'],
+  },
+  {
+    name: 'tsx 里的 rem 字号不命中',
+    rel: 'x.tsx',
+    text: "style={{ fontSize: '0.8125rem' }}",
+    expect: [],
+  },
   {
     name: '白名单文件（编辑层 px）',
     rel: 'packages/core/src/platform/textEngine/richTextEditor.ts',
