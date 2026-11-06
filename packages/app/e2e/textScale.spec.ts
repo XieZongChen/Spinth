@@ -191,7 +191,8 @@ test('T5 200% 键盘打开：Shift+F10 不滚屏、焦点在菜单、Esc 归还 
   const menu = page.locator('[data-spinth-context-menu]');
   await expect(menu).toBeVisible();
   await expect(menu).toHaveAttribute('aria-label', '元素操作');
-  // 首项聚焦发生在估算尺寸那一帧（被动 effect 先于实测重定位）——不得触发任何滚动
+  // 首项聚焦在 useRovingFocus 的被动 effect（绘制后），此时 layout effect 的实测
+  // 重定位已完成——不得因此触发任何滚动
   await expect(menu.locator('[role="menuitem"]').first()).toBeFocused();
   expect(await pageScroll(page)).toEqual([0, 0]);
   expect(await menu.evaluate((el) => el.scrollTop)).toBe(0);
@@ -202,4 +203,28 @@ test('T5 200% 键盘打开：Shift+F10 不滚屏、焦点在菜单、Esc 归还 
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   await expect(stage).toBeFocused();
+});
+
+test('T6 200% 元素菜单：6 项菜单实测 432×468、行不重叠、在视口内', async ({ page }) => {
+  await openBoard(page, `e2e-ts6-${Date.now()}`);
+  await setRootFontSize(page, 32);
+  // 选中态 → Shift+F10 开元素菜单（最长菜单：6 项 + 2 分隔，实测尺寸 236→468 修正最大）
+  await drawShape(page);
+  await page.locator('#stage-container').focus();
+  await page.keyboard.press('Shift+F10');
+  const menu = page.locator('[data-spinth-context-menu]');
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute('aria-label', '元素操作');
+  const items = menu.locator('[role="menuitem"]');
+  await expect(items).toHaveCount(6);
+  const box = await boxWithin(menu, VP, 8);
+  expect(box.width, `元素菜单宽应为 13.5rem=432（实际 ${box.width}）`).toBeCloseTo(432, 0);
+  // 6×68（min-h 2.125rem）+ 2×17（my-1 + 1px）+ 24（py-1.5）+ 2（边框）
+  expect(box.height, `元素菜单高应为 468（实际 ${box.height}）`).toBeCloseTo(468, 0);
+  await assertRowsDisjoint(items);
+  const rowH = await items.first().evaluate((el) => el.getBoundingClientRect().height);
+  expect(rowH, `行高应为 68（实际 ${rowH}）`).toBeCloseTo(68, 0);
+  await noDocHScroll(page);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
 });
