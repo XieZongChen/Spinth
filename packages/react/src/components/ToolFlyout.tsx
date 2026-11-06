@@ -31,6 +31,12 @@ export interface IToolFlyoutGroup {
  * 移动端 Toolbar 的 overflow-x-auto 滚动容器把出界的面板整块裁掉（390px 下
  * flyout.x=-114 完全不可点）；fixed 又会被 Toolbar 的 translate 祖先拖累，
  * 唯稳解是脱离原层级。视口 clamp：左右各留 8px、anchor 正上方。
+ *
+ * 锚点闩锁修复（plan/flyout-culling-linear-edge-scroll 问题 1）：React 挂宿主
+ * ref 晚于子树 layout effect，首挂载读锚点可能为 null——place 带 rAF 补帧
+ * 重试（最多 3 帧，不无限轮询），锚点经 Toolbar 的 layout effect 受控提供。
+ * resize/orientationchange/scroll（capture——工具坞横向滚动）与 visualViewport
+ * 变化同帧重算；setPos 同值短路防高频事件重渲染。
  */
 export function ToolFlyout({
   groups,
@@ -51,19 +57,49 @@ export function ToolFlyout({
     wrap: true,
   });
   useLayoutEffect(() => {
+    let cancelled = false;
+    let raf = 0;
+    let attempts = 0;
     const place = (): void => {
+      if (cancelled) return;
+      raf = 0;
       const el = hostRef.current;
       const rect = anchorRect();
-      if (!el || !rect) return;
+      if (!el) return;
+      if (!rect) {
+        // 锚点尚未可读（首提交 ref 晚于本 effect）——补帧重试，防闩死 hidden
+        if (attempts++ < 3) raf = requestAnimationFrame(place);
+        return;
+      }
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       const cx = rect.left + rect.width / 2;
       const left = Math.min(Math.max(8, cx - w / 2), Math.max(8, window.innerWidth - w - 8));
-      setPos({ left, top: Math.max(8, rect.top - h - 8) });
+      const top = Math.max(8, rect.top - h - 8);
+      setPos((prev) => (prev && prev.left === left && prev.top === top ? prev : { left, top }));
     };
     place();
-    window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
+    const invalidate = (): void => {
+      attempts = 0;
+      place();
+    };
+    window.addEventListener('resize', invalidate);
+    window.addEventListener('orientationchange', invalidate);
+    // 工具坞 max-md:overflow-x-auto 可横向滚动：fixed 定位不随滚动容器走，
+    // capture 捕获任意祖先滚动并同帧重算
+    window.addEventListener('scroll', invalidate, true);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', invalidate);
+    vv?.addEventListener('scroll', invalidate);
+    return () => {
+      cancelled = true;
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('resize', invalidate);
+      window.removeEventListener('orientationchange', invalidate);
+      window.removeEventListener('scroll', invalidate, true);
+      vv?.removeEventListener('resize', invalidate);
+      vv?.removeEventListener('scroll', invalidate);
+    };
   }, [anchorRect, groups]);
   const twoRow = groups.length === 1 && (groups[0]?.options.length ?? 0) > 8;
   return createPortal(

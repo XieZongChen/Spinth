@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useSpinthStore } from '../store/spinthStore';
 import { spinthCommands } from '../store/commands';
 import { useRovingFocus } from '../a11y/useRovingFocus';
@@ -104,7 +104,7 @@ const TONE_ACTIVE: Record<ToolTone, string> = {
 /**
  * 底部中央工具坞（docs/12 §4）：画布是主角，铬件悬浮且安静——
  * 白色胶囊 + 细边 + 停靠投影；选中哪个工具就点亮哪种颜色（选中即点亮，工具坞的活力来源）。
- * 常驻二级菜单：带 subMenuOptions 的工具激活时按钮正上方显示变体面板（ToolFlyout）。
+ * 常驻二级菜单：带 subMenuGroups 的工具激活时按钮正上方显示变体面板（ToolFlyout）。
  */
 export function Toolbar() {
   const cursorMode = useSpinthStore((s) => s.cursorMode);
@@ -115,6 +115,14 @@ export function Toolbar() {
   const selectedCount = useSpinthStore((s) => s.selectedCount);
   /** 激活工具按钮（ToolFlyout 的 portal 定位锚点） */
   const activeBtnRef = useRef<HTMLDivElement>(null);
+  /** 锚点元素受控镜像：React 挂宿主 ref 晚于子树 layout effect，ToolFlyout
+   *  首挂载直接读 ref 必为 null（dev StrictMode 双跑掩盖、生产闩死隐藏——
+   *  修复：本组件 layout effect 晚于 ref 挂载执行，绘制前把已挂好的 ref
+   *  提升为 state 触发一次同步补渲染，ToolFlyout 拿到非空锚点） */
+  const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    setAnchorEl(activeBtnRef.current);
+  }, [cursorMode]);
   const dockRef = useRef<HTMLDivElement>(null);
   // roving（specs/a11y-closeout §5.7，W1/2.4.3）：工具坞单 Tab 停靠，
   // 方向键在按钮间移动；wrap=false——工具序两端即语义尽头。ToolFlyout 是
@@ -179,7 +187,7 @@ export function Toolbar() {
                 anchorRect 传按钮矩形——portal/fixed 定位（第三轮审查 390px 修复） */}
             {active && t.subMenuGroups && (
               <ToolFlyout
-                anchorRect={() => activeBtnRef.current?.getBoundingClientRect() ?? null}
+                anchorRect={() => anchorEl?.getBoundingClientRect() ?? null}
                 groups={t.subMenuGroups.map((g) => ({
                   options: g.options,
                   current: toolOptions[t.mode]?.[g.key] ?? '',

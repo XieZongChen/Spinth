@@ -448,3 +448,46 @@ test('390px 移动端：二级菜单 portal/fixed + 视口 clamp——完全可�
     void indexedDB.deleteDatabase(`spinth-doc:${id}`);
   }, docId);
 });
+
+// 390 触摸激活（plan/flyout-culling-linear-edge-scroll 问题 1）：tap 后**不点画布**
+// 面板即出现且可点——锚点闩锁修复的端到端护栏（dev StrictMode 下亦须成立）。
+// hasTouch 只在本 describe 生效（touchPen.spec 的 test.use 先例）
+test.describe('390px 触摸激活二级菜单', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('tap 画笔工具 → 面板立即可见可点（无需先在画布创建内容）', async ({ page }) => {
+    const docId = `e2e-390-tap-${Date.now()}`;
+    await page.goto(`/?doc=${docId}`);
+    await waitForSynced(page);
+
+    // locator.tap 自动滚动入视（390 下工具坞横向滚动）
+    await page
+      .getByRole('toolbar', { name: '画板工具' })
+      .getByRole('button', { name: '画笔 (P)' })
+      .tap();
+    const flyout = page.locator('[data-spinth-tool-flyout]');
+    await expect(flyout).toBeVisible();
+
+    const box = await flyout.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+
+    // 可点性判据（审查同款）：面板中心 elementFromPoint 命中面板自身
+    const hitSelf = await page.evaluate(
+      async ({ cx, cy }) => {
+        const el = document.elementFromPoint(cx, cy);
+        return !!el?.closest('[data-spinth-tool-flyout]');
+      },
+      { cx: box!.x + box!.width / 2, cy: box!.y + box!.height / 2 },
+    );
+    expect(hitSelf).toBe(true);
+
+    // tap 首选项——面板保持（工具仍激活，纯派生可见性）
+    await flyout.locator('button[role="menuitemradio"]').first().tap();
+    await expect(flyout).toBeVisible();
+    await page.evaluate((id) => {
+      void indexedDB.deleteDatabase(`spinth-doc:${id}`);
+    }, docId);
+  });
+});
