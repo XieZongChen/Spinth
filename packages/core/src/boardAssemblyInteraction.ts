@@ -20,11 +20,15 @@ import type { BoardSDK } from './app';
 export function assembleInteraction(sdk: BoardSDK): void {
   // 交互服务（refLine 与 selector 相互依赖，getter 解环）
   // 视口 culling（docs/16 §1）：vpBounds/数据/创建变化 → renderable 翻转
-  // （装配晚于 IndexedDB 恢复，initialize 内立即全量一次）
-  sdk.culling = new CullingService(sdk.viewport!, sdk.vmEngine!, sdk.spatial!, [
-    sdk.widgetsChanged$,
-    sdk.vmEngine!.onVmCreated$,
-  ]);
+  // （装配晚于 IndexedDB 恢复，initialize 内立即全量一次）；预览 id 闭包晚绑定
+  // selector（构造顺序 culling 先于 selector，首帧取空、不改变初始行为）
+  sdk.culling = new CullingService(
+    sdk.viewport!,
+    sdk.vmEngine!,
+    sdk.spatial!,
+    [sdk.widgetsChanged$, sdk.vmEngine!.onVmCreated$],
+    () => sdk.selector?.previewIds ?? [],
+  );
   sdk.culling.initialize();
   // 已删件出册（Batch 1 · 1.26）：culled 集合死 id 清理（BoardSDK 无 Disposable
   // 基类——dispose() 里显式退订）

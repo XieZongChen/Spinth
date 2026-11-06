@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
 
 /**
- * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-5）。
+ * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-6）。
  *
  * 坐标纪律：页面坐标一律 canvas boundingBox 盒相对（顶栏高度会变，禁止裸写
  * 页面绝对坐标/硬编码 44px 偏移）；世界 ↔ 屏幕断言走公开 `toScreenPoint`，
@@ -329,6 +329,35 @@ test('E-5 脑图节点拖到边缘：视口滚动中松手成新图，落点贴�
   expect(landedScreen).not.toBeNull();
   expect(Math.abs(landedScreen!.x - holdScreen.x)).toBeLessThan(120);
   expect(Math.abs(landedScreen!.y - holdScreen.y)).toBeLessThan(120);
+});
+
+test('E-6 拖拽边缘滚屏：被拖元素不被 culling 误剔（预览几何复核）', async ({ page }) => {
+  await openBoardDoc(page, `e2e-edge-scroll-cull-${Date.now()}`);
+  const { before } = await dragIntoRightZone(page, 100, 100); // 已按住并停在右热区
+  // 先等视口滚过旧索引位置：索引是 512 格粒度的格查询（非精确相交），数据仍在
+  // x=100..220（格 0），外扩视口左缘 vp.x−256 ≥ 512（vp.x ≥ 768）才离开格 0；
+  // 取 +1200 留足余量——证明 vpBounds 流确已驱动 culling，否则 culledCount=0 恒真
+  await page.waitForFunction(
+    (x0) =>
+      (
+        window as unknown as { __spinth: { vpBounds$: { getValue(): { x: number } } } }
+      ).__spinth.vpBounds$.getValue().x >
+      x0 + 1200,
+    before.x,
+    { timeout: 5_000 },
+  );
+  const culledCount = (): Promise<number> =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __spinthDebug: { __debug: { culledCount: number } } }).__spinthDebug
+          .__debug.culledCount,
+    );
+  // 唯一控件就在指针下：按旧索引判定会被误剔（culledCount=1），预览 id 用实时
+  // getBounds 复核后保持可见
+  expect(await culledCount()).toBe(0);
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  expect(await culledCount()).toBe(0); // 落库后索引更新到新位置，仍在视口内
 });
 
 // ---------- 框选边缘滚屏（specs/marquee-auto-scroll §8.3 M-1..M-4） ----------

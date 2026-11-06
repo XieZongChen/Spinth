@@ -177,6 +177,11 @@ export class SelectorService extends Disposable implements ISelectorService {
     return this.dragState !== null || this.marquee !== null || this.mindDragging;
   }
 
+  /** 元素拖拽预览中的 id（culling 复核用；框选/脑图拖拽不走 dragState，恒空） */
+  get previewIds(): readonly string[] {
+    return this.dragState?.ids ?? [];
+  }
+
   private onPointerDown(e: IPointerEventInfo): void {
     // 连线手势优先（docs/08 §10 批次 2）：单选连线的端点手柄抓取
     if (this.lineGestureHook?.(e.world)) return;

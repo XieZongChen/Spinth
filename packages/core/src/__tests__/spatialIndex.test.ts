@@ -116,4 +116,52 @@ describe('CullingService', () => {
     expect(outside.root.renderable).toBe(false);
     cull.dispose();
   });
+
+  // ---- 拖拽预览复核（specs/edge-auto-scroll 修订：预览只改 root，索引停在旧几何） ----
+
+  it('预览 id 实时 bounds 在视口内（索引旧位屏外）→ 不剔除', () => {
+    const { viewport, vmEngine, makeVm } = makeCullingDeps();
+    const vm = makeVm('drag', 'SHAPE', { x: 5000, y: 5000, width: 50, height: 50 });
+    const idx = new SpatialIndex(512);
+    idx.update(vm.id, vm.getBounds()); // 索引 = 拖拽前旧位置（远屏外）
+    vm.getBounds = () => ({ x: 100, y: 100, width: 50, height: 50 }); // 实时视觉位
+    let preview = true;
+    const cull = new CullingService(viewport as never, vmEngine as never, idx, [], () =>
+      preview ? ['drag'] : [],
+    );
+    cull.initialize();
+    expect(vm.root.renderable).toBe(true); // 误剔修复：指针下保留
+    expect(cull.culledCount).toBe(0);
+
+    // 松手后预览集清空：索引仍指旧位置、实时 bounds 也不再参与 → 恢复剔除
+    preview = false;
+    vm.getBounds = () => ({ x: 5000, y: 5000, width: 50, height: 50 });
+    viewport.vpBounds$.next({ x: 0, y: 0, width: 1000, height: 800 });
+    expect(vm.root.renderable).toBe(false);
+    cull.dispose();
+  });
+
+  it('预览 id 实时 bounds 也在视口外 → 仍剔除（非无脑豁免）', () => {
+    const { viewport, vmEngine, makeVm } = makeCullingDeps();
+    const vm = makeVm('drag', 'SHAPE', { x: 9000, y: 9000, width: 50, height: 50 });
+    const idx = new SpatialIndex(512);
+    idx.update(vm.id, vm.getBounds());
+    const cull = new CullingService(viewport as never, vmEngine as never, idx, [], () => ['drag']);
+    cull.initialize();
+    expect(vm.root.renderable).toBe(false); // 拖出视口外照常剔除
+    expect(cull.culledCount).toBe(1);
+    cull.dispose();
+  });
+
+  it('无预览提供者（缺省参）→ 索引外一律剔除（旧行为逐字节不变）', () => {
+    const { viewport, vmEngine, makeVm } = makeCullingDeps();
+    const vm = makeVm('w', 'SHAPE', { x: 5000, y: 5000, width: 50, height: 50 });
+    const idx = new SpatialIndex(512);
+    idx.update(vm.id, vm.getBounds());
+    vm.getBounds = () => ({ x: 100, y: 100, width: 50, height: 50 }); // 实时位在视口内
+    const cull = new CullingService(viewport as never, vmEngine as never, idx, []);
+    cull.initialize();
+    expect(vm.root.renderable).toBe(false); // 不给提供者就不复核——纯索引判定
+    cull.dispose();
+  });
 });

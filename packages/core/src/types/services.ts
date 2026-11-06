@@ -222,6 +222,9 @@ export interface ISelectorService {
   lineGestureHook: ((world: IPoint) => boolean) | null;
   /** 手势忙态（拖拽/框选/脑图拖拽中——悬停指示器抑制用） */
   readonly isDragging: boolean;
+  /** 元素拖拽预览中的控件 id（空 = 无预览；框选/脑图节点拖拽恒空）。culling 用
+   *  实时 getBounds 复核：预览只改 root、不改数据，空间索引仍是拖拽前旧几何 */
+  readonly previewIds: readonly string[];
 }
 
 export interface IHistoryService {
