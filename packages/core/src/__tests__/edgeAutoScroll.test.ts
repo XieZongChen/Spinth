@@ -3,13 +3,14 @@ import {
   EdgeAutoScrollService,
   type IEdgeScrollClock,
 } from '../platform/viewport/edgeAutoScrollService';
-import { EDGE_SCROLL_TIERS_PX_PER_S } from '../platform/viewport/edgeScrollMath';
+import { edgeScrollAxisVelocity } from '../platform/viewport/edgeScrollMath';
 import type { IViewportService } from '../types';
 
 /**
  * 帧循环/状态机/回滚（specs/edge-auto-scroll §7.2 T11-T20）：注入假时钟
  * 确定性驱动，不依赖全局 fake timers。视口 1000×800；右热区 x=995 距右缘
- * 5px → 快档 −1080 px/s（符号：露出右侧世界 = panBy 负值）。
+ * 5px → 线性斜坡速度 v = edgeScrollAxisVelocity(995, 1000) = −1035 px/s
+ * （符号：露出右侧世界 = panBy 负值；期望值一律从公式读，不硬编码）。
  */
 
 /** 假时钟：advance 逐帧推进并执行到期回调（rAF 语义） */
@@ -105,7 +106,8 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     clock.advance(16.7);
     expect(s.panBy).toHaveBeenCalledTimes(1);
     const [dx, dy] = s.panBy.mock.calls[0] as [number, number];
-    const v = -EDGE_SCROLL_TIERS_PX_PER_S[2]!;
+    const v = edgeScrollAxisVelocity(HOT_RIGHT.x, 1000); // 斜坡速度（d=5 → −1035）
+    expect(v).toBeLessThan(0);
     expect(dx).toBeCloseTo((v * 16.7) / 1000, 6);
     expect(dy).toBe(0);
     expect(s.replay).toHaveBeenCalledTimes(1);
@@ -133,7 +135,7 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     clock.advance(16.7 * 3);
     expect(s.panBy).toHaveBeenCalledTimes(3);
     const total = (s.panBy.mock.calls as [number, number][]).reduce((acc, [dx]) => acc + dx, 0);
-    expect(total).toBeCloseTo((-EDGE_SCROLL_TIERS_PX_PER_S[2]! * 16.7 * 3) / 1000, 4);
+    expect(total).toBeCloseTo((edgeScrollAxisVelocity(HOT_RIGHT.x, 1000) * 16.7 * 3) / 1000, 4);
     svc.dispose();
   });
 
@@ -170,7 +172,7 @@ describe('EdgeAutoScrollService 帧循环（specs/edge-auto-scroll T11-T20）', 
     const svc = new EdgeAutoScrollService(s.viewport, clock);
     svc.update(HOT_RIGHT, true);
     svc.update(HOT_RIGHT, true);
-    svc.update({ x: 990, y: 400 }, true); // 同侧更深（档位不变）
+    svc.update({ x: 990, y: 400 }, true); // 同侧更浅（d=10 仍在热区）
     expect(clock.pending.size).toBe(1);
     expect(s.listeners.get('pointerleave')).toBeTruthy(); // 监听器只挂一份
     clock.advance(16.7);

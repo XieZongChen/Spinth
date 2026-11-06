@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
 
 /**
- * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-6）。
+ * 边缘自动滚屏 E2E（specs/edge-auto-scroll §7.5 E-1..E-7）。
  *
  * 坐标纪律：页面坐标一律 canvas boundingBox 盒相对（顶栏高度会变，禁止裸写
  * 页面绝对坐标/硬编码 44px 偏移）；世界 ↔ 屏幕断言走公开 `toScreenPoint`，
@@ -199,7 +199,8 @@ test('E-3 指针回中心 → 视口停止滚动（连续采样相等）', async
 
 test('E-4 反例（D6）：边缘按下但未过阻尼 → 不滚屏', async ({ page }) => {
   await openBoardDoc(page, `e2e-edge-scroll-${Date.now()}`);
-  // 矩形右半伸入右热区：按在 (worldX+100, 140)（距右缘 40px < 56）
+  // 矩形右半伸入右热区：按在 (worldX+100, 140)（距右缘 40px，在热区内——
+  // D6 只认过阻尼，热区内不滚的唯一原因是没拖起来）
   const worldX = 1300;
   const id = await dragCreateRect(page, worldX, 100);
   const box = (await page.locator('#stage-container').boundingBox())!;
@@ -358,6 +359,28 @@ test('E-6 拖拽边缘滚屏：被拖元素不被 culling 误剔（预览几何�
   await page.mouse.up();
   await page.waitForTimeout(200);
   expect(await culledCount()).toBe(0); // 落库后索引更新到新位置，仍在视口内
+});
+
+test('E-7 120px 热区外沿慢速滚屏（旧 56px 热区不会触发）', async ({ page }) => {
+  await openBoardDoc(page, `e2e-edge-ramp-${Date.now()}`);
+  const id = await dragCreateRect(page, 100, 100);
+  const box = (await page.locator('#stage-container').boundingBox())!;
+  const press = await toScreen(page, { x: 160, y: 140 }); // 矩形中心
+  const before = await vpBounds(page);
+  await page.mouse.move(box.x + press.x, box.y + press.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + press.x + 24, box.y + press.y, { steps: 4 }); // 过阻尼
+  const hold = { x: box.width - 100, y: press.y }; // 距右缘 100px → 斜坡 180px/s
+  await page.mouse.move(box.x + hold.x, box.y + hold.y, { steps: 8 });
+  await page.waitForTimeout(500);
+  const after = await vpBounds(page);
+  const moved = after.x - before.x;
+  // 只卡「旧热区外也会动」与「是慢速」：180px/s × 0.5s ≈ 90；上限远离满速
+  // 540（若误按近缘速度滚会超 400），下限扛起帧延迟（≥20）
+  expect(moved).toBeGreaterThan(20);
+  expect(moved).toBeLessThan(400);
+  await page.mouse.up();
+  expect(id).toBeTruthy();
 });
 
 // ---------- 框选边缘滚屏（specs/marquee-auto-scroll §8.3 M-1..M-4） ----------
