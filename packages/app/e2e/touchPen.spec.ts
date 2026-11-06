@@ -44,7 +44,7 @@ test('触摸：touchStart/Move/End 拖出矩形并选中（缺省 button 不被�
   await openBoard(page, docId);
   await page.keyboard.press('r');
   const cdp = await page.context().newCDPSession(page);
-  // 画布中央起拖（避开 56px 边缘自动滚屏热区与顶栏 44px）
+  // 画布中央起拖（避开 120px 边缘自动滚屏热区与顶栏 44px）
   const from = { x: 195, y: 400 };
   const to = { x: 295, y: 480 };
   await cdp.send('Input.dispatchTouchEvent', {

@@ -30,7 +30,7 @@
 ### 1.2 非目标
 
 - 不做惯性/缓动滚动，不做「松手后继续滑行」，不做滚到内容尽头吸附。
-- 不改热区宽度（56px）、三档速度（180/480/1080）、dt 钳制（50ms）、`pointerleave` 停滚。
+- 不改热区/速度/dt 钳制/`pointerleave` 停滚（edgeScrollMath 单源；初稿时为 56px 三档，后随 specs/edge-auto-scroll §14 改 120px 连续线性斜坡）。
 - 不改元素拖拽、脑图节点拖拽的任何代码路径（零回归面）。
 - 不新增滚动时可调参数（阈值只有起拖判据一个，且是屏幕常量）。
 - 不新增调试探针；E2E 沿用 `vpBounds$` / `selected$` 与 dev 的 `__debug.engine`。
@@ -44,8 +44,8 @@
 | `platform/selector/selectorMarquee.ts`（71 行）        | 会话对象：down 建 / move 逐帧 / up·cancel 收；只持世界坐标 | + 屏幕起点、`moved`、选中去重（约 +30 行） |
 | `platform/selector/selectorService.ts`（386 行）       | 指针分支：拖拽 / 脑图 / 框选三路；up·cancel 已统一停滚     | marquee 分支 +1 行                         |
 | `platform/selector/selectorVm.ts`（52 行）             | `marqueeRectOf` 纯函数 + 蓝框 Graphics                     | 不动                                       |
-| `platform/viewport/edgeAutoScrollService.ts`（135 行） | rAF 帧循环、热区分档、`pointerleave` 停滚、回滚            | 不动                                       |
-| `platform/viewport/edgeScrollMath.ts`（62 行）         | 热区/分档/方向/dt 纯函数                                   | 不动                                       |
+| `platform/viewport/edgeAutoScrollService.ts`（135 行） | rAF 帧循环、热区速度、`pointerleave` 停滚、回滚            | 不动                                       |
+| `platform/viewport/edgeScrollMath.ts`                  | 热区/线性速度/方向/dt 纯函数（§14 修订后 62 行）           | 不动                                       |
 | `platform/viewport/viewportPointerInput.ts`（275 行）  | `lastMove` 快照 + `replayLastMove`（走完整派发闸门）       | 不动                                       |
 | `types/services.ts`                                    | `IEdgeAutoScrollService.update(screen, dragging)` 注释     | 一句话补充框选口径                         |
 | `__tests__/selectorMarquee.test.ts`                    | 不存在                                                     | 新增（会话单测）                           |
@@ -88,8 +88,9 @@
 
 完全复用现有数学，不新增参数：
 
-- 热区 56 屏幕 px，两轴独立判定，四角斜向各自满档（`edgeScrollAxisVelocity`）。
-- 速度 180 / 480 / 1080 屏幕 px/s，按深度 `t = 1 − d/56` 三档。
+- 热区与速度完全同源 `edgeScrollAxisVelocity`：120 屏幕 px 热区、连续线性
+  `v = 1080 × (1 − d/120)` 屏幕 px/s（外沿 0、边缘最大；specs/edge-auto-scroll
+  §14 修订，框选批落地时为 56px 三档）。两轴独立，四角斜向各自到最大速度。
 - 帧位移 = 速度 × dt，dt 钳制 `[0, 50]` ms。
 - 方向：右/下边缘 `panBy` 传负值（正值 = 内容右/下移 = 露出左侧/上方世界）。
 - 指针坐标用 `IPointerEventInfo.screen`（画布局部 CSS px），与 `getClientSize()` 同空间。
@@ -138,7 +139,7 @@ rAF tick(dt 钳 50ms)
 | --------- | ---------- | ------ | ----------- | --------------- | --------- |
 | t0 down   | (200, 300) | 0      | (200, 300)  | 200..200        | 空        |
 | t1 到右缘 | (1428,300) | 0      | (1428, 300) | 200..1428       | 框内项    |
-| t2 滚 1s  | (1428,300) | ~1080  | (2508, 300) | 200..2508       | 扩大      |
+| t2 滚 1s  | (1428,300) | ~970   | (2400, 300) | 200..2400       | 扩大      |
 | t3 回移   | (720, 300) | ~1080  | (1800, 300) | 200..1800       | 收缩/取消 |
 
 - 「起点滚出视口」不是新问题：起点只是矩形的一个角，锚在世界里。
@@ -352,8 +353,8 @@ if (this.marquee) {
 ```text
 down  (screen 200,300)  → marquee.show(零矩形)，起点世界 (200,300)
 move  (screen 1428,300) → moved? 1228 ≥ 10 → true；rect 200..1428
-                          update(1428,300,true) → 距右缘 12px → t=0.79 → 1080px/s → start()
-tick1 dt 16.7ms          → panBy(-18,0) → replay(1428,300)
+                          update(1428,300,true) → 距右缘 12px → 972px/s（线性斜坡）→ start()
+tick1 dt 16.7ms          → panBy(-16.2,0) → replay(1428,300)
                           → world.x += 18 → cur (1446,300) → rect 200..1446
                           → update 幂等（scrolling 已 true，不双起帧）
 tickN …                  → 矩形每帧 +18px，命中集变化时才 setSelected
@@ -462,7 +463,7 @@ up                       → stop()（首行）→ finish(lastSelected)
 
 1. 四边四角各拖一次：跟手、无抖动、无「框先到、选中后到」的撕裂感。
 2. 0.05x / 1x / 4x 三档缩放：起拖阈值手感一致，滚动速度与缩放无关。
-3. 0.05x 慢慢拖到边缘：确认不是「一进热区就猛滚」，而是随深度升档。
+3. 0.05x 慢慢拖到边缘：确认不是「一进热区就猛滚」，而是越靠近边缘越快（线性）。
 4. 触摸板/触控真机：拖到屏幕边缘仍可滚（`pointerleave` 不在容器内触发）。
 5. dev 1000 控件（bench fixture）框选扫 2s：Performance 面板无 >16ms long task
    （§7.3 实测口径，复审补挂）。
@@ -582,7 +583,7 @@ npx playwright test packages/app/e2e/edgeAutoScroll.spec.ts
 - 实施期发现：E2E 恒 y 拖动会得到零高度矩形——严格相交口径下永不命中屏外件，
   M-1/M-3 的 hold 点取 y=340（与起点差 40）保证矩形有高度；另 waitForFunction
   predicate 的自由变量不随参传入浏览器上下文，阈值 + 选中条件须打包成数组传参。
-- 手工验收五项（§8.4）待人工执行：四边四角、三档缩放手感、0.05x 升档曲线、
+- 手工验收五项（§8.4）待人工执行：四边四角、三档缩放手感、0.05x 线性加速、
   触摸真机边缘拖拽、1000 控件长滚动 long task 实测（复审补挂）。
 
 ### 13.5 复审返工（实施后独立复审，全部收口）

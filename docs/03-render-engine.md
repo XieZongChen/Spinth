@@ -114,6 +114,8 @@ type CursorMode =
 - 命中/框选/吸附候选先格查询再精判；`CullingService` 按 `vpBounds$` 查可视格集合，
   diff 翻转 widget `renderable`（不动 `visible`，保留事件语义）。
 - 256px margin 防抖；MIND_MAP 整图豁免（树增长不触发几何 diff，索引会过期）。
+- 拖拽预览中的 widget 用实时 `getBounds()` 复核（索引只反映数据几何，
+  预览只改 root——否则边缘滚屏会把指针下的被拖元素误剔，docs/16 §1）。
 - 导出时挂起 culling（§8）。
 
 ## 10. 当前边界

@@ -99,7 +99,7 @@ ActionBar / MindAddButtons：纯算术定位
 | `Board`          | #stage-container 挂载 + SDK 生命周期（StrictMode 双挂载防御；经 `createBoard()` 拿冻结公共投影，DEV 原子挂载 `__spinth` 公开投影与 `__spinthDebug.__debug` 调试面，生产构建剥离）+ 主题注入；画布宿主语义（`role=application` + 白板描述 + 快捷键帮助文本 + canvas aria-hidden，specs/a11y-closeout §8） |
 | `Icon`           | 语义名图标注册表（lucide + 内联 SVG）；禁止直接 import 图标库                                                                                                                                                                                                                                            |
 | `Toolbar`        | 底部工具坞；常驻二级菜单；工具主题色；会话级默认参数；roving 焦点（单 Tab 停靠，方向键在按钮间移动）                                                                                                                                                                                                     |
-| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）                                                                                                                                                                                                                             |
+| `ToolFlyout`     | 工具坞常驻二级菜单面板（可见性 = 工具激活的纯派生状态）；roving（both 方向）；锚点由 Toolbar layout effect 受控提供（宿主 ref 晚于子树 effect，首帧直读必空），测量失败 rAF 补帧重试，resize/滚动失效同帧重算                                                                                            |
 | `ContextMenu`    | 右键菜单；图标 + 快捷键 chip；role=menu + menuitem；翻转 + 四面夹取（含安全区，实测尺寸定位，§3）；键盘协议（方向键/Home/End/Esc/Tab，焦点归还，Shift+F10 打开）                                                                                                                                         |
 | `ZoomControl`    | 缩放胶囊（−/百分比/＋）；三钮 aria-label（适应屏幕钮名称带当前百分比）                                                                                                                                                                                                                                   |
 | `ActionBar`      | 选中浮动操作栏；schema v2 驱动；多选八键 + 编组单钮；只读态整条不渲染（含删除入口）                                                                                                                                                                                                                      |
@@ -133,8 +133,9 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 
 移动端：390px 下 docId 截断（胶囊 min-w-0 + truncate，顶栏不换行不横滚），工具坞
 `w-max + shrink-0` 保按钮 40×40、坞内横向滚动（文档不滚）；二级菜单 / 存储面板 /
-项目菜单 / 右键菜单 fixed + 视口 clamp（面板先定位后挂载——首帧 static 会挤歪
-锚点按钮的测量；项目菜单与存储面板另有 maxHeight 纵向兜底）；选中操作栏
+项目菜单 / 右键菜单 fixed + 视口 clamp（项目菜单与存储面板先定位后挂载——
+首帧 static 会挤歪锚点按钮的测量，另有 maxHeight 纵向兜底；二级菜单 portal
+挂 body、-9999 隐藏至首测落位，滚动/resize 失效重算）；选中操作栏
 `max-w` 钳制、Popover 面板 `w-max + flex-wrap` 换行收纳；脑图 +/- 按钮经
 `mindAddLayout.ts` 纯函数钳进容器；触控目标 ≥24（WCAG 2.2 AA 2.5.8）。九个面的
 390 布局矩阵回归在 `e2e/mobile.spec.ts`（M1–M9，helpers/layoutE2e.ts）；只读态

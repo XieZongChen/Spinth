@@ -23,6 +23,9 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - culling：`vpBounds$` 变化 → 索引查可视格集合 → diff 翻转 widget
   `renderable`（不动 `visible`，保留事件语义）。
 - 256px margin 防抖；MIND_MAP 豁免（树增长会使索引过期，整图一个渲染单元）。
+- 拖拽预览例外：预览只改 root、不改数据，索引仍是拖拽前旧几何——对预览中的
+  id（selector `previewIds`）用实时 `getBounds()` 复核，边缘滚屏推远视口
+  不误剔指针下的被拖元素。
 - 单测：格分配/跨界多格/增删一致性/culling diff。
 
 ## 2. pen points 增量写
