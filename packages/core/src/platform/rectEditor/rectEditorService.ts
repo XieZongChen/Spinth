@@ -23,6 +23,9 @@ interface ResizeState {
   /** 手势起点的宿主旋转（docs/05 §8）：≠0 时指针逆旋转进局部做缩放数学、
    *  吸附禁用（边开口轴对齐语义失真） */
   startRotation: number;
+  /** 手势指针（审查 P2）：window 级 move/up/cancel 只认它；undefined = 桩
+   *  环境直调 down 无 id，不过滤（viewportPointerInput 同款约定） */
+  pointerId: number | undefined;
 }
 
 interface RotateState {
@@ -34,6 +37,8 @@ interface RotateState {
   center: { x: number; y: number };
   /** 最近一帧角度：松手落库用它 */
   lastTheta: number;
+  /** 手势指针（同 ResizeState.pointerId） */
+  pointerId: number | undefined;
 }
 
 /**
@@ -76,8 +81,8 @@ export class RectEditorService extends Disposable {
 
   initialize(): void {
     this.vm = new RectEditorVm(this.viewport.optionLayer);
-    this.vm.onHandleDown = (dir, wx, wy) => this.startResize(dir, wx, wy);
-    this.vm.onRotateDown = (wx, wy) => this.startRotate(wx, wy);
+    this.vm.onHandleDown = (dir, wx, wy, pointerId) => this.startResize(dir, wx, wy, pointerId);
+    this.vm.onRotateDown = (wx, wy, pointerId) => this.startRotate(wx, wy, pointerId);
 
     this.addDisposable(
       this.selector.selected$.subscribe((ids) => this.onSelectionChanged(ids)),
@@ -149,7 +154,7 @@ export class RectEditorService extends Disposable {
     this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation, canRotate);
   }
 
-  private startResize(dir: HandleDir, worldX: number, worldY: number): void {
+  private startResize(dir: HandleDir, worldX: number, worldY: number, pointerId?: number): void {
     if (!this.targetId) return;
     const vm = this.vmEngine.getVmById(this.targetId);
     if (!vm) return;
@@ -162,17 +167,47 @@ export class RectEditorService extends Disposable {
       start: startBounds,
       lastNext: startBounds,
       startRotation: vm.getRotation(),
+      pointerId,
     };
     // 手柄 down 被 RectEditorVm stopPropagation；up 仍冒泡到 stage，不得当 click
-    // 激活编辑。抑制随手势生命周期（onWindowUp/cancelGesture 单源清除）——
-    // 「一次性消费」会在 blur/多指等中途事件泄掉，复窗松手仍误进编辑
+    // 激活编辑。抑制随手势生命周期（匹配指针的 window up / pointercancel /
+    // cancelGesture 单源清除）——「一次性消费」会在 blur/多指等中途事件泄掉，
+    // 复窗松手仍误进编辑。up 不用 once：异指针的 up 不得偷走监听
     this.selector.suppressClickActivation = true;
-    window.addEventListener('pointermove', this.onWindowMove);
-    window.addEventListener('pointerup', this.onWindowUp, { once: true });
+    this.armWindowListeners(this.onWindowMove, this.onWindowUp);
   }
 
+  /** 手势期 window 监听三件套（move/up/pointercancel）——up/cancel 到达且
+   *  指针匹配时由处理器自行摘除（见 endWindowListeners） */
+  private armWindowListeners(move: (e: PointerEvent) => void, up: (e: PointerEvent) => void): void {
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', this.onPointerCancel);
+  }
+
+  private endWindowListeners(move: (e: PointerEvent) => void, up: (e: PointerEvent) => void): void {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', this.onPointerCancel);
+  }
+
+  /** 手势指针判定：down 未携带 id（单测直调）不过滤；up 须主键——副键 up 与
+   *  手势同 pointerId（主键拖拽中按放副键），不得终止手势 */
+  private isGesturePointer(e: PointerEvent, st: { pointerId: number | undefined }, up: boolean) {
+    if (st.pointerId !== undefined && e.pointerId !== st.pointerId) return false;
+    return !up || e.button == null || e.button === 0;
+  }
+
+  /** 原生 pointercancel（触摸被系统接管/OS 抢指针）：仅手势指针匹配时取消——
+   *  终止不落库（cancelGesture 回滚预览），抑制随之清除，手势不悬挂 */
+  private onPointerCancel = (e: PointerEvent): void => {
+    const st = this.resize ?? this.rotate;
+    if (!st || !this.isGesturePointer(e, st, false)) return;
+    this.cancelGesture();
+  };
+
   private onWindowMove = (e: PointerEvent): void => {
-    if (!this.resize) return;
+    if (!this.resize || !this.isGesturePointer(e, this.resize, false)) return;
     const vm = this.vmEngine.getVmById(this.resize.vmId);
     if (!vm) return;
     const worldRaw = this.viewport.clientToWorld(e.clientX, e.clientY);
@@ -204,13 +239,14 @@ export class RectEditorService extends Disposable {
     markRender();
   };
 
-  private onWindowUp = (): void => {
+  private onWindowUp = (e: PointerEvent): void => {
+    // 异指针/副键 up 不终止手势、不摘监听（once 版会被第二指针 up 偷走）
+    if (!this.resize || !this.isGesturePointer(e, this.resize, true)) return;
     // up 即手势终止：单击激活抑制在此单源清除（stage 相位的 selector up 已
     // 早于本 window 相位读过它——顺序天然正确）
     this.selector.suppressClickActivation = false;
-    window.removeEventListener('pointermove', this.onWindowMove);
+    this.endWindowListeners(this.onWindowMove, this.onWindowUp);
     this.refLine.hideMatches();
-    if (!this.resize) return;
     const { vmId, start, lastNext } = this.resize;
     const vm = this.vmEngine.getVmById(vmId);
     if (vm) {
@@ -241,8 +277,7 @@ export class RectEditorService extends Disposable {
     this.selector.suppressClickActivation = false;
     let cancelled = false;
     if (this.resize) {
-      window.removeEventListener('pointermove', this.onWindowMove);
-      window.removeEventListener('pointerup', this.onWindowUp);
+      this.endWindowListeners(this.onWindowMove, this.onWindowUp);
       const { vmId, start } = this.resize;
       const vm = this.vmEngine.getVmById(vmId);
       if (vm) vm.applyResizePreview(start, start); // scale 归 1 = 回到起点视觉
@@ -255,8 +290,7 @@ export class RectEditorService extends Disposable {
       cancelled = true;
     }
     if (this.rotate) {
-      window.removeEventListener('pointermove', this.onRotateMove);
-      window.removeEventListener('pointerup', this.onRotateUp);
+      this.endWindowListeners(this.onRotateMove, this.onRotateUp);
       const { vmId, startTheta } = this.rotate;
       const vm = this.vmEngine.getVmById(vmId);
       if (vm) vm.applyRotatePreview(startTheta);
@@ -271,7 +305,7 @@ export class RectEditorService extends Disposable {
     if (cancelled) markRender();
   }
 
-  private startRotate(worldX: number, worldY: number): void {
+  private startRotate(worldX: number, worldY: number, pointerId?: number): void {
     if (!this.targetId) return;
     const vm = this.vmEngine.getVmById(this.targetId);
     if (!vm) return;
@@ -283,14 +317,14 @@ export class RectEditorService extends Disposable {
       startPointerAngle: pointerAngle(center, { x: worldX, y: worldY }),
       center,
       lastTheta: vm.getRotation(),
+      pointerId,
     };
     this.selector.suppressClickActivation = true; // 同 startResize：抑制随手势生命周期
-    window.addEventListener('pointermove', this.onRotateMove);
-    window.addEventListener('pointerup', this.onRotateUp, { once: true });
+    this.armWindowListeners(this.onRotateMove, this.onRotateUp);
   }
 
   private onRotateMove = (e: PointerEvent): void => {
-    if (!this.rotate) return;
+    if (!this.rotate || !this.isGesturePointer(e, this.rotate, false)) return;
     const vm = this.vmEngine.getVmById(this.rotate.vmId);
     if (!vm) return;
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
@@ -309,10 +343,11 @@ export class RectEditorService extends Disposable {
     markRender();
   };
 
-  private onRotateUp = (): void => {
+  private onRotateUp = (e: PointerEvent): void => {
+    // 异指针/副键 up 不终止（同 onWindowUp）
+    if (!this.rotate || !this.isGesturePointer(e, this.rotate, true)) return;
     this.selector.suppressClickActivation = false; // 手势终止：抑制单源清除（同 onWindowUp）
-    window.removeEventListener('pointermove', this.onRotateMove);
-    if (!this.rotate) return;
+    this.endWindowListeners(this.onRotateMove, this.onRotateUp);
     const { vmId, lastTheta } = this.rotate;
     const vm = this.vmEngine.getVmById(vmId);
     if (vm) {

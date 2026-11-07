@@ -226,9 +226,10 @@ export interface ISelectorService {
    *  实时 getBounds 复核：预览只改 root、不改数据，空间索引仍是拖拽前旧几何 */
   readonly previewIds: readonly string[];
   /** 手柄/旋转手势抑制单击激活：置位/清除单源在 RectEditorService 的手势
-   *  生命周期（down 置位；window up / cancelGesture 清除）。selector 只读
-   *  判定，不得在 down/cancel/up 里清除或消费——blur、pointercancel、多指
-   *  第二个 down 都不是手势终止，中途泄掉会让手势的 up 误进编辑。 */
+   *  生命周期（down 置位；匹配指针的 window up / pointercancel /
+   *  cancelGesture 清除）。selector 只读判定，不得在 down/cancel/up 里清除
+   *  或消费——blur 与异指针的 down/up/move 都不是手势终止，泄掉会让手势的
+   *  up 误进编辑。 */
   suppressClickActivation: boolean;
 }
 

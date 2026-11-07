@@ -218,7 +218,9 @@ describe('selectorService 拖拽编排（指针流桩）', () => {
     h.selector.setSelected(['w1']);
 
     // 第一指拖着手柄缩放中（抑制置位）；第二指点已选中件建 dragState——
-    // 未拖动即松手不得激活编辑（!moved && wasSelected 分支同受手势抑制）
+    // 未拖动即松手不得激活编辑（!moved && wasSelected 分支同受手势抑制）。
+    // 本例锁 selector 侧门控；rectEditor 侧 pointerId 生命周期（异指 up 不
+    // 终止手势/不偷监听）在 rectEditor.test.ts「手势指针生命周期」锁
     h.selector.suppressClickActivation = true;
     h.handlers.onPointerDown?.(h.evt(125, 125));
     h.handlers.onPointerUp?.(h.evt(125, 125));

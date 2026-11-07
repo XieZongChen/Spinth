@@ -60,7 +60,28 @@ function makeHarness(opts: { snapRect?: (r: unknown) => { rect: unknown } } = {}
   const fireUp = (): void => {
     window.dispatchEvent(new PointerEvent('pointerup'));
   };
-  return { svc, vmStub, selected$, updateSelectionFrame, stopCapturing, fireMove, fireUp };
+  // 手势指针生命周期用例：带 pointerId 的 move/up/cancel（默认 button=0）
+  const fireMoveId = (x: number, y: number, pointerId: number): void => {
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerId }));
+  };
+  const fireUpId = (pointerId: number, button = 0): void => {
+    window.dispatchEvent(new PointerEvent('pointerup', { pointerId, button }));
+  };
+  const fireCancelId = (pointerId: number): void => {
+    window.dispatchEvent(new PointerEvent('pointercancel', { pointerId }));
+  };
+  return {
+    svc,
+    vmStub,
+    selected$,
+    updateSelectionFrame,
+    stopCapturing,
+    fireMove,
+    fireUp,
+    fireMoveId,
+    fireUpId,
+    fireCancelId,
+  };
 }
 
 describe('RectEditor 缩放编排（docs/15 §3 挂账）', () => {
@@ -298,6 +319,105 @@ describe('RectEditor.cancelGesture 只读降级收口（docs/21 §4）', () => {
     expect(follow).not.toHaveBeenCalled();
     expect(moveEmits).toBe(0);
     expect(getRenderId()).toBe(beforeRender);
+  });
+});
+
+describe('手势指针生命周期（审查 P2：window 监听只认手势指针）', () => {
+  const START = { x: 100, y: 100, width: 50, height: 50 };
+  const startResizeWith = (svc: RectEditorService, pointerId?: number): void => {
+    (
+      svc as unknown as {
+        vm: { onHandleDown: (d: string, x: number, y: number, id?: number) => void };
+      }
+    ).vm.onHandleDown('se', 150, 150, pointerId);
+  };
+  const selectorOf = (svc: RectEditorService): { suppressClickActivation: boolean } =>
+    (svc as unknown as { selector: { suppressClickActivation: boolean } }).selector;
+
+  it('异指针 up 不提前提交、不消耗监听；本指针 up 恰好一次落库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1); // 本指拖大 → 末帧目标 80×70
+    // 第二指针/第二设备在 window 冒泡的 up：不得终止手势（once 版会被它偷走）
+    h.fireUpId(999);
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+    expect(h.svc.isResizing).toBe(true);
+    h.fireUpId(1);
+    expect(h.vmStub.commitResize).toHaveBeenCalledTimes(1);
+    const [, next] = h.vmStub.commitResize.mock.calls[0] as [
+      unknown,
+      { width: number; height: number },
+    ];
+    expect(next.width).toBe(80);
+  });
+
+  it('异指针 move 不污染预览（末帧仍停在本指针几何）', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    h.fireMoveId(40, 40, 999); // 异指乱飞：忽略
+    expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(START, {
+      x: 100,
+      y: 100,
+      width: 80,
+      height: 70,
+    });
+    h.svc.cancelGesture(); // 收尾：撤 window 监听，不串后续用例
+  });
+
+  it('副键 up（同 pointerId、button=2）不终止手势', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    h.fireUpId(1, 2); // 主键拖拽中按放右键：副键 up 不算松手
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+    expect(h.svc.isResizing).toBe(true);
+    h.fireUpId(1, 0);
+    expect(h.vmStub.commitResize).toHaveBeenCalledTimes(1);
+  });
+
+  it('匹配指针的 pointercancel：回滚预览、不落库、抑制清除、迟到 up 不写库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    expect(selectorOf(h.svc).suppressClickActivation).toBe(true);
+    h.fireCancelId(1); // 触摸被系统接管 / OS 抢指针
+    expect(h.svc.isResizing).toBe(false);
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+    expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(START, START); // 回到起点视觉
+    expect(selectorOf(h.svc).suppressClickActivation).toBe(false); // 手势不悬挂
+    h.fireUpId(1); // 迟到抬手
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+  });
+
+  it('异指针 pointercancel 被忽略，手势继续至本指针 up 正常落库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    h.fireCancelId(999);
+    expect(h.svc.isResizing).toBe(true);
+    h.fireUpId(1);
+    expect(h.vmStub.commitResize).toHaveBeenCalledTimes(1);
+  });
+
+  it('旋转手势同款：异指针 up 不消耗监听，本指针 up 恰好一次 commitRotate', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    (
+      h.svc as unknown as {
+        vm: { onRotateDown: (x: number, y: number, id?: number) => void };
+      }
+    ).vm.onRotateDown(125, 65, 1);
+    h.fireMoveId(185, 125, 1); // +90°
+    h.fireUpId(999);
+    expect(h.vmStub.commitRotate).not.toHaveBeenCalled();
+    h.fireUpId(1);
+    expect(h.vmStub.commitRotate).toHaveBeenCalledTimes(1);
   });
 });
 

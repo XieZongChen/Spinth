@@ -49,11 +49,9 @@ export class SelectorService extends Disposable implements ISelectorService {
   private mindDragging = false;
   /** 按下时该脑图是否已选中（松手未拖动 → 激活编辑的判据，同通用拖拽的 wasSelected） */
   private mindDragWasSelected = false;
-  /** 手柄/旋转手势抑制单击激活：生命周期 = 手柄手势本身——rectEditor 在手势
-   *  down 置位、手势终止（window up / cancelGesture）单源清除；本类只读判定，
-   *  不得在 down/cancel/up 里清除或消费：blur（切窗）、pointercancel、多指
-   *  第二个 down 都不是手势终止，中途泄掉会让手势的 up 被当「单击已选中」
-   *  误进编辑（edit 早退保留 resize 预览 scale，框与图形脱节）。 */
+  /** 手柄/旋转手势抑制单击激活：生命周期 = 手势本身（rectEditor down 置位、
+   *  手势终止单源清除）；本类只读判定——blur/多指/pointercancel 都不是手势
+   *  终止，泄掉即松手误进编辑（edit 早退保留预览 scale，框与图形脱节）。 */
   suppressClickActivation = false;
   private selectorVm!: SelectorVm;
   private selectionVm!: SelectionVm;
@@ -305,6 +303,7 @@ export class SelectorService extends Disposable implements ISelectorService {
         result === 'click' &&
         this.singleClickActivate &&
         !e.shiftKey &&
+        !suppressClick && // 手势抑制同拦（与 dragState/final 分支统一；防御性——脑图无手柄）
         this.mindDragWasSelected
       ) {
         const top = this.vmEngine.getVmByPoint(e.world)[0];
@@ -376,10 +375,9 @@ export class SelectorService extends Disposable implements ISelectorService {
         this.selectionVm.showBounds([focusFrame]);
         return;
       }
-      // 单选连线不画 bbox 框（批次 3.6，参考同款）：points bbox 对 U 形线
-      // 会补出第四边——看起来像个大蓝矩形框住中央空区。线选中态 = 线本体 +
-      // 端点圆/段条手柄（lineService.refreshHandles）；ActionBar 定位走独立
-      // getSelectionBounds 不受影响。多选含线仍画 union 框（组语义）。
+      // 单选连线不画 bbox 框（批次 3.6）：points bbox 对 U 形线会补出第四边。
+      // 线选中态 = 线本体 + 端点圆/段条手柄（refreshHandles）；ActionBar 定位
+      // 走独立 getSelectionBounds。多选含线仍画 union 框（组语义）。
       const only = this.vmEngine.getVmById(ids[0]!);
       if (only?.type === 'LINE') {
         this.selectionVm.hide();
@@ -392,9 +390,8 @@ export class SelectorService extends Disposable implements ISelectorService {
     this.selectionVm.showBounds(bounds);
   }
 
-  /** 公开重画入口：脑图焦点变化（Tab 建子/方向键导航）不改 selected$，
-   *  由组合根接 focusChanged$ 驱动——选区框跟随焦点节点（4.9 单层化后
-   *  焦点框是节点唯一选中视觉，必须跟随） */
+  /** 公开重画入口：脑图焦点变化（Tab 建子/方向键导航）不改 selected$，由组合根
+   *  接 focusChanged$ 驱动——焦点框是节点唯一选中视觉，必须跟随 */
   refreshSelectionFrame(): void {
     this.syncSelectionVm();
   }

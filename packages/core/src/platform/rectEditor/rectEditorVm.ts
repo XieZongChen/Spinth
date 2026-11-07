@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle } from 'pixi.js';
+import { Container, FederatedPointerEvent, Graphics, Rectangle } from 'pixi.js';
 import { markRender } from '../../common/render';
 import type { IRect } from '../../common/geometry';
 import type { HandleDir } from './resizeMath';
@@ -63,8 +63,9 @@ export class RectEditorVm {
   private edgeZones = new Map<HandleDir, Graphics>();
   private rotateDot = new Graphics();
 
-  onHandleDown: ((dir: HandleDir, worldX: number, worldY: number) => void) | null = null;
-  onRotateDown: ((worldX: number, worldY: number) => void) | null = null;
+  onHandleDown:
+    ((dir: HandleDir, worldX: number, worldY: number, pointerId?: number) => void) | null = null;
+  onRotateDown: ((worldX: number, worldY: number, pointerId?: number) => void) | null = null;
 
   constructor(parent: Container) {
     // passive：root 自身不命中，但子树（热区/手柄）可命中——'none' 会连子元素一起排除
@@ -75,9 +76,13 @@ export class RectEditorVm {
       g.eventMode = 'static';
       g.cursor = `${dirToCursor(dir)}-resize`;
       g.on('pointerdown', (e) => {
+        // 副键 down 不启手势（主键拖拽中按副键 pixi 仍派发 down，会重启手势
+        // 覆盖 startRect）；button 缺省放行——touch/pen 归一路径可能无 button
+        if (e.button != null && e.button !== 0) return;
         e.stopPropagation();
+        this.captureGesturePointer(e);
         const p = this.root.toLocal(e.global);
-        this.onHandleDown?.(dir, p.x, p.y);
+        this.onHandleDown?.(dir, p.x, p.y, e.pointerId);
       });
     };
     // 热区先加入（层级在下），四角手柄后加入——pixi 命中测试从最上层子元素开始，
@@ -99,12 +104,28 @@ export class RectEditorVm {
     this.rotateDot.eventMode = 'static';
     this.rotateDot.cursor = ROTATE_CURSOR;
     this.rotateDot.on('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
       e.stopPropagation();
+      this.captureGesturePointer(e);
       const p = this.root.toLocal(e.global);
-      this.onRotateDown?.(p.x, p.y);
+      this.onRotateDown?.(p.x, p.y, e.pointerId);
     });
     this.root.addChild(this.rotateDot);
     parent.addChild(this.root);
+  }
+
+  /** 手势期指针捕获（审查 P2）：down 的 DOM 目标（恒 canvas）捕获本指针——
+   *  移出窗口松开仍向 window 投递 up，手势不悬挂；up/pointercancel 时浏览器
+   *  自动释放。jsdom/桩环境无 capture 能力，尽力而为不炸。 */
+  private captureGesturePointer(e: FederatedPointerEvent): void {
+    const native = e.nativeEvent;
+    if (!(native instanceof Event)) return;
+    const el = native.target as Element | null;
+    try {
+      el?.setPointerCapture?.(e.pointerId);
+    } catch {
+      // 无效 pointerId（罕见）——放弃捕获，靠 window 级监听兜底
+    }
   }
 
   private rect: IRect | null = null;
