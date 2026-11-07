@@ -81,6 +81,8 @@ export function ToolFlyout({
     place();
     const invalidate = (): void => {
       attempts = 0;
+      // 先取消挂起帧再同步重算，保持单帧调度（place 会按需重新预约）
+      if (raf) cancelAnimationFrame(raf);
       place();
     };
     window.addEventListener('resize', invalidate);
