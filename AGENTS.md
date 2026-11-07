@@ -164,6 +164,13 @@ ToolFlyout 首测闩死 `visibility:hidden`（dev StrictMode 掩盖、生产在 
 无关重渲染后才现身）——锚点改由 Toolbar layout effect 受控提供 + 面板 rAF
 补帧重试与 resize/滚动失效重算（组件单测先红后绿 + 390 触摸 E2E）。
 
+缩放手柄松手误进编辑已修复：rectEditor 手柄 down `stopPropagation`、up 仍冒泡
+到 stage，selector 由手柄手势抑制单击激活；抑制生命周期 = 手柄手势本身
+（rectEditor 的 window up / cancelGesture 单源清除，selector 只读判定）——
+「一次性消费」版会在 blur/多指等中途事件泄掉：切窗失焦后回窗在图形上松手
+仍误进编辑，误进的 edit 早退会保留 resize preview scale，选区/编辑框脱离图形
+（selectorDrag 单测 + styleResize 内向松手/中途失焦 E2E 先红后绿）。
+
 框选边缘滚屏已落地（specs/marquee-auto-scroll）：三路拖拽同属滚屏——框选复用
 同一 `EdgeAutoScrollService`，以屏幕位移 ≥10px（`MARQUEE_TRACTION_SCREEN` 锁存）
 为起拖判据且只门控滚屏（矩形/选中从 down 起过程即结果不变），选中集按帧与上次
@@ -204,8 +211,8 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 （14 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
 textScale T1–T6 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
 
-当前实测基线：`pnpm verify` 通过；1107 单测（core 991 + react 78 + app 38）；
-E2E 48 spec / 241 用例全绿（主配置 234 + pwa 7；edgeAutoScroll 11/11 含
+当前实测基线：`pnpm verify` 通过；1110 单测（core 994 + react 78 + app 38）；
+E2E 48 spec / 243 用例全绿（主配置 236 + pwa 7；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 2/2；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。

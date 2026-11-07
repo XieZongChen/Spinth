@@ -38,7 +38,13 @@ export async function centerOf(page: Page, type: string): Promise<{ x: number; y
       d.vmStates.findIndex((s) => String(s.type) === t),
     );
     const p = d.vmPositions[i] ?? { x: 0, y: 0 };
-    const s = pub.toScreenPoint({ x: p.x, y: p.y + 20 });
+    const st = d.vmStates[i] as { width?: number; height?: number } | undefined;
+    // 真中心（旧实现点左上+20：选中态第二次点击落在西边 resize 热区，
+    // 曾靠「resize 松手误进编辑」的旧 bug 才进得了编辑）
+    const s = pub.toScreenPoint({
+      x: p.x + Number(st?.width ?? 0) / 2,
+      y: p.y + Number(st?.height ?? 0) / 2,
+    });
     return { x: Math.round(s.x), y: Math.round(s.y + 44) };
   }, type);
 }
