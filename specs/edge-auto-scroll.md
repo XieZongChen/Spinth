@@ -733,7 +733,7 @@ E2E 45 spec / 218 例（edgeAutoScroll 5 例多轮连跑稳定）。
 
 ## 14. 线性斜坡与预览复核修订（2026-11，8a1ba06 / 8eb55cb）
 
-用户反馈驱动的两项修订（方案 plan/flyout-culling-linear-edge-scroll）：
+用户反馈驱动的两项修订：
 
 ### 14.1 56px 三档 → 120px 连续线性斜坡
 

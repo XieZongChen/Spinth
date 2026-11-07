@@ -449,8 +449,8 @@ test('390px 移动端：二级菜单 portal/fixed + 视口 clamp——完全可�
   }, docId);
 });
 
-// 390 触摸激活（plan/flyout-culling-linear-edge-scroll 问题 1）：tap 后**不点画布**
-// 面板即出现且可点——锚点闩锁修复的端到端护栏（dev StrictMode 下亦须成立）。
+// 390 触摸激活：tap 后**不点画布**面板即出现且可点——锚点闩锁修复的端到端
+// 护栏（dev StrictMode 下亦须成立）。
 // hasTouch 只在本 describe 生效（touchPen.spec 的 test.use 先例）
 test.describe('390px 触摸激活二级菜单', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });

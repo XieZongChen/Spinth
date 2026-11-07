@@ -32,7 +32,7 @@ export interface IToolFlyoutGroup {
  * flyout.x=-114 完全不可点）；fixed 又会被 Toolbar 的 translate 祖先拖累，
  * 唯稳解是脱离原层级。视口 clamp：左右各留 8px、anchor 正上方。
  *
- * 锚点闩锁修复（plan/flyout-culling-linear-edge-scroll 问题 1）：React 挂宿主
+ * 锚点闩锁修复（二级菜单首击不出现）：React 挂宿主
  * ref 晚于子树 layout effect，首挂载读锚点可能为 null——place 带 rAF 补帧
  * 重试（最多 3 帧，不无限轮询），锚点经 Toolbar 的 layout effect 受控提供。
  * resize/orientationchange/scroll（capture——工具坞横向滚动）与 visualViewport

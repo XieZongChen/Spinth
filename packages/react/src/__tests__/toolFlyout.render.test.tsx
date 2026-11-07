@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * ToolFlyout 定位定点单测（plan/flyout-culling-linear-edge-scroll 问题 1）：
+ * ToolFlyout 定位定点单测（锚点闩锁回归）：
  * 锚点闩锁修复——React 宿主 ref 晚于子树 layout effect 挂载，ToolFlyout 首挂载
  * 读锚点必为 null；dev StrictMode 双跑掩盖、生产表现为「创建内容后才出现」。
  * harness 照 contextMenuProtocol.render.test.tsx（createRoot + act，零新依赖），
