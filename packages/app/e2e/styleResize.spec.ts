@@ -271,8 +271,26 @@ test('SHAPE 缩放：异指针 pointercancel 忽略；指针移出视口松手�
   // 送达性回归锁（Playwright 无法真正模拟「浏览器不投递」），指针匹配的
   // cancel 回滚路径由 rectEditor 单测锁。
   const corner = await worldToScreen(page, s0.x + s0.width, s0.y + s0.height);
+  await page.evaluate(() => {
+    (window as unknown as { __gesturePointerId?: number }).__gesturePointerId = undefined;
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        (window as unknown as { __gesturePointerId?: number }).__gesturePointerId = (
+          e as PointerEvent
+        ).pointerId;
+      },
+      { capture: true, once: true },
+    );
+  });
   await page.mouse.move(corner.x, corner.y);
   await page.mouse.down();
+  const captured = await page.evaluate(() => {
+    const id = (window as unknown as { __gesturePointerId?: number }).__gesturePointerId;
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement | null;
+    return id !== undefined && canvas?.hasPointerCapture(id) === true;
+  });
+  expect(captured).toBe(true); // 手柄 down 必须真正捕获指针，否则窗口外 up 仍会丢
   await page.mouse.move(corner.x + 20, corner.y + 15, { steps: 4 });
   await page.evaluate(() =>
     window.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 999 })),

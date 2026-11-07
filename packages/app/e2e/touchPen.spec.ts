@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openBoard } from './helpers/layoutE2e';
+import { probe, worldToScreen } from './helpers/coverageE2e';
 
 /**
  * 触摸/笔指针通道 E2E（specs/a11y-closeout §13.5-7）：真实浏览器 CDP 注入
@@ -113,5 +114,70 @@ test('笔：pointerType=pen 三段式拖动建件（同一过滤分支）', asyn
   const s = await boardState(page);
   expect(s.modelCount, `笔拖拽后 modelCount 应为 1（实际 ${s.modelCount}）`).toBe(1);
   expect(s.selected, `建件后应自动选中 1 个（实际 ${s.selected}）`).toBe(1);
+  await cleanupDoc(page, docId);
+});
+
+test('触摸：拖 SE 手柄缩放提交，选中/编辑框与图形同几何且不误进编辑', async ({ page }) => {
+  const docId = `e2e-tp3-${Date.now()}`;
+  await openBoard(page, docId);
+  await page.keyboard.press('r');
+  const cdp = await page.context().newCDPSession(page);
+  // 触摸建矩形（避开顶栏与 120px 边缘热区）
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ id: 1, x: 100, y: 300 }],
+  });
+  for (let i = 1; i <= 6; i++) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ id: 1, x: 100 + (120 * i) / 6, y: 300 + (80 * i) / 6 }],
+    });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(async () => (await probe(page)).count, { timeout: 5000 }).toBe(1);
+  const s0 = (await probe(page)).shapes[0]!;
+
+  // 触摸拖 SE 手柄：验证 pointerId/capture/主键门控在真实触摸通道下不误杀
+  const corner = await worldToScreen(page, s0.x + s0.width, s0.y + s0.height);
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ id: 1, x: corner.x, y: corner.y }],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ id: 1, x: corner.x + 40, y: corner.y + 30 }],
+  });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect
+    .poll(async () => (await probe(page)).shapes[0]!.width, { timeout: 5000 })
+    .toBeGreaterThan(s0.width + 30);
+
+  const after = await probe(page);
+  const s1 = after.shapes[0]!;
+  expect(after.selected).toContain(s0.id!);
+  const frames = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            editorFrame: { x: number; y: number; width: number; height: number } | null;
+            selectionFrame: { x: number; y: number; width: number; height: number } | null;
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    return {
+      editorFrame: d.editorFrame,
+      selectionFrame: d.selectionFrame,
+      editing: !!document.querySelector('#spinth-text-layer [contenteditable="true"]'),
+    };
+  });
+  expect(frames.editing).toBe(false);
+  for (const frame of [frames.editorFrame!, frames.selectionFrame!]) {
+    expect(Math.abs(frame.x - s1.x)).toBeLessThan(1);
+    expect(Math.abs(frame.y - s1.y)).toBeLessThan(1);
+    expect(Math.abs(frame.width - s1.width)).toBeLessThan(1);
+    expect(Math.abs(frame.height - s1.height)).toBeLessThan(1);
+  }
   await cleanupDoc(page, docId);
 });
