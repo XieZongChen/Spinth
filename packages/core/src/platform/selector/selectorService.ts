@@ -49,6 +49,12 @@ export class SelectorService extends Disposable implements ISelectorService {
   private mindDragging = false;
   /** 按下时该脑图是否已选中（松手未拖动 → 激活编辑的判据，同通用拖拽的 wasSelected） */
   private mindDragWasSelected = false;
+  /** 手柄/旋转手势抑制单击激活：生命周期 = 手柄手势本身——rectEditor 在手势
+   *  down 置位、手势终止（window up / cancelGesture）单源清除；本类只读判定，
+   *  不得在 down/cancel/up 里清除或消费：blur（切窗）、pointercancel、多指
+   *  第二个 down 都不是手势终止，中途泄掉会让手势的 up 被当「单击已选中」
+   *  误进编辑（edit 早退保留 resize 预览 scale，框与图形脱节）。 */
+  suppressClickActivation = false;
   private selectorVm!: SelectorVm;
   private selectionVm!: SelectionVm;
 
@@ -286,6 +292,8 @@ export class SelectorService extends Disposable implements ISelectorService {
   }
 
   private onPointerUp(e: IPointerEventInfo): void {
+    // 手势抑制只读不消费：手势的 window up 稍后到达才由 rectEditor 清除
+    const suppressClick = this.suppressClickActivation;
     this.edgeScroll?.stop();
     if (this.mindDragging && this.mindDragDelegate) {
       const result = this.mindDragDelegate.dragEnd(e.world);
@@ -314,12 +322,14 @@ export class SelectorService extends Disposable implements ISelectorService {
       // 未拖动且按下时就已选中 = 单击已选中元素 → 激活编辑（docs/05 §3；
       // 原实现提前 return 导致该路径不可达——线上文字实测揪出，TEXT 编辑同受益）。
       // 单选限定（Batch 1 · 1.5，2026-10-17 审查）：多选/编组整组态下再点成员
-      // 是「确认选区」语义，不应打开该件编辑器（其余成员仍选中态却出了编辑框）
+      // 是「确认选区」语义，不应打开该件编辑器（其余成员仍选中态却出了编辑框）。
+      // 手柄手势抑制同拦本分支：多指下第二指在手势期点已选中件，up 不得激活
       if (
         !d.moved &&
         d.wasSelected &&
         this.singleClickActivate &&
         !e.shiftKey &&
+        !suppressClick &&
         this.selected$.value.length === 1
       ) {
         const hits = this.vmEngine.getVmByPoint(e.world);
@@ -336,8 +346,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       m.finish(this.selected$.value);
       return;
     }
-    // 单击「已选中」的元素 = 进入编辑（docs/05 §3；编辑入口由外部注入）
-    if (this.singleClickActivate && !e.shiftKey) {
+    if (this.singleClickActivate && !e.shiftKey && !suppressClick) {
       const hits = this.vmEngine.getVmByPoint(e.world);
       const top = hits[0];
       if (top && this.selected$.value.includes(top.id)) {

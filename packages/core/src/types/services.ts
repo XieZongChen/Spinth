@@ -225,6 +225,11 @@ export interface ISelectorService {
   /** 元素拖拽预览中的控件 id（空 = 无预览；框选/脑图节点拖拽恒空）。culling 用
    *  实时 getBounds 复核：预览只改 root、不改数据，空间索引仍是拖拽前旧几何 */
   readonly previewIds: readonly string[];
+  /** 手柄/旋转手势抑制单击激活：置位/清除单源在 RectEditorService 的手势
+   *  生命周期（down 置位；window up / cancelGesture 清除）。selector 只读
+   *  判定，不得在 down/cancel/up 里清除或消费——blur、pointercancel、多指
+   *  第二个 down 都不是手势终止，中途泄掉会让手势的 up 误进编辑。 */
+  suppressClickActivation: boolean;
 }
 
 export interface IHistoryService {

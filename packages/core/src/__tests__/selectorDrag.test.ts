@@ -96,7 +96,17 @@ function createHarness(
     handlers.onPointerUp?.(evt(downX + upDelta[0], downY + upDelta[1]));
   };
 
-  return { vm, selector, gesture, transact, stopCapturing, snapForDrag, hideMatches };
+  return {
+    vm,
+    selector,
+    gesture,
+    transact,
+    stopCapturing,
+    snapForDrag,
+    hideMatches,
+    handlers,
+    evt,
+  };
 }
 
 describe('selectorService 拖拽编排（指针流桩）', () => {
@@ -160,6 +170,59 @@ describe('selectorService 拖拽编排（指针流桩）', () => {
     const h = createHarness();
     h.gesture(125, 125, [], [0, 0]);
     expect(h.hideMatches).toHaveBeenCalled();
+  });
+
+  it('手柄手势抑制单击激活：生命周期 = 手势（window up 单源清除，不随下一次 up 消费）', () => {
+    const h = createHarness();
+    const activate = vi.fn();
+    h.selector.onActivate = activate;
+    h.selector.setSelected(['w1']);
+
+    // RectEditor 手柄 down 被 stopPropagation；手势期置位后，冒泡上来的 up
+    // 不得按「单击已选中」激活编辑。
+    h.selector.suppressClickActivation = true;
+    h.handlers.onPointerUp?.(h.evt(125, 125));
+    expect(activate).not.toHaveBeenCalled();
+
+    // 手势未终止（rectEditor 的 window up 未到）：后续正常点击序列同样不激活
+    h.handlers.onPointerDown?.(h.evt(125, 125));
+    h.handlers.onPointerUp?.(h.evt(125, 125));
+    expect(activate).not.toHaveBeenCalled();
+
+    // 手势终止（onWindowUp 清标志）后：正常点击激活恢复
+    h.selector.suppressClickActivation = false;
+    h.handlers.onPointerDown?.(h.evt(125, 125));
+    h.handlers.onPointerUp?.(h.evt(125, 125));
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('blur 中途不清抑制：手柄手势跨失焦存活，复窗松手不误进编辑', () => {
+    const h = createHarness();
+    const activate = vi.fn();
+    h.selector.onActivate = activate;
+    h.selector.setSelected(['w1']);
+
+    // 手柄手势进行中切窗失焦 → viewport blur watchdog 对 mode handlers 发
+    // cancel；rectEditor 的 window 级手势不受影响（复焦后 up 仍收尾）——
+    // cancel 不得清抑制，否则复窗松手 up 被 final 分支当单击激活
+    h.selector.suppressClickActivation = true;
+    h.handlers.onPointerCancel?.(h.evt(-1e5, -1e5)); // cancel 不依赖坐标（dispatchCancel 同款哨兵位）
+    h.handlers.onPointerUp?.(h.evt(125, 125));
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('多指：手势期第二指在已选中件上 down+up（dragState 分支）不激活', () => {
+    const h = createHarness();
+    const activate = vi.fn();
+    h.selector.onActivate = activate;
+    h.selector.setSelected(['w1']);
+
+    // 第一指拖着手柄缩放中（抑制置位）；第二指点已选中件建 dragState——
+    // 未拖动即松手不得激活编辑（!moved && wasSelected 分支同受手势抑制）
+    h.selector.suppressClickActivation = true;
+    h.handlers.onPointerDown?.(h.evt(125, 125));
+    h.handlers.onPointerUp?.(h.evt(125, 125));
+    expect(activate).not.toHaveBeenCalled();
   });
 });
 

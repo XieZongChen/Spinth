@@ -163,6 +163,10 @@ export class RectEditorService extends Disposable {
       lastNext: startBounds,
       startRotation: vm.getRotation(),
     };
+    // 手柄 down 被 RectEditorVm stopPropagation；up 仍冒泡到 stage，不得当 click
+    // 激活编辑。抑制随手势生命周期（onWindowUp/cancelGesture 单源清除）——
+    // 「一次性消费」会在 blur/多指等中途事件泄掉，复窗松手仍误进编辑
+    this.selector.suppressClickActivation = true;
     window.addEventListener('pointermove', this.onWindowMove);
     window.addEventListener('pointerup', this.onWindowUp, { once: true });
   }
@@ -201,6 +205,9 @@ export class RectEditorService extends Disposable {
   };
 
   private onWindowUp = (): void => {
+    // up 即手势终止：单击激活抑制在此单源清除（stage 相位的 selector up 已
+    // 早于本 window 相位读过它——顺序天然正确）
+    this.selector.suppressClickActivation = false;
     window.removeEventListener('pointermove', this.onWindowMove);
     this.refLine.hideMatches();
     if (!this.resize) return;
@@ -230,6 +237,8 @@ export class RectEditorService extends Disposable {
    *  复位同时通知跟随层（resizeMove$ / onRotatePreview）并 markRender——
    *  方法自带闭环，不依赖调用方后续恰好有别的重绘 */
   cancelGesture(): void {
+    // 手势取消即终止：单击激活抑制单源清除（无手势时幂等）
+    this.selector.suppressClickActivation = false;
     let cancelled = false;
     if (this.resize) {
       window.removeEventListener('pointermove', this.onWindowMove);
@@ -275,6 +284,7 @@ export class RectEditorService extends Disposable {
       center,
       lastTheta: vm.getRotation(),
     };
+    this.selector.suppressClickActivation = true; // 同 startResize：抑制随手势生命周期
     window.addEventListener('pointermove', this.onRotateMove);
     window.addEventListener('pointerup', this.onRotateUp, { once: true });
   }
@@ -300,6 +310,7 @@ export class RectEditorService extends Disposable {
   };
 
   private onRotateUp = (): void => {
+    this.selector.suppressClickActivation = false; // 手势终止：抑制单源清除（同 onWindowUp）
     window.removeEventListener('pointermove', this.onRotateMove);
     if (!this.rotate) return;
     const { vmId, lastTheta } = this.rotate;
