@@ -55,20 +55,25 @@ function makeHarness(opts: { snapRect?: (r: unknown) => { rect: unknown } } = {}
   );
   svc.initialize();
   const fireMove = (x: number, y: number): void => {
-    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y }));
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, buttons: 1 }));
   };
   const fireUp = (): void => {
     window.dispatchEvent(new PointerEvent('pointerup'));
   };
-  // 手势指针生命周期用例：带 pointerId 的 move/up/cancel（默认 button=0）
-  const fireMoveId = (x: number, y: number, pointerId: number): void => {
-    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerId }));
+  // 手势指针生命周期用例：带 pointerId 的 move/up/cancel（默认主键按住/up）
+  const fireMoveId = (x: number, y: number, pointerId: number, buttons = 1): void => {
+    window.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: x, clientY: y, pointerId, buttons }),
+    );
   };
   const fireUpId = (pointerId: number, button = 0): void => {
     window.dispatchEvent(new PointerEvent('pointerup', { pointerId, button }));
   };
   const fireCancelId = (pointerId: number): void => {
     window.dispatchEvent(new PointerEvent('pointercancel', { pointerId }));
+  };
+  const fireLostCaptureId = (pointerId: number): void => {
+    window.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId }));
   };
   return {
     svc,
@@ -81,6 +86,7 @@ function makeHarness(opts: { snapRect?: (r: unknown) => { rect: unknown } } = {}
     fireMoveId,
     fireUpId,
     fireCancelId,
+    fireLostCaptureId,
   };
 }
 
@@ -218,7 +224,12 @@ describe('RectEditor 旋转手势（docs/05 §8）', () => {
       y: c.y + start.x * Math.sin(rad) + start.y * Math.cos(rad),
     };
     window.dispatchEvent(
-      new PointerEvent('pointermove', { clientX: end.x, clientY: end.y, shiftKey: true }),
+      new PointerEvent('pointermove', {
+        clientX: end.x,
+        clientY: end.y,
+        shiftKey: true,
+        buttons: 1,
+      }),
     );
     t.fireUp();
     const theta = (t.vmStub.commitRotate as unknown as { mock: { calls: Array<[number]> } }).mock
@@ -403,6 +414,44 @@ describe('手势指针生命周期（审查 P2：window 监听只认手势指针
     expect(h.svc.isResizing).toBe(true);
     h.fireUpId(1);
     expect(h.vmStub.commitResize).toHaveBeenCalledTimes(1);
+  });
+
+  it('主键已松的 move 不更新预览：resize/rotate 同款', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    const resizeCalls = h.vmStub.applyResizePreview.mock.calls.length;
+    h.fireMoveId(40, 40, 1, 0); // 主键已松（up 丢失/副键操作）：不得继续缩放
+    expect(h.vmStub.applyResizePreview).toHaveBeenCalledTimes(resizeCalls);
+    h.svc.cancelGesture();
+
+    (
+      h.svc as unknown as {
+        vm: { onRotateDown: (x: number, y: number, id?: number) => void };
+      }
+    ).vm.onRotateDown(125, 65, 1);
+    h.fireMoveId(185, 125, 1);
+    const rotateCalls = h.vmStub.applyRotatePreview.mock.calls.length;
+    h.fireMoveId(40, 40, 1, 0);
+    expect(h.vmStub.applyRotatePreview).toHaveBeenCalledTimes(rotateCalls);
+    h.svc.cancelGesture();
+  });
+
+  it('lostpointercapture：异指针忽略；匹配指针取消回滚、清抑制、迟到 up 不写库', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    startResizeWith(h.svc, 1);
+    h.fireMoveId(180, 170, 1);
+    h.fireLostCaptureId(999);
+    expect(h.svc.isResizing).toBe(true);
+    h.fireLostCaptureId(1);
+    expect(h.svc.isResizing).toBe(false);
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
+    expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(START, START);
+    expect(selectorOf(h.svc).suppressClickActivation).toBe(false);
+    h.fireUpId(1);
+    expect(h.vmStub.commitResize).not.toHaveBeenCalled();
   });
 
   it('旋转手势同款：异指针 up 不消耗监听，本指针 up 恰好一次 commitRotate', () => {

@@ -177,18 +177,20 @@ export class RectEditorService extends Disposable {
     this.armWindowListeners(this.onWindowMove, this.onWindowUp);
   }
 
-  /** 手势期 window 监听三件套（move/up/pointercancel）——up/cancel 到达且
-   *  指针匹配时由处理器自行摘除（见 endWindowListeners） */
+  /** 手势期 window 监听四件套（move/up/pointercancel/lostpointercapture）——
+   *  终止事件匹配手势指针时由处理器自行摘除（见 endWindowListeners） */
   private armWindowListeners(move: (e: PointerEvent) => void, up: (e: PointerEvent) => void): void {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', this.onPointerCancel);
+    window.addEventListener('lostpointercapture', this.onLostPointerCapture);
   }
 
   private endWindowListeners(move: (e: PointerEvent) => void, up: (e: PointerEvent) => void): void {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', this.onPointerCancel);
+    window.removeEventListener('lostpointercapture', this.onLostPointerCapture);
   }
 
   /** 手势指针判定：down 未携带 id（单测直调）不过滤；up 须主键——副键 up 与
@@ -206,8 +208,18 @@ export class RectEditorService extends Disposable {
     this.cancelGesture();
   };
 
+  /** 捕获异常丢失（元素移除/浏览器收回）：手势已无法收到 up，按取消收口；
+   *  正常 up 后的 lostpointercapture 到达时状态已清、监听已摘，天然 no-op */
+  private onLostPointerCapture = (e: PointerEvent): void => {
+    const st = this.resize ?? this.rotate;
+    if (!st || !this.isGesturePointer(e, st, false)) return;
+    this.cancelGesture();
+  };
+
   private onWindowMove = (e: PointerEvent): void => {
+    // 主键已松的 move（up 丢失/副键抬起后）不得继续驱动预览
     if (!this.resize || !this.isGesturePointer(e, this.resize, false)) return;
+    if ((e.buttons & 1) === 0) return;
     const vm = this.vmEngine.getVmById(this.resize.vmId);
     if (!vm) return;
     const worldRaw = this.viewport.clientToWorld(e.clientX, e.clientY);
@@ -325,6 +337,7 @@ export class RectEditorService extends Disposable {
 
   private onRotateMove = (e: PointerEvent): void => {
     if (!this.rotate || !this.isGesturePointer(e, this.rotate, false)) return;
+    if ((e.buttons & 1) === 0) return;
     const vm = this.vmEngine.getVmById(this.rotate.vmId);
     if (!vm) return;
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
