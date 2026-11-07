@@ -134,10 +134,16 @@ describe('ToolFlyout 定位（锚点闩锁回归）', () => {
         <ToolFlyout anchorRect={() => rect} groups={[GROUP]} />
       </Profiler>,
     );
-    expect(commits).toBe(2); // 挂载提交 + 首测落位补渲染（layout effect 内 setPos）
-    // 连发 5 次同值 resize：短路后仅 React 文档化的「首次同值 bailout 渲染」
-    // 可能多 1 次提交（≤3）；旧代码每次 resize 新 pos 对象 → 2+5=7 次提交
+    // Profiler 接线 sanity：挂载提交 + 首测落位补渲染（layout effect 内 setPos）
+    // ≥2 而非精确值——提交计数是 React 实现细节的代理指标，断言一律用界
+    expect(commits).toBeGreaterThanOrEqual(2);
+    // 行为断言优先：连发 5 次同值 resize，位置与可见性不得漂移
     for (let i = 0; i < 5; i += 1) act(() => window.dispatchEvent(new Event('resize')));
+    const f = flyout()!;
+    expect(f.style.left).toBe('220px');
+    expect(f.style.visibility).toBe('visible');
+    // 判别上限：短路后仅 React 文档化的「首次同值 bailout 渲染」可能多 1 次
+    // 提交（≤3）；旧代码每次 resize 新 pos 对象 → 2+5=7 次提交必超界
     expect(commits).toBeLessThanOrEqual(3);
   });
 });
