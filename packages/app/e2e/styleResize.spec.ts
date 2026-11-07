@@ -189,6 +189,123 @@ test('SHAPE 缩放中途失焦：复窗在图形上松手不误进编辑（抑�
   }
 });
 
+test('SHAPE 缩放手势期异指针 up：不提前提交、不偷监听，真松手恰好一次落库', async ({ page }) => {
+  const docId = 'e2e-resize-interloper-' + Date.now();
+  await page.goto('/?doc=' + docId);
+  await waitForSynced(page);
+
+  const canvas = page.locator('canvas').first();
+  await page.keyboard.press('r');
+  await canvas.hover({ position: { x: 500, y: 280 } });
+  await page.mouse.down();
+  await page.mouse.move(620, 360, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await probe(page)).count).toBe(1);
+  const s0 = (await probe(page)).shapes[0]!;
+
+  // 真实鼠标拖 SE 角中途，第二设备/第二指在 window 冒泡一个异 pointerId 的
+  // up：不得终止手势（once 监听被它偷走会提前提交中间几何并清抑制，真松手
+  // 再被当「单击已选中」误进编辑——审查 P2 实锤形态）。
+  const corner = await worldToScreen(page, s0.x + s0.width, s0.y + s0.height);
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.down();
+  await page.mouse.move(corner.x + 20, corner.y + 15, { steps: 4 });
+  await page.evaluate(() =>
+    window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 999, button: 0 })),
+  );
+  const mid = await probe(page);
+  expect(mid.shapes[0]!.width).toBe(s0.width); // 未被异指针 up 提前提交
+
+  await page.mouse.move(corner.x + 40, corner.y + 30, { steps: 4 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await probe(page)).shapes[0]!.width, { timeout: 5000 })
+    .toBeGreaterThan(s0.width + 30);
+
+  const s1 = (await probe(page)).shapes[0]!;
+  const frames = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            editorFrame: { x: number; y: number; width: number; height: number } | null;
+            selectionFrame: { x: number; y: number; width: number; height: number } | null;
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    return {
+      editorFrame: d.editorFrame,
+      selectionFrame: d.selectionFrame,
+      editing: !!document.querySelector('#spinth-text-layer [contenteditable="true"]'),
+    };
+  });
+  expect(frames.editing).toBe(false); // 真松手 = 手势收尾，不是单击激活
+  for (const frame of [frames.editorFrame!, frames.selectionFrame!]) {
+    expect(Math.abs(frame.x - s1.x)).toBeLessThan(1);
+    expect(Math.abs(frame.y - s1.y)).toBeLessThan(1);
+    expect(Math.abs(frame.width - s1.width)).toBeLessThan(1);
+    expect(Math.abs(frame.height - s1.height)).toBeLessThan(1);
+  }
+});
+
+test('SHAPE 缩放：异指针 pointercancel 忽略；指针移出视口松手仍落库（capture 送达）', async ({
+  page,
+}) => {
+  const docId = 'e2e-resize-cancel-' + Date.now();
+  await page.goto('/?doc=' + docId);
+  await waitForSynced(page);
+
+  const canvas = page.locator('canvas').first();
+  await page.keyboard.press('r');
+  await canvas.hover({ position: { x: 500, y: 280 } });
+  await page.mouse.down();
+  await page.mouse.move(620, 360, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await probe(page)).count).toBe(1);
+  const s0 = (await probe(page)).shapes[0]!;
+
+  // 异 pointerId 的 pointercancel（他指被系统接管）不得误杀本手势；
+  // 随后指针拖出视口右缘松手——手柄 down 已 setPointerCapture，up 仍送达
+  // window（无 capture 时窗口外释放收不到 up，手势与抑制悬挂）。此例为
+  // 送达性回归锁（Playwright 无法真正模拟「浏览器不投递」），指针匹配的
+  // cancel 回滚路径由 rectEditor 单测锁。
+  const corner = await worldToScreen(page, s0.x + s0.width, s0.y + s0.height);
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.down();
+  await page.mouse.move(corner.x + 20, corner.y + 15, { steps: 4 });
+  await page.evaluate(() =>
+    window.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 999 })),
+  );
+  const vp = page.viewportSize()!;
+  await page.mouse.move(vp.width + 200, corner.y + 30, { steps: 6 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await probe(page)).shapes[0]!.width, { timeout: 5000 })
+    .toBeGreaterThan(s0.width + 30);
+
+  const frames = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            editorFrame: { x: number; y: number; width: number; height: number } | null;
+            selectionFrame: { x: number; y: number; width: number; height: number } | null;
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    return {
+      editorFrame: d.editorFrame,
+      selectionFrame: d.selectionFrame,
+      editing: !!document.querySelector('#spinth-text-layer [contenteditable="true"]'),
+    };
+  });
+  expect(frames.editing).toBe(false);
+  expect(frames.editorFrame).not.toBeNull();
+  expect(frames.selectionFrame).not.toBeNull();
+});
+
 // 快捷键面拆分（2026-10-17 prompt §2.3.2）：单用例耦合长链路 + 修饰键状态
 // 串扰是 CI 时敏红的构成面——每例独立 page；缩放族显式 Control（不赌
 // ControlOrMeta 的平台映射），每键后 poll 断言，@timing 归 nightly 层。
