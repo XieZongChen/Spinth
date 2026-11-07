@@ -165,14 +165,15 @@ ToolFlyout 首测闩死 `visibility:hidden`（dev StrictMode 掩盖、生产在 
 补帧重试与 resize/滚动失效重算（组件单测先红后绿 + 390 触摸 E2E）。
 
 缩放手柄松手误进编辑已修复：rectEditor 手柄 down `stopPropagation`、up 仍冒泡
-到 stage，selector 由手柄手势抑制单击激活；抑制生命周期 = 手势本身，终止 =
-匹配指针的 window up（主键）/ pointercancel / cancelGesture（单源清除，selector
-只读判定），手柄 down 同时 `setPointerCapture`（移出窗口松开 up 仍送达）。
-初版「一次性消费」会在 blur/多指泄掉（复窗松手误进编辑）；二版曾漏 pointerId：
-异指针/副键 up 会偷走 once 监听提前提交并清抑制，真松手再误进编辑；误进的
-edit 早退保留 resize preview scale，选区/编辑框脱离图形（selectorDrag +
-rectEditor 手势指针生命周期单测、styleResize 内向松手/中途失焦/异指针 up/
-异指 cancel 出视口 E2E 先红后绿）。
+到 stage，selector 由手柄手势抑制单击激活；抑制生命周期 = 匹配手势指针
+（pointerId + 主键），终止 = window up / pointercancel / lostpointercapture /
+cancelGesture（单源清除，selector 只读判定）。手柄 down 同时 `setPointerCapture`
+（支持 capture 的环境下视口/窗口外松开 up 仍送达；捕获异常丢失由
+lostpointercapture 回滚收口）；window move 只认手势指针且主键仍按下，异指针、
+副键或已松主键的 move 不更新预览。误进的 edit 早退会保留 resize preview
+scale，使选区/编辑框脱离图形（selectorDrag + rectEditor 手势指针生命周期
+单测、styleResize 内向松手/中途失焦/异指针 up/异指 cancel 出视口、touchPen
+触摸缩放 E2E 锁定）。
 
 框选边缘滚屏已落地（specs/marquee-auto-scroll）：三路拖拽同属滚屏——框选复用
 同一 `EdgeAutoScrollService`，以屏幕位移 ≥10px（`MARQUEE_TRACTION_SCREEN` 锁存）
@@ -214,10 +215,10 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 （14 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
 textScale T1–T6 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
 
-当前实测基线：`pnpm verify` 通过；1116 单测（core 1000 + react 78 + app 38）；
-E2E 48 spec / 245 用例全绿（主配置 238 + pwa 7；edgeAutoScroll 11/11 含
+当前实测基线：`pnpm verify` 通过；1118 单测（core 1002 + react 78 + app 38）；
+E2E 48 spec / 246 用例全绿（主配置 239 + pwa 7；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 2/2；
+mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库

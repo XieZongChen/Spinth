@@ -46,13 +46,15 @@ pointerup
 - 脑图节点级选中：选中集仍是 widget id（MIND_MAP 不拆），节点语义由 MindService
   焦点承载；框选时对命中的 MIND_MAP 委托 `focusFromMarquee`。
 - RectEditor 手柄/旋转手势在 down 时置单击激活抑制，并捕获手势指针
-  （`setPointerCapture`——移出窗口松开 up 仍送达）。手势终止 = 匹配指针的
-  window `pointerup`（主键）/ `pointercancel` / `cancelGesture`，抑制在终止点
-  单源清除；window 级 move/up/cancel 只认手势指针（异指针与副键 up 不终止、
-  不偷监听）。手柄 down 被 `stopPropagation`，up 仍冒泡到 stage——该 up 不得
-  当 click，否则缩放/旋转松手会误进编辑（edit 早退还会保留 resize 预览
-  scale，框与图形脱节）。selector 只读判定，不得在 down/cancel/up 里清除或
-  消费：blur（切窗）与异指针的 down/up/move 都不是手势终止，中途泄掉会让
+  （`setPointerCapture`——支持 capture 的环境下移出视口/窗口松开 up 仍送达；
+  捕获异常丢失由 `lostpointercapture` 收口）。手势终止 = 匹配指针的 window
+  `pointerup`（主键）/ `pointercancel` / `lostpointercapture` / `cancelGesture`，
+  抑制在终止点单源清除；window 级 move 只认手势指针且主键仍按下（异指针、
+  副键/已松主键的 move 不更新预览），up/cancel 只认手势指针（异指针与副键
+  up 不终止、不偷监听）。手柄 down 被 `stopPropagation`，up 仍冒泡到 stage——
+  该 up 不得当 click，否则缩放/旋转松手会误进编辑（edit 早退还会保留 resize
+  预览 scale，框与图形脱节）。selector 只读判定，不得在 down/cancel/up 里清除
+  或消费：blur（切窗）与异指针的 down/up/move 都不是手势终止，中途泄掉会让
   复窗松手/第二指 up 误进编辑。
 
 ## 4. 拖拽状态机
