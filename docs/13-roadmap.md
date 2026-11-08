@@ -13,7 +13,7 @@
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 1141 单测（core 1025 + react 78 + app 38）、E2E 49 spec / 250 例（248 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide）、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+- [x] 1148 单测（core 1032 + react 78 + app 38）、E2E 49 spec / 251 例（249 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide）、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
 当前版本 `1.0.1`（已发布，tag `v1.0.1`），仓库已开源；1.0 是首个公开 API 基线。
 
