@@ -13,6 +13,7 @@ import {
   snapResize,
   type IRefLineSet,
   type ISnapResult,
+  type IStickyRefLines,
 } from './adsorber';
 import { snapEqualSpacing, type ISpacingGap } from './spacingGuides';
 import { RefLineVm } from './refLineVm';
@@ -38,6 +39,9 @@ export class RefLineService extends Disposable {
   private referenceRects: IRect[] = [];
   /** 最近一次等间距命中（徽标数据；E2E 探针消费） */
   private lastGaps: ISpacingGap[] = [];
+  /** 粘滞会话状态：上一帧命中线（docs/06 §3）。Service 持有、显式传参给纯函数，
+   *  纯函数保持幂等（docs/14 规则 3 边界）；hideMatches / 深缩放跳过时清空 */
+  private sticky: IStickyRefLines = { v: [], h: [] };
   private dirty = true;
 
   constructor(
@@ -72,9 +76,14 @@ export class RefLineService extends Disposable {
   snapForDrag(initialRect: IRect, dx: number, dy: number): ISnapResult {
     const threshold = this.currentThreshold();
     this.lastGaps = [];
-    if (threshold === null) return { dx, dy, matchedV: [], matchedH: [] };
+    if (threshold === null) {
+      this.sticky = { v: [], h: [] };
+      return { dx, dy, matchedV: [], matchedH: [] };
+    }
     this.rebuildIfDirty();
-    const align = snapRect(initialRect, dx, dy, this.refLines, threshold);
+    const align = snapRect(initialRect, dx, dy, this.refLines, threshold, this.sticky);
+    // 粘滞回写：本帧命中线即下一帧的 sticky（该轴未命中即清）
+    this.sticky = { v: align.matchedVDefs ?? [], h: align.matchedHDefs ?? [] };
     const spacing = snapEqualSpacing(initialRect, dx, dy, this.referenceRects, threshold);
     const outDx = align.matchedV.length > 0 ? align.dx : spacing.dx;
     const outDy = align.matchedH.length > 0 ? align.dy : spacing.dy;
@@ -118,6 +127,7 @@ export class RefLineService extends Disposable {
 
   hideMatches(): void {
     this.lastGaps = [];
+    this.sticky = { v: [], h: [] };
     this.vm.hide();
   }
 

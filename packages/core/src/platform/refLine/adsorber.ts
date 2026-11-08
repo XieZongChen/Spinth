@@ -23,6 +23,19 @@ export interface IRefLineSet {
   h: IRefLineDef[];
 }
 
+/** 粘滞输入（docs/06 §3）：上一帧命中线。由调用方（Service）持有拖拽会话状态、
+ *  显式传参进来——纯函数本身无状态、幂等（docs/14 规则 3 边界，与规则 5 的
+ *  lastDx/lastNext 记录最后一帧输出同类） */
+export interface IStickyRefLines {
+  v: IRefLineDef[];
+  h: IRefLineDef[];
+}
+
+/** 线身份 key：kind + 3 位小数坐标（buildRefLines 去重与粘滞匹配共用同一口径） */
+function refLineKey(ref: IRefLineDef): string {
+  return `${ref.kind}:${ref.pos.toFixed(3)}`;
+}
+
 /** 反抖动比例：已贴合判定 = threshold/12（阈值 6 屏幕 px → 0.5 屏幕 px，zoom 无关） */
 const ALIGNED_EPSILON_RATIO = 1 / 12;
 
@@ -30,7 +43,7 @@ export function buildRefLines(rects: IRect[]): IRefLineSet {
   const vMap = new Map<string, IRefLineDef>();
   const hMap = new Map<string, IRefLineDef>();
   const push = (map: Map<string, IRefLineDef>, pos: number, kind: RefLineKind): void => {
-    map.set(`${kind}:${pos.toFixed(3)}`, { pos, kind });
+    map.set(refLineKey({ pos, kind }), { pos, kind });
   };
   for (const r of rects) {
     push(vMap, r.x, 'edge');
@@ -49,6 +62,9 @@ export interface ISnapResult {
   /** 命中的参考线位置（供绘制贯穿线） */
   matchedV: number[];
   matchedH: number[];
+  /** 命中线完整定义（kind+pos），调用方回写粘滞状态用 */
+  matchedVDefs?: IRefLineDef[];
+  matchedHDefs?: IRefLineDef[];
 }
 
 interface IEdgeDef {
@@ -72,6 +88,8 @@ const H_EDGES: IEdgeDef[] = [
  * 方向感知（A3，误差修复批）：移动轴只取**前方**参照线（修正方向与拖拽总位移
  * 同向）——向右拖不被身后阈值内的线往回拽（既有设计 getClosetLineInfo 方向先例，
  * spinth 首版重写丢失）；baseDelta=0（如纯垂直拖的水平轴）两侧等价不过滤。
+ * 粘滞（docs/06 §3）：上一帧命中线（stickyKeys）绕过方向过滤——拖过线 1~阈值 px
+ * 被拉回，越阈平滑释放；方向过滤只作用于未吸过的线，更近的新线照常最近者胜。
  */
 function snapAxis(
   edges: IEdgeDef[],
@@ -79,38 +97,51 @@ function snapAxis(
   baseDelta: number,
   refs: IRefLineDef[],
   threshold: number,
-): { delta: number; matched: number[] } {
+  stickyKeys?: Set<string>,
+): { delta: number; matched: number[]; matchedDefs: IRefLineDef[] } {
   const alignedEpsilon = threshold * ALIGNED_EPSILON_RATIO;
-  let best: { dist: number; ref: number } | null = null;
+  let best: { dist: number; ref: IRefLineDef } | null = null;
   for (const edge of edges) {
     const target = edge.offset(rect) + baseDelta;
     for (const ref of refs) {
       if (ref.kind !== edge.kind) continue;
       const dist = ref.pos - target;
-      if (baseDelta > 0 && dist < 0) continue; // 向右拖：跳过身后的线
-      if (baseDelta < 0 && dist > 0) continue; // 向左拖：跳过身后的线
+      if (!stickyKeys?.has(refLineKey(ref))) {
+        if (baseDelta > 0 && dist < 0) continue; // 向右拖：跳过身后的线
+        if (baseDelta < 0 && dist > 0) continue; // 向左拖：跳过身后的线
+      }
       if (Math.abs(dist) < alignedEpsilon) continue; // 已贴合
       if (Math.abs(dist) > threshold) continue;
       if (!best || Math.abs(dist) < Math.abs(best.dist)) {
-        best = { dist, ref: ref.pos };
+        best = { dist, ref };
       }
     }
   }
-  if (!best) return { delta: 0, matched: [] };
-  return { delta: best.dist, matched: [best.ref] };
+  if (!best) return { delta: 0, matched: [], matchedDefs: [] };
+  return { delta: best.dist, matched: [best.ref.pos], matchedDefs: [best.ref] };
 }
 
-/** 拖拽吸附：对期望位移 (dx,dy) 修正，命中线供绘制 */
+/** 拖拽吸附：对期望位移 (dx,dy) 修正，命中线供绘制；sticky 为上一帧命中线（可选） */
 export function snapRect(
   rect: IRect,
   dx: number,
   dy: number,
   refs: IRefLineSet,
   threshold: number,
+  sticky?: IStickyRefLines,
 ): ISnapResult {
-  const sx = snapAxis(V_EDGES, rect, dx, refs.v, threshold);
-  const sy = snapAxis(H_EDGES, rect, dy, refs.h, threshold);
-  return { dx: dx + sx.delta, dy: dy + sy.delta, matchedV: sx.matched, matchedH: sy.matched };
+  const stickyV = sticky ? new Set(sticky.v.map(refLineKey)) : undefined;
+  const stickyH = sticky ? new Set(sticky.h.map(refLineKey)) : undefined;
+  const sx = snapAxis(V_EDGES, rect, dx, refs.v, threshold, stickyV);
+  const sy = snapAxis(H_EDGES, rect, dy, refs.h, threshold, stickyH);
+  return {
+    dx: dx + sx.delta,
+    dy: dy + sy.delta,
+    matchedV: sx.matched,
+    matchedH: sy.matched,
+    matchedVDefs: sx.matchedDefs,
+    matchedHDefs: sy.matchedDefs,
+  };
 }
 
 /**

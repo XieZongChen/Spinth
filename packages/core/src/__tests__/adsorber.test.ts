@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildRefLines, snapRect, snapResize } from '../platform/refLine/adsorber';
+import {
+  buildRefLines,
+  snapRect,
+  snapResize,
+  type IStickyRefLines,
+} from '../platform/refLine/adsorber';
 
 describe('buildRefLines（docs/06 §2）', () => {
   it('每矩形生成 6 条线且按 3 位小数去重', () => {
@@ -82,6 +87,59 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     const escape = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 293, 0, refs, 6);
     expect(escape.dx).toBe(293); // 退过阈值（dist 7 > 6）→ 释放跟手
     expect(escape.matchedV).toHaveLength(0);
+  });
+
+  it('粘滞：过线 2px 上一帧命中线绕过方向过滤被拉回', () => {
+    // frame1 已吸上 300（接近侧），frame2 指针过线 2px：dist=-4 原被 A3 过滤脱钩；
+    // sticky 入参让上一帧命中线双向保持 → 拉回线上
+    const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
+    const r = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6, sticky);
+    expect(r.dx).toBe(300);
+    expect(r.matchedV).toEqual([300]);
+    expect(r.matchedVDefs).toEqual([{ pos: 300, kind: 'edge' }]);
+  });
+
+  it('粘滞：过线 5px 仍保持，越阈 7px 平滑释放', () => {
+    const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
+    const hold = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 305, 0, refs, 6, sticky);
+    expect(hold.dx).toBe(300);
+    expect(hold.matchedV).toEqual([300]);
+    const escape = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 307, 0, refs, 6, sticky);
+    expect(escape.dx).toBe(307);
+    expect(escape.matchedV).toHaveLength(0);
+  });
+
+  it('粘滞仅在传入 sticky 时生效：无入参过线不回吸（A3 保持）', () => {
+    const r = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6);
+    expect(r.dx).toBe(302);
+    expect(r.matchedV).toHaveLength(0);
+  });
+
+  it('粘滞不排斥更近的新线：|dist| 小者胜', () => {
+    // 线 300（sticky）与线 306 并存：指针 304 → 306 更近（2 < 4）→ 切换
+    const two = buildRefLines([
+      { x: 300, y: 300, width: 50, height: 50 },
+      { x: 306, y: 300, width: 50, height: 50 },
+    ]);
+    const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
+    const r = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 304, 0, two, 6, sticky);
+    expect(r.dx).toBe(306);
+    expect(r.matchedV).toEqual([306]);
+  });
+
+  it('中心线粘滞同样生效（kind 随线保持）', () => {
+    // 被拖中心 356 过参照中心 350 为 dist=-6（阈值边界）：center 线 sticky 拉回
+    const sticky: IStickyRefLines = { v: [{ pos: 350, kind: 'center' }], h: [] };
+    const r = snapRect({ x: 302, y: 0, width: 100, height: 50 }, 4, 0, refs, 6, sticky);
+    expect(r.dx).toBe(-2);
+    expect(r.matchedV).toEqual([350]);
+  });
+
+  it('幂等（docs/14 规则 3）：同输入（含 sticky）重复调用结果一致', () => {
+    const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
+    const a = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6, sticky);
+    const b = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6, sticky);
+    expect(b).toEqual(a);
   });
 
   it('反抖动阈值屏幕化（A2）：zoom 4x 下 0.4 世界缝隙（1.6 屏幕 px）仍被贴合', () => {

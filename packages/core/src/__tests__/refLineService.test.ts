@@ -83,6 +83,39 @@ describe('refLineService 深缩放保护（A2，docs/06 §3）', () => {
   });
 });
 
+describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
+  it('第二帧过线被拉回；hideMatches 后新拖拽不回吸（A3 保持）', () => {
+    const svc = createService([
+      { id: 'ref', type: 'SHAPE', rect: { x: 300, y: 300, width: 100, height: 50 } },
+    ]);
+    const rect = { x: 0, y: 0, width: 50, height: 50 };
+    const engage = svc.snapForDrag(rect, 296, 0); // 接近侧吸上 300
+    expect(engage.dx).toBe(300);
+    const overshoot = svc.snapForDrag(rect, 303, 0); // 过线 3px：粘滞拉回
+    expect(overshoot.dx).toBe(300);
+    expect(overshoot.matchedV).toEqual([300]);
+    svc.hideMatches(); // 松手/取消清粘滞
+    const fresh = svc.snapForDrag(rect, 303, 0); // 新拖拽：无粘滞不回吸
+    expect(fresh.dx).toBe(303);
+    expect(fresh.matchedV).toHaveLength(0);
+    svc.dispose();
+  });
+
+  it('深缩放跳过吸附时清粘滞', () => {
+    const svc = createService([
+      { id: 'ref', type: 'SHAPE', rect: { x: 300, y: 300, width: 100, height: 50 } },
+    ]);
+    const rect = { x: 0, y: 0, width: 50, height: 50 };
+    expect(svc.snapForDrag(rect, 296, 0).dx).toBe(300); // 吸上
+    const vp = (svc as unknown as { viewport: { vpScale$: BehaviorSubject<number> } }).viewport;
+    vp.vpScale$.next(8); // 深缩放跳过 → 清粘滞
+    expect(svc.snapForDrag(rect, 303, 0).dx).toBe(303);
+    vp.vpScale$.next(1);
+    expect(svc.snapForDrag(rect, 303, 0).dx).toBe(303); // 粘滞已清，不拉回
+    svc.dispose();
+  });
+});
+
 describe('refLineService 参照物类型矩阵', () => {
   it.each(['SHAPE', 'STICKY', 'TEXT'])('%s 作为参照物参与吸附', (type) => {
     // 位移 96 → 吸附修正为 100（左边对齐参照左边）
