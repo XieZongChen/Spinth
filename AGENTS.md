@@ -235,7 +235,7 @@ threshold/3 死区（净位移过小时不过滤，手抖符号翻转不丢候�
 图形。便签门控维持两轴各 ≥ 24px，单击落点同为按下点居中（shape/sticky 一致）。
 
 当前实测基线：`pnpm verify` 通过；1141 单测（core 1025 + react 78 + app 38）；
-E2E 49 spec / 249 例（240 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+E2E 49 spec / 250 例（248 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
 rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor 2/2、视觉 rotate-45 注入版与旧基线
 逐字节全等；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 3/3 含 C 粘滞落库；
