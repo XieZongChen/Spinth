@@ -93,8 +93,8 @@ getBounds(): IRect {
 | getBounds 在 scale ≠ 1 时返回缩放后尺寸                    | 规则 4     |
 | SelectionVm.moveTo 幂等（重复设置无累加）                  | 规则 1     |
 | resizeRect 幂等（同输入重复调用结果一致）+ 各方向语义      | 规则 3     |
-| snapRect 幂等（同输入含显式 sticky 入参结果一致）+         |
-| Service 粘滞 engage/越过/越阈序列用例                      | 规则 3     |
+| snapRect 幂等（含显式 sticky 入参）                        | 规则 3     |
+| 粘滞 engage → 越过 → 越阈序列（Service 跨帧行为）          | 规则 3     |
 
 相关套件：`renderSync.test.ts / interactionGeometry.test.ts / selectorDrag.test.ts /
 rectEditor.test.ts / adsorber.test.ts / refLineService.test.ts`。
