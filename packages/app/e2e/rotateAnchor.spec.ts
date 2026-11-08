@@ -1,9 +1,9 @@
-/** 旋转锚定线 E2E（docs/05 §8）：转宿主重路由/扫角无穿体 */
+/** 旋转锚定线 E2E（docs/05 §8）：注入旋转态的线重路由/undo 粒度/扫角无穿体 */
 import { expect, test } from '@playwright/test';
 import { waitForSynced } from './helpers/boardE2e';
-import { probe, worldToScreen, rotateHandleScreen, dragCreateRect } from './helpers/rotateE2e';
+import { probe, setShapeRotation, dragCreateRect } from './helpers/rotateE2e';
 
-test('锚定线跟随：转宿主 90° → 线重路由 + undo 一步同回', async ({ page }) => {
+test('锚定线跟随：宿主注入 90° → 线重路由；undo 回旋转、线跟随回原形', async ({ page }) => {
   await page.goto(`/?doc=e2e-rotate-anchor-${Date.now()}`);
   await waitForSynced(page);
 
@@ -27,25 +27,13 @@ test('锚定线跟随：转宿主 90° → 线重路由 + undo 一步同回', as
   expect(line0.startNodeId).toBeTruthy();
   expect(line0.endNodeId).toBeTruthy();
 
-  // 转 A 90°（终点 = 柄起点向量旋转 +90°——柄在 nw 角外斜，2026-10-16 迁移）
+  // 注入 A 旋转 90°（数据通道——等价已旋转的旧文档；重路由经真实 update 管线）
   const a = p0.shapes[0]!;
-  const center = await worldToScreen(page, a.x + a.width / 2, a.y + a.height / 2);
-  const pickA = await worldToScreen(page, a.x + 10, a.y + 10);
-  await page.mouse.click(pickA.x, pickA.y);
-  const handle = await rotateHandleScreen(page);
-  const sv = { x: handle.x - center.x, y: handle.y - center.y };
-  const end90 = {
-    x: center.x + sv.x * Math.cos(Math.PI / 2) - sv.y * Math.sin(Math.PI / 2),
-    y: center.y + sv.x * Math.sin(Math.PI / 2) + sv.y * Math.cos(Math.PI / 2),
-  };
-  await page.mouse.move(handle.x, handle.y);
-  await page.mouse.down();
-  await page.mouse.move(Math.round(end90.x), Math.round(end90.y), { steps: 6 });
-  await page.waitForTimeout(60);
-  await page.mouse.up();
+  await setShapeRotation(page, a.id!, Math.PI / 2);
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.rotation, { timeout: 5000 })
-    .toBeCloseTo(Math.PI / 2, 2);
+    .toBeCloseTo(Math.PI / 2, 6);
+  await page.waitForTimeout(250);
 
   const line1 = (await probe(page)).lines[0]!;
   expect(line1.points).not.toEqual(line0.points); // 重路由已发生
@@ -54,13 +42,13 @@ test('锚定线跟随：转宿主 90° → 线重路由 + undo 一步同回', as
   expect(start[0]).toBeCloseTo(a.x + a.width / 2, 0);
   expect(start[1]).toBeCloseTo(a.y + a.height / 2 + a.width / 2, 0);
 
-  // undo 一步：rotation 与线 points 同回（同撤销项——急切 reattach 序列）
+  // undo（注入口径）：回退旋转写 → reattach 对 undo 引起的几何变化同样响应，
+  // 线跟随重路由回原形（数据链路的响应式跟随保证）
   await page.keyboard.press('ControlOrMeta+z');
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.rotation, { timeout: 5000 })
     .toBeUndefined();
-  const line2 = (await probe(page)).lines[0]!;
-  expect(line2.points).toEqual(line0.points);
+  await expect.poll(async () => (await probe(page)).lines[0]!.points).toEqual(line0.points);
 });
 
 test('锚定线扫角无穿体（2026-10-16 用户实测揪出——quantizeJoin 出线方向 + 首末段避让豁免）', async ({

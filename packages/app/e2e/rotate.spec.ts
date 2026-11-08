@@ -1,9 +1,50 @@
-/** 旋转 E2E（docs/05 §8）：拖柄/Shift 步进/命中/旋转态 resize */
+/** 旋转 E2E（docs/05 §8）：入口隐藏锁 / 旋转态命中 / 旋转态 resize；
+ *  手柄手势用例（拖柄落库、Shift 步进）在入口隐藏期间跳过（specs/rotate-hide §5） */
 import { expect, test } from '@playwright/test';
 import { waitForSynced } from './helpers/boardE2e';
-import { probe, worldToScreen, rotateHandleScreen, dragCreateRect } from './helpers/rotateE2e';
+import {
+  probe,
+  worldToScreen,
+  rotateHandleProbe,
+  rotateHandleScreen,
+  setShapeRotation,
+  dragCreateRect,
+} from './helpers/rotateE2e';
+
+/** 入口隐藏期间跳过的手柄手势用例——恢复入口时删除此 skip（specs/rotate-hide §5） */
+const ROTATE_ENTRY_HIDDEN = '旋转手柄入口暂时隐藏（specs/rotate-hide）';
+
+test('入口隐藏锁：选中矩形不出旋转柄，在柄位拖拽不产生旋转', async ({ page }) => {
+  await page.goto(`/?doc=e2e-rotate-hidden-${Date.now()}`);
+  await waitForSynced(page);
+
+  await dragCreateRect(page, 300, 200);
+  await expect.poll(async () => (await probe(page)).count).toBe(1);
+  const s0 = (await probe(page)).shapes[0]!;
+
+  const center = await worldToScreen(page, s0.x + s0.width / 2, s0.y + s0.height / 2);
+  await page.mouse.click(center.x, center.y);
+  await expect.poll(async () => (await probe(page)).selected.length).toBe(1);
+
+  // 编辑框照常（缩放手柄在），旋转柄不可见
+  const h = await rotateHandleProbe(page);
+  expect(h).not.toBeNull();
+  expect(h!.visible).toBe(false);
+
+  // 原柄位（nw 角外斜 20px，坐标照算）按下拖「+90°」：柄不命中，不产生 rotation
+  const handle = await worldToScreen(page, h!.x, h!.y);
+  const sv = { x: handle.x - center.x, y: handle.y - center.y };
+  await page.mouse.move(handle.x, handle.y);
+  await page.mouse.down();
+  await page.mouse.move(Math.round(center.x - sv.y), Math.round(center.y + sv.x), { steps: 6 });
+  await page.waitForTimeout(60);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  expect((await probe(page)).shapes[0]!.rotation).toBeUndefined();
+});
 
 test('拖旋转柄 90°：rotation 落库（rad）+ undo 一步回未旋转', async ({ page }) => {
+  test.skip(true, ROTATE_ENTRY_HIDDEN);
   await page.goto(`/?doc=e2e-rotate-basic-${Date.now()}`);
   await waitForSynced(page);
 
@@ -17,14 +58,7 @@ test('拖旋转柄 90°：rotation 落库（rad）+ undo 一步回未旋转', as
   await page.mouse.click(center.x, center.y);
   const handle = await rotateHandleScreen(page);
   // 柄位数据断言（视觉快照清选中后不含柄，柄位靠数学锁）：≈ nw 角外斜 20px
-  const hWorld = await page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          __spinthDebug: { __debug: { rotateHandle: { x: number; y: number } | null } };
-        }
-      ).__spinthDebug.__debug.rotateHandle,
-  );
+  const hWorld = await rotateHandleProbe(page);
   const diag = Math.SQRT1_2;
   expect(hWorld!.x).toBeCloseTo(s0.x - diag * 20, 0);
   expect(hWorld!.y).toBeCloseTo(s0.y - diag * 20, 0);
@@ -56,6 +90,7 @@ test('拖旋转柄 90°：rotation 落库（rad）+ undo 一步回未旋转', as
 });
 
 test('Shift 步进：~20° 拖拽量化落库 15°（π/12）', async ({ page }) => {
+  test.skip(true, ROTATE_ENTRY_HIDDEN);
   await page.goto(`/?doc=e2e-rotate-step-${Date.now()}`);
   await waitForSynced(page);
 
@@ -97,27 +132,13 @@ test('旋转态命中：45° 后 AABB 角空区点击不选中、实体中心选
   const cx = s0.x + s0.width / 2;
   const cy = s0.y + s0.height / 2;
 
-  // 转 45°
-  const center = await worldToScreen(page, cx, cy);
-  await page.mouse.click(center.x, center.y);
-  const handle = await rotateHandleScreen(page);
-  const rad = Math.PI / 4;
-  const startVec = { x: handle.x - center.x, y: handle.y - center.y };
-  const end = {
-    x: center.x + startVec.x * Math.cos(rad) - startVec.y * Math.sin(rad),
-    y: center.y + startVec.x * Math.sin(rad) + startVec.y * Math.cos(rad),
-  };
-  await page.mouse.move(handle.x, handle.y);
-  await page.mouse.down();
-  await page.mouse.move(Math.round(end.x), Math.round(end.y), { steps: 6 });
-  await page.waitForTimeout(60);
-  await page.mouse.up();
+  // 旋转态（数据注入 45°——等价已旋转的旧文档）
+  await setShapeRotation(page, s0.id!, Math.PI / 4);
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.rotation, { timeout: 5000 })
-    .toBeCloseTo(Math.PI / 4, 2);
+    .toBeCloseTo(Math.PI / 4, 6);
 
-  // 清选 → 点 AABB 左上角空区（外接矩形角、旋转实体外）→ 不选中
-  await page.keyboard.press('Escape');
+  // 无选中 → 点 AABB 左上角空区（外接矩形角、旋转实体外）→ 不选中
   await expect.poll(async () => (await probe(page)).selected.length).toBe(0);
   const half = (s0.width + s0.height) / 2 / Math.SQRT2;
   const corner = await worldToScreen(page, cx - half + 2, cy - half + 2);
@@ -126,6 +147,7 @@ test('旋转态命中：45° 后 AABB 角空区点击不选中、实体中心选
   expect((await probe(page)).selected.length).toBe(0);
 
   // 点实体中心 → 选中
+  const center = await worldToScreen(page, cx, cy);
   await page.mouse.click(center.x, center.y);
   await expect.poll(async () => (await probe(page)).selected.length).toBe(1);
 });
@@ -140,23 +162,14 @@ test('旋转态 resize：拖角改宽高（指针逆旋转进局部——沿控�
   const cx = s0.x + s0.width / 2;
   const cy = s0.y + s0.height / 2;
 
-  // 转 90°（纵条；终点 = 柄起点向量旋转 +90°）→ 拖「旋转后」的东南角手柄
-  const center = await worldToScreen(page, cx, cy);
-  await page.mouse.click(center.x, center.y);
-  const handle = await rotateHandleScreen(page);
-  const sv2 = { x: handle.x - center.x, y: handle.y - center.y };
-  const end2 = {
-    x: center.x + sv2.x * Math.cos(Math.PI / 2) - sv2.y * Math.sin(Math.PI / 2),
-    y: center.y + sv2.x * Math.sin(Math.PI / 2) + sv2.y * Math.cos(Math.PI / 2),
-  };
-  await page.mouse.move(handle.x, handle.y);
-  await page.mouse.down();
-  await page.mouse.move(Math.round(end2.x), Math.round(end2.y), { steps: 6 });
-  await page.waitForTimeout(60);
-  await page.mouse.up();
+  // 旋转态（数据注入 90°，纵条）→ 选中 → 拖「旋转后」的东南角手柄
+  await setShapeRotation(page, s0.id!, Math.PI / 2);
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.rotation, { timeout: 5000 })
-    .toBeCloseTo(Math.PI / 2, 2);
+    .toBeCloseTo(Math.PI / 2, 6);
+  const center = await worldToScreen(page, cx, cy);
+  await page.mouse.click(center.x, center.y);
+  await expect.poll(async () => (await probe(page)).selected.length).toBe(1);
 
   // 顺时针 90°：局部 se 角（中心 + w/2·x + h/2·y）→ 世界 (cx − h/2, cy + w/2)
   const seWorld = { x: cx - s0.height / 2, y: cy + s0.width / 2 };

@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { waitForSynced } from './helpers/boardE2e';
 import { textOf, centerOf } from './helpers/textProbeE2e';
 import { barPick } from './helpers/widgetProbeE2e';
+import { probe, setShapeRotation } from './helpers/rotateE2e';
 
 test('SHAPE 图形内文字（docs/17 §6）：两击进编辑 → 落库 → 字号档 → 空文本形状保留', async ({
   page,
@@ -384,14 +385,20 @@ test('1.7 旋转件测高同源：45° SHAPE 两次编辑提交高度稳定（�
   const docId = `e2e-rot-measure-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
-  // 建 160×160 矩形 → 选中旋转 45°（Shift 步进）
+  // 建 160×160 矩形 → 数据注入旋转 45°（旋转手柄入口暂隐藏，注入等价已旋转的
+  // 旧文档，specs/rotate-hide）
   await page.keyboard.press('r');
   await page.mouse.move(500, 300);
   await page.mouse.down();
   await page.mouse.move(660, 460, { steps: 4 });
   await page.mouse.up();
   await page.waitForTimeout(250);
-  await page.mouse.click(580, 380); // 选中
+  const shapeId = (await probe(page)).shapes[0]!.id!;
+  await setShapeRotation(page, shapeId, Math.PI / 4);
+  await expect
+    .poll(async () => (await probe(page)).shapes[0]!.rotation)
+    .toBeCloseTo(Math.PI / 4, 6);
+  await page.mouse.click(580, 380); // 选中（旋转不动中心，中心点命中实体）
   await page.waitForTimeout(250);
   const shapeState = () =>
     page.evaluate(() => {
@@ -403,10 +410,8 @@ test('1.7 旋转件测高同源：45° SHAPE 两次编辑提交高度稳定（�
       return { height: Number(s.height), rotation: Number(s.rotation ?? 0) };
     });
 
-  // 抓旋转柄（nw 角外斜 45°）拖 ~90°? 用探针轮询到 |θ−π/4|<0.05 即停（够验证即可）
-  // 简化：直接程序化设旋转（__spinth 模型面无公开 setter——改用 rotate E2E 同款手柄拖拽成本高；
-  // 本例退而验证「同尺寸旋转件编辑提交两次高度不变」的等价命题需 θ≠0 前置，
-  // 改走单测已锁（rectEditor/textService 数学），此处至少锁 θ=0 回归不破）
+  // 45° 旋转件两次提交同一段文字：测高须走局部尺寸同源——若误用 AABB 宽度
+  // 测高，每次提交会把高度越撑越大（正反馈膨胀）
   const editor = page.locator('#spinth-text-layer [contenteditable="true"]');
   await page.mouse.click(580, 380); // 二次点击进编辑
   await expect(editor).toHaveCSS('opacity', '1');

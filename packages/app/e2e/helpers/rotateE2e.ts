@@ -2,9 +2,10 @@ import type { Page } from '@playwright/test';
 import {} from '@playwright/test';
 
 /**
- * 旋转 E2E（docs/05 §8 旋转首版）：拖柄落库/undo 单步、Shift 步进、锚定线跟随、
- * 旋转态命中（AABB 角空区不选）、旋转态 resize（指针逆旋转进局部）。
- * 断言走数据探针（vmStates.rotation）+ rotateHandle 探针定位手柄。
+ * 旋转 E2E（docs/05 §8）：旋转手柄入口暂时隐藏（specs/rotate-hide）期间，旋转态
+ * 用 `setShapeRotation` 数据注入建立（模拟已旋转的旧文档），守护渲染/命中/缩放/
+ * 连线锚定等数据链路；手柄手势用例暂跳过、恢复入口时启用。
+ * 断言走数据探针（vmStates.rotation）+ rotateHandle 探针（坐标 + visible）。
  */
 
 export interface Probe {
@@ -95,6 +96,45 @@ export async function rotateHandleScreen(page: Page): Promise<{ x: number; y: nu
   return worldToScreen(page, world.x, world.y);
 }
 
+/** 旋转柄探针原值（世界坐标 + 是否可见；未单选 rect 型时为 null） */
+export async function rotateHandleProbe(
+  page: Page,
+): Promise<{ x: number; y: number; visible: boolean } | null> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: { rotateHandle: { x: number; y: number; visible: boolean } | null };
+          };
+        }
+      ).__spinthDebug.__debug.rotateHandle,
+  );
+}
+
+/** 数据注入：直写 SHAPE 的 rotation（真实 update 管线——连线 reattach 等响应照常
+ *  触发）。入口隐藏期间用它建立旋转态，等价「已旋转的旧文档」 */
+export async function setShapeRotation(page: Page, id: string, rad: number): Promise<void> {
+  await page.evaluate(
+    ([wid, r]) => {
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              engine: { getModelById(id: string): { update(p: Record<string, unknown>): void } };
+            };
+          };
+        }
+      ).__spinthDebug.__debug.engine
+        .getModelById(wid as string)
+        .update({ rotation: r as number });
+    },
+    [id, rad] as const,
+  );
+}
+
+/** 拖建 120×80 矩形（世界左上 (x,y)）。拖拽创建松手即选中新件并回选择工具，
+ *  末尾 Escape 只是清掉选中 */
 export async function dragCreateRect(page: Page, x: number, y: number): Promise<void> {
   await page.keyboard.press('r');
   await page.mouse.move(x, y + 44);
