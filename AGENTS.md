@@ -239,11 +239,11 @@ threshold/3 死区（净位移过小时不过滤，手抖符号翻转不丢候�
 默认尺寸、以按下点为中心、工具保持可连击、不选中；单击手抖不再画出 8×8 小
 图形。便签门控维持两轴各 ≥ 24px，单击落点同为按下点居中（shape/sticky 一致）。
 
-当前实测基线：`pnpm verify` 通过；1148 单测（core 1032 + react 78 + app 38）；
-E2E 49 spec / 251 例（249 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+当前实测基线：`pnpm verify` 通过；1152 单测（core 1036 + react 78 + app 38）；
+E2E 49 spec / 252 例（250 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
 rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor 2/2、视觉 rotate-45 注入版与旧基线
 逐字节全等；edgeAutoScroll 11/11 含
-E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 4/4 含 C 粘滞落库与 D 端部链式；
+E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 5/5 含 C 粘滞落库、D 端部间隙链与 E 端部中心链；
 clickCreateSlip 2/2（形状 + 便签）；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
