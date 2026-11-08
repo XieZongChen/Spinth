@@ -50,10 +50,17 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     expect(r2.matchedV).toHaveLength(0);
   });
 
-  it('完全贴合（距离<0.5）视为已对齐，不再修正（反抖动）', () => {
+  it('完全贴合：修正为 0 但参考线仍命中（对准瞬间反馈不消失）', () => {
     const r = snapRect({ x: 300, y: 0, width: 100, height: 50 }, 0, 0, refs, 6);
     expect(r.dx).toBe(0);
-    expect(r.matchedV).toHaveLength(0);
+    expect(r.matchedV).toEqual([300]);
+  });
+
+  it('亚像素缝隙（<0.5 屏幕 px）照常贴合修正', () => {
+    // 旧口径 epsilon 跳过会让 0.3 缝隙不修正——阈值内一律修正，贴合反馈不消失
+    const r = snapRect({ x: 300.3, y: 0, width: 50, height: 50 }, 0, 0, refs, 6);
+    expect(r.dx).toBeCloseTo(-0.3, 6);
+    expect(r.matchedV).toEqual([300]);
   });
 
   it('修正作用于位移而非原地：dx 传入后期望位参与比较', () => {
@@ -73,6 +80,19 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     const left = snapRect({ x: 410, y: 0, width: 50, height: 50 }, -8, 0, refs, 6);
     expect(left.dx).toBe(-10);
     expect(left.matchedV).toEqual([400]);
+  });
+
+  it('方向死区：净位移 1px（< threshold/3）时身后的线也可吸附', () => {
+    // 拖拽初段/纯垂直拖的水平抖动 |dx|=1：死区内双侧候选 → 身后 3px 的线拉回
+    const r = snapRect({ x: 302, y: 0, width: 50, height: 50 }, 1, 0, refs, 6);
+    expect(r.dx).toBe(-2);
+    expect(r.matchedV).toEqual([300]);
+  });
+
+  it('方向死区外：身后的线仍被过滤（A3 保持）', () => {
+    const r = snapRect({ x: 302, y: 0, width: 50, height: 50 }, 4, 0, refs, 6);
+    expect(r.dx).toBe(4);
+    expect(r.matchedV).toHaveLength(0);
   });
 
   it('粘滞语义行为锁（A4 勘误）：已吸附反向轻移不脱离，退过阈值才释放', () => {

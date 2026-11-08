@@ -6,9 +6,8 @@ import type { IRect } from '../../common/geometry';
  * - 参照线：每矩形 6 条（左/中/右、上/中/下），kind 区分边线与中心线——中心线只与中心线对齐。
  * - 坐标以 3 位小数为 key 去重（浮点 1e-4 偏差会让吸附失效，既有设计实战踩坑）。
  * - 吸附阈值由调用方换算成世界坐标（屏幕 6px / scale）。
- * - 反抖动：距离 < threshold/12（≈0.5 屏幕 px）视为已对齐，不再修正——
- *   **屏幕口径**（2026-10-11 误差修复批 A2）：原 0.5 世界单位在 zoom 4x 下
- *   = 2 屏幕 px 的「可见缝隙却判已对齐」不修正区，是「对齐有误差」主诉根因之一。
+ * - 阈值内（含亚像素贴合缝隙）一律修正并命中——对准瞬间参考线反馈不消失
+ *   （原 epsilon 跳过已移除：贴合线被 skip 会让红线恰好在完全对上时消失）。
  */
 
 export type RefLineKind = 'edge' | 'center';
@@ -36,8 +35,9 @@ function refLineKey(ref: IRefLineDef): string {
   return `${ref.kind}:${ref.pos.toFixed(3)}`;
 }
 
-/** 反抖动比例：已贴合判定 = threshold/12（阈值 6 屏幕 px → 0.5 屏幕 px，zoom 无关） */
-const ALIGNED_EPSILON_RATIO = 1 / 12;
+/** 方向死区：|净位移| < threshold × 该比例（阈值 6 屏幕 px → ≈2 屏幕 px）时不过滤
+ *  方向——拖拽初段/纯垂直拖的水平抖动不因符号翻转丢候选（docs/06 §3） */
+const DIRECTION_DEAD_ZONE_RATIO = 1 / 3;
 
 export function buildRefLines(rects: IRect[]): IRefLineSet {
   const vMap = new Map<string, IRefLineDef>();
@@ -86,8 +86,8 @@ const H_EDGES: IEdgeDef[] = [
 /**
  * 单轴吸附：在 moving 边与同 kind 参照线间找阈值内最近对，返回修正量与命中线。
  * 方向感知（A3，误差修复批）：移动轴只取**前方**参照线（修正方向与拖拽总位移
- * 同向）——向右拖不被身后阈值内的线往回拽（既有设计 getClosetLineInfo 方向先例，
- * spinth 首版重写丢失）；baseDelta=0（如纯垂直拖的水平轴）两侧等价不过滤。
+ * 同向）——向右拖不被身后阈值内的线往回拽；|baseDelta| 低于死区（拖拽初段/
+ * 纯垂直拖的水平抖动）时两侧等价不过滤。
  * 粘滞（docs/06 §3）：上一帧命中线（stickyKeys）绕过方向过滤——拖过线 1~阈值 px
  * 被拉回，越阈平滑释放；方向过滤只作用于未吸过的线，更近的新线照常最近者胜。
  */
@@ -99,18 +99,18 @@ function snapAxis(
   threshold: number,
   stickyKeys?: Set<string>,
 ): { delta: number; matched: number[]; matchedDefs: IRefLineDef[] } {
-  const alignedEpsilon = threshold * ALIGNED_EPSILON_RATIO;
+  const directional = Math.abs(baseDelta) >= threshold * DIRECTION_DEAD_ZONE_RATIO;
   let best: { dist: number; ref: IRefLineDef } | null = null;
   for (const edge of edges) {
     const target = edge.offset(rect) + baseDelta;
     for (const ref of refs) {
       if (ref.kind !== edge.kind) continue;
       const dist = ref.pos - target;
-      if (!stickyKeys?.has(refLineKey(ref))) {
+      // 方向过滤带死区：净位移过小（初段/手抖）不过滤；粘滞线绕过过滤（docs/06 §3）
+      if (directional && !stickyKeys?.has(refLineKey(ref))) {
         if (baseDelta > 0 && dist < 0) continue; // 向右拖：跳过身后的线
         if (baseDelta < 0 && dist > 0) continue; // 向左拖：跳过身后的线
       }
-      if (Math.abs(dist) < alignedEpsilon) continue; // 已贴合
       if (Math.abs(dist) > threshold) continue;
       if (!best || Math.abs(dist) < Math.abs(best.dist)) {
         best = { dist, ref };
@@ -159,13 +159,12 @@ export function snapResize(
   const matchedV: number[] = [];
   const matchedH: number[] = [];
 
-  const alignedEpsilon = threshold * ALIGNED_EPSILON_RATIO;
   const snapEdge = (target: number, kind: RefLineKind, refs: IRefLineDef[]): number | null => {
     let best: number | null = null;
     for (const ref of refs) {
       if (ref.kind !== kind) continue;
       const dist = ref.pos - target;
-      if (Math.abs(dist) < alignedEpsilon || Math.abs(dist) > threshold) continue;
+      if (Math.abs(dist) > threshold) continue;
       if (best === null || Math.abs(dist) < Math.abs(best - target)) best = ref.pos;
     }
     return best;
