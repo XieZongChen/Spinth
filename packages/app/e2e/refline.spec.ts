@@ -134,6 +134,49 @@ test('B 等间距参考线：拖中间件两侧间隙相等 → 橙色徽标 + �
   await expect.poll(() => geomOf(page, aId)).toEqual({ x: 292, y: 200 });
 });
 
+test('D 端部链式等距：拖一排两端件也有橙色徽标并吸附（gap(A,P) = g(P,Q)）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-refline-endchain-${Date.now()}`);
+  await ready(page);
+
+  // 布局：L(100,200) M(320,200) R(540,200) 各 120×80——间隙均 100
+  const lId = await dragCreateRect(page, 100, 200);
+  await dragCreateRect(page, 320, 200);
+  const rId = await dragCreateRect(page, 540, 200);
+  await expect.poll(() => geomOf(page, lId)).toEqual({ x: 100, y: 200 });
+
+  const gapsProbe = () =>
+    page.evaluate(() => {
+      const d = (
+        window as unknown as {
+          __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
+        }
+      ).__spinthDebug.__debug.spacingGaps;
+      return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
+    });
+
+  // 1. 拖左端 L：过牵引阈值后停在 gap 95（期望 dx=+5，链式解偏差 5 < 6）
+  await page.mouse.move(160, sy(240));
+  await page.mouse.down();
+  await page.mouse.move(120, sy(240), { steps: 4 }); // dx=-40（牵引成立，gap 140 无命中）
+  await page.mouse.move(165, sy(240), { steps: 4 }); // dx=+5 → 吸附回等距位
+  await page.waitForTimeout(150);
+  expect(await gapsProbe()).toEqual(['x:100', 'x:100']); // A↔M 与 M↔R 两段徽标
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect.poll(() => geomOf(page, lId)).toEqual({ x: 100, y: 200 }); // 落库在等距位
+
+  // 2. 对称拖右端 R：停在 gap 95（期望 dx=-5）→ 吸附回 540
+  await page.mouse.move(600, sy(240));
+  await page.mouse.down();
+  await page.mouse.move(640, sy(240), { steps: 4 }); // dx=+40（牵引成立）
+  await page.mouse.move(595, sy(240), { steps: 4 }); // dx=-5 → 吸附回等距位
+  await page.waitForTimeout(150);
+  expect(await gapsProbe()).toEqual(['x:100', 'x:100']);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect.poll(() => geomOf(page, rId)).toEqual({ x: 540, y: 200 });
+});
+
 test('C 粘滞落库：吸上后过冲 3px 仍被拉回线上（松手位置 = 对齐线）', async ({ page }) => {
   await page.goto(`/?doc=e2e-refline-sticky-${Date.now()}`);
   await ready(page);
