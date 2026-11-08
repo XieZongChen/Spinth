@@ -40,7 +40,7 @@ export class RefLineService extends Disposable {
   /** 最近一次等间距命中（徽标数据；E2E 探针消费） */
   private lastGaps: ISpacingGap[] = [];
   /** 粘滞会话状态：上一帧命中线（docs/06 §3）。Service 持有、显式传参给纯函数，
-   *  纯函数保持幂等（docs/14 规则 3 边界）；hideMatches / 深缩放跳过时清空 */
+   *  纯函数保持幂等（docs/14 规则 3）；hideMatches / 深缩放跳过时清空 */
   private sticky: IStickyRefLines = { v: [], h: [] };
   private dirty = true;
 

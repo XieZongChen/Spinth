@@ -24,7 +24,7 @@ export interface IRefLineSet {
 }
 
 /** 粘滞输入（docs/06 §3）：上一帧命中线。由调用方（Service）持有拖拽会话状态、
- *  显式传参进来——纯函数本身无状态、幂等（docs/14 规则 3 边界，与规则 5 的
+ *  显式传参进来——纯函数本身无状态、幂等（docs/14 规则 3，与规则 5 的
  *  lastDx/lastNext 记录最后一帧输出同类） */
 export interface IStickyRefLines {
   v: IRefLineDef[];
