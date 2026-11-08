@@ -71,6 +71,14 @@ describe('snapEqualSpacing 中心等距', () => {
     expect(res.gaps[0]!.value).toBeCloseTo(220, 6);
     expect(res.gaps[1]!.value).toBeCloseTo(220, 6);
   });
+
+  it('精确正中（偏差 0）不修正但显徽标', () => {
+    const l = { x: 0, y: 0, width: 60, height: 100 };
+    const r = { x: 400, y: 0, width: 140, height: 100 };
+    const res = snapEqualSpacing({ x: 200, y: 0, width: 100, height: 100 }, 0, 0, [l, r], 6);
+    expect(res.dx).toBe(0);
+    expect(res.gaps).toHaveLength(2);
+  });
 });
 
 describe('snapEqualSpacing y 轴对称', () => {
@@ -137,5 +145,40 @@ describe('snapEqualSpacing 端部链式（单侧邻居）', () => {
     expect(r.gaps).toHaveLength(2);
     expect(r.gaps[0]!).toMatchObject({ axis: 'y', from: 200, to: 300, value: 100 });
     expect(r.gaps[1]!).toMatchObject({ axis: 'y', from: 400, to: 500, value: 100 });
+  });
+
+  it('端部中心链（右端）：三心等差 A.cx = 2·P.cx − Q.cx，中心距徽标', () => {
+    // B(300,w100,cx350)、C(560,w40,cx580)：中心距 230；目标 A.cx = 350−230 = 120 → A.x = 70。
+    // 边间隙链解 g=160 → A.x=40（偏差 33 不命中）——本例中心链独立命中
+    const b = { x: 300, y: 0, width: 100, height: 100 };
+    const c = { x: 560, y: 0, width: 40, height: 100 };
+    const r = snapEqualSpacing({ x: 73, y: 0, width: 100, height: 100 }, 0, 0, [b, c], 6);
+    expect(r.dx).toBe(-3); // 73 → 70（cx 123 → 120）
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 120, to: 350, value: 230 }); // A.cx↔P.cx
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 350, to: 580, value: 230 }); // P.cx↔Q.cx
+  });
+
+  it('端部中心链（左端镜像）：A 最右，三心等差吸附', () => {
+    // P=B(300,w100,cx350) 最近左邻、Q=C(100,w60,cx130) 外侧：中心距 220；
+    // 目标 A.cx = 350+220 = 570 → A.x = 520（边间隙链 g=140 → A.x=540，偏差 17 不命中）
+    const b = { x: 300, y: 0, width: 100, height: 100 };
+    const c = { x: 100, y: 0, width: 60, height: 100 };
+    const r = snapEqualSpacing({ x: 523, y: 0, width: 100, height: 100 }, 0, 0, [b, c], 6);
+    expect(r.dx).toBe(-3);
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 130, to: 350, value: 220 }); // Q.cx↔P.cx
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 350, to: 570, value: 220 }); // P.cx↔A.cx
+  });
+
+  it('端部两链解重合时边间隙徽标优先（与中置口径一致）', () => {
+    // 等大等距：B(300) C(500)——边间隙链解 A.x=100（g=100），中心链解 A.cx=150
+    // （=350−200）→ A.x=100：重合，先评估的边间隙胜出（徽标值为间隙 100）
+    const b = { x: 300, y: 0, width: 100, height: 100 };
+    const c = { x: 500, y: 0, width: 100, height: 100 };
+    const r = snapEqualSpacing({ x: 103, y: 0, width: 100, height: 100 }, 0, 0, [b, c], 6);
+    expect(r.dx).toBe(-3);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', value: 100 }); // 间隙徽标，非中心距 200
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', value: 100 });
   });
 });
