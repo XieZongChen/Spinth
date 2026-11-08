@@ -5,7 +5,7 @@ import {
   MarqueeSession,
   type IMarqueeContext,
 } from '../platform/selector/selectorMarquee';
-import { DRAG_TRACTION_SCREEN } from '../platform/selector/selectorDragOps';
+import { DRAG_TRACTION_SCREEN } from '../common/interaction';
 import type { IRect } from '../common/geometry';
 
 /**

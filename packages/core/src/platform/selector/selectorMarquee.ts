@@ -2,7 +2,7 @@ import { Point, Rectangle } from 'pixi.js';
 import type { IPoint, IRect } from '../../common/geometry';
 import type { IMindDragDelegate, IVmEngineService } from '../../types';
 import { marqueeRectOf, type MarqueeState } from './selectorVm';
-import { DRAG_TRACTION_SCREEN } from './selectorDragOps';
+import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
 import type { GroupService } from './groupService';
 
 /**

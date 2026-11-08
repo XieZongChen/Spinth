@@ -9,7 +9,7 @@ import type {
   IViewportService,
 } from '../../types';
 import type { IRect } from '../../common/geometry';
-import { DRAG_TRACTION_SCREEN } from '../../platform/selector/selectorDragOps';
+import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
 
 /**
  * 「框型控件」创建工具的模板基类（docs/04 §2，对标既有设计 ShareShapeService）：

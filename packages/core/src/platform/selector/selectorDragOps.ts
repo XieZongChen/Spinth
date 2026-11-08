@@ -2,6 +2,7 @@ import { Point } from 'pixi.js';
 import { Subject } from 'rxjs';
 import { markRender } from '../../common/render';
 import { unionRects, type IRect } from '../../common/geometry';
+import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -11,10 +12,6 @@ import type {
 } from '../../types';
 import type { SelectionVm } from '../selection/selectionVm';
 import type { RefLineService } from '../refLine/refLineService';
-
-/** 拖拽启动阻尼（docs/05 §4.1）——屏幕 px（Batch 1 · 1.8④：防手抖是屏幕手感，
- * 世界单位在 0.05x 下 1px 抖动即判拖拽、4x 下迟滞 40px） */
-export const DRAG_TRACTION_SCREEN = 10;
 
 export interface DragState {
   startWorld: Point;
