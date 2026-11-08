@@ -9,15 +9,13 @@ import type {
   IViewportService,
 } from '../../types';
 import type { IRect } from '../../common/geometry';
-
-/** 通用拖拽创建阻尼（屏幕 px，Batch 1 · 1.8⑤ 改口径）：位移低于此值按单击
- *  处理——防手抖是屏幕手感（旧世界口径 4x 下要拖 20 屏幕像素才出草稿） */
-const DRAG_CREATE_THRESHOLD_SCREEN = 5;
+import { DRAG_TRACTION_SCREEN } from '../../platform/selector/selectorDragOps';
 
 /**
  * 「框型控件」创建工具的模板基类（docs/04 §2，对标既有设计 ShareShapeService）：
  * 指针三段流在基类焊死——down 记起点 → move 过阈值建草稿并跟手 → up 收尾。
- * 松手统一收尾：stopCapturing 划定 undo 边界 + 选中新控件 + 回选择工具（参考行为）。
+ * 松手收尾：单击（未建草稿）按默认尺寸落件、仅划撤销边界，工具保持（可连击
+ * 放置）；拖拽画图 stopCapturing + 选中新控件 + 回选择工具。
  * 子类只声明 scope / 默认尺寸 / 阈值与下限，并实现 createWidget 落库。
  */
 export abstract class DragCreateServiceBase extends Disposable {
@@ -42,9 +40,11 @@ export abstract class DragCreateServiceBase extends Disposable {
   /** 拖拽草稿的最小尺寸下限（跟手期间钳制） */
   protected readonly minDraftSize = { width: 1, height: 1 };
 
-  /** 拖拽创建触发判定（默认：位移超过通用阻尼阈值） */
+  /** 拖拽创建触发判定（默认：位移达到单击/拖拽分界）。分界复用选中拖拽的起拖
+   *  阻尼（10 屏幕 px，docs/05 §4.1）：单击时手抖滑出几 px 不该画出小图形——
+   *  屏幕口径每帧现读缩放（世界口径 4x 下要拖 40 屏幕 px、0.05x 下 1px 即触发） */
   protected meetsDragThreshold(dx: number, dy: number): boolean {
-    return Math.hypot(dx, dy) >= DRAG_CREATE_THRESHOLD_SCREEN / (this.viewport.vpScale$.value || 1);
+    return Math.hypot(dx, dy) >= DRAG_TRACTION_SCREEN / (this.viewport.vpScale$.value || 1);
   }
 
   /** 草稿创建后每帧是否继续跟手（覆写可实现「回缩到阈值下冻结」等语义） */
@@ -69,8 +69,8 @@ export abstract class DragCreateServiceBase extends Disposable {
         this.start = e.world.clone();
       },
       onPointerMove: (e) => this.onPointerMove(e),
-      onPointerUp: (e) => this.onPointerUp(e),
-      onPointerUpOutside: (e) => this.onPointerUp(e),
+      onPointerUp: () => this.onPointerUp(),
+      onPointerUpOutside: () => this.onPointerUp(),
     });
   }
 
@@ -91,11 +91,14 @@ export abstract class DragCreateServiceBase extends Disposable {
     }
   }
 
-  private onPointerUp(e: IPointerEventInfo): void {
+  /** 松手收尾只看会话状态（起点 / 是否已建草稿），不读松手坐标：单击以按下点
+   *  落件，拖拽画图的几何已由最后一帧 move 写入 */
+  private onPointerUp(): void {
     if (this.start && !this.editingId) {
-      // 单击：默认尺寸，落点为中心
+      // 单击：默认尺寸，以按下点为中心——按下点是用户瞄准处；单击容许
+      // 分界内的滑移，松手点可能偏出近 10 屏幕 px
       const d = this.defaultSize;
-      this.createWidget(e.world.x - d.width / 2, e.world.y - d.height / 2, d.width, d.height);
+      this.createWidget(this.start.x - d.width / 2, this.start.y - d.height / 2, d.width, d.height);
       // 撤销项切分（Batch 1 · 1.11②）：单击创建此前无 stopCapturing——与 500ms
       // 内的下一操作（如随手拖动新件）并成一个 undo 项，「建件+拖动」一起消失
       this.history.stopCapturing();
