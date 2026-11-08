@@ -72,7 +72,8 @@ export class RefLineService extends Disposable {
   }
 
   /** 拖拽吸附：rect 为拖拽元素的初始包围盒。对齐（红）与等间距（橙）同 move
-   *  内合并——同轴**对齐优先**（更强语义），该轴无对齐命中才让位等距；异轴并存 */
+   *  内合并——同轴比较两者偏差，**更小者胜**（docs/06 §7：弱对齐不再截胡
+   *  更准的等距解；平局对齐胜，语义更强）；异轴并存 */
   snapForDrag(initialRect: IRect, dx: number, dy: number): ISnapResult {
     const threshold = this.currentThreshold();
     this.lastGaps = [];
@@ -82,23 +83,37 @@ export class RefLineService extends Disposable {
     }
     this.rebuildIfDirty();
     const align = snapRect(initialRect, dx, dy, this.refLines, threshold, this.sticky);
-    // 粘滞回写：本帧命中线即下一帧的 sticky（该轴未命中即清）
-    this.sticky = { v: align.matchedVDefs ?? [], h: align.matchedHDefs ?? [] };
     const spacing = snapEqualSpacing(initialRect, dx, dy, this.referenceRects, threshold);
-    const outDx = align.matchedV.length > 0 ? align.dx : spacing.dx;
-    const outDy = align.matchedH.length > 0 ? align.dy : spacing.dy;
-    // 等距的投影重叠按期望位移计算（未含对齐轴修正）——修正量 ≤ 阈值 6px，
-    // 重叠结论不受影响（边界注释，实测无差异）
+    // 同轴偏差比较：偏差 = |修正后位移 − 期望位移|（吸附拉动量）
+    const alignWinsV =
+      align.matchedV.length > 0 &&
+      !(
+        spacing.gaps.some((g) => g.axis === 'x') &&
+        Math.abs(spacing.dx - dx) < Math.abs(align.dx - dx)
+      );
+    const alignWinsH =
+      align.matchedH.length > 0 &&
+      !(
+        spacing.gaps.some((g) => g.axis === 'y') &&
+        Math.abs(spacing.dy - dy) < Math.abs(align.dy - dy)
+      );
+    // 粘滞回写：只记实际画出的对齐线（该轴让位等距或未命中即清）
+    this.sticky = {
+      v: alignWinsV ? (align.matchedVDefs ?? []) : [],
+      h: alignWinsH ? (align.matchedHDefs ?? []) : [],
+    };
+    const outDx = alignWinsV ? align.dx : spacing.dx;
+    const outDy = alignWinsH ? align.dy : spacing.dy;
     const gaps = [
-      ...(align.matchedV.length > 0 ? [] : spacing.gaps.filter((g) => g.axis === 'x')),
-      ...(align.matchedH.length > 0 ? [] : spacing.gaps.filter((g) => g.axis === 'y')),
+      ...(alignWinsV ? [] : spacing.gaps.filter((g) => g.axis === 'x')),
+      ...(alignWinsH ? [] : spacing.gaps.filter((g) => g.axis === 'y')),
     ];
     this.lastGaps = gaps;
     const result: ISnapResult = {
       dx: outDx,
       dy: outDy,
-      matchedV: align.matchedV,
-      matchedH: align.matchedH,
+      matchedV: alignWinsV ? align.matchedV : [],
+      matchedH: alignWinsH ? align.matchedH : [],
     };
     this.drawMatches(result.matchedV, result.matchedH, gaps);
     return result;

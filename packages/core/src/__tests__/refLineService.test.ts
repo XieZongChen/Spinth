@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { RefLineService } from '../platform/refLine/refLineService';
+import { stubPixiCanvasDocument } from './helpers/pixiNodeEnv';
 import type { IBaseModel, IBaseWidgetVm } from '../types';
 
 /**
@@ -113,6 +114,41 @@ describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
     vp.vpScale$.next(1);
     expect(svc.snapForDrag(rect, 303, 0).dx).toBe(303); // 粘滞已清，不拉回
     svc.dispose();
+  });
+});
+
+describe('refLineService 对齐/等距同轴竞争（docs/06 §7 偏差最小者胜）', () => {
+  // 等距命中会画徽标（PIXI Text 测量依赖 DOM canvas）——node 环境先桩掉
+  beforeAll(stubPixiCanvasDocument);
+
+  // L(100) M(355) R(500) 同排（y 投影重叠）；拖 A(292,50)：
+  // 等距解（L,R 邻居）在 dx=8（间隙各 150）；M 左缘 355 与 A 右缘构成对齐候选
+  function competingService() {
+    return createService([
+      { id: 'L', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+      { id: 'M', type: 'SHAPE', rect: { x: 355, y: 100, width: 50, height: 50 } },
+      { id: 'R', type: 'SHAPE', rect: { x: 500, y: 100, width: 50, height: 50 } },
+    ]);
+  }
+
+  it('等距偏差更小：等距胜（对齐不再无条件截胡）', () => {
+    const svc = competingService();
+    // dx=7 → A 右缘 349 距 M 左缘 355 为 6（对齐偏差 6）；等距解偏差 1
+    const r = svc.snapForDrag({ x: 292, y: 100, width: 50, height: 50 }, 7, 0);
+    svc.dispose();
+    expect(r.dx).toBe(8); // 等距解
+    expect(r.matchedV).toHaveLength(0); // 红线让位
+    expect(svc.__spacingGaps.map((g) => `${g.axis}:${g.value}`)).toEqual(['x:150', 'x:150']);
+  });
+
+  it('对齐偏差更小：对齐胜', () => {
+    const svc = competingService();
+    // dx=12.8 → A 右缘 354.8 距 M 左缘 355 为 0.2（对齐偏差 0.2）；等距解偏差 4.8
+    const r = svc.snapForDrag({ x: 292, y: 100, width: 50, height: 50 }, 12.8, 0);
+    svc.dispose();
+    expect(r.dx).toBeCloseTo(13, 6);
+    expect(r.matchedV).toEqual([355]);
+    expect(svc.__spacingGaps).toHaveLength(0);
   });
 });
 
