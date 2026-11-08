@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildRefLines,
   snapRect,
@@ -165,6 +165,48 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     const a = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6, sticky);
     const b = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 302, 0, refs, 6, sticky);
     expect(b).toEqual(a);
+  });
+
+  describe('热路径：阈值外候选不格式化粘滞 key', () => {
+    // 密集画布：500 个远处参照（全在阈值外）；key 格式化（toFixed）只应落在
+    // 「阈值内且身后」的候选上——空粘滞时一次都不该发生
+    const far = Array.from({ length: 500 }, (_, i) => ({
+      x: 1000 + i * 20,
+      y: 1000,
+      width: 10,
+      height: 10,
+    }));
+
+    function toFixedCalls(run: () => void): number {
+      const spy = vi.spyOn(Number.prototype, 'toFixed');
+      try {
+        run();
+        return spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    it('空粘滞（Service 常态）：零次格式化', () => {
+      const dense = buildRefLines(far);
+      const empty: IStickyRefLines = { v: [], h: [] };
+      const calls = toFixedCalls(() => {
+        snapRect({ x: 0, y: 0, width: 50, height: 50 }, 10, 10, dense, 6, empty);
+      });
+      expect(calls).toBe(0);
+    });
+
+    it('单条粘滞：只格式化粘滞集合与阈值内身后候选，结果不变', () => {
+      const dense = buildRefLines([...far, { x: 300, y: 300, width: 100, height: 50 }]);
+      const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
+      let dx = 0;
+      const calls = toFixedCalls(() => {
+        // 宽 10：仅左边 302 落在线 300 的阈值内（身后 2）
+        dx = snapRect({ x: 0, y: 0, width: 10, height: 10 }, 302, 0, dense, 6, sticky).dx;
+      });
+      expect(dx).toBe(300); // 粘滞拉回行为不变
+      expect(calls).toBeLessThanOrEqual(2); // 建集合 1 + 阈值内身后候选 1
+    });
   });
 
   it('反抖动阈值屏幕化（A2）：zoom 4x 下 0.4 世界缝隙（1.6 屏幕 px）仍被贴合', () => {

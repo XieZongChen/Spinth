@@ -107,12 +107,11 @@ function snapAxis(
     for (const ref of refs) {
       // 边↔中心互吸（docs/06 §3）：被拖的每条线与每条参照线配对，阈值内最近者胜
       const dist = ref.pos - target;
-      // 方向过滤带死区：净位移过小（初段/手抖）不过滤；粘滞线绕过过滤（docs/06 §3）
-      if (directional && !stickyKeys?.has(refLineKey(ref))) {
-        if (baseDelta > 0 && dist < 0) continue; // 向右拖：跳过身后的线
-        if (baseDelta < 0 && dist > 0) continue; // 向左拖：跳过身后的线
-      }
-      if (Math.abs(dist) > threshold) continue;
+      if (Math.abs(dist) > threshold) continue; // 廉价阈值筛先行（热路径：密集画布）
+      // 方向过滤带死区：净位移过小（初段/手抖）不过滤；粘滞线绕过过滤（docs/06
+      // §3）。只对「阈值内且身后」的候选查粘滞 key（含 toFixed，比比较贵）
+      const behind = baseDelta > 0 ? dist < 0 : baseDelta < 0 ? dist > 0 : false;
+      if (directional && behind && !stickyKeys?.has(refLineKey(ref))) continue;
       if (!best || Math.abs(dist) < Math.abs(best.dist)) {
         best = { dist, ref };
       }
@@ -131,8 +130,9 @@ export function snapRect(
   threshold: number,
   sticky?: IStickyRefLines,
 ): ISnapResult {
-  const stickyV = sticky ? new Set(sticky.v.map(refLineKey)) : undefined;
-  const stickyH = sticky ? new Set(sticky.h.map(refLineKey)) : undefined;
+  // 空粘滞不建集合（Service 常态——拖拽首帧/未吸附时零格式化开销）
+  const stickyV = sticky && sticky.v.length > 0 ? new Set(sticky.v.map(refLineKey)) : undefined;
+  const stickyH = sticky && sticky.h.length > 0 ? new Set(sticky.h.map(refLineKey)) : undefined;
   const sx = snapAxis(V_EDGES, rect, dx, refs.v, threshold, stickyV);
   const sy = snapAxis(H_EDGES, rect, dy, refs.h, threshold, stickyH);
   return {
