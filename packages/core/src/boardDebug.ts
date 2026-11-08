@@ -22,7 +22,7 @@ export function buildBoardDebugSnapshot(host: IBoardDebugHost) {
     } | null,
     rectEditor: host.rectEditor as unknown as {
       __editorFrame?: { x: number; y: number; width: number; height: number } | null;
-      __rotateHandle?: { x: number; y: number } | null;
+      __rotateHandle?: { x: number; y: number; visible: boolean } | null;
     } | null,
     widgetChildrenCount: host.viewport
       ? (host.viewport as unknown as { widgetLayer: { children: unknown[] } }).widgetLayer.children

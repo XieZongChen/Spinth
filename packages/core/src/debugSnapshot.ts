@@ -17,7 +17,7 @@ export interface IDebugSnapshotDeps {
   selector: { __selectionFrame?: IRect | null; selected$: { value: string[] } } | null;
   rectEditor: {
     __editorFrame?: IRect | null;
-    __rotateHandle?: { x: number; y: number } | null;
+    __rotateHandle?: { x: number; y: number; visible: boolean } | null;
   } | null;
   widgetChildrenCount: number;
   renderCount: number;

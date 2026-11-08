@@ -100,8 +100,8 @@ export class RectEditorService extends Disposable {
     return this.vm.debugRect;
   }
 
-  /** dev 调试：旋转柄世界坐标（E2E 定位用，docs/05 §8） */
-  get __rotateHandle(): { x: number; y: number } | null {
+  /** dev 调试：旋转柄世界坐标 + 可见性（E2E 定位与入口隐藏锁用，docs/05 §8） */
+  get __rotateHandle(): { x: number; y: number; visible: boolean } | null {
     return this.vm.debugRotateHandle;
   }
 

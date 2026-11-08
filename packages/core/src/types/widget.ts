@@ -194,7 +194,11 @@ export type IWidgetData = z.infer<typeof WidgetDataUnion> & IRect;
 
 /** 各类型能力位单源（docs/02 §4 八元，第五刀扩 editable/referenceable/
  *  erasable 三元）——此前七 Model 各自手写重复且无互查；语义注释：
- *  - rotatable：仅 rect 四类（SHAPE/TEXT/STICKY/IMAGE）；LINE/PEN/MIND_MAP 首版不旋转
+ *  - rotatable：旋转手柄入口闸门（rectEditorService 唯一消费点）。rect 四类
+ *    （SHAPE/TEXT/STICKY/IMAGE）支持 rotation 数据，但入口**暂时隐藏**
+ *    （用户拍板：手感未达预期）——四类当前置 false；rotation 字段、渲染、
+ *    命中、缩放、连线锚定全保留，恢复 = 四类改回 true（docs/05 §8、
+ *    specs/rotate-hide）。LINE/PEN/MIND_MAP 不旋转
  *  - groupable：自由六类；MIND_MAP 节点级选中走焦点体系（docs/18 §3.1）
  *  - resizable：LINE 无（端点手势管形状）；PEN 走 points 重映射非 root.scale
  *  - keepRatio：仅 IMAGE（图片默认锁定比例）
@@ -206,7 +210,7 @@ export const WIDGET_REGISTRY = {
   SHAPE: {
     schema: ShapeSchema,
     capabilities: {
-      rotatable: true,
+      rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
       groupable: true,
       resizable: true,
       movable: true,
@@ -220,7 +224,7 @@ export const WIDGET_REGISTRY = {
   TEXT: {
     schema: TextSchema,
     capabilities: {
-      rotatable: true,
+      rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
       groupable: true,
       resizable: true,
       movable: true,
@@ -263,7 +267,7 @@ export const WIDGET_REGISTRY = {
   STICKY: {
     schema: StickySchema,
     capabilities: {
-      rotatable: true,
+      rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
       groupable: true,
       resizable: true,
       movable: true,
@@ -292,7 +296,7 @@ export const WIDGET_REGISTRY = {
   IMAGE: {
     schema: ImageSchema,
     capabilities: {
-      rotatable: true,
+      rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
       groupable: true,
       resizable: true,
       movable: true,

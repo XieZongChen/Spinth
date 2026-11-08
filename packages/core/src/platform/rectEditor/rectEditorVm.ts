@@ -137,10 +137,12 @@ export class RectEditorVm {
     return this.rect;
   }
 
-  /** dev 调试：旋转柄世界坐标（E2E 定位用） */
-  get debugRotateHandle(): { x: number; y: number } | null {
+  /** dev 调试：旋转柄世界坐标（E2E 定位用）+ 可见性（入口隐藏时 visible=false——
+   *  坐标照算，柄不渲染、不命中，specs/rotate-hide） */
+  get debugRotateHandle(): { x: number; y: number; visible: boolean } | null {
     if (!this.rect) return null;
-    return this.rotateHandlePos(this.rect, this.rotation, this.scale);
+    const p = this.rotateHandlePos(this.rect, this.rotation, this.scale);
+    return { x: p.x, y: p.y, visible: this.rotateDot.visible };
   }
 
   /** rect = 视觉局部矩形（getHostGeom 语义）；rotation = 绕中心角（docs/05 §8）；

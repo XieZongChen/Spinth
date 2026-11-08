@@ -172,6 +172,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 
 ## 8. 旋转
 
+- **入口暂时隐藏**：旋转手柄（唯一用户入口）当前不显示——能力位 `rotatable`
+  四类置 false（docs/04 §4，specs/rotate-hide）。rotation 数据能力全部保留：已旋转
+  的旧文档与导入的项目文件照常渲染、命中、拖拽、缩放、连线锚定；旋转件只是无法
+  继续旋转。下文是入口恢复时的完整规格。
 - 范围：SHAPE/TEXT/STICKY/IMAGE 四类 rect 型；LINE/PEN/MIND_MAP 首版不旋转。
 - 只做单选；旋转手柄仅单选出现，多选不出。
 - 数据：`rotation: z.number().optional()`（无 default，旧文档零迁移），弧度存储，
@@ -180,7 +184,7 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   `root.rotation = θ`；x/y 数据语义（未旋转局部矩形左上角）不变。
 - `getBounds()` = 世界 AABB；`getLocalRect()` = 数据矩形。
 - 命中：点逆变换到局部系判定；框选走旋转矩形 vs marquee 精判。
-- 旋转手柄：nw 角外斜向 45° 悬浮圆点约 20px；拖拽绕中心，Shift 15° 步进；
-  preview 直写 `root.rotation`，松手 `model.update({ rotation })` 单事务。
+- 旋转手柄（入口隐藏中）：nw 角外斜向 45° 悬浮圆点约 20px；拖拽绕中心，Shift
+  15° 步进；preview 直写 `root.rotation`，松手 `model.update({ rotation })` 单事务。
 - 首版降级：旋转件不参与参考线/等间距；多选框/awareness 框恒 AABB；
   ActionBar 按 AABB 定位；对齐/分布按外接矩形。多选整体旋转挂账。
