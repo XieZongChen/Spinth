@@ -100,10 +100,10 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     expect(r.matchedV).toHaveLength(0);
   });
 
-  it('粘滞语义行为锁（A4 勘误）：已吸附反向轻移不脱离，退过阈值才释放', () => {
-    // docs/06 原「粘滞暂未实现」断言基于单侧匹配的错误假设——实际阈值内双侧
-    // 匹配天然提供 approach 侧 glue（反向轻移 dist 仍在阈值内 → 保持吸附）；
-    // A3 方向感知补上越过侧的平滑释放。钉死两段语义防回归：
+  it('无 sticky 入参的接近侧 glue（A4 行为锁）：轻移不脱离，退过阈值即释放', () => {
+    // 阈值内双侧匹配天然提供接近侧 glue（指针还在线前方时 dist 为正 → 照常吸附）；
+    // 越过侧 glue 由 sticky 入参提供（上一帧命中线绕过方向过滤，见下组用例）。
+    // 本组钉死无 sticky 时的两段语义防回归：
     const engage = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 296, 0, refs, 6);
     expect(engage.dx).toBe(300); // 296 吸合到 300
     const retreat = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 297, 0, refs, 6);
@@ -124,7 +124,7 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     expect(r.matchedVDefs).toEqual([{ pos: 300, kind: 'edge' }]);
   });
 
-  it('粘滞：过线 5px 仍保持，越阈 7px 平滑释放', () => {
+  it('粘滞：过线 5px 仍保持，越阈 7px 即释放（跟手）', () => {
     const sticky: IStickyRefLines = { v: [{ pos: 300, kind: 'edge' }], h: [] };
     const hold = snapRect({ x: 0, y: 0, width: 50, height: 50 }, 305, 0, refs, 6, sticky);
     expect(hold.dx).toBe(300);
@@ -209,10 +209,8 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     });
   });
 
-  it('反抖动阈值屏幕化（A2）：zoom 4x 下 0.4 世界缝隙（1.6 屏幕 px）仍被贴合', () => {
-    // threshold = 6/4 = 1.5；旧口径 epsilon=0.5 世界 → 0.4 判「已对齐」不修正
-    // （zoom 4x 下 = 1.6 屏幕 px 可见缝隙——「对齐有误差」主诉）；新口径
-    // epsilon = 1.5/12 = 0.125 → 0.4 > 0.125 照常吸附
+  it('zoom 4x 下 0.4 世界缝隙（1.6 屏幕 px）照常贴合修正', () => {
+    // threshold = 6/4 = 1.5；缝隙 0.4 在阈值内 → 一律修正贴合，不留可见缝隙
     const r = snapRect({ x: 299.6, y: 0, width: 50, height: 50 }, 0, 0, refs, 1.5);
     expect(r.dx).toBeCloseTo(0.4, 6);
     expect(r.matchedV).toEqual([300]);

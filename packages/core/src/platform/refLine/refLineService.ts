@@ -30,7 +30,7 @@ const MIN_ADSORB_DISTANCE_WORLD = 1;
 
 /**
  * 参考线服务（docs/06）：懒重建参照线集（选中/视口/数据变化置脏），
- * 向拖拽（snapForDrag）与缩放（snapResizeEdge）提供吸附与命中线绘制。
+ * 向拖拽（snapForDrag）与缩放（snapForResize）提供吸附与命中线绘制。
  */
 export class RefLineService extends Disposable {
   private vm!: RefLineVm;

@@ -8,28 +8,29 @@
 ## 2. 参照线模型
 
 - 参照物：可视区内的 SHAPE / STICKY / TEXT / IMAGE（连线/画笔/脑图不参与），
-  剔除当前选中集。
+  剔除当前选中集与旋转件（AABB 边不是视觉边，docs/05 §8 降级项）。
 - 每个参照矩形生成 6 条线：
-  - 垂直：`vl`（左）、`vc`（中）、`vr`（右）；
-  - 水平：`ht`（上）、`hc`（中）、`hb`（下）。
-- 线的存储 key：坐标 3 位小数精度的字符串（`v:123.456`），规避浮点误差。
-- 数据结构：`vLineMap / hLineMap: Map<key, IRefLineMeta[]>`，懒计算 + 脏标记。
+  - 垂直：左缘、水平中心、右缘；
+  - 水平：上缘、垂直中心、下缘。
+  - 每条线带 `kind`（`edge`/`center`）——粘滞身份依赖它。
+- 线的存储 key：`${kind}:${pos.toFixed(3)}`（如 `edge:300.000`），规避浮点误差；
+  线集去重与粘滞匹配共用同一 key 口径。
+- 数据结构：`IRefLineSet { v/h: IRefLineDef[] }`；另存参照矩形 `IRect[]`（等间距
+  配对用——线集丢了矩形形状）。RefLineService 懒重建 + 脏标记。
 - 重算时机：选中集变化、视口变化、模型创建/删除、文档级 update 旁路
   （拖拽/缩放进行中的其他元素几何变化）。
 
 ## 3. 吸附算法
 
 ```ts
-interface AdsorbContext {
-  distance?: number; // 吸附阈值，默认 6 屏幕像素
-  scale: number;
-  direction: 'left' | 'right' | 'top' | 'bottom' | 'center-x' | 'center-y' | corner;
-}
+// 纯函数（Service 持会话状态、显式传参——docs/14 规则 3）
+snapRect(rect, dx, dy, refs, threshold, sticky?): ISnapResult; // 拖拽吸附
+snapResize(rect, dir, refs, threshold, minSize = 8); // 缩放吸附（只被拖的边）
 ```
 
 流程：
 
-1. 阈值 = `distance / scale`（屏幕像素 → 世界坐标）。
+1. 阈值 = `ADSORB_DISTANCE_SCREEN(6) / scale`（屏幕像素 → 世界坐标）。
 2. 拖拽：被拖矩形的三条线（左/中/右、上/中/下）全部参与，方向过滤作用于候选
    参考线（见下）；缩放：只有被拖的边参与，取阈值内最近的**有效**线——吸附后
    尺寸 < `minSize` 的候选跳过、回退到次近有效线。
@@ -42,15 +43,16 @@ interface AdsorbContext {
 5. 边线与中心线可互相对齐：边↔边、边↔中心、中心↔中心，阈值内最近者胜。
 6. 深缩放保护：`threshold < 1` 世界单位（zoom > 6x）跳过吸附。
 
-常量：`ADSORB_DISTANCE = 6`（屏幕 px）。方向感知候选：移动轴 delta > 0 只取
+常量：`ADSORB_DISTANCE_SCREEN = 6`（屏幕 px）。方向感知候选：移动轴 delta > 0 只取
 前方线，< 0 只取后方线；|delta| < threshold/3（≈2 屏幕 px 方向死区）或纯垂直
 拖动的水平轴不过滤——手抖符号翻转不丢候选。
 
 ## 4. 参考线绘制
 
-- 命中的参考线与目标矩形投影合并为贯穿两者的长线段。
+- 对齐命中线横贯当前视口。
 - 屏幕恒定粗细：`lineWidth = 2 / scale`；主题色为红色系。
-- 绘制时机：RectEditor/拖拽每次 bounds 更新实时刷新；pointerup 清除。
+- 绘制时机：RectEditor/拖拽每次 bounds 更新实时刷新；pointerup / pointercancel /
+  缩放手势取消清除。
 - 绘制层：`optionLayer`。
 
 ## 5. 交互细节
