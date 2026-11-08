@@ -13,7 +13,8 @@ const DEFAULT_SIZE = 180;
 /** 两轴都拖出 ≥24 才视为拖拽创建（低于此为单击）；创建后回缩到阈值下冻结 */
 const STICKY_DRAG_MIN = 24;
 
-/** 便签交互层：sticky 工具单击/拖拽创建（尺寸 = 拖拽或默认），完成后回选择工具 */
+/** 便签交互层：sticky 工具单击按默认尺寸落件（以按下点为中心、工具保持可连击）；
+ *  拖拽画图（两轴各 ≥24 屏幕 px）完成后选中新件并回选择工具 */
 export class StickyService extends DragCreateServiceBase {
   protected readonly scope = 'sticky' as const;
   protected readonly defaultSize = { width: DEFAULT_SIZE, height: DEFAULT_SIZE };

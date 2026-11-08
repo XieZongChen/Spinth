@@ -85,7 +85,7 @@ describe('refLineService 深缩放保护（A2，docs/06 §3）', () => {
 });
 
 describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
-  it('第二帧过线被拉回；hideMatches 后新拖拽不回吸（A3 保持）', () => {
+  it('engage → 过线拉回 → 越阈释放；hideMatches 后新拖拽不回吸（A3 保持）', () => {
     const svc = createService([
       { id: 'ref', type: 'SHAPE', rect: { x: 300, y: 300, width: 100, height: 50 } },
     ]);
@@ -95,6 +95,9 @@ describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
     const overshoot = svc.snapForDrag(rect, 303, 0); // 过线 3px：粘滞拉回
     expect(overshoot.dx).toBe(300);
     expect(overshoot.matchedV).toEqual([300]);
+    const escape = svc.snapForDrag(rect, 307, 0); // 越阈 7px：释放跟手
+    expect(escape.dx).toBe(307);
+    expect(escape.matchedV).toHaveLength(0);
     svc.hideMatches(); // 松手/取消清粘滞
     const fresh = svc.snapForDrag(rect, 303, 0); // 新拖拽：无粘滞不回吸
     expect(fresh.dx).toBe(303);
