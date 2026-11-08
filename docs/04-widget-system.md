@@ -59,6 +59,10 @@ class ShapeService extends DragCreateServiceBase {
 
 - 创建型工具（shape/sticky）继承 `DragCreateServiceBase`：down 记起点 → move 过阈值
   建草稿并跟手 → up 收尾；子类只声明 scope / 默认尺寸 / 阈值语义 / createWidget。
+- 单击与拖拽画图的分界：默认为位移 ≥ 10 屏幕 px（欧氏距离，每帧按缩放换算；与
+  docs/05 §4.1 起拖阻尼 `DRAG_TRACTION_SCREEN` 同值）。低于分界一律按单击收尾：
+  默认尺寸、以**按下点**为中心、仅划撤销边界，不选中、工具保持激活（可连击放置）；
+  拖拽画图松手选中新件并回选择工具。sticky 覆写为两轴各 ≥ 24 屏幕 px，回缩冻结。
 - 非创建型交互（pen/line/text/eraser）自行 `registerGlobalEventListener`。
 - 工具默认参数是 Service 会话态（不落库、不持久化）：shapeType、lineType、penColor、
   stickyColor、fontSize、eraserRadius。SDK 聚合为 `defaultToolOptions$` +

@@ -226,10 +226,15 @@ threshold/3 死区（净位移过小时不过滤，手抖符号翻转不丢候�
 筛再判粘滞、空粘滞零 key 格式化。refline E2E 3 用例，含 C 粘滞落库（关粘滞
 停 403、开粘滞落 400）。
 
-当前实测基线：`pnpm verify` 通过；1136 单测（core 1020 + react 78 + app 38）；
-E2E 48 spec / 247 用例全绿（主配置 240 + pwa 7；edgeAutoScroll 11/11 含
+工具单击创建滑移容差已落地（specs/click-create-slip，docs/04 §2）：形状工具
+单击与拖拽画图的分界为 10 屏幕 px（复用 `DRAG_TRACTION_SCREEN`），低于分界
+一律按单击——默认尺寸、以按下点为中心、工具保持可连击、不选中；单击手抖不再
+画出 8×8 小图形。便签维持两轴各 ≥ 24px 门控。
+
+当前实测基线：`pnpm verify` 通过；1139 单测（core 1023 + react 78 + app 38）；
+E2E 49 spec / 248 用例全绿（主配置 241 + pwa 7；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 3/3 含 C 粘滞落库；
-视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+clickCreateSlip 1/1；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
