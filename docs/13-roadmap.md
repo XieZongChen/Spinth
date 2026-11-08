@@ -7,13 +7,13 @@
 - [x] Yjs 文档 + IndexedDB 双 store + undo/redo + compaction
 - [x] PIXI 画布、视口、按需渲染、空间索引、culling
 - [x] SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP
-- [x] 多选、编组、对齐/分布、旋转、参考线吸附
+- [x] 多选、编组、对齐/分布、参考线吸附（旋转手柄入口暂隐藏，rotation 数据能力保留——specs/rotate-hide）
 - [x] 富文本编辑、排版 override、marks、橡皮分段擦除
 - [x] 本地资产库、图片 GC、失败回退、资产/图片生命周期（加载会话/纹理共享/保活窗口/重试/GC 分片）
 - [x] 390px 移动端工具菜单
 - [x] 只读态收口：右键不建选区、工具坞/操作栏/脑图按钮呈现门禁、运行时降级序列
       （docs/21 §4 只读可交互面矩阵）
-- [x] 1141 单测（core 1025 + react 78 + app 38）、E2E 49 spec / 249 用例、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
+- [x] 1141 单测（core 1025 + react 78 + app 38）、E2E 49 spec / 249 例（240 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide）、视觉 4/4（darwin/linux 双平台基线，docs/15 §4）、图片/资产专项 12/12、`pnpm verify` 通过
 
 当前版本 `1.0.1`（已发布，tag `v1.0.1`），仓库已开源；1.0 是首个公开 API 基线。
 

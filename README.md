@@ -16,7 +16,7 @@ connectors and mind maps. Documents, undo history and image assets live in the b
 
 - Infinite canvas with rectangles, text, sticky notes, images, freehand pen and connectors
 - Mind maps with tree layout: drag a node to re-parent, keyboard navigation, inline editing
-- Multi-select, grouping, align / distribute, rotation and snapping guides
+- Multi-select, grouping, align / distribute and snapping guides
 - Rich text editing with per-selection typography overrides and inline marks
 - Undo / redo backed by a Yjs document plus IndexedDB, surviving page reloads
 - Content-addressed local asset store: images are deduplicated, documents keep short refs

@@ -121,8 +121,8 @@ Node >= 24，pnpm 11.28.5。
 
 ## 当前状态
 
-单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/旋转/
-参考线、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单、
+单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/
+参考线（旋转手柄入口暂隐藏——rotation 数据能力全保留，specs/rotate-hide）、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单、
 项目文件导出/导入（`.spinth.zip`，docs/20）、存储状态面板（docs/02 §6.1）、
 多标签单写者/只读跟随（docs/21）、资产/图片生命周期（加载会话/纹理共享/
 纹理保活/重试/GC 分片预算，docs/19 + specs/texture-keepalive）、只读态收口
@@ -235,7 +235,9 @@ threshold/3 死区（净位移过小时不过滤，手抖符号翻转不丢候�
 图形。便签门控维持两轴各 ≥ 24px，单击落点同为按下点居中（shape/sticky 一致）。
 
 当前实测基线：`pnpm verify` 通过；1141 单测（core 1025 + react 78 + app 38）；
-E2E 49 spec / 249 用例全绿（主配置 242 + pwa 7；edgeAutoScroll 11/11 含
+E2E 49 spec / 249 例（240 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor 2/2、视觉 rotate-45 注入版与旧基线
+逐字节全等；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 3/3 含 C 粘滞落库；
 clickCreateSlip 2/2（形状 + 便签）；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
