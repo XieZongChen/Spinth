@@ -215,9 +215,18 @@ nightly 视觉门禁已修复（specs/linux-visual §14.9）：base 按 digest p
 （14 条夹具自检）进 verify 与 CI gate；1x 铬件逐值零漂移，根字号 32px 下
 textScale T1–T6 全绿；浏览器默认字号设置页与 Safari 两项待人工（specs §12）。
 
-当前实测基线：`pnpm verify` 通过；1118 单测（core 1002 + react 78 + app 38）；
-E2E 48 spec / 246 用例全绿（主配置 239 + pwa 7；edgeAutoScroll 11/11 含
-E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+参考线吸附手感批已落地（docs/06 §3/§7 同步）：吸附粘滞（上一帧命中线由
+RefLineService 持有、显式传参绕过方向过滤——拖过线 1~阈值 px 拉回、越阈平滑
+释放，更近新线照常切换；docs/14 规则 3 补粘滞边界：会话状态 Service 持有、
+纯函数幂等）；方向过滤带 threshold/3 死区（净位移过小时不过滤，手抖符号翻转
+不丢候选）；epsilon 跳过移除（贴合/亚像素缝隙照常命中画线，对准瞬间反馈不
+消失）；边线↔中心线互吸（拖拽与缩放同口径）；对齐与等间距同轴偏差最小者胜
+（平局对齐胜）。refline E2E 3 用例，含 C 粘滞落库（关粘滞停 403、开粘滞落 400）。
+
+当前实测基线：`pnpm verify` 通过；1131 单测（core 1015 + react 78 + app 38）；
+E2E 48 spec / 247 用例全绿（主配置 240 + pwa 7；edgeAutoScroll 11/11 含
+E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 3/3 含 C 粘滞落库；
+视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
