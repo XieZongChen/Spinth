@@ -148,6 +148,8 @@ export function snapRect(
 /**
  * 缩放吸附：只有被拖动的边参与（docs/06 §3）。
  * dir 为手柄方向（如 'nw'/'e'）；返回调整后的矩形与命中线。
+ * 取阈值内最近的**有效**线（吸附后尺寸 ≥ minSize）：中心线参与后，最近线可能
+ * 近到把尺寸压过 minSize——跳过它回退到次近有效线，而不是整轴放弃吸附。
  */
 export function snapResize(
   rect: IRect,
@@ -160,46 +162,52 @@ export function snapResize(
   const matchedV: number[] = [];
   const matchedH: number[] = [];
 
-  const snapEdge = (target: number, refs: IRefLineDef[]): number | null => {
+  const snapEdge = (
+    target: number,
+    refs: IRefLineDef[],
+    valid: (pos: number) => boolean,
+  ): number | null => {
     let best: number | null = null;
     for (const ref of refs) {
       const dist = ref.pos - target;
-      if (Math.abs(dist) > threshold) continue;
+      if (Math.abs(dist) > threshold || !valid(ref.pos)) continue;
       if (best === null || Math.abs(dist) < Math.abs(best - target)) best = ref.pos;
     }
     return best;
   };
 
   if (dir.includes('w')) {
-    const snap = snapEdge(out.x, refs.v);
-    if (snap !== null && out.x + out.width - snap >= minSize) {
+    const right = out.x + out.width;
+    const snap = snapEdge(out.x, refs.v, (p) => right - p >= minSize);
+    if (snap !== null) {
       matchedV.push(snap);
-      out.width = out.x + out.width - snap;
+      out.width = right - snap;
       out.x = snap;
     }
   }
   if (dir.includes('e')) {
-    const right = out.x + out.width;
-    const snap = snapEdge(right, refs.v);
-    if (snap !== null && snap - out.x >= minSize) {
+    const left = out.x;
+    const snap = snapEdge(left + out.width, refs.v, (p) => p - left >= minSize);
+    if (snap !== null) {
       matchedV.push(snap);
-      out.width = snap - out.x;
+      out.width = snap - left;
     }
   }
   if (dir.includes('n')) {
-    const snap = snapEdge(out.y, refs.h);
-    if (snap !== null && out.y + out.height - snap >= minSize) {
+    const bottom = out.y + out.height;
+    const snap = snapEdge(out.y, refs.h, (p) => bottom - p >= minSize);
+    if (snap !== null) {
       matchedH.push(snap);
-      out.height = out.y + out.height - snap;
+      out.height = bottom - snap;
       out.y = snap;
     }
   }
   if (dir.includes('s')) {
-    const bottom = out.y + out.height;
-    const snap = snapEdge(bottom, refs.h);
-    if (snap !== null && snap - out.y >= minSize) {
+    const top = out.y;
+    const snap = snapEdge(top + out.height, refs.h, (p) => p - top >= minSize);
+    if (snap !== null) {
       matchedH.push(snap);
-      out.height = snap - out.y;
+      out.height = snap - top;
     }
   }
   return { rect: out, matchedV, matchedH };

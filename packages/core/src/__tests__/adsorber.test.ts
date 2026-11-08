@@ -204,4 +204,27 @@ describe('snapResize 缩放吸附（docs/06 §3）', () => {
     expect(out.rect.x).toBe(302);
     expect(out.matchedV).toHaveLength(0);
   });
+
+  it('缩放边可吸参照中心线（边↔中心互吸同口径）', () => {
+    // 右边 347 → 参照中心 350（dist 3）
+    const out = snapResize({ x: 0, y: 0, width: 347, height: 50 }, 'e', refs, 6);
+    expect(out.rect.width).toBe(350);
+    expect(out.matchedV).toEqual([350]);
+  });
+
+  it('精确贴合（dist 0）仍命中并画线', () => {
+    const out = snapResize({ x: 0, y: 0, width: 300, height: 50 }, 'e', refs, 6);
+    expect(out.rect.width).toBe(300);
+    expect(out.matchedV).toEqual([300]);
+  });
+
+  it('最近线越 minSize 时回退到次近有效线', () => {
+    // 参照 x300 宽 12：线 300(边)/306(中)/312(边)。拖 w 边于 304：中心 306 最近（2）
+    // 但吸后宽 7 < 8 无效 → 回退到更远的有效边线 300（4），宽 13
+    const narrow = buildRefLines([{ x: 300, y: 300, width: 12, height: 50 }]);
+    const out = snapResize({ x: 304, y: 0, width: 9, height: 50 }, 'w', narrow, 6, 8);
+    expect(out.rect.x).toBe(300);
+    expect(out.rect.width).toBe(13);
+    expect(out.matchedV).toEqual([300]);
+  });
 });
