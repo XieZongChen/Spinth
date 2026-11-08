@@ -177,6 +177,67 @@ test('D 端部链式等距：拖一排两端件也有橙色徽标并吸附（gap
   await expect.poll(() => geomOf(page, rId)).toEqual({ x: 540, y: 200 });
 });
 
+test('E 端部中心链等距：拖左端件三心等差（A.cx = 2·P.cx − Q.cx）→ 中心距徽标 + 吸附', async ({
+  page,
+}) => {
+  await page.goto(`/?doc=e2e-refline-endcenter-${Date.now()}`);
+  await ready(page);
+
+  // 布局：L(100,120×80) M(320,120×80) R(540 →注入宽 40→540..580)：
+  // 中心 M.cx=380、R.cx=560，中心距 180 → L 目标 cx = 200 → L.x = 140
+  const lId = await dragCreateRect(page, 100, 200);
+  await dragCreateRect(page, 320, 200);
+  await dragCreateRect(page, 540, 200);
+  await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            vmStates: Array<Record<string, unknown>>;
+            engine: { getModelById(id: string): { update(p: Record<string, unknown>): void } };
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    const r = d.vmStates.find((v) => String(v.type) === 'SHAPE' && Number(v.x) === 540)!;
+    // 几何字段走 updateRect（update() 刻意忽略 rect 键——几何带 clamp 专用通道）
+    d.engine.getModelById(String(r.id)).updateRect({ width: 40 });
+  });
+  await page.waitForTimeout(150);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const d = (
+          window as unknown as {
+            __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+          }
+        ).__spinthDebug.__debug.vmStates;
+        const r = d.find((v) => String(v.type) === 'SHAPE' && Number(v.x) === 540)!;
+        return Number(r.width);
+      }),
+    )
+    .toBe(40);
+
+  // 拖 L 到 cx≈197（dx=37，中心链解 dx=40 偏差 3；边间隙链解 g=100 在 L.x=100 偏差 37 不命中）
+  await page.mouse.move(160, sy(240));
+  await page.mouse.down();
+  await page.mouse.move(120, sy(240), { steps: 4 }); // dx=-40（牵引成立）
+  await page.mouse.move(197, sy(240), { steps: 4 }); // dx=+37 → 中心链吸附
+  await page.waitForTimeout(150);
+  const gaps = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
+      }
+    ).__spinthDebug.__debug.spacingGaps;
+    return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
+  });
+  expect(gaps).toEqual(['x:180', 'x:180']); // 中心距徽标（非间隙 100）
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect.poll(() => geomOf(page, lId)).toEqual({ x: 140, y: 200 }); // cx=200 三心等差
+});
+
 test('C 粘滞落库：吸上后过冲 3px 仍被拉回线上（松手位置 = 对齐线）', async ({ page }) => {
   await page.goto(`/?doc=e2e-refline-sticky-${Date.now()}`);
   await ready(page);
