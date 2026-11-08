@@ -36,7 +36,7 @@ describe('snapEqualSpacing 边间隙等距（docs/06 §7）', () => {
     expect(r.gaps).toHaveLength(0);
   });
 
-  it('只有一侧邻居（无配对）不触发', () => {
+  it('只有一侧邻居且无次邻（无参考间隙）不触发', () => {
     const r = snapEqualSpacing({ x: 203, y: 0, width: 100, height: 100 }, 0, 0, [L], 6);
     expect(r.dx).toBe(0);
     expect(r.gaps).toHaveLength(0);
@@ -81,5 +81,61 @@ describe('snapEqualSpacing y 轴对称', () => {
     expect(r.dy).toBe(-3);
     expect(r.gaps).toHaveLength(2);
     expect(r.gaps[0]!).toMatchObject({ axis: 'y', from: 100, to: 200, value: 100 });
+  });
+});
+
+/** 端部链式（docs/06 §7）：被拖件单侧有邻居时，与最近邻的间隙吸附为
+ *  「最近邻与其外侧连续次邻的间隙」——拖一排端部也能调出等距徽标 */
+describe('snapEqualSpacing 端部链式（单侧邻居）', () => {
+  // 同排：A(被拖) B(300) C(500)，g(B,C) = 100
+  const B = { x: 300, y: 0, width: 100, height: 100 };
+  const C = { x: 500, y: 0, width: 100, height: 100 };
+
+  it('右端链（A 最左）：gap(A,B) 吸附到 g(B,C)=100，两段徽标', () => {
+    // A(100) 拖到 97（gap 103，偏差 3）→ 吸回 100
+    const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, -3, 0, [B, C], 6);
+    expect(r.dx).toBe(0);
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 200, to: 300, value: 100 }); // A↔B
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 400, to: 500, value: 100 }); // B↔C
+  });
+
+  it('右端链已等距（偏差 0）不修正但显徽标', () => {
+    const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, 0, 0, [B, C], 6);
+    expect(r.dx).toBe(0);
+    expect(r.gaps).toHaveLength(2);
+  });
+
+  it('右端链偏差超阈不触发', () => {
+    const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, -10, 0, [B, C], 6);
+    expect(r.dx).toBe(-10);
+    expect(r.gaps).toHaveLength(0);
+  });
+
+  it('参考间隙 g=0（次邻与最近邻贴合）不触发', () => {
+    const cTouch = { x: 400, y: 0, width: 100, height: 100 }; // 贴 B 右缘
+    const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, -3, 0, [B, cTouch], 6);
+    expect(r.dx).toBe(-3);
+    expect(r.gaps).toHaveLength(0);
+  });
+
+  it('左端链（A 最右）：gap(B,A) 吸附到 g(C,B)=100', () => {
+    // 左邻 B(300..400)、外侧次邻 C(100..200)：g = 300-200 = 100；A 目标 x = 400+100 = 500
+    const cLeft = { x: 100, y: 0, width: 100, height: 100 };
+    const r = snapEqualSpacing({ x: 500, y: 0, width: 100, height: 100 }, 3, 0, [cLeft, B], 6);
+    expect(r.dx).toBe(0);
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 200, to: 300, value: 100 }); // C↔B
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 400, to: 500, value: 100 }); // B↔A
+  });
+
+  it('y 轴端部链：A 最上，gap(A,B) 吸附到 g(B,C)', () => {
+    const b = { x: 0, y: 300, width: 100, height: 100 };
+    const c = { x: 0, y: 500, width: 100, height: 100 };
+    const r = snapEqualSpacing({ x: 0, y: 100, width: 100, height: 100 }, 0, -3, [b, c], 6);
+    expect(r.dy).toBe(0);
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'y', from: 200, to: 300, value: 100 });
+    expect(r.gaps[1]!).toMatchObject({ axis: 'y', from: 400, to: 500, value: 100 });
   });
 });

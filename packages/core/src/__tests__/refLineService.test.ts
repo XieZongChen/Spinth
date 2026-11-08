@@ -155,6 +155,24 @@ describe('refLineService 对齐/等距同轴竞争（docs/06 §7 偏差最小者
   });
 });
 
+describe('refLineService 端部链式等距（docs/06 §7）', () => {
+  beforeAll(stubPixiCanvasDocument); // 链式命中画徽标（PIXI Text 测量）
+
+  it('拖一排左端件：与最近邻间隙吸附到「最近邻与次邻间隙」，探针两段等值', () => {
+    const svc = createService([
+      { id: 'A', type: 'SHAPE', rect: { x: 100, y: 100, width: 100, height: 100 } },
+      { id: 'B', type: 'SHAPE', rect: { x: 300, y: 100, width: 100, height: 100 } },
+      { id: 'C', type: 'SHAPE', rect: { x: 500, y: 100, width: 100, height: 100 } },
+    ]);
+    // 拖 A（B、C 都在右侧——单侧邻居）：dx=-3 → gap(A,B)=103，链式解 gap=100 偏差 3
+    const r = svc.snapForDrag({ x: 100, y: 100, width: 100, height: 100 }, -3, 0);
+    svc.dispose();
+    expect(r.dx).toBe(0); // 吸回等距位（A.x=100，gap 恰 100）
+    expect(r.matchedV).toHaveLength(0); // 无对齐线竞争（B/C 线均远于阈值）
+    expect(svc.__spacingGaps.map((g) => `${g.axis}:${g.value}`)).toEqual(['x:100', 'x:100']);
+  });
+});
+
 describe('refLineService 参照物类型矩阵', () => {
   it.each(['SHAPE', 'STICKY', 'TEXT'])('%s 作为参照物参与吸附', (type) => {
     // 位移 96 → 吸附修正为 100（左边对齐参照左边）
