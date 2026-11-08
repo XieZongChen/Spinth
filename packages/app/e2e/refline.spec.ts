@@ -133,3 +133,26 @@ test('B 等间距参考线：拖中间件两侧间隙相等 → 橙色徽标 + �
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => geomOf(page, aId)).toEqual({ x: 292, y: 200 });
 });
+
+test('C 粘滞落库：吸上后过冲 3px 仍被拉回线上（松手位置 = 对齐线）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-refline-sticky-${Date.now()}`);
+  await ready(page);
+
+  // 布局：A(400,200) 作参照；B(100,320) 异排（y 投影不重叠 → 等距不参与）
+  await dragCreateRect(page, 400, 200);
+  const bId = await dragCreateRect(page, 100, 320);
+
+  // 拖 B 右移到左缘期望 396（dx=296）：距 A 左缘 400 为 4，接近侧吸上（修正 dx=300）
+  await page.mouse.move(160, sy(360));
+  await page.mouse.down();
+  await page.mouse.move(160 + 296, sy(360), { steps: 6 });
+  await page.waitForTimeout(80);
+  // 过冲 3px（期望左缘 403）：无粘滞时线在身后被方向过滤 → 脱钩停 403；
+  // 粘滞让上一帧命中线双向保持 → 拉回 400
+  await page.mouse.move(160 + 303, sy(360), { steps: 2 });
+  await page.waitForTimeout(80);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  const b = await geomOf(page, bId);
+  expect(b.x).toBeCloseTo(400, 1);
+});
