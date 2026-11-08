@@ -40,14 +40,19 @@ describe('snapRect 拖拽吸附（docs/06 §3）', () => {
     expect(r.matchedV).toHaveLength(0);
   });
 
-  it('中心线只与中心线对齐', () => {
-    // 移动矩形中心 352 距参照中心 350 为 2：三条边各差 2，任一命中即整条对齐
+  it('边↔中心互吸：被拖中心可吸参照边，被拖边可吸参照中心', () => {
+    // 同 kind 对齐照常：中心 352 距参照中心 350 为 2 → 整条对齐
     const r1 = snapRect({ x: 302, y: 0, width: 100, height: 50 }, 0, 0, refs, 6);
     expect(r1.dx).toBe(-2);
     expect(r1.matchedV).toHaveLength(1);
-    // 移动矩形中心 301 距参照左边 300 为 1，但 center 不与 edge 对齐；左右边距参照边 >6 → 不吸附
-    const r2 = snapRect({ x: 251, y: 0, width: 100, height: 50 }, 0, 0, refs, 6);
-    expect(r2.matchedV).toHaveLength(0);
+    // 被拖中心 301 吸参照边 300（旧 kind 隔离不允许）
+    const centerToEdge = snapRect({ x: 251, y: 0, width: 100, height: 50 }, 0, 0, refs, 6);
+    expect(centerToEdge.dx).toBe(-1);
+    expect(centerToEdge.matchedV).toEqual([300]);
+    // 被拖左边 348 吸参照中心 350
+    const edgeToCenter = snapRect({ x: 348, y: 0, width: 40, height: 50 }, 0, 0, refs, 6);
+    expect(edgeToCenter.dx).toBe(2);
+    expect(edgeToCenter.matchedV).toEqual([350]);
   });
 
   it('完全贴合：修正为 0 但参考线仍命中（对准瞬间反馈不消失）', () => {

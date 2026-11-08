@@ -3,7 +3,8 @@ import type { IRect } from '../../common/geometry';
 /**
  * 参考线吸附纯逻辑（docs/06）。
  *
- * - 参照线：每矩形 6 条（左/中/右、上/中/下），kind 区分边线与中心线——中心线只与中心线对齐。
+ * - 参照线：每矩形 6 条（左/中/右、上/中/下）；边线与中心线可互相对齐
+ *   （边↔边、边↔中心、中心↔中心，阈值内最近者胜），kind 保留作粘滞身份。
  * - 坐标以 3 位小数为 key 去重（浮点 1e-4 偏差会让吸附失效，既有设计实战踩坑）。
  * - 吸附阈值由调用方换算成世界坐标（屏幕 6px / scale）。
  * - 阈值内（含亚像素贴合缝隙）一律修正并命中——对准瞬间参考线反馈不消失
@@ -69,22 +70,22 @@ export interface ISnapResult {
 
 interface IEdgeDef {
   offset: (r: IRect) => number;
-  kind: RefLineKind;
 }
 
 const V_EDGES: IEdgeDef[] = [
-  { offset: (r) => r.x, kind: 'edge' },
-  { offset: (r) => r.x + r.width / 2, kind: 'center' },
-  { offset: (r) => r.x + r.width, kind: 'edge' },
+  { offset: (r) => r.x },
+  { offset: (r) => r.x + r.width / 2 },
+  { offset: (r) => r.x + r.width },
 ];
 const H_EDGES: IEdgeDef[] = [
-  { offset: (r) => r.y, kind: 'edge' },
-  { offset: (r) => r.y + r.height / 2, kind: 'center' },
-  { offset: (r) => r.y + r.height, kind: 'edge' },
+  { offset: (r) => r.y },
+  { offset: (r) => r.y + r.height / 2 },
+  { offset: (r) => r.y + r.height },
 ];
 
 /**
- * 单轴吸附：在 moving 边与同 kind 参照线间找阈值内最近对，返回修正量与命中线。
+ * 单轴吸附：在被拖线（左/中/右 或 上/中/下）与参照线间找阈值内最近对
+ * （边↔中心互吸），返回修正量与命中线。
  * 方向感知（A3，误差修复批）：移动轴只取**前方**参照线（修正方向与拖拽总位移
  * 同向）——向右拖不被身后阈值内的线往回拽；|baseDelta| 低于死区（拖拽初段/
  * 纯垂直拖的水平抖动）时两侧等价不过滤。
@@ -104,7 +105,7 @@ function snapAxis(
   for (const edge of edges) {
     const target = edge.offset(rect) + baseDelta;
     for (const ref of refs) {
-      if (ref.kind !== edge.kind) continue;
+      // 边↔中心互吸（docs/06 §3）：被拖的每条线与每条参照线配对，阈值内最近者胜
       const dist = ref.pos - target;
       // 方向过滤带死区：净位移过小（初段/手抖）不过滤；粘滞线绕过过滤（docs/06 §3）
       if (directional && !stickyKeys?.has(refLineKey(ref))) {
@@ -159,10 +160,9 @@ export function snapResize(
   const matchedV: number[] = [];
   const matchedH: number[] = [];
 
-  const snapEdge = (target: number, kind: RefLineKind, refs: IRefLineDef[]): number | null => {
+  const snapEdge = (target: number, refs: IRefLineDef[]): number | null => {
     let best: number | null = null;
     for (const ref of refs) {
-      if (ref.kind !== kind) continue;
       const dist = ref.pos - target;
       if (Math.abs(dist) > threshold) continue;
       if (best === null || Math.abs(dist) < Math.abs(best - target)) best = ref.pos;
@@ -171,7 +171,7 @@ export function snapResize(
   };
 
   if (dir.includes('w')) {
-    const snap = snapEdge(out.x, 'edge', refs.v);
+    const snap = snapEdge(out.x, refs.v);
     if (snap !== null && out.x + out.width - snap >= minSize) {
       matchedV.push(snap);
       out.width = out.x + out.width - snap;
@@ -180,14 +180,14 @@ export function snapResize(
   }
   if (dir.includes('e')) {
     const right = out.x + out.width;
-    const snap = snapEdge(right, 'edge', refs.v);
+    const snap = snapEdge(right, refs.v);
     if (snap !== null && snap - out.x >= minSize) {
       matchedV.push(snap);
       out.width = snap - out.x;
     }
   }
   if (dir.includes('n')) {
-    const snap = snapEdge(out.y, 'edge', refs.h);
+    const snap = snapEdge(out.y, refs.h);
     if (snap !== null && out.y + out.height - snap >= minSize) {
       matchedH.push(snap);
       out.height = out.y + out.height - snap;
@@ -196,7 +196,7 @@ export function snapResize(
   }
   if (dir.includes('s')) {
     const bottom = out.y + out.height;
-    const snap = snapEdge(bottom, 'edge', refs.h);
+    const snap = snapEdge(bottom, refs.h);
     if (snap !== null && snap - out.y >= minSize) {
       matchedH.push(snap);
       out.height = snap - out.y;
