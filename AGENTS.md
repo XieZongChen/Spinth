@@ -56,8 +56,10 @@ Node >= 24，pnpm 11.28.5。
 ## 渲染同步铁律
 
 拖拽/缩放系列 bug 的六条规则：跟随框绝对定位禁止增量累加 / setState 先渲染后广播 /
-交互数学无状态化 / 几何读取缩放感知 / 松手落库用最后一帧输出 / 交互几何 per-type 契约。
-回归测试：`__tests__/renderSync.test.ts`。违反任何一条 = 重做。
+交互数学无隐式跨帧状态（会话状态由 Service 显式传参）/ 几何读取缩放感知 /
+松手落库用最后一帧输出 / 交互几何 per-type 契约。
+回归测试：`__tests__/renderSync.test.ts`、`adsorber.test.ts`、`refLineService.test.ts`。
+违反任何一条 = 重做。
 
 ## 代码风格
 
@@ -227,14 +229,15 @@ threshold/3 死区（净位移过小时不过滤，手抖符号翻转不丢候�
 停 403、开粘滞落 400）。
 
 工具单击创建滑移容差已落地（specs/click-create-slip，docs/04 §2）：形状工具
-单击与拖拽画图的分界为 10 屏幕 px（复用 `DRAG_TRACTION_SCREEN`），低于分界
-一律按单击——默认尺寸、以按下点为中心、工具保持可连击、不选中；单击手抖不再
-画出 8×8 小图形。便签维持两轴各 ≥ 24px 门控。
+单击与拖拽画图的分界为 10 屏幕 px（复用 `common/interaction.ts` 的
+`DRAG_TRACTION_SCREEN`，与选中起拖、框选滚屏判据同源），低于分界一律按单击——
+默认尺寸、以按下点为中心、工具保持可连击、不选中；单击手抖不再画出 8×8 小
+图形。便签门控维持两轴各 ≥ 24px，单击落点同为按下点居中（shape/sticky 一致）。
 
-当前实测基线：`pnpm verify` 通过；1139 单测（core 1023 + react 78 + app 38）；
-E2E 49 spec / 248 用例全绿（主配置 241 + pwa 7；edgeAutoScroll 11/11 含
+当前实测基线：`pnpm verify` 通过；1141 单测（core 1025 + react 78 + app 38）；
+E2E 49 spec / 249 用例全绿（主配置 242 + pwa 7；edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 3/3 含 C 粘滞落库；
-clickCreateSlip 1/1；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
+clickCreateSlip 2/2（形状 + 便签）；视觉 4/4 双平台；图片/资产专项 12/12；a11y 6/6；
 mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
 debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 

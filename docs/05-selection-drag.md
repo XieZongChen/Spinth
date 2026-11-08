@@ -61,7 +61,9 @@ pointerup
 
 ### 4.1 阻尼阈值
 
-- 单一启动阻尼 10px（`DRAG_TRACTION`）：累计位移超过阈值才进入拖拽。
+- 单一启动阻尼 10 屏幕 px（`DRAG_TRACTION_SCREEN`，`common/interaction.ts`；每帧按缩放
+  换算）：累计位移达到阈值才进入拖拽。框选滚屏判据与创建工具单击/拖拽画图分界
+  （docs/04 §2）同值复用。
 - `DragEvent` 携带 `originX/Y、deltaX/Y、bounds`；`isPrevented` 支持中途取消。
 - window mouseup 兜底清理未结束的拖拽流。
 
