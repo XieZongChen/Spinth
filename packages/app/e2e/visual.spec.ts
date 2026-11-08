@@ -224,7 +224,7 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
   });
 });
 
-test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉——rotate 批）', async ({ page }) => {
+test('视觉快照 @visual：矩形旋转 45°（pivot 渲染——已旋转旧文档像素基线）', async ({ page }) => {
   const docId = `e2e-vis-rotate-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);
@@ -240,71 +240,44 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
   await page.keyboard.press('Escape');
   await page.waitForTimeout(80);
 
-  // 2. 选中 → 拖旋转柄 +45°（柄 = n 边中点外浮；终点 = 起点向量旋转 45°）
+  // 2. 数据注入精确 45°（旋转手柄入口暂隐藏，specs/rotate-hide；注入等价已旋转
+  //    的旧文档，真实 update 管线）
   const probe = await page.evaluate(() => {
     const d = (
       window as unknown as {
         __spinthDebug: {
-          __debug: {
-            vmStates: Array<Record<string, unknown>>;
-            rotateHandle: { x: number; y: number };
-          };
+          __debug: { vmStates: Array<Record<string, unknown>> };
         };
       }
     ).__spinthDebug.__debug;
     const s0 = d.vmStates.find((v) => String(v.type) === 'SHAPE')!;
     return {
+      id: String(s0.id),
       x: s0.x as number,
       y: s0.y as number,
       w: s0.width as number,
       h: s0.height as number,
-      hdl: d.rotateHandle,
     };
   });
-  const c = await page.evaluate(
-    ([cx, cy]) => {
-      // 世界 → 屏幕走公开查询 toScreenPoint（specs/runtime-narrowing §3.8）
-      const s = (
+  await page.evaluate(
+    ([id, r]) => {
+      (
         window as unknown as {
-          __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
+          __spinthDebug: {
+            __debug: {
+              engine: { getModelById(k: string): { update(p: Record<string, unknown>): void } };
+            };
+          };
         }
-      ).__spinth.toScreenPoint({ x: cx, y: cy });
-      return { x: Math.round(s.x), y: Math.round(s.y + 44) };
+      ).__spinthDebug.__debug.engine
+        .getModelById(id as string)
+        .update({ rotation: r as number });
     },
-    [probe.x + probe.w / 2, probe.y + probe.h / 2],
+    [probe.id, Math.PI / 4] as const,
   );
-  await page.mouse.click(c.x, c.y);
-  await page.waitForTimeout(150);
-  const hs = await page.evaluate(
-    ([,]) => {
-      const p = (
-        window as unknown as {
-          __spinthDebug: { __debug: { rotateHandle: { x: number; y: number } } };
-        }
-      ).__spinthDebug.__debug.rotateHandle;
-      const s = (
-        window as unknown as {
-          __spinth: { toScreenPoint(p: { x: number; y: number }): { x: number; y: number } };
-        }
-      ).__spinth.toScreenPoint({ x: p.x, y: p.y });
-      return { x: Math.round(s.x), y: Math.round(s.y + 44) };
-    },
-    [0],
-  );
-  const rad = Math.PI / 4;
-  const sv = { x: hs.x - c.x, y: hs.y - c.y };
-  const end = {
-    x: c.x + sv.x * Math.cos(rad) - sv.y * Math.sin(rad),
-    y: c.y + sv.x * Math.sin(rad) + sv.y * Math.cos(rad),
-  };
-  await page.mouse.move(hs.x, hs.y);
-  await page.mouse.down();
-  await page.mouse.move(Math.round(end.x), Math.round(end.y), { steps: 6 });
-  await page.waitForTimeout(60);
-  await page.mouse.up();
   await page.waitForTimeout(250);
 
-  // 3. 数据探针：θ ≈ π/4 落库
+  // 3. 数据探针：θ = π/4 落库（注入为精确值）
   const rot = await page.evaluate(() => {
     const s0 = (
       window as unknown as {
@@ -313,11 +286,9 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染 + 旋转框视觉�
     ).__spinthDebug.__debug.vmStates.find((v) => String(v.type) === 'SHAPE')!;
     return Number(s0.rotation ?? 0);
   });
-  expect(rot).toBeCloseTo(Math.PI / 4, 2);
+  expect(rot).toBeCloseTo(Math.PI / 4, 6);
 
-  // 4. Escape 清选中（旋转框/手柄凸出会假阳性）后截控件区域
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(120);
+  // 4. 截控件区域（无选中，不含旋转框/手柄）
   await expect(page).toHaveScreenshot('rotate-45.png', {
     clip: { x: probe.x - 60, y: probe.y + 44 - 60, width: probe.w + 120, height: probe.h + 120 },
   });
