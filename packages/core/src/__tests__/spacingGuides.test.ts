@@ -147,6 +147,42 @@ describe('snapEqualSpacing 端部链式（单侧邻居）', () => {
     expect(r.gaps[1]!).toMatchObject({ axis: 'y', from: 400, to: 500, value: 100 });
   });
 
+  it('三个左邻只取最近邻 + 连续次邻一对（远邻配对不可达）', () => {
+    // A(703) 左邻 {100..200}/{300..400}/{500..600}：最近对 = {500},{300}（g=100）→
+    // 目标 A.x = 600+100 = 700，偏差 0；若取远对 {300},{100} 目标 400 偏差 303 不命中
+    const n1 = { x: 100, y: 0, width: 100, height: 100 };
+    const n3 = { x: 500, y: 0, width: 100, height: 100 };
+    const r = snapEqualSpacing({ x: 703, y: 0, width: 100, height: 100 }, -3, 0, [n1, B, n3], 6);
+    expect(r.dx).toBe(-3); // 703 → 700
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 400, to: 500, value: 100 }); // 次邻↔最近邻
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 600, to: 700, value: 100 }); // 最近邻↔A
+  });
+
+  it('边链与中心链都命中时取偏差小者（中心链更近胜出）', () => {
+    // P(300,w100,cx350) Q(520,w108,cx574)：边链解 dx=-20（偏差 5）、
+    // 中心链解 dx=-24（aCx=126，三心 126/350/574 等差 224，偏差 1）→ 中心胜
+    const p = { x: 300, y: 0, width: 100, height: 100 };
+    const q = { x: 520, y: 0, width: 108, height: 100 };
+    const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, -25, 0, [p, q], 6);
+    expect(r.dx).toBe(-24);
+    expect(r.gaps).toHaveLength(2);
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 126, to: 350, value: 224 }); // A.cx↔P.cx
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 350, to: 574, value: 224 }); // P.cx↔Q.cx
+  });
+
+  it('左端参考对贴合（g=0）：边链不触发、中心链照常（中心距语义独立）', () => {
+    // 左邻 q(200..300,cx250) 与 p(300..400,cx350) 贴合：g=0 边链跳过；
+    // 中心距 ref=100 → 目标 A.cx = 2·350−250 = 450 → A.x = 400
+    const qTouch = { x: 200, y: 0, width: 100, height: 100 };
+    const r = snapEqualSpacing({ x: 403, y: 0, width: 100, height: 100 }, 0, 0, [qTouch, B], 6);
+    expect(r.dx).toBe(-3); // 403 → 400
+    expect(r.gaps).toHaveLength(2);
+    // 中心段（250→350→450），值为中心距 100——不是边缘间隙段
+    expect(r.gaps[0]!).toMatchObject({ axis: 'x', from: 250, to: 350, value: 100 });
+    expect(r.gaps[1]!).toMatchObject({ axis: 'x', from: 350, to: 450, value: 100 });
+  });
+
   it('端部中心链（右端）：三心等差 A.cx = 2·P.cx − Q.cx，中心距徽标', () => {
     // B(300,w100,cx350)、C(560,w40,cx580)：中心距 230；目标 A.cx = 350−230 = 120 → A.x = 70。
     // 边间隙链解 g=160 → A.x=40（偏差 33 不命中）——本例中心链独立命中
