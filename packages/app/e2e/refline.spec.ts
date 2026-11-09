@@ -238,6 +238,51 @@ test('E 端部中心链等距：拖左端件三心等差（A.cx = 2·P.cx − Q.
   await expect.poll(() => geomOf(page, lId)).toEqual({ x: 140, y: 200 }); // cx=200 三心等差
 });
 
+test('F 中置中心正中：不对称外邻下被拖中心在两邻中心正中 → 中心距徽标 + 吸附', async ({ page }) => {
+  await page.goto(`/?doc=e2e-refline-midcenter-${Date.now()}`);
+  await ready(page);
+
+  // 布局：L(100,120×80,cx160) M(320,120×80,cx380) R(540→注入宽 40→cx560)：
+  // 中心正中 cx = (160+560)/2 = 360 → M 目标 x=300；间隙等距解在 M.x=320（分离）
+  await dragCreateRect(page, 100, 200);
+  const mId = await dragCreateRect(page, 320, 200);
+  await dragCreateRect(page, 540, 200);
+  await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            vmStates: Array<Record<string, unknown>>;
+            engine: { getModelById(id: string): { updateRect(p: { width: number }): void } };
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    const r = d.vmStates.find((v) => String(v.type) === 'SHAPE' && Number(v.x) === 540)!;
+    d.engine.getModelById(String(r.id)).updateRect({ width: 40 }); // 几何字段走 updateRect
+  });
+  await page.waitForTimeout(150);
+
+  // 拖 M：过牵引后停在 dx=-17（中心解 dx=-20 偏差 3；间隙解 dx=0 偏差 17 不命中）
+  await page.mouse.move(380, sy(240));
+  await page.mouse.down();
+  await page.mouse.move(420, sy(240), { steps: 4 }); // dx=+40（牵引成立）
+  await page.mouse.move(363, sy(240), { steps: 4 }); // dx=-17 → 中心正中吸附
+  await page.waitForTimeout(150);
+  const gaps = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
+      }
+    ).__spinthDebug.__debug.spacingGaps;
+    return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
+  });
+  expect(gaps).toEqual(['x:200', 'x:200']); // 中心距 |360-160| = |560-360| = 200
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect.poll(() => geomOf(page, mId)).toEqual({ x: 300, y: 200 }); // cx=360 正中
+});
+
 test('C 粘滞落库：吸上后过冲 3px 仍被拉回线上（松手位置 = 对齐线）', async ({ page }) => {
   await page.goto(`/?doc=e2e-refline-sticky-${Date.now()}`);
   await ready(page);
