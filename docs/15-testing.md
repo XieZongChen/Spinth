@@ -13,11 +13,12 @@
 
 ## 2. 当前基线
 
-- 单测：1152 passed（core 1036 + react 78 + app 38）。
-- E2E：49 个 spec（主配置 48 + pwa 1）、252 例（250 通过 + 2 跳过——旋转手柄用例
-  暂跳，specs/rotate-hide；分层：fast 236 例 = 234 通过 + 2 跳过，含 pwa 7 /
-  timing+bench 5 /
-  visual 4；混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`）。
+- 单测：1155 passed（core 1039 + react 78 + app 38）。
+- E2E：49 个 spec（主配置 48 + pwa 1）、253 例（251 通过 + 2 跳过——旋转手柄用例
+  暂跳，specs/rotate-hide；分层：fast = 主配置 237（235 通过 + 2 跳过）+ pwa 7
+  另跑，CI gate 合计 244 / timing+bench 5 /
+  visual 4（237 + 7 + 5 + 4 = 253 对账）；混跑不作门禁，各层跑法见
+  `.github/workflows/ci.yml`）。
 - 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
