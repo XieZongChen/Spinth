@@ -295,7 +295,7 @@ none；单标签；无表格；无空心三角 / 菱形 / 鸦爪；包 / 框架�
   能力），阶段 3 平台收口并行，阶段 5 协同最后且不进入默认启动路径。
 - 常见图能力七项顺序固定：标准流程图 → 组织架构 / 树 → 网络拓扑 / 架构 →
   跨职能 / 泳道 → UML 时序 → UML 类图 / ER → BPMN；每项先审计再拍板范围，
-  不跳序（docs/13 §4）。
+  不跳序（§4）。
 - 容器 / Frame 在 4.4 首发；4.3 集群先用矩形 + 标题近似，4.5 框架 / 4.7 池泳道
   复用容器；不提前造完整容器。
 - 全局避障在 4.3 首发：`routeElbow` 扩第三方 obstacles，调用方收集可视 / 邻近
@@ -305,39 +305,23 @@ none；单标签；无表格；无空心三角 / 菱形 / 鸦爪；包 / 框架�
 - BPMN 只做核心子集，不做执行语义 / XML 导入导出；矢量导出（SVG）列 backlog，
   本阶段只做 PNG。
 - 常见图能力的验收清单与手工步骤写 `specs/<feature>.md`，不写入 docs。
-- 1.0 是首个公开 API 基线：运行时公共面 = `createBoard()` 冻结投影 + DEV 调试入口（specs/runtime-narrowing）；1.0 后破坏性变更走主版本。
-- 纹理保活窗口期条目继续持有 URL 租约并计入 GC 持活（specs/texture-keepalive D1）；保活不让 GC 误删仍可复用的资产（docs/19 §3）。
-- 边缘自动滚屏只作用于拖拽，不改视口持久化；线性速度与停止条件按 docs/05 §4.5。
-  三路拖拽同属滚屏：元素拖拽、脑图节点拖拽、框选（框选以屏幕位移起拖判据门控滚屏、
-  选中集按帧去重，specs/marquee-auto-scroll）。
-- 空间索引 + culling 的 MIND_MAP 豁免：树增长不触发几何 diff，整图一个渲染单元；
-  索引会过期，因此豁免 culling。
-- LINE 选区交互：线不可整体拖动/缩放；拖线身 = 段滑移，端点 = 重锚定。
-- 纹理按 assetId 共享（引用归零进保活窗口、窗口结束销毁；data/http 不缓存）、
-  GC 单轮软预算 + mark 中断零删除（docs/19、specs/texture-keepalive）。
+- 1.0 是首个公开 API 基线：运行时公共面 = `createBoard()` 冻结投影 + DEV 调试入口
+  （specs/runtime-narrowing）；1.0 后破坏性变更走主版本。
 - 多标签：单写者 + 只读跟随，接管 = 整页刷新，不做实时同步（docs/21）。
-- 只读态收口分层：core 修语义（右键不建选区、降级序列、工具钳制），react 修呈现（持久铬件禁用、浮动件随附着对象隐藏）；命令层守卫是安全网不是呈现面（docs/21 §4）。
-- 项目文件格式、导入语义、ZIP 依赖：`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目忽略 + warning（docs/20）。
-- 颜色按角色拆分而非深浅拆分：`danger` 留给图形（≥3:1）、文字走 `danger-ink`
-  （≥4.5:1）；`accent` 留给品牌/焦点环、填充按钮走 `accent-fill`+`on-accent`；
-  不做「危险填充白字」（soft 底 + ink 字替代）。护栏在 `a11y.spec.ts`（CSSOM 取色）。
-- 单机断网不做 editBlocked 矩阵：无 `wsUrl` 即无阻断路径，用「断言 OfflineBar
-  不出现 + 断网仍可编辑/撤销/落盘」固化不变量（docs/10 §4）；`wsUrl` 进入启动
-  路径时该测试先红，提醒补矩阵。
-- PWA/Service Worker 已落地：manifest + 子路径 SW + 预缓存清单 + 可控更新横幅
-  （specs/pwa.md）。Linux 视觉基线已落地（specs/linux-visual），平台侧剩余
-  挂账为 CI 实证（Actions 恢复后普通 + update 两次 dispatch 补验）。
-- 视觉基线不保留「靠未跟踪 actuals 假绿」的做法；基线必须入库并由
-  `check-visual-baselines` 守护。
+- 只读态分层：core 修语义（右键不建选区、降级序列、工具钳制），react 修呈现
+  （持久铬件禁用、浮动件随附着对象隐藏）；命令层守卫是安全网不是呈现面
+  （docs/21 §4）。
+- 项目文件：`fflate` + `.spinth.zip`、导入新建画布、外链保留 + warning、未知条目
+  忽略 + warning（docs/20）。
+- 单机断网：无 `wsUrl` 即无阻断路径；用「OfflineBar 不出现 + 断网仍可编辑 / 撤销 /
+  落盘」固化不变量（docs/10 §4）。
+- 视觉基线必须入库并由 `check-visual-baselines` 守护；不保留未跟踪 actuals 假绿。
 - 协同挂账：editBlocked 交互面矩阵（等 `wsUrl` 进入启动路径，与只读独立，
   docs/21 §4）。
-- 可访问性遗留：画布内容元素级朗读（canvas 文本镜像/读屏游标，需独立内容层）、
-  ToolGhost/画布图形对比度（幽灵预览非文本图形，是否抬 3:1 需产品判断）、
-  ToolFlyout 的 Tab 顺序（portal 方案与 390px 裁剪约束冲突，需另案权衡）——
-  specs/a11y-closeout §13.5；图标随字号缩放与字号刻度归一另案（specs/rem-typography §13.4）。
-- 开源发布定案：许可 MIT；对外文档双语（`README.md` 英文主文档 + `README.zh-CN.md`）；
-  提交元数据保留原样，不重写历史；暂不使用自定义域名，Demo 与 canonical 固定为
-  `https://xiezongchen.github.io/Spinth/`。
-- 第三方许可声明由脚本生成并进 verify（`THIRD_PARTY_NOTICES.md` 不手改）；
-  依赖许可白名单含 13 项，`MPL-2.0` 只允许出现在构建期依赖。
-- 版本策略（1.0 起）：1.0.x 只修 bug，破坏性变更走主版本。
+- 可访问性遗留：画布内容元素级朗读（独立内容层）、ToolGhost / 画布图形对比度
+  （需产品判断）、ToolFlyout Tab 顺序（portal 与 390px 裁剪冲突）——specs/
+  a11y-closeout §13.5；图标随字号缩放与字号刻度归一另案（specs/rem-typography
+  §13.4）。
+- 版本策略：1.0.x 只修 bug，破坏性变更走主版本。
+- 许可：MIT；`THIRD_PARTY_NOTICES` 由脚本生成并进 verify，依赖白名单含
+  `MPL-2.0` 仅构建期。
