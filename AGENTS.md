@@ -254,8 +254,10 @@ debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
 check 为 `gate`。
 
-下一阶段：1.0 后可访问性与平台遗留 → 协同最后（docs/10，
-不进入默认启动路径）。
+下一阶段：常见图能力（docs/13 §4，按 标准流程图 → 组织架构 / 树 → 网络拓扑 /
+架构图 → 跨职能 / 泳道 → UML 时序 → UML 类图 / ER → BPMN 顺序）→ 协同最后
+（docs/10，不进入默认启动路径）；1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
+
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 安装与移动端真机待人工项见 specs/pwa.md §14
 与 specs/oss-release.md §8.5。
