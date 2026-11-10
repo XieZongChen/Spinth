@@ -120,7 +120,7 @@ describe('snapEqualSpacing 端部链式（单侧邻居）', () => {
     expect(r.gaps).toHaveLength(0);
   });
 
-  it('参考间隙 g=0（次邻与最近邻贴合）不触发', () => {
+  it('参考间隙 g=0（次邻与最近邻贴合）边链不触发（中心链另测，见左端贴合用例）', () => {
     const cTouch = { x: 400, y: 0, width: 100, height: 100 }; // 贴 B 右缘
     const r = snapEqualSpacing({ x: 100, y: 0, width: 100, height: 100 }, -3, 0, [B, cTouch], 6);
     expect(r.dx).toBe(-3);
@@ -149,7 +149,8 @@ describe('snapEqualSpacing 端部链式（单侧邻居）', () => {
 
   it('三个左邻只取最近邻 + 连续次邻一对（远邻配对不可达）', () => {
     // A(703) 左邻 {100..200}/{300..400}/{500..600}：最近对 = {500},{300}（g=100）→
-    // 目标 A.x = 600+100 = 700，偏差 0；若取远对 {300},{100} 目标 400 偏差 303 不命中
+    // 目标 A.x = 600+100 = 700，偏差 0；若取远对 {300},{100} 目标 A.x = 500
+    // （d=-203、偏差 200）不命中
     const n1 = { x: 100, y: 0, width: 100, height: 100 };
     const n3 = { x: 500, y: 0, width: 100, height: 100 };
     const r = snapEqualSpacing({ x: 703, y: 0, width: 100, height: 100 }, -3, 0, [n1, B, n3], 6);

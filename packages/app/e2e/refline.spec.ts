@@ -263,21 +263,28 @@ test('F 中置中心正中：不对称外邻下被拖中心在两邻中心正中
   });
   await page.waitForTimeout(150);
 
-  // 拖 M：过牵引后停在 dx=-17（中心解 dx=-20 偏差 3；间隙解 dx=0 偏差 17 不命中）
+  // 拖 M：过牵引后先停在 dx=-17（中心解 dx=-20 偏差 3，间隙解偏差 20 不命中），
+  // 再移到 dx=-20（精确正中、偏差 0——「停在正中不动」的稳态帧，锁 dev=0 修复）
   await page.mouse.move(380, sy(240));
   await page.mouse.down();
   await page.mouse.move(420, sy(240), { steps: 4 }); // dx=+40（牵引成立）
-  await page.mouse.move(363, sy(240), { steps: 4 }); // dx=-17 → 中心正中吸附
+  await page.mouse.move(363, sy(240), { steps: 4 }); // dx=-17 → 中心正中吸附（过程帧）
   await page.waitForTimeout(150);
-  const gaps = await page.evaluate(() => {
-    const d = (
-      window as unknown as {
-        __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
-      }
-    ).__spinthDebug.__debug.spacingGaps;
-    return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
-  });
-  expect(gaps).toEqual(['x:200', 'x:200']); // 中心距 |360-160| = |560-360| = 200
+  const gaps = async () =>
+    (
+      await page.evaluate(() => {
+        const d = (
+          window as unknown as {
+            __spinthDebug: { __debug: { spacingGaps: Array<{ axis: string; value: number }> } };
+          }
+        ).__spinthDebug.__debug.spacingGaps;
+        return d.map((g) => `${g.axis}:${Math.round(g.value)}`).sort();
+      })
+    ).join(',');
+  expect(await gaps()).toBe('x:200,x:200'); // 中心距 |360-160| = |560-360| = 200
+  await page.mouse.move(360, sy(240)); // dx=-20 偏差 0：稳态帧徽标不消失
+  await page.waitForTimeout(150);
+  expect(await gaps()).toBe('x:200,x:200');
   await page.mouse.up();
   await page.waitForTimeout(150);
   await expect.poll(() => geomOf(page, mId)).toEqual({ x: 300, y: 200 }); // cx=360 正中
