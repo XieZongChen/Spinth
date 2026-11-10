@@ -35,29 +35,14 @@
 
 ### 阶段 3 — 1.0 后平台收口（并行 / 间隙）
 
-本阶段不阻塞阶段 4：可访问性大项与平台人工验收按资源并行，完成即勾销；未完成项
-继续挂在 §3 决策与挂账。
+本阶段不阻塞阶段 4；按资源并行，完成即勾销。
 
-#### 3.1 可访问性
-
-- [x] 小项先收：宿主浮层快捷键闸门、touch/pen 自动化、ActionBar 安全区性能、
-      roving autoFocus 单测（specs/a11y-closeout §13.5 第 1/7/8/9 条已收口）。
-- [x] 字号单位迁移（WCAG 1.4.4 文本缩放，specs/rem-typography）：铬件字号统一 rem 令牌、
-      文本承载容器随根字号缩放、菜单/操作栏定位跟随实测，`check-font-units` 护栏进
-      verify 与 CI gate（specs/a11y-closeout §13.5 第 3 条已收口）。
-- [ ] 大项后做：画布内容朗读（独立内容层）、ToolFlyout Tab 顺序、
-      ToolGhost/画布图形对比度（需产品判断）。
-- 规格：specs/a11y-closeout §13.5。
-
-#### 3.2 平台人工验收
-
-- VoiceOver M1–M8（specs/a11y-closeout §8.7）。
-- iOS/Android 添加到主屏幕的启动形态与图标裁切（specs/pwa §14）。
-
-#### 3.3 可选能力
-
-- 拖放 `.spinth.zip` 导入（docs/20 §1.2 当前非目标）。
-- 其他按真实使用反馈立项，不预先扩表。
+- 可访问性大项：画布内容朗读（独立内容层）、ToolFlyout Tab 顺序、ToolGhost /
+  画布图形对比度（需产品判断）——specs/a11y-closeout §13.5。
+- 平台人工验收：VoiceOver M1–M8、iOS / Android 添加到主屏幕的启动形态与图标裁切——
+  specs/a11y-closeout §8.7、specs/pwa §14。
+- 可选：拖放 `.spinth.zip` 导入（docs/20 §1.2 当前非目标）；其他按真实使用反馈
+  立项，不预先扩表。
 
 ### 阶段 4 — 常见图能力（按序）
 
@@ -303,13 +288,6 @@ none；单标签；无表格；无空心三角 / 菱形 / 鸦爪；包 / 框架�
 - 前置评估按 docs/10；只有 1.0 稳定且有真实多设备需求才启动。
 - 不建 `packages/server`，不把 `y-websocket` 放进默认启动路径，不改单机离线语义。
 - 启动时先补 editBlocked 交互面矩阵（docs/21 §4）与 Awareness/wsProvider 边界。
-
-### 已完成批次（归档）
-
-- 项目导出/导入（docs/20）、多标签单写者/只读（docs/21）、存储可靠性（docs/02 §6.1）。
-- 资产/图片生命周期（docs/19）、纹理保活（specs/texture-keepalive.md）、PWA/Service Worker（specs/pwa.md）。
-- Linux 视觉基线（specs/linux-visual.md）、API 收口（specs/api-surface.md）。
-- 可访问性批次 A/B（specs/a11y-mobile.md、specs/a11y-closeout.md）。
 
 ## 3. 决策与挂账
 
