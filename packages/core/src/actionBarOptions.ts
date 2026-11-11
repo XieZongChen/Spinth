@@ -7,8 +7,33 @@ import type { IActionBarItem, IActionBarOption } from './types';
 import { FONT_SIZE_OPTIONS } from './widgets/text/textVm';
 import { PEN_COLOR_PALETTE } from './widgets/pen/penService';
 
-/** ActionBar 色板（视觉规格：与各控件 Service 默认色一致的语义色） */
-export const SHAPE_PALETTE = ['#e8f0fb', '#d1fae5', '#fde8e8', '#fef3c7', '#ede9fe', '#f1f5f9'];
+/** ActionBar 形状色板（视觉规格：与各控件 Service 默认色一致的语义色；流程图批
+ *  追加 #ffffff/#000000——「白底黑框」可达，specs/flowchart-closeout §4.2） */
+export const SHAPE_PALETTE = [
+  '#e8f0fb',
+  '#d1fae5',
+  '#fde8e8',
+  '#fef3c7',
+  '#ede9fe',
+  '#f1f5f9',
+  '#ffffff',
+  '#000000',
+];
+/** 形状边框色板（与线色板同源风格——「黑框 + 灰线」的经典流程图观感） */
+export const SHAPE_BORDER_PALETTE = [
+  '#1f2937',
+  '#000000',
+  '#ffffff',
+  '#2563eb',
+  '#dc2626',
+  '#059669',
+] as const;
+/** 形状描边宽档位（与连线线宽档位不必相等：形状 1 ↔ 线 2 是既有观感基线） */
+export const SHAPE_BORDER_WIDTH_OPTIONS: IActionBarOption[] = [1, 2, 4].map((n) => ({
+  id: String(n),
+  label: `${n} px`,
+  text: String(n),
+}));
 /** 连线/画笔共用色板（与 PEN_COLOR_PALETTE 同源——2026-10-11 提名导出消内联双份） */
 export const LINE_PALETTE: readonly string[] = PEN_COLOR_PALETTE;
 

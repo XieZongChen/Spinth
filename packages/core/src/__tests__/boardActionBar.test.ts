@@ -100,6 +100,8 @@ describe('buildActionBarSchema 单选分支', () => {
       'shapeType',
       'color',
       'borderStyle',
+      'borderColor',
+      'borderWidth',
       'fontSize',
       'textColor',
       'lineHeight',
@@ -115,6 +117,40 @@ describe('buildActionBarSchema 单选分支', () => {
     expect(byId.fontSize?.value).toBe('16');
     expect(byId.lineHeight?.value).toBe('1.5');
     expect(byId.align?.value).toBe('center');
+  });
+
+  it('SHAPE：流程图样式批三项（specs/flowchart-closeout §4.2）——无填充选项/边框色板/宽度档位/缺省值', () => {
+    const s = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'SHAPE' },
+        data: { borderColor: '#000000', borderWidth: 2, fill: 'none' },
+      }),
+      () => 0,
+    );
+    const byId = Object.fromEntries((s?.items ?? []).map((i) => [i.id, i]));
+    // 填充 popover 末位挂「无填充」（color:'none' 分流写 fill，styleCommands）
+    const colorOpts = byId.color?.options ?? [];
+    expect(colorOpts[colorOpts.length - 1]).toMatchObject({ id: 'none', label: '无填充' });
+    expect(byId.borderColor?.value).toBe('#000000');
+    expect((byId.borderColor?.options ?? []).map((o) => o.id)).toEqual([
+      '#1f2937',
+      '#000000',
+      '#ffffff',
+      '#2563eb',
+      '#dc2626',
+      '#059669',
+    ]);
+    expect(byId.borderWidth?.value).toBe('2');
+    expect((byId.borderWidth?.options ?? []).map((o) => o.id)).toEqual(['1', '2', '4']);
+    // 缺省：边框色空串（未写过 = 派生色）、边框宽回落 1
+    const s2 = buildActionBarSchema(
+      makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'SHAPE' }, data: {} }),
+      () => 0,
+    );
+    const byId2 = Object.fromEntries((s2?.items ?? []).map((i) => [i.id, i]));
+    expect(byId2.borderColor?.value).toBe('');
+    expect(byId2.borderWidth?.value).toBe('1');
   });
 
   it('LINE：8 项顺序固定（线型/线宽/虚线/双箭头/颜色 + 字号/文字色）', () => {

@@ -1,7 +1,6 @@
 import { Graphics, Point, type Rectangle } from 'pixi.js';
 import { BaseWidgetVm } from '../../base/baseWidgetVm';
 import { markRender } from '../../common/render';
-import { darkenHex, hexToNum } from '../../common/color';
 import { type IHostGeom, type IRect } from '../../common/geometry';
 import { measureDoc, createCanvasMeasurer, type IDocView } from '../../platform/textEngine/measure';
 import { htmlToDoc } from '../../platform/textEngine/htmlDoc';
@@ -15,7 +14,8 @@ import {
 } from '../../platform/rectEditor/rotateMath';
 // 纯几何单源抽离至 shapeGeometry（32 轮审查 🟡-3）——re-export 保旧 import 路径
 import { insetRectOf } from './shapeGeometry';
-import { drawShapeDetails, drawShapePath, STROKE_WIDTH } from './shapePath';
+import { drawShapeDetails, drawShapePath } from './shapePath';
+import { resolveShapeStyle } from './shapeStyle';
 export { SHAPE_TEXT_PADDING, insetRectOf, shapeHeightFromTextHeight } from './shapeGeometry';
 
 /** 虚线规格：8px 实线 + 8px 间隔（既有设计视觉规格） */
@@ -116,6 +116,11 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
       prev.shapeType === next.shapeType &&
       prev.color === next.color &&
       prev.borderStyle === next.borderStyle &&
+      // 样式三键（specs/flowchart-closeout §4.2）：漏加会让改边框色/宽/填充态
+      // 走快速路径不重画（resolveShapeStyle 的全部输入键）
+      prev.borderColor === next.borderColor &&
+      prev.borderWidth === next.borderWidth &&
+      prev.fill === next.fill &&
       prev.width === next.width &&
       prev.height === next.height;
     const hasText = htmlToPlainText(next.text ?? '').trim().length > 0;
@@ -135,22 +140,39 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
     }
     const g = this.shapeGraphics;
     g.clear();
-    const color = hexToNum(next.color);
-    const stroke = darkenHex(next.color, 0.25);
+    // 样式解析单源（specs/flowchart-closeout §4.2）：缺省 = 派生边框色/宽 1/
+    // 恒填充——老文档渲染逐字节不变
+    const style = resolveShapeStyle(next);
 
     drawShapePath(g, next.shapeType, next.width, next.height);
 
     if (next.borderStyle === 'dashed') {
-      // v8 Graphics 无原生虚线：先实心填充，再用点划线段描边
-      g.fill({ color });
-      g.setStrokeStyle({ width: STROKE_WIDTH, color: stroke, cap: 'round' });
+      // v8 Graphics 无原生虚线：先（可选）填充，再用点划线段描边；细节线
+      // （内弧/双竖线）虚线边框同样绘制（G-10——此前只在 solid 分支画）
+      if (style.fill) g.fill({ color: style.fillColor });
+      g.setStrokeStyle({ width: style.strokeWidth, color: style.strokeColor, cap: 'round' });
       drawDashedStroke(g, next, DASH);
+      drawShapeDetails(
+        g,
+        next.shapeType,
+        next.width,
+        next.height,
+        style.strokeColor,
+        style.strokeWidth,
+      );
     } else {
-      g.fill({ color });
+      if (style.fill) g.fill({ color: style.fillColor });
       if (next.borderStyle !== 'none') {
-        g.stroke({ width: STROKE_WIDTH, color: stroke });
-        // 细节线（内弧/双竖线）——仅实线风格（shapePath 单源）
-        drawShapeDetails(g, next.shapeType, next.width, next.height, stroke);
+        g.stroke({ width: style.strokeWidth, color: style.strokeColor });
+        // 细节线（内弧/双竖线）——与外框同规格单独描边（shapePath 单源）
+        drawShapeDetails(
+          g,
+          next.shapeType,
+          next.width,
+          next.height,
+          style.strokeColor,
+          style.strokeWidth,
+        );
       }
     }
 

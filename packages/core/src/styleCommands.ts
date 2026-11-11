@@ -25,6 +25,17 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
   if (patch.fontSize !== undefined) patch2.fontSize = Number(patch.fontSize);
   if (patch.strokeWidth !== undefined) patch2.strokeWidth = Number(patch.strokeWidth);
   if (patch.lineHeight !== undefined) patch2.lineHeight = Number(patch.lineHeight);
+  if (patch.borderWidth !== undefined) patch2.borderWidth = Number(patch.borderWidth);
+  // SHAPE 填充 popover 分流（specs/flowchart-closeout §4.2）：「无填充」选项 id
+  // 复用 color 字段传 'none'——core 侧转写 fill:'none'（不落非法 color）；
+  // 显式选色板色 = 要填充，fill 复位 'solid'。LINE/PEN/STICKY 的 color 是
+  // 纯 hex 色板（无 none 项），fill 键经各自 schema strip，不受影响
+  if (patch.color === 'none') {
+    delete patch2.color;
+    patch2.fill = 'none';
+  } else if (typeof patch.color === 'string' && patch.color.startsWith('#')) {
+    patch2.fill = 'solid';
+  }
   ctx.engine!.transact(() => {
     for (const id of ids) {
       ctx.engine?.getModelById(id)?.update(patch2 as never);

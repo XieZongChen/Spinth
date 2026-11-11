@@ -170,3 +170,34 @@ describe('getHostGeom 放平矩形（docs/05 §8 锚定链——θ≠0 反推曾
     expect(a.y).toBeCloseTo(300, 6);
   });
 });
+
+describe('流程图样式批（specs/flowchart-closeout §4.2：白底黑框/无填充/守卫键）', () => {
+  it('改 borderColor/borderWidth/fill 各自触发全量重画（守卫键漏加 = 快速路径吞掉）', () => {
+    const vm = new ShapeVm(null);
+    vm.setState({ ...noTextState });
+    vm.flushUpdate();
+    // 纯平移仍走快速路径（scale 探针不复位）
+    vm.root.scale.set(2);
+    vm.setState({ x: 30 });
+    vm.flushUpdate();
+    expect(vm.root.scale.x).toBe(2);
+    for (const patch of [
+      { borderColor: '#000000' },
+      { borderWidth: 2 },
+      { fill: 'none' as const },
+    ]) {
+      vm.root.scale.set(2);
+      vm.setState(patch);
+      vm.flushUpdate();
+      expect(vm.root.scale.x).toBe(1); // 全量路径复位 scale
+    }
+  });
+
+  it('fill none 后仍可命中/拖拽语义不变（bbox 命中，注释框预期）', () => {
+    const vm = new ShapeVm(null);
+    vm.setState({ ...noTextState, x: 100, y: 200, fill: 'none' });
+    vm.flushUpdate();
+    expect(vm.hitTestPoint({ x: 160, y: 240 } as never)).toBe(true); // 中心
+    expect(vm.hitTestPoint({ x: 400, y: 400 } as never)).toBe(false); // 远处
+  });
+});

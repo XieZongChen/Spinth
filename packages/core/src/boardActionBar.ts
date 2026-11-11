@@ -10,7 +10,14 @@ import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineServic
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { BRANCH_COLORS } from './widgets/mind/mindMapModel';
-import { ARROW_BAR_OPTIONS, LINE_PALETTE, SHAPE_PALETTE, typoItems } from './actionBarOptions';
+import {
+  ARROW_BAR_OPTIONS,
+  LINE_PALETTE,
+  SHAPE_PALETTE,
+  SHAPE_BORDER_PALETTE,
+  SHAPE_BORDER_WIDTH_OPTIONS,
+  typoItems,
+} from './actionBarOptions';
 
 /**
  * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
@@ -135,18 +142,38 @@ export function buildActionBarSchema(
             kind: 'popover',
             label: '填充色',
             value: String(data.color ?? ''),
-            options: swatches(SHAPE_PALETTE),
+            options: [
+              ...swatches(SHAPE_PALETTE),
+              // 无填充（specs/flowchart-closeout §4.2）：只描边不填充的注释框。
+              // 选项 id 'none' 与 fill 两态复用——写入分流在 styleCommands 前置
+              // （color popover 的 none 写 fill:'none'，色板项写 color 并复位 fill）
+              { id: 'none', label: '无填充', icon: 'border-none' },
+            ],
           },
           {
             id: 'borderStyle',
             kind: 'popover',
-            label: '边框',
+            label: '边框线型',
             value: String(data.borderStyle ?? 'solid'),
             options: [
               { id: 'solid', label: '实线', icon: 'border-solid' },
               { id: 'dashed', label: '虚线', icon: 'border-dashed' },
               { id: 'none', label: '无边框', icon: 'border-none' },
             ],
+          },
+          {
+            id: 'borderColor',
+            kind: 'popover',
+            label: '边框色',
+            value: String(data.borderColor ?? ''),
+            options: swatches(SHAPE_BORDER_PALETTE),
+          },
+          {
+            id: 'borderWidth',
+            kind: 'popover',
+            label: '边框宽',
+            value: String(data.borderWidth ?? 1),
+            options: SHAPE_BORDER_WIDTH_OPTIONS,
           },
           // 图形内文字排版（docs/17 §6）：def.align 传 center——形状文字默认居中，
           // 触发钮显示正确档位；字号/行高档后 reflowHeight 经 autoHeight 重排

@@ -7,8 +7,8 @@ import type { ShapeType } from '../../types';
  * 描边/填充由调用方（shapeVm render）统一施加；细节线（内弧/双竖线）单独出口。
  */
 
-/** 描边宽度（渲染视觉规格——shapeVm 虚线描边同源） */
-export const STROKE_WIDTH = 1;
+/** 描边宽缺省单源在 shapeStyle（SHAPE_DEFAULT_STROKE_WIDTH）——本文件只按
+ *  调用方传入的 width 描细节线（流程图批：宽度可配） */
 /** 圆角半径上限（视觉规格：比例 0.2 封顶 32——原固定 5 与 rect 视觉无差，
  *  用户实测反馈 2026-10-11；pixi roundRect 不自动钳制半径，须手动） */
 const CORNER_RADIUS_RATIO = 0.2;
@@ -200,21 +200,22 @@ export function drawShapeDetails(
   w: number,
   h: number,
   stroke: number,
+  width: number,
 ): void {
   if (shapeType === 'predefined-process') {
     // 子过程双竖线（流程图 Predefined Process）：左右内缩 d 的两条竖线
     const d = Math.min(12, w * 0.1);
     g.moveTo(d, 0).lineTo(d, h);
     g.moveTo(w - d, 0).lineTo(w - d, h);
-    g.stroke({ width: STROKE_WIDTH, color: stroke });
+    g.stroke({ width, color: stroke });
   }
   if (shapeType === 'eng-database') {
     const s = Math.min(27, h * 0.15);
     g.moveTo(0, s).quadraticCurveTo(w / 2, s * 3, w, s); // 顶盖下弧（垂到 2s）
-    g.stroke({ width: STROKE_WIDTH, color: stroke });
+    g.stroke({ width, color: stroke });
   } else if (shapeType === 'eng-queue') {
     const s = Math.min(27, w * 0.15);
     g.moveTo(w - s, 0).quadraticCurveTo(w - 3 * s, h / 2, w - s, h); // 右端内弧（凹到 w-2s）
-    g.stroke({ width: STROKE_WIDTH, color: stroke });
+    g.stroke({ width, color: stroke });
   }
 }
