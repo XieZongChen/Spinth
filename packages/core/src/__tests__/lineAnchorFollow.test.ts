@@ -173,3 +173,111 @@ describe('LineAnchorFollow.unbindFrom 删除解绑', () => {
     expect(untouched.model.update).not.toHaveBeenCalled();
   });
 });
+
+describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3，G-05）', () => {
+  const GEOM = { rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 };
+
+  function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>) {
+    const models = new Map(
+      lines.map((l) => [
+        l.id,
+        statefulLineModel({ id: l.id, lineType: 'STRAIGHT', startJoin: 'right', ...l.data }),
+      ]),
+    );
+    const lineVms = lines.map((l) => ({
+      id: l.id,
+      type: 'LINE',
+      previewRoute: vi.fn(),
+    }));
+    const follow = new LineAnchorFollow(
+      { getModelById: (id: string) => models.get(id)?.model } as never,
+      {
+        getAllVms: () => lineVms,
+        getVmById: (id: string) =>
+          id === 'N1'
+            ? {
+                getHostGeom: () => GEOM,
+                getAnchorPoint: (join: 'top' | 'right' | 'bottom' | 'left', t = 0.5) =>
+                  join === 'right'
+                    ? { x: 10, y: t * 10 }
+                    : join === 'left'
+                      ? { x: 0, y: t * 10 }
+                      : join === 'top'
+                        ? { x: t * 10, y: 0 }
+                        : { x: t * 10, y: 10 },
+              }
+            : null,
+      } as never,
+      { selected$: new BehaviorSubject<string[]>([]) } as never,
+    );
+    return { follow, models };
+  }
+
+  const baseLine = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    data: {
+      startNodeId: 'N1',
+      endNodeId: null,
+      endJoin: null,
+      points: [
+        [10, 5],
+        [100, 5],
+      ],
+      ...extra,
+    },
+  });
+
+  it('三条同边线（port 未写）：按 id 字典序分到 0.35/0.5/0.65，等距不重叠', () => {
+    const { follow, models } = makeFollow([baseLine('LA'), baseLine('LB'), baseLine('LC')]);
+    follow.reattach('N1', GEOM);
+    // STRAIGHT 只替换锚定端点：startAnchor y = t×10（id 字典序 LA<LB<LC）
+    expect(models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 3.5],
+        [100, 5],
+      ],
+    });
+    // LB 分到中点 0.5 = 已在 (10,5) → samePoints 跳过零写入（幂等守卫）
+    expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LC')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 6.5],
+        [100, 5],
+      ],
+    });
+  });
+
+  it('显式 port 优先：固定端不参与分配，其余两线重均分为 0.4/0.6', () => {
+    const { follow, models } = makeFollow([
+      baseLine('LA', { startPort: 0.9 }),
+      baseLine('LB'),
+      baseLine('LC'),
+    ]);
+    follow.reattach('N1', GEOM);
+    expect(models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 9],
+        [100, 5],
+      ],
+    });
+    expect(models.get('LB')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 4],
+        [100, 5],
+      ],
+    });
+    expect(models.get('LC')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 6],
+        [100, 5],
+      ],
+    });
+  });
+
+  it('n=1 恒中点（旧行为）：单线不写 port、不参与错开', () => {
+    const { follow, models } = makeFollow([baseLine('LA')]);
+    follow.reattach('N1', GEOM);
+    // 已在 (10,5) 中点 → samePoints 跳过，零写入（幂等守卫继续有效）
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+  });
+});

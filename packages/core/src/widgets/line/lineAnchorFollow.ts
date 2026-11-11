@@ -67,6 +67,8 @@ export class LineAnchorFollow extends Disposable {
   /** 节点移动时重算关联线（由组合根在 vm onStateChanged$ 上调用）。
    *  宿主几何 = IHostGeom（局部矩形 + θ，docs/05 §8——旋转宿主锚点随边中点转） */
   reattach(nodeId: string, geom: IHostGeom): void {
+    // 同边多线错开分配每轮重算（纯派生，specs/flowchart-closeout §7.3）
+    const spread = this.spreadPorts();
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE') continue;
       const model = this.engine.getModelById(vm.id);
@@ -76,6 +78,7 @@ export class LineAnchorFollow extends Disposable {
         data,
         data.startNodeId === nodeId ? geom : null,
         data.endNodeId === nodeId ? geom : null,
+        spread,
       );
       // points 同值跳过（内容级——数组引用永不相等，Object.is 跳过失效）：
       // 几何命令（对齐/分布）在事务后急切 reattach，onStateChanged$ 微任务相
@@ -95,6 +98,7 @@ export class LineAnchorFollow extends Disposable {
     const moving = new Set(this.selector.selected$.value);
     if (moving.size === 0) return;
     this.previewFollowLast = null;
+    const spread = this.spreadPorts();
     for (const lvm of this.vmEngine.getAllVms()) {
       if (lvm.type !== 'LINE') continue;
       const model = this.engine.getModelById(lvm.id);
@@ -109,7 +113,7 @@ export class LineAnchorFollow extends Disposable {
       const endGeom = endMoving
         ? (this.vmEngine.getVmById(data.endNodeId!)?.getHostGeom() ?? null)
         : null;
-      const pts = this.routeLinePoints(data, startGeom, endGeom);
+      const pts = this.routeLinePoints(data, startGeom, endGeom, spread);
       if (pts) {
         (lvm as LineVm).previewRoute(pts.map((p) => ({ x: p[0], y: p[1] })));
         this.previewFollowLast = pts; // 探针：最后一帧预览路由（E2E 断言拖动中跟随）
@@ -138,27 +142,64 @@ export class LineAnchorFollow extends Disposable {
     return anchorOf(geom.rect, join, geom.rotation, t);
   }
 
+  /**
+   * 同边多线错开分配（specs/flowchart-closeout §7.3，G-05）：纯派生不落库——
+   * 每轮按线 id 字典序重算一致（组内加/删线会让他位线让位，可接受），零写入
+   * 不产生幻影事务（samePoints 守卫继续有效）；显式 port 优先不参与分配，
+   * n=1 或未锚定恒 0.5（旧行为）。key = `${end}|${nodeId}|${join}|${lineId}`。
+   */
+  private spreadPorts(): Map<string, number> {
+    const groups = new Map<string, string[]>();
+    for (const vm of this.vmEngine.getAllVms()) {
+      if (vm.type !== 'LINE') continue;
+      const data = this.engine.getModelById(vm.id)?.toJSON() as unknown as
+        (ILineAnchorData & { id: string }) | undefined;
+      if (!data) continue;
+      for (const end of ['s', 'e'] as const) {
+        const nodeId = end === 's' ? data.startNodeId : data.endNodeId;
+        const join = end === 's' ? data.startJoin : data.endJoin;
+        const port = end === 's' ? data.startPort : data.endPort;
+        if (!nodeId || !join || port !== undefined) continue;
+        const key = `${end}|${nodeId}|${join}`;
+        const g = groups.get(key) ?? [];
+        g.push(data.id);
+        groups.set(key, g);
+      }
+    }
+    const out = new Map<string, number>();
+    for (const [key, ids] of groups) {
+      if (ids.length <= 1) continue; // n=1 → 0.5 缺省（旧行为）
+      ids.sort();
+      ids.forEach((id, i) => {
+        const t = 0.2 + (0.6 * (i + 1)) / (ids.length + 1);
+        out.set(`${key}|${id}`, Math.min(0.9, Math.max(0.1, t)));
+      });
+    }
+    return out;
+  }
+
   private routeLinePoints(
-    data: ILineAnchorData,
+    data: ILineAnchorData & { id: string },
     startGeom: IHostGeom | null,
     endGeom: IHostGeom | null,
+    spread: Map<string, number>,
   ): Array<[number, number]> | null {
     if (!startGeom && !endGeom) return null;
+    // 有效沿边参数：显式 port > 同边多线错开分配 > 0.5（§7.3）
+    const startT =
+      data.startPort ?? spread.get(`s|${data.startNodeId}|${data.startJoin}|${data.id}`) ?? 0.5;
+    const endT =
+      data.endPort ?? spread.get(`e|${data.endNodeId}|${data.endJoin}|${data.id}`) ?? 0.5;
     const pts = data.points.map((p) => ({ x: p[0], y: p[1] }));
 
     if (data.lineType !== 'ELBOWED') {
-      // STRAIGHT：只替换锚定端点（既有语义；θ 感知——锚点随边中点旋转）
+      // STRAIGHT：只替换锚定端点（既有语义；θ 感知——锚点随边旋转）
       if (startGeom && data.startJoin) {
-        const a = this.anchorOfNode(
-          data.startNodeId,
-          startGeom,
-          data.startJoin,
-          data.startPort ?? 0.5,
-        );
+        const a = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT);
         if (a) pts[0] = { x: a.x, y: a.y };
       }
       if (endGeom && data.endJoin) {
-        const b = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5);
+        const b = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, endT);
         if (b) pts[pts.length - 1] = { x: b.x, y: b.y };
       }
       return pts.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
@@ -169,18 +210,8 @@ export class LineAnchorFollow extends Disposable {
       // 重贴锚点（锚定跟随保持连通），中间拐点保持（锚定节点移动 U 形不丢）。
       // mergeCollinear 清锚点重贴可能产生的重合点（新锚点恰落旧拐点 → 零长段，
       // 段手柄/滑移几何随之退化）
-      const startAnchor = this.anchorOfNode(
-        data.startNodeId,
-        startGeom,
-        data.startJoin,
-        data.startPort ?? 0.5,
-      );
-      const endAnchor = this.anchorOfNode(
-        data.endNodeId,
-        endGeom,
-        data.endJoin,
-        data.endPort ?? 0.5,
-      );
+      const startAnchor = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT);
+      const endAnchor = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, endT);
       return mergeCollinear(pinKeepMiddle(pts, startAnchor, endAnchor)).map(
         (p) => [r2(p.x), r2(p.y)] as [number, number],
       );
@@ -188,11 +219,9 @@ export class LineAnchorFollow extends Disposable {
 
     // ELBOWED：全路径重路由（两端锚点 + 两端节点避让——避让用世界 AABB）
     const startPoint =
-      this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, data.startPort ?? 0.5) ??
-      pts[0]!;
+      this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT) ?? pts[0]!;
     const endPoint =
-      this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5) ??
-      pts[pts.length - 1]!;
+      this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, endT) ?? pts[pts.length - 1]!;
     const hostAabb = (id: string | null, fallback: IHostGeom | null): IRect | null => {
       if (fallback) return rotatedRectBounds(fallback.rect, fallback.rotation);
       if (!id) return null;
@@ -246,14 +275,16 @@ export class LineAnchorFollow extends Disposable {
     const endGeom = data.endNodeId
       ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
       : null;
-    const start = this.anchorOfNode(
-      data.startNodeId,
-      startGeom,
-      data.startJoin,
-      data.startPort ?? 0.5,
-    ) ?? { x: data.points[0]![0], y: data.points[0]![1] };
+    const spread = this.spreadPorts();
+    const startT =
+      data.startPort ?? spread.get(`s|${data.startNodeId}|${data.startJoin}|${id}`) ?? 0.5;
+    const endT = data.endPort ?? spread.get(`e|${data.endNodeId}|${data.endJoin}|${id}`) ?? 0.5;
+    const start = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT) ?? {
+      x: data.points[0]![0],
+      y: data.points[0]![1],
+    };
     const last = data.points[data.points.length - 1]!;
-    const end = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5) ?? {
+    const end = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, endT) ?? {
       x: last[0],
       y: last[1],
     };

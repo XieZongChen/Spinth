@@ -15,6 +15,7 @@ import {
   quantizeJoin,
   r2,
   routeElbow,
+  nodeAnchorPoint,
   type IPt,
   type JoinDir,
 } from './lineMath';
@@ -95,9 +96,12 @@ export class LineDrawSession extends Disposable {
     this.host.overlay?.hideDrawFeedback();
     const hit = hitWidget(this.vmEngine, this.viewport, e.world);
     const join = hit ? nearestJoin(hit.geom.rect, e.world, hit.geom.rotation) : null;
-    const point = hit
-      ? anchorOf(hit.geom.rect, join!, hit.geom.rotation)
-      : { x: e.world.x, y: e.world.y };
+    // 锚点单源经 vm.getAnchorPoint（ShapeVm 覆写轮廓交点；§7.1 第 3 层）
+    const point = (hit && join ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join) : null) ??
+      (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation) : null) ?? {
+        x: e.world.x,
+        y: e.world.y,
+      };
     this.startAnchorState = { nodeId: hit?.id ?? null, join, point };
     const id = genId();
     this.drawingId = id;
@@ -182,9 +186,11 @@ export class LineDrawSession extends Disposable {
     } else {
       this.host.overlay?.hideDrawFeedback();
     }
-    const end = hit
-      ? anchorOf(hit.geom.rect, join!, hit.geom.rotation)
-      : { x: e.world.x, y: e.world.y };
+    const end = (hit && join ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join) : null) ??
+      (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation) : null) ?? {
+        x: e.world.x,
+        y: e.world.y,
+      };
     // 避让节点用世界 AABB（旋转宿主保守外接）；出线方向量化到最近轴
     // （旋转宿主的走廊方向旋转感知——穿体修复，docs/05 §8）
     const hostAabb = (g: IHostGeom | null): IRect | null =>

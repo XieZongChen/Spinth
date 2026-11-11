@@ -1,4 +1,4 @@
-import { bboxAnchor, type IRect, type JoinDir } from '../../common/geometry';
+import { bboxAnchor, type IHostGeom, type IRect, type JoinDir } from '../../common/geometry';
 import { rotatePointAround, inverseRotatePoint } from '../../platform/rectEditor/rotateMath';
 import type { IPt } from './lineMathTypes';
 
@@ -33,6 +33,29 @@ export function nearestJoin(rect: IRect, p: IPt, rotation = 0): JoinDir {
 export function segmentDirection(a: IPt, b: IPt): IPt {
   const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
   return { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+}
+
+/** 宿主端点锚点（specs/flowchart-closeout §7.1 实现分层第 3 层）：交互链统一经
+ *  vm.getAnchorPoint 单源取点（ShapeVm 覆写为轮廓交点）；vm 缺失（桩/极端时序）
+ *  回退 bbox anchorOf(geom)。与 LineAnchorFollow.anchorOfNode 同式（彼处持有
+ *  vmEngine 实例，此处供 draw/endpoint/quickAdd 等无实例协作者复用）。 */
+export function nodeAnchorPoint(
+  vmEngine: {
+    getVmById(id: string): { getAnchorPoint(join: JoinDir, t: number): IPt } | undefined;
+  } | null,
+  nodeId: string | null,
+  geom: IHostGeom | null,
+  join: JoinDir | null,
+  t = 0.5,
+): IPt | null {
+  if (!join) return null;
+  const vm =
+    nodeId && vmEngine && typeof vmEngine.getVmById === 'function'
+      ? vmEngine.getVmById(nodeId)
+      : undefined;
+  if (vm && typeof vm.getAnchorPoint === 'function') return vm.getAnchorPoint(join, t);
+  if (geom) return anchorOf(geom.rect, join, geom.rotation, t);
+  return null;
 }
 
 /** 线段-点距离平方（命中检测，docs/08 §7） */

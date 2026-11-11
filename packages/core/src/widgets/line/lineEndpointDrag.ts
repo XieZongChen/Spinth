@@ -6,7 +6,16 @@ import type {
   IVmEngineService,
   IViewportService,
 } from '../../types';
-import { anchorOf, nearestJoin, quantizeJoin, r2, routeElbow, type JoinDir } from './lineMath';
+import {
+  anchorOf,
+  inverseRotatePoint,
+  nearestJoin,
+  nodeAnchorPoint,
+  quantizeJoin,
+  r2,
+  routeElbow,
+  type JoinDir,
+} from './lineMath';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { LineVm } from './lineVm';
 import type { LineHoverOverlay } from './lineHoverOverlay';
@@ -34,6 +43,7 @@ export class LineEndpointDrag extends Disposable {
       points: Array<[number, number]>;
       nodeId: string | null;
       join: JoinDir | null;
+      port: number | null;
     } | null;
   } | null = null;
 
@@ -73,9 +83,28 @@ export class LineEndpointDrag extends Disposable {
     const data = model.toJSON() as unknown as ILineAnchorData;
     const hit = this.host.hitTest(world);
     const join = hit ? nearestJoin(hit.geom.rect, world, hit.geom.rotation) : null;
-    const anchor = hit
-      ? anchorOf(hit.geom.rect, join!, hit.geom.rotation)
-      : { x: world.x, y: world.y };
+    // 沿边参数（specs/flowchart-closeout §7.4）：指针在命中边上的投影 t ∈ [0,1]
+    // （局部系，θ 感知——旋转宿主先逆变换再投影）；命中边 + port 一起落库固定该端
+    let port: number | null = null;
+    if (hit && join) {
+      const r = hit.geom.rect;
+      const center = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      const local =
+        hit.geom.rotation === 0 ? world : inverseRotatePoint(world, center, hit.geom.rotation);
+      const raw =
+        join === 'top' || join === 'bottom'
+          ? (local.x - r.x) / (r.width || 1)
+          : (local.y - r.y) / (r.height || 1);
+      port = r2(Math.min(1, Math.max(0, raw)));
+    }
+    // 锚点单源经 vm.getAnchorPoint（ShapeVm 覆写轮廓交点；§7.1 第 3 层）
+    const anchor = (hit && join
+      ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join, port ?? 0.5)
+      : null) ??
+      (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation, port ?? 0.5) : null) ?? {
+        x: world.x,
+        y: world.y,
+      };
     // 吸附反馈：目标元素连接点亮起（悬停目标时）
     if (hit) this.overlay.showDrawFeedback(hit.geom, JOINS.indexOf(join!));
     else this.overlay.hideDrawFeedback();
@@ -112,7 +141,7 @@ export class LineEndpointDrag extends Disposable {
       nodeId = hit?.id ?? null;
     }
     const solid = route.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
-    d.pending = { points: solid, nodeId, join };
+    d.pending = { points: solid, nodeId, join, port };
     (this.vmEngine.getVmById(d.id) as LineVm).previewRoute(route);
     this.overlay.showEndpointHandles(
       [route[0]!, route[route.length - 1]!],
@@ -140,12 +169,16 @@ export class LineEndpointDrag extends Disposable {
               points: d.pending.points,
               endNodeId: d.pending.nodeId,
               endJoin: d.pending.join,
+              // 命中即写 port 固定该端（§7.4）；拖离 = 自由端，port 随锚定一并清除
+              // （undefined 写路径 = 删字段，与 groupId 脱组同款先例）
+              endPort: d.pending.nodeId ? d.pending.port : undefined,
               pinned: false,
             }
           : {
               points: d.pending.points,
               startNodeId: d.pending.nodeId,
               startJoin: d.pending.join,
+              startPort: d.pending.nodeId ? d.pending.port : undefined,
               pinned: false,
             };
       // 锚定不变式（docs/18 §2）：转锚定即脱组——锚定线位置由锚定系统拥有，

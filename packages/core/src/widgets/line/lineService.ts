@@ -362,7 +362,12 @@ export class LineService extends Disposable {
     const nearest = nearestAnchorDot(geom, world, this.viewport.vpScale$.value || 1);
     const grabRadius = 12 / (this.viewport.vpScale$.value || 1);
     if (nearest.d > grabRadius) return false;
-    this.quickAdd?.startConnectorFrom(anchorOf(geom.rect, nearest.j), nearest.j, world);
+    // 锚点单源经 vm.getAnchorPoint（非矩形形状起点贴轮廓，§7.1 第 3 层）
+    this.quickAdd?.startConnectorFrom(
+      vm.getAnchorPoint(nearest.j, 0.5) ?? anchorOf(geom.rect, nearest.j),
+      nearest.j,
+      world,
+    );
     return true;
   }
 

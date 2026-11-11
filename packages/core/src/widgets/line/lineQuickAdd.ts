@@ -12,6 +12,7 @@ import type {
 } from '../../types';
 import {
   anchorOf,
+  nodeAnchorPoint,
   quantizeJoin,
   r2,
   branchSlotOffset,
@@ -49,6 +50,7 @@ const JOIN_NORMAL: Record<JoinDir, IPt> = {
 
 /** 连线锚定相关字段（countEdgeLines/hasAnyLine 的 toJSON 投影；宿主 reattach 共用） */
 export interface ILineAnchorData {
+  id: string;
   startNodeId: string | null;
   endNodeId: string | null;
   startJoin: JoinDir | null;
@@ -252,7 +254,9 @@ export class LineQuickAdd extends Disposable {
         route: routeElbow({
           start: anchor,
           startJoin: join,
-          end: anchorOf(hit.geom.rect, endJoin, hit.geom.rotation),
+          end:
+            nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, endJoin) ??
+            anchorOf(hit.geom.rect, endJoin, hit.geom.rotation),
           endJoin: quantizeJoin(endJoin, hit.geom.rotation),
           startNode: sb,
           endNode: endAabb,

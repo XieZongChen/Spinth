@@ -28,6 +28,7 @@ export {
   pathLength,
   segmentGeoms,
   r2,
+  nodeAnchorPoint,
   nearestSegBody,
   intersectLine,
 } from './lineGeometry';
