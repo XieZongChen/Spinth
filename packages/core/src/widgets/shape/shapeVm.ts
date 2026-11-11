@@ -1,7 +1,8 @@
 import { Graphics, Point, type Rectangle } from 'pixi.js';
 import { BaseWidgetVm } from '../../base/baseWidgetVm';
 import { markRender } from '../../common/render';
-import { type IHostGeom, type IRect } from '../../common/geometry';
+import { type IHostGeom, type IPoint, type IRect, type JoinDir } from '../../common/geometry';
+import { outlineAnchor } from './shapeOutline';
 import { measureDoc, createCanvasMeasurer, type IDocView } from '../../platform/textEngine/measure';
 import { htmlToDoc } from '../../platform/textEngine/htmlDoc';
 import { htmlToPlainText } from '../../platform/textEngine/plainText';
@@ -264,6 +265,22 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
       rect: { x: this.root.x - w / 2, y: this.root.y - h / 2, width: w, height: h },
       rotation: this.root.rotation,
     };
+  }
+
+  /** 锚点 = 轮廓交点（specs/flowchart-closeout §7.2，G-04）：局部系求交后
+   *  平移到宿主矩形、绕心旋转 θ。rect 族与 bbox 边点逐字节等价（回归锁） */
+  override getAnchorPoint(join: JoinDir, t: number): IPoint {
+    const g = this.getHostGeom();
+    const p = outlineAnchor(this.state.shapeType, g.rect.width, g.rect.height, join, t);
+    const local = { x: g.rect.x + p.x, y: g.rect.y + p.y };
+    if (g.rotation === 0) return local;
+    const cx = g.rect.x + g.rect.width / 2;
+    const cy = g.rect.y + g.rect.height / 2;
+    const cos = Math.cos(g.rotation);
+    const sin = Math.sin(g.rotation);
+    const dx = local.x - cx;
+    const dy = local.y - cy;
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
   }
 
   /** 手动缩放解除 autoHeight（docs/17 §6 四点拍板：参考惯例 + 既有设计同款）：

@@ -5,6 +5,20 @@
  */
 import type { ShapeType } from '../../types';
 import type { IRect } from '../../common/geometry';
+import {
+  CYLINDER_HEAD_FULL,
+  DOCUMENT_WAVE_MAX,
+  FILE_FOLD_MAX,
+  FOLDER_TAB_MAX,
+  OFFPAGE_TIP_MAX,
+  documentWave,
+  fileFold,
+  folderTab,
+  hexagonSlant,
+  offPageTip,
+  predefinedBand,
+  trapezoidWaist,
+} from './shapeMetrics';
 
 /** rect/round 文字内边距（ellipse/diamond 走 insetRectOf 专式内接） */
 export const SHAPE_TEXT_PADDING = 15;
@@ -37,7 +51,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'eng-database') {
     // 圆柱：两椭圆头之间的矩形身（头高钳制与绘制同步）
-    const e = Math.min(54, h * 0.3);
+    const e = Math.min(CYLINDER_HEAD_FULL, h * 0.3);
     return {
       x: SHAPE_TEXT_PADDING,
       y: e + SHAPE_TEXT_PADDING,
@@ -47,7 +61,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'eng-queue') {
     // 滚筒：两端椭圆之间的矩形身（端宽钳制同步；纵向 20 视觉边距——端椭圆弧不顶边）
-    const e = Math.min(54, w * 0.3);
+    const e = Math.min(CYLINDER_HEAD_FULL, w * 0.3);
     return {
       x: e + SHAPE_TEXT_PADDING,
       y: 20,
@@ -57,7 +71,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'eng-file') {
     // 缺角页：折角下方矩形（既有设计 y=55 起——即 f+5；spinth 取 f+padding 对称）
-    const f = Math.min(50, w * 0.3);
+    const f = fileFold(w);
     return {
       x: SHAPE_TEXT_PADDING,
       y: f + SHAPE_TEXT_PADDING,
@@ -77,7 +91,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'off-page') {
     // 页连接：底部让尖区 c（与绘制同步钳制，上限 35 单源于撑高公式）
-    const c = Math.min(h * 0.35, 35);
+    const c = offPageTip(h);
     return {
       x: SHAPE_TEXT_PADDING,
       y: SHAPE_TEXT_PADDING,
@@ -98,7 +112,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'trapezoid-down') {
     // 下梯形：与上梯形同款内接（镜像只影响绘制）
-    const c = Math.min(w * 0.2, 40);
+    const c = trapezoidWaist(w);
     return {
       x: SHAPE_TEXT_PADDING + c / 2,
       y: SHAPE_TEXT_PADDING,
@@ -108,7 +122,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'trapezoid-up') {
     // 上梯形：顶边窄——左右各让半腰（c/2 均值近似）
-    const c = Math.min(w * 0.2, 40);
+    const c = trapezoidWaist(w);
     return {
       x: SHAPE_TEXT_PADDING + c / 2,
       y: SHAPE_TEXT_PADDING,
@@ -118,7 +132,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'predefined-process') {
     // 子过程：左右各让双竖线带 d（与绘制同步钳制）
-    const d = Math.min(12, w * 0.1);
+    const d = predefinedBand(w);
     return {
       x: SHAPE_TEXT_PADDING + d,
       y: SHAPE_TEXT_PADDING,
@@ -128,7 +142,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'hexagon') {
     // 六边形：左右各让斜宽 c（中部最宽——保守内接）
-    const c = Math.min(w * 0.25, h / 2);
+    const c = hexagonSlant(w, h);
     return {
       x: c,
       y: SHAPE_TEXT_PADDING,
@@ -138,7 +152,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'document') {
     // 文档：底部让波浪 c（与绘制同步钳制）
-    const c = Math.min(18, h * 0.15);
+    const c = documentWave(h);
     return {
       x: SHAPE_TEXT_PADDING,
       y: SHAPE_TEXT_PADDING,
@@ -148,7 +162,7 @@ export function insetRectOf(shapeType: ShapeType, w: number, h: number): IRect {
   }
   if (shapeType === 'eng-folder') {
     // 文件夹：标签页下方矩形（t 钳制同步）
-    const t = Math.min(40, h * 0.25);
+    const t = folderTab(h);
     return {
       x: SHAPE_TEXT_PADDING,
       y: t + SHAPE_TEXT_PADDING,
@@ -176,15 +190,19 @@ export function shapeHeightFromTextHeight(shapeType: ShapeType, textH: number): 
   if (shapeType === 'parallelogram-right' || shapeType === 'parallelogram-left')
     return Math.round(textH * 1.25 * 100) / 100; // 0.8h ≥ textH 反解（既有设计 /0.8 同值）
   if (shapeType === 'eng-database')
-    return Math.round((textH + 108 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 两头 54 + 上下 padding
+    if (shapeType === 'eng-database')
+      return Math.round((textH + CYLINDER_HEAD_FULL * 2 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 两头 54×2 + 上下 padding
   if (shapeType === 'eng-queue') return Math.round((textH + 40) * 100) / 100; // 纵向只有 20×2 视觉边距
   if (shapeType === 'eng-file')
-    return Math.round((textH + 50 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 折角 50 + 上下 padding
+    if (shapeType === 'eng-file')
+      return Math.round((textH + FILE_FOLD_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 折角 50 + 上下 padding
   if (shapeType === 'eng-folder')
-    return Math.round((textH + 40 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 标签页 40 + 上下 padding
+    if (shapeType === 'eng-folder')
+      return Math.round((textH + FOLDER_TAB_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 标签页 40 + 上下 padding
   if (shapeType === 'stadium') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 上下 padding（端帽只吃水平）
   if (shapeType === 'document')
-    return Math.round((textH + 18 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 波浪 18 + 上下 padding
+    if (shapeType === 'document')
+      return Math.round((textH + DOCUMENT_WAVE_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 波浪 18 + 上下 padding
   if (shapeType === 'hexagon') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 斜宽只吃水平
   if (shapeType === 'predefined-process')
     return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 竖线带只吃水平
@@ -192,6 +210,7 @@ export function shapeHeightFromTextHeight(shapeType: ShapeType, textH: number): 
     return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 腰斜只吃水平
   if (shapeType === 'delay') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 半圆只吃水平
   if (shapeType === 'off-page')
-    return Math.round((textH + 35 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 尖区 35（未钳制口径）+ 上下 padding
+    if (shapeType === 'off-page')
+      return Math.round((textH + OFFPAGE_TIP_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 尖区 35（未钳制口径）+ 上下 padding
   return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100;
 }
