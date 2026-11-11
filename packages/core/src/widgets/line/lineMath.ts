@@ -37,6 +37,7 @@ export type { ISegmentGeom } from './lineGeometry';
 export {
   NODE_MARGIN,
   ELBOW_RADIUS,
+  collectRouteObstacles,
   mergeCollinear,
   absorbTinyJogs,
   routeElbow,

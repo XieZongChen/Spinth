@@ -89,6 +89,9 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
     lineSegments: d.lineService?.lineSegmentsDebug ?? null,
     lineSegmentActive: d.lineService?.lineSegmentActiveDebug ?? null,
     lineEndpointActive: d.lineService?.lineEndpointActiveDebug ?? null,
+    /** 最近一次 ELBOWED 重路由的第三方避障集合（specs/flowchart-closeout §8.2；
+     *  E2E 断言避障生效；null = 未触发重路由） */
+    lastRouteObstacles: d.lineService?.lastRouteObstaclesDebug ?? null,
     lineKnockout: d.lineService?.lineKnockoutDebug ?? null,
     mindNodes: d.mindService?.nodesDebug ?? [],
     dropPreview: d.mindService?.dropPreviewDebug ?? null,

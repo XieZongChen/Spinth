@@ -8,6 +8,7 @@ import type {
 } from '../../types';
 import {
   anchorOf,
+  collectRouteObstacles,
   inverseRotatePoint,
   nearestJoin,
   nodeAnchorPoint,
@@ -127,6 +128,14 @@ export class LineEndpointDrag extends Disposable {
         endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
         startNode: nodeAabb(data.startNodeId),
         endNode: hostAabb(hit),
+        // 全局避障（G-06）：重锚定预览实时绕行第三节点
+        obstacles: collectRouteObstacles(
+          this.vmEngine,
+          pts[0]!,
+          anchor,
+          data.startNodeId,
+          hit?.id ?? null,
+        ),
       });
       nodeId = hit?.id ?? null;
     } else {
@@ -137,6 +146,13 @@ export class LineEndpointDrag extends Disposable {
         endJoin: data.endJoin,
         startNode: hostAabb(hit),
         endNode: nodeAabb(data.endNodeId),
+        obstacles: collectRouteObstacles(
+          this.vmEngine,
+          anchor,
+          pts[pts.length - 1]!,
+          hit?.id ?? null,
+          data.endNodeId,
+        ),
       });
       nodeId = hit?.id ?? null;
     }

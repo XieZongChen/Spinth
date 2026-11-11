@@ -374,3 +374,110 @@ describe('锚定进入段最短长度（2026-09-28 用户实测：短末段挤�
     expect(last).toBeGreaterThanOrEqual(20);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 第三方避障（specs/flowchart-closeout §8.2，G-06）
+// ---------------------------------------------------------------------------
+
+describe('全局避障：第三方障碍只进穿模过滤', () => {
+  // A(100,100,200,100) 与 B(500,150,200,100) 同排；C 挡在两者连线正中
+  const NODE_C: IRect = { x: 330, y: 90, width: 140, height: 120 };
+  const start = { x: 300, y: 150 }; // A 右边中点
+  const end = { x: 500, y: 200 }; // B 左边中点
+
+  it('中间节点挡路：路由折线不与该节点 AABB 相交（绕行）', () => {
+    const route = routeElbow({
+      start,
+      startJoin: 'right',
+      end,
+      endJoin: 'left',
+      startNode: NODE_A,
+      endNode: NODE_B,
+      obstacles: [NODE_C],
+    });
+    expect(isOrthogonal(route)).toBe(true);
+    for (const r of [NODE_A, NODE_B, NODE_C]) {
+      // 排除锚点出线/入线段（首末段对端点宿主有豁免口径）
+      for (let i = 1; i + 2 < route.length; i++) {
+        expect(segmentIntersectsRect(route[i]!, route[i + 1]!, r, 2)).toBe(false);
+      }
+    }
+  });
+
+  it('无障碍时不回归：不传 obstacles 的路由与传空数组一致', () => {
+    const a = routeElbow({
+      start,
+      startJoin: 'right',
+      end,
+      endJoin: 'left',
+      startNode: NODE_A,
+      endNode: NODE_B,
+    });
+    const b = routeElbow({
+      start,
+      startJoin: 'right',
+      end,
+      endJoin: 'left',
+      startNode: NODE_A,
+      endNode: NODE_B,
+      obstacles: [],
+    });
+    expect(b).toEqual(a);
+  });
+
+  it('全挡死 fallback：极端围死仍返回首候选（保连通不抛错）', () => {
+    const wall: IRect = { x: 200, y: 60, width: 400, height: 260 };
+    const route = routeElbow({
+      start,
+      startJoin: 'right',
+      end,
+      endJoin: 'left',
+      startNode: NODE_A,
+      endNode: NODE_B,
+      obstacles: [wall, wall, wall],
+    });
+    expect(route.length).toBeGreaterThanOrEqual(2);
+    expect(isOrthogonal(route)).toBe(true);
+  });
+});
+
+describe('collectRouteObstacles 收集（G-06 单源）', () => {
+  it('排除两端节点/LINE/PEN，按距离升序、截断 MAX_OBSTACLES', async () => {
+    const { collectRouteObstacles, MAX_OBSTACLES } = await import('../widgets/line/lineRoute');
+    const rect = (
+      x: number,
+      y: number,
+    ): { id: string; type: string; getHostGeom(): { rect: IRect; rotation: number } } => ({
+      id: `v${x}_${y}`,
+      type: 'SHAPE',
+      getHostGeom: () => ({ rect: { x, y, width: 40, height: 40 }, rotation: 0 }),
+    });
+    const vms = [
+      rect(160, 0), // 距中点近
+      rect(320, 0), // 远
+      {
+        id: 'line1',
+        type: 'LINE',
+        getHostGeom: () => ({ rect: { x: 200, y: 0, width: 10, height: 10 }, rotation: 0 }),
+      },
+      {
+        id: 'pen1',
+        type: 'PEN',
+        getHostGeom: () => ({ rect: { x: 210, y: 0, width: 10, height: 10 }, rotation: 0 }),
+      },
+      rect(240, 0), // = startId，排除
+    ];
+    const vmEngine = { getVmsInRect: () => vms };
+    const out = collectRouteObstacles(
+      vmEngine,
+      { x: 200, y: 60 },
+      { x: 300, y: 60 },
+      'v240_0',
+      null,
+    );
+    expect(out.length).toBe(2);
+    expect(out[0]).toEqual({ x: 160, y: 0, width: 40, height: 40 }); // 近者在前
+    expect(out[1]).toEqual({ x: 320, y: 0, width: 40, height: 40 });
+    expect(MAX_OBSTACLES).toBe(32);
+  });
+});

@@ -146,9 +146,11 @@ export abstract class BaseWidgetVm<D extends IWidgetData = IWidgetData, S extend
   }
 
   /** 锚点世界坐标默认实现（specs/flowchart-closeout §7.1）：bbox 边插值 + θ。
+   *  geom 显式传入 = 以该宿主几何为准（急切 reattach 权威几何，防 vm root
+   *  渲染滞后产生幻影事务）；缺省 = getHostGeom()（预览敏感）。
    *  ShapeVm 覆写为轮廓交点（非矩形形状锚点贴边，G-04） */
-  getAnchorPoint(join: JoinDir, t: number): IPoint {
-    const g = this.getHostGeom();
+  getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPoint {
+    const g = geom ?? this.getHostGeom();
     return bboxAnchor(g.rect, join, t, g.rotation);
   }
 

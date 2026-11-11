@@ -4,6 +4,7 @@ import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { IDataEngineService, ISelectorService, IVmEngineService } from '../../types';
 import {
   anchorOf,
+  collectRouteObstacles,
   mergeCollinear,
   pinKeepMiddle,
   quantizeJoin,
@@ -31,6 +32,10 @@ export class LineAnchorFollow extends Disposable {
   /** 探针：最后一帧预览路由（E2E 断言拖动中跟随） */
   private previewFollowLast: Array<[number, number]> | null = null;
 
+  /** 探针：最近一次 ELBOWED 重路由的第三方避障集合（specs/flowchart-closeout
+   *  §8.2/§14——E2E 断言避障真的生效；null = 未触发重路由） */
+  private lastRouteObstacles: IRect[] | null = null;
+
   constructor(
     private readonly engine: IDataEngineService,
     private readonly vmEngine: IVmEngineService,
@@ -41,6 +46,10 @@ export class LineAnchorFollow extends Disposable {
 
   get previewFollowDebug(): Array<[number, number]> | null {
     return this.previewFollowLast;
+  }
+
+  get routeObstaclesDebug(): IRect[] | null {
+    return this.lastRouteObstacles;
   }
 
   /** 解绑：线的 startNodeId/endNodeId 指向被删形状 → 置 null（points 不动） */
@@ -138,7 +147,7 @@ export class LineAnchorFollow extends Disposable {
     if (!join) return null;
     if (!geom) return null;
     const vm = nodeId ? this.vmEngine.getVmById(nodeId) : null;
-    if (vm) return vm.getAnchorPoint(join, t);
+    if (vm) return vm.getAnchorPoint(join, t, geom ?? undefined);
     return anchorOf(geom.rect, join, geom.rotation, t);
   }
 
@@ -230,6 +239,16 @@ export class LineAnchorFollow extends Disposable {
     };
     const startNode = hostAabb(data.startNodeId, startGeom);
     const endNode = hostAabb(data.endNodeId, endGeom);
+    // 全局避障（G-06）：两端点外扩包围盒内的第三方节点参与穿模过滤（pinned
+    // 分支已在上方早退——用户手滑优先不避障）
+    const obstacles = collectRouteObstacles(
+      this.vmEngine,
+      startPoint,
+      endPoint,
+      data.startNodeId,
+      data.endNodeId,
+    );
+    this.lastRouteObstacles = obstacles.map((r) => ({ ...r }));
     const route = routeElbow({
       start: startPoint,
       // 出线方向旋转感知（docs/05 §8 穿体修复）：锚点 θ 数学独立，走廊方向
@@ -243,6 +262,7 @@ export class LineAnchorFollow extends Disposable {
         data.endJoin && endGeom ? quantizeJoin(data.endJoin, endGeom.rotation) : data.endJoin,
       startNode,
       endNode,
+      obstacles,
     });
     return route.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
   }
@@ -290,6 +310,7 @@ export class LineAnchorFollow extends Disposable {
     };
     const route = routeElbow({
       start,
+      obstacles: collectRouteObstacles(this.vmEngine, start, end, data.startNodeId, data.endNodeId),
       startJoin: startGeom
         ? quantizeJoin(data.startJoin ?? 'right', startGeom.rotation)
         : data.startJoin,

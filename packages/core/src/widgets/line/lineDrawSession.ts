@@ -13,6 +13,7 @@ import {
   anchorOf,
   nearestJoin,
   quantizeJoin,
+  collectRouteObstacles,
   r2,
   routeElbow,
   nodeAnchorPoint,
@@ -210,6 +211,14 @@ export class LineDrawSession extends Disposable {
       endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
       startNode: startNodeBounds,
       endNode: hostAabb(hit ? hit.geom : null),
+      // 全局避障（G-06）：拉线过程实时绕行第三节点
+      obstacles: collectRouteObstacles(
+        this.vmEngine,
+        this.startAnchorState!.point,
+        end,
+        this.startAnchorState?.nodeId ?? null,
+        hit?.id ?? null,
+      ),
     });
     model.update({
       points: route.map((p) => [r2(p.x), r2(p.y)] as [number, number]),

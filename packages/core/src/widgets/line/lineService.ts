@@ -271,6 +271,16 @@ export class LineService extends Disposable {
     return this.anchorFollow?.previewFollowDebug ?? null;
   }
 
+  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发） */
+  get lastRouteObstaclesDebug(): Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> | null {
+    return this.anchorFollow?.routeObstaclesDebug ?? null;
+  }
+
   /** dev 探针：段中点手柄快照（null = 未显示；E2E 断言段几何，批次 3） */
   get lineSegmentsDebug(): Array<{ x: number; y: number }> | null {
     return this.overlay?.segmentSnapshotDebug ?? null;

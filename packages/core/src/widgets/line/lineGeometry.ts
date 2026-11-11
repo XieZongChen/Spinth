@@ -41,7 +41,11 @@ export function segmentDirection(a: IPt, b: IPt): IPt {
  *  vmEngine 实例，此处供 draw/endpoint/quickAdd 等无实例协作者复用）。 */
 export function nodeAnchorPoint(
   vmEngine: {
-    getVmById(id: string): { getAnchorPoint(join: JoinDir, t: number): IPt } | undefined;
+    getVmById(id: string):
+      | {
+          getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPt;
+        }
+      | undefined;
   } | null,
   nodeId: string | null,
   geom: IHostGeom | null,
@@ -53,7 +57,9 @@ export function nodeAnchorPoint(
     nodeId && vmEngine && typeof vmEngine.getVmById === 'function'
       ? vmEngine.getVmById(nodeId)
       : undefined;
-  if (vm && typeof vm.getAnchorPoint === 'function') return vm.getAnchorPoint(join, t);
+  if (vm && typeof vm.getAnchorPoint === 'function') {
+    return vm.getAnchorPoint(join, t, geom ?? undefined);
+  }
   if (geom) return anchorOf(geom.rect, join, geom.rotation, t);
   return null;
 }

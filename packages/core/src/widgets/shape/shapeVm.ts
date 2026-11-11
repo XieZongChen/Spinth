@@ -268,9 +268,10 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
   }
 
   /** 锚点 = 轮廓交点（specs/flowchart-closeout §7.2，G-04）：局部系求交后
-   *  平移到宿主矩形、绕心旋转 θ。rect 族与 bbox 边点逐字节等价（回归锁） */
-  override getAnchorPoint(join: JoinDir, t: number): IPoint {
-    const g = this.getHostGeom();
+   *  平移到宿主矩形、绕心旋转 θ。rect 族与 bbox 边点逐字节等价（回归锁）。
+   *  geom 显式传入 = 急切 reattach 的权威几何（vm root 渲染滞后防幻影事务） */
+  override getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPoint {
+    const g = geom ?? this.getHostGeom();
     const p = outlineAnchor(this.state.shapeType, g.rect.width, g.rect.height, join, t);
     const local = { x: g.rect.x + p.x, y: g.rect.y + p.y };
     if (g.rotation === 0) return local;

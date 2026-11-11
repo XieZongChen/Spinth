@@ -55,9 +55,10 @@ export interface IBaseWidgetVm<D extends IWidgetData = IWidgetData> {
   /** 宿主当前旋转角（弧度，docs/05 §8） */
   getRotation(): number;
   /** 锚点世界坐标（specs/flowchart-closeout §7.1）：join 边 + 沿边参数
-   *  t ∈ [0,1]（0.5 = 中点，缺省）；θ 感知、预览敏感（getHostGeom）。基类默认
-   *  走 bbox 边插值；ShapeVm 覆写为轮廓交点（shapeOutline） */
-  getAnchorPoint(join: JoinDir, t: number): IPoint;
+   *  t ∈ [0,1]（0.5 = 中点，缺省）。geom 显式传入 = 以该宿主几何为准（急切
+   *  reattach 传落库后的权威几何——vm root 尚未重渲染，读 vm 会滞后一拍产生
+   *  幻影事务）；缺省 = getHostGeom()（预览敏感，拖拽跟随用） */
+  getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPoint;
 
   /* ---- 交互几何（docs/05 §4）：视觉反馈例外条款的 per-type 封装 ----
    * rect 型（x/y/w/h 几何）用基类默认实现；points 世界坐标型（LINE/PEN）

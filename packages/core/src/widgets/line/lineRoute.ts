@@ -1,3 +1,4 @@
+import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { IRect } from '../../common/geometry';
 import type { IPt, JoinDir } from './lineMathTypes';
 import { JOIN_DIRS, pathLength, segmentIntersectsRect } from './lineGeometry';
@@ -170,6 +171,9 @@ export interface IRouteElbowOptions {
   /** 锚定节点包围盒（避让；自由端为 null） */
   startNode?: IRect | null;
   endNode?: IRect | null;
+  /** 第三方障碍（specs/flowchart-closeout §8.2，G-06）：只参与穿模过滤、不参与
+   *  走廊/绕行候选生成；首末段豁免仍只对 startNode/endNode 生效 */
+  obstacles?: IRect[];
 }
 
 /**
@@ -199,9 +203,11 @@ export function routeElbow(opts: IRouteElbowOptions): IPt[] {
       ? { x: -Math.sign(dx) || 1, y: 0 }
       : { x: 0, y: -Math.sign(dy) || 1 };
 
-  const obstacles = [startNode, endNode].filter((r): r is IRect => !!r);
+  // 两端节点（走廊/绕行候选生成 + 穿模过滤 + 首末段豁免）；第三方障碍只进
+  // 穿模过滤（G-06：避让第三节点挡路，不改变候选走廊拓扑）
+  const selfObstacles = [startNode, endNode].filter((r): r is IRect => !!r);
+  const allObstacles = [...selfObstacles, ...(opts.obstacles ?? [])];
   let fallback: IPt[] = [];
-
   for (let level = 0; level < 3; level++) {
     const m = NODE_MARGIN * (level + 1);
     const s1 = { x: start.x + sd.x * m, y: start.y + sd.y * m };
@@ -236,11 +242,11 @@ export function routeElbow(opts: IRouteElbowOptions): IPt[] {
     // 节点自身挡死 → 兜底首候选穿模「水平怼进锚点」）。沿两端节点联合包围盒
     // 外扩后的四条车道生成绕行路线——择优不变：走廊候选畅通时以拐点少胜出，
     // 绕行仅在被挡时启用。
-    if (obstacles.length > 0) {
-      const lx = Math.min(...obstacles.map((r) => r.x)) - m;
-      const rx = Math.max(...obstacles.map((r) => r.x + r.width)) + m;
-      const ty = Math.min(...obstacles.map((r) => r.y)) - m;
-      const by = Math.max(...obstacles.map((r) => r.y + r.height)) + m;
+    if (selfObstacles.length > 0) {
+      const lx = Math.min(...selfObstacles.map((r) => r.x)) - m;
+      const rx = Math.max(...selfObstacles.map((r) => r.x + r.width)) + m;
+      const ty = Math.min(...selfObstacles.map((r) => r.y)) - m;
+      const by = Math.max(...selfObstacles.map((r) => r.y + r.height)) + m;
       for (const laneX of [lx, rx]) {
         candidates.push(
           [start, s1, { x: laneX, y: s1.y }, { x: laneX, y: e1.y }, e1, end],
@@ -265,8 +271,8 @@ export function routeElbow(opts: IRouteElbowOptions): IPt[] {
         path,
         len: pathLength(path),
         clear:
-          pathClear(path, obstacles, startNode ?? undefined, endNode ?? undefined) &&
-          !pathHugsEdge(path, obstacles) &&
+          pathClear(path, allObstacles, startNode ?? undefined, endNode ?? undefined) &&
+          !pathHugsEdge(path, selfObstacles) &&
           approachOk(path, startJoin, endJoin),
       }))
       .sort((a, b) =>
@@ -278,6 +284,62 @@ export function routeElbow(opts: IRouteElbowOptions): IPt[] {
     if (best) return best.path;
   }
   return fallback;
+}
+
+// ---------------------------------------------------------------------------
+// 第三方避障收集（specs/flowchart-closeout §8.2，G-06）
+// ---------------------------------------------------------------------------
+
+/** 避障包围盒外扩（两端点外扩 120 世界 px） */
+export const OBSTACLE_PAD = 120;
+/** 障碍上限（先正确后性能：候选过滤 ×段×障碍的预算护栏，超限按距离近者保留） */
+export const MAX_OBSTACLES = 32;
+
+/** 空间索引查询的最小面（getVmsInRect 依赖） */
+interface IObstacleVmSource {
+  getVmsInRect(r: IRect): Array<{
+    id: string;
+    type: string;
+    getHostGeom(): { rect: IRect; rotation: number };
+  }>;
+}
+
+/**
+ * 第三方避障收集（单源，specs/flowchart-closeout §11.2）：两端点外扩
+ * OBSTACLE_PAD 的包围盒 → 空间索引取候选 → 排除 LINE/PEN 与两端节点 →
+ * 旋转件保守外接（rotatedRectBounds）→ 按中心到两端中点距离升序取前
+ * MAX_OBSTACLES。消费方：LineAnchorFollow（reattach/previewFollow/reroute）、
+ * 拉线与端点拖拽预览；pinned 分支不避障（用户手滑优先）。
+ */
+export function collectRouteObstacles(
+  vmEngine: IObstacleVmSource | null,
+  start: IPt,
+  end: IPt,
+  startId: string | null,
+  endId: string | null,
+): IRect[] {
+  if (!vmEngine) return [];
+  const box: IRect = {
+    x: Math.min(start.x, end.x) - OBSTACLE_PAD,
+    y: Math.min(start.y, end.y) - OBSTACLE_PAD,
+    width: Math.abs(end.x - start.x) + OBSTACLE_PAD * 2,
+    height: Math.abs(end.y - start.y) + OBSTACLE_PAD * 2,
+  };
+  const mx = (start.x + end.x) / 2;
+  const my = (start.y + end.y) / 2;
+  const cands: Array<{ rect: IRect; d: number }> = [];
+  for (const vm of vmEngine.getVmsInRect(box)) {
+    if (vm.type === 'LINE' || vm.type === 'PEN') continue;
+    if (vm.id === startId || vm.id === endId) continue;
+    const g = vm.getHostGeom();
+    const rect = rotatedRectBounds(g.rect, g.rotation);
+    cands.push({
+      rect,
+      d: Math.hypot(rect.x + rect.width / 2 - mx, rect.y + rect.height / 2 - my),
+    });
+  }
+  cands.sort((a, b) => a.d - b.d);
+  return cands.slice(0, MAX_OBSTACLES).map((c) => c.rect);
 }
 
 /**
