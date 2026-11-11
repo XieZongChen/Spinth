@@ -143,6 +143,7 @@ export class LineService extends Disposable {
           this.editingLineId ||
           this.endpointDragCtl?.active ||
           this.segTextSlide?.segSlideActive ||
+          this.segTextSlide?.cornerDragActive ||
           this.selector.isDragging,
         ) ||
         (this.busyProbe?.() ?? false),
@@ -347,10 +348,12 @@ export class LineService extends Disposable {
       );
       const tol = 12 / (this.viewport.vpScale$.value || 1);
       const { which, d } = nearestLineEndpoint(pts, world);
-      // 远离两端：① 段中点胶囊抓取（显式手柄 > 文字 bbox）；② 线上文字
-      // 滑移抓取；③ 段身其余位置（参考线身任意点可拖）；否则交还 selector。
+      // 远离两端：① 拐点手柄（G-11，8px > 胶囊显式区域 > 文字 bbox > 段身）；
+      // ② 段中点胶囊抓取（显式手柄 > 文字 bbox）；③ 线上文字滑移抓取；
+      // ④ 段身其余位置（参考线身任意点可拖）；否则交还 selector。
       // 文字编辑入口 = 双击连线（onLineDblClick，单击/拖拽均不进编辑）
       if (d > tol) {
+        if (this.segTextSlide?.maybeCornerDragGrab(vm.id, world)) return true;
         if (this.segTextSlide?.maybeSegmentSlideGrab(vm.id, world, true)) return true;
         if (this.segTextSlide?.maybeTextSlideGrab(vm.id, world)) return true;
         return this.segTextSlide?.maybeSegmentSlideGrab(vm.id, world, false) ?? false;

@@ -230,3 +230,71 @@ export function slideSegment(pts: readonly IPt[], i: number, offset: number): IP
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// 拐点手柄（specs/flowchart-closeout §6.4/§10，G-11）
+// ---------------------------------------------------------------------------
+
+/** 拐点手柄屏幕尺寸（px，scale 反补偿）与抓取容差 */
+export const CORNER_HANDLE_SCREEN = 6;
+
+/**
+ * 拐点拖拽：移动内部拐点 i 到目标位（x/y 同时给——拐点横竖都可动）。
+ * 相邻段保持轴对齐：与 P(i) 同 X 的连续邻居同步改 X、同 Y 的连续邻居同步
+ * 改 Y（runs 向两侧延伸直到拐点方向翻转或触达首/末**锚点**——锚点不动，
+ * 触达即停，此时该轴不动，保正交不斜接）。mergeCollinear 由调用方收尾
+ * （拖回原位幂等）。i 必须是内部拐点（1 ≤ i ≤ n−2）。
+ */
+export function moveCorner(
+  pts: readonly IPt[],
+  i: number,
+  target: { x: number; y: number },
+): IPt[] {
+  const out = pts.map((p) => ({ ...p }));
+  const n = out.length;
+  if (i < 1 || i > n - 2) return out; // 首末点 = 锚点，不在此手势语义内
+  const px = out[i]!.x;
+  const py = out[i]!.y;
+
+  // 轴锁定判定：某轴的同值链若**触达锚点**（首/末点），该轴整条不动——
+  // 锚点不动 + 链中点动 = 斜接（违反正交）；只放开另一轴。
+  // 例：A(0,0)→P1(0,200) 竖段，拖 P1 时 x 链触 A → x 锁定，仅 y 可动。
+  const axisLocked = (get: (p: IPt) => number, anchorVal: number): boolean => {
+    for (let j = i - 1; j >= 0; j--) {
+      if (get(out[j]!) !== anchorVal) break;
+      if (j === 0) return true; // 左 run 触达首锚点
+    }
+    for (let j = i + 1; j <= n - 1; j++) {
+      if (get(out[j]!) !== anchorVal) break;
+      if (j === n - 1) return true; // 右 run 触达末锚点
+    }
+    return false;
+  };
+  const xLocked = axisLocked((p) => p.x, px);
+  const yLocked = axisLocked((p) => p.y, py);
+
+  if (!xLocked) {
+    // 与 P(i) 同 X 的连续邻居同步改 X（两侧独立延伸至方向翻转）
+    for (let j = i - 1; j >= 1; j--) {
+      if (out[j]!.x !== px) break;
+      out[j]!.x = target.x;
+    }
+    for (let j = i + 1; j <= n - 2; j++) {
+      if (out[j]!.x !== px) break;
+      out[j]!.x = target.x;
+    }
+    out[i]!.x = target.x;
+  }
+  if (!yLocked) {
+    for (let j = i - 1; j >= 1; j--) {
+      if (out[j]!.y !== py) break;
+      out[j]!.y = target.y;
+    }
+    for (let j = i + 1; j <= n - 2; j++) {
+      if (out[j]!.y !== py) break;
+      out[j]!.y = target.y;
+    }
+    out[i]!.y = target.y;
+  }
+  return out;
+}

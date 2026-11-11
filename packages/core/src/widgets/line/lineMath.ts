@@ -60,6 +60,7 @@ export {
 
 export {
   MAJOR_SEG_MIN_SCREEN,
+  moveCorner,
   majorSegments,
   CAPSULE_MIN_PIECE_SCREEN,
   QUICK_ADD_GAP,

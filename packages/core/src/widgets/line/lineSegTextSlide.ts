@@ -9,11 +9,12 @@ import {
   capsuleAnchors,
   effectivePath,
   mergeCollinear,
+  moveCorner,
   nearestSegBody,
-  ratioAtPoint,
   r2,
-  SEGMENT_BODY_TOLERANCE,
+  ratioAtPoint,
   slideSegment,
+  SEGMENT_BODY_TOLERANCE,
 } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { LineHoverOverlay } from './lineHoverOverlay';
@@ -27,6 +28,8 @@ import type { Point } from 'pixi.js';
  *   松手单事务落库 points + pinned。
  * 两者均经 handleGestureDown 分发（grab 公开）；pointercancel 走 Up 同款
  * 收尾（moved<4 均无副作用，对打断安全，外部审查 S1）。
+ * - 拐点拖拽（G-11，specs/flowchart-closeout §6.4）：按住内部拐点横竖自由
+ *   移动，相邻段保持正交（moveCorner runs 同步），松手单事务落库 + pinned。
  */
 
 export class LineSegTextSlide extends Disposable {
@@ -49,6 +52,15 @@ export class LineSegTextSlide extends Disposable {
     lastOffset: number;
   } | null = null;
 
+  /** 拐点拖拽会话（G-11）：按住内部拐点 → 横竖自由移动，相邻段保持正交 */
+  private cornerDrag: {
+    id: string;
+    cornerIndex: number;
+    downClient: { x: number; y: number };
+    origPts: Array<{ x: number; y: number }>;
+    lastTarget: { x: number; y: number } | null;
+  } | null = null;
+
   constructor(
     private readonly viewport: IViewportService,
     private readonly engine: IDataEngineService,
@@ -58,6 +70,94 @@ export class LineSegTextSlide extends Disposable {
   ) {
     super();
   }
+  /** 拐点拖拽会话进行中（宿主手势守卫/悬停抑制读） */
+  get cornerDragActive(): boolean {
+    return this.cornerDrag !== null;
+  }
+
+  /**
+   * 拐点抓取（G-11，handleGestureDown 端点之后胶囊之前）：
+   * 距内部拐点 ≤8/scale（拐点手柄 6px + 余量）；返回 true 消费手势。
+   */
+  maybeCornerDragGrab(id: string, world: { x: number; y: number }): boolean {
+    const vm = this.vmEngine.getVmById(id) as LineVm | undefined;
+    if (!vm || (vm.state.lineType ?? 'ELBOWED') !== 'ELBOWED') return false;
+    const pts = effectivePath(
+      vm.state.points.map((p) => ({ x: p[0], y: p[1] })),
+      vm.state.lineType ?? 'ELBOWED',
+    );
+    if (pts.length < 3) return false; // 两点线无内部拐点
+    const scale = this.viewport.vpScale$.value || 1;
+    const grab = 8 / scale;
+    let bestIndex = -1;
+    let bestD = Infinity;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i]!.x - world.x, pts[i]!.y - world.y);
+      if (d <= grab && d < bestD) {
+        bestD = d;
+        bestIndex = i;
+      }
+    }
+    if (bestIndex < 0) return false;
+    this.cornerDrag = {
+      id,
+      cornerIndex: bestIndex,
+      downClient: this.viewport.worldToClient(world),
+      origPts: pts.map((p) => ({ ...p })),
+      lastTarget: null,
+    };
+    this.overlay.hideSegmentHandles(); // 拖拽中手柄由预览路由接管
+    window.addEventListener('pointermove', this.cornerDragMove);
+    window.addEventListener('pointerup', this.cornerDragUp, { once: true });
+    window.addEventListener('pointercancel', this.cornerDragUp);
+    return true;
+  }
+
+  private readonly cornerDragMove = (e: PointerEvent): void => {
+    const d = this.cornerDrag;
+    if (!d) return;
+    const vm = this.vmEngine.getVmById(d.id) as LineVm | undefined;
+    if (!vm) return;
+    const world = this.viewport.clientToWorld(e.clientX, e.clientY);
+    d.lastTarget = { x: world.x, y: world.y };
+    const next = moveCorner(d.origPts, d.cornerIndex, world);
+    vm.previewRoute(next); // 视觉预览零模型写（docs/00 铁律 4）
+    // 手柄跟随预览（胶囊 + 拐点方块同步重画）
+    const scale = this.viewport.vpScale$.value || 1;
+    this.overlay.showSegmentHandles(next, scale, null, vm, next.slice(1, -1));
+  };
+
+  private readonly cornerDragUp = (e: PointerEvent): void => {
+    window.removeEventListener('pointermove', this.cornerDragMove);
+    window.removeEventListener('pointerup', this.cornerDragUp);
+    window.removeEventListener('pointercancel', this.cornerDragUp);
+    const d = this.cornerDrag;
+    this.cornerDrag = null;
+    if (!d) return;
+    const vm = this.vmEngine.getVmById(d.id) as LineVm | undefined;
+    const model = this.engine.getModelById(d.id);
+    if (!vm || !model) return;
+    const moved = Math.hypot(e.clientX - d.downClient.x, e.clientY - d.downClient.y) >= 4;
+    if (!moved || !d.lastTarget) {
+      // 点击无语义：恢复手柄（grab 时已 hide——同段滑移路径的教训）
+      const cur = effectivePath(
+        vm.state.points.map((p) => ({ x: p[0], y: p[1] })),
+        vm.state.lineType ?? 'ELBOWED',
+      );
+      if (cur.length >= 2) {
+        const corners = cur.length >= 3 ? cur.slice(1, -1) : null;
+        this.overlay.showSegmentHandles(cur, this.viewport.vpScale$.value || 1, null, vm, corners);
+      }
+      return;
+    }
+    // 单事务落库 points + pinned（一次撤销）；mergeCollinear 清拖拽可能产生的
+    // 冗余点（拐点拖回原位时 runs 恢复但残留重合——幂等收尾）
+    const next = mergeCollinear(moveCorner(d.origPts, d.cornerIndex, d.lastTarget)).map(
+      (p) => [r2(p.x), r2(p.y)] as [number, number],
+    );
+    model.update({ points: next, pinned: true } as never);
+    this.history.stopCapturing();
+  };
 
   /** 段滑移会话进行中（宿主手势守卫/悬停抑制读） */
   get segSlideActive(): boolean {
@@ -183,7 +283,14 @@ export class LineSegTextSlide extends Disposable {
     d.lastOffset = offset;
     const next = slideSegment(d.origPts, d.segIndex, offset);
     vm.previewRoute(next); // 视觉预览零模型写（docs/00 铁律 4）——drawLine 已更新 knockout
-    this.overlay.showSegmentHandles(next, this.viewport.vpScale$.value || 1, null, vm); // 胶囊跟随预览（有字=两侧跟随）
+    // 胶囊跟随预览（有字=两侧跟随）；拐点方块同步（段滑移保持正交，拐点在）
+    this.overlay.showSegmentHandles(
+      next,
+      this.viewport.vpScale$.value || 1,
+      null,
+      vm,
+      next.length >= 3 ? next.slice(1, -1) : null,
+    );
   };
 
   private readonly segSlideUp = (e: PointerEvent): void => {
@@ -206,7 +313,13 @@ export class LineSegTextSlide extends Disposable {
         vm.state.lineType ?? 'ELBOWED',
       );
       if (cur.length >= 2)
-        this.overlay.showSegmentHandles(cur, this.viewport.vpScale$.value || 1, null, vm);
+        this.overlay.showSegmentHandles(
+          cur,
+          this.viewport.vpScale$.value || 1,
+          null,
+          vm,
+          cur.length >= 3 ? cur.slice(1, -1) : null,
+        );
       return;
     }
     // 单事务落库 points + pinned（一次撤销）；mergeCollinear 清滑移可能产生的

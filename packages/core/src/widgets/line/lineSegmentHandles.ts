@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { markRender } from '../../common/render';
+import { CORNER_HANDLE_SCREEN } from './lineHandles';
 import { capsuleAnchors, type IPt } from './lineMath';
 import type { IRect } from '../../common/geometry';
 
@@ -29,15 +30,25 @@ export class LineSegmentHandles extends Container {
   }
 
   /** 显示段手柄（pts 视觉语义路径；scale 反补偿；activeIndex = 锚点数组
-   *  序号，hover 放大；knockout = 文字镂空矩形（null = 无字走主段口径）） */
+   *  序号，hover 放大；knockout = 文字镂空矩形（null = 无字走主段口径）；
+   *  corners = 内部拐点手柄（specs/flowchart-closeout §6.4 G-11——6 屏幕 px
+   *  方块，仅 ELBOWED 传入；null = 不画） */
   show(
     pts: readonly IPt[],
     scale = 1,
     activeIndex: number | null = null,
     knockout: IRect | null = null,
+    corners: readonly IPt[] | null = null,
   ): void {
     const s = scale || 1;
     this.g.clear();
+    if (corners && corners.length > 0) {
+      // 拐点方块：先画（层序在胶囊之下——拐点是更小的精操作目标）
+      const half = CORNER_HANDLE_SCREEN / 2 / s;
+      for (const c of corners) {
+        this.g.rect(c.x - half, c.y - half, half * 2, half * 2).fill({ color: SEG_COLOR });
+      }
+    }
     capsuleAnchors(pts, s, knockout).forEach(({ geom }, i) => {
       const len = (SEG_HANDLE_LEN / s) * (i === activeIndex ? HOVER_SCALE : 1);
       const thick = (SEG_HANDLE_THICK / s) * (i === activeIndex ? HOVER_SCALE : 1);

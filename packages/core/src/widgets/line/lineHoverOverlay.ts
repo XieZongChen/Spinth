@@ -153,7 +153,12 @@ export class LineHoverOverlay extends Disposable {
         if (pts.length < 2) return;
         const scale = this.viewport.vpScale$.value || 1;
         this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale);
-        this.showSegmentHandles(pts, scale, null, lvm);
+        // 拐点手柄（G-11）：仅 ELBOWED 且 ≥3 点（两点的直线无内部拐点）
+        const corners =
+          (lvm.state.lineType ?? 'ELBOWED') === 'ELBOWED' && pts.length >= 3
+            ? pts.slice(1, -1)
+            : null;
+        this.showSegmentHandles(pts, scale, null, lvm, corners);
       };
       update();
       this.targetSub = lvm.onStateChanged$.subscribe(() => update());
@@ -334,9 +339,10 @@ export class LineHoverOverlay extends Disposable {
     scale: number,
     activeIndex: number | null = null,
     vm?: LineVm,
+    corners?: readonly IPt[] | null,
   ): void {
     const knockout = vm ? vm.knockoutRectDebug : null;
-    this.segmentHandles.show(pts, scale, activeIndex, knockout);
+    this.segmentHandles.show(pts, scale, activeIndex, knockout, corners ?? null);
     this.segmentSnapshot = capsuleAnchors(pts, scale, knockout).map(({ geom }) => ({
       x: geom.mid.x,
       y: geom.mid.y,
