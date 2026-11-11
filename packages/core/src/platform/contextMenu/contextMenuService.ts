@@ -13,6 +13,9 @@ export interface IContextMenuState {
   /** 有选中 = 元素菜单；无 = 画布菜单 */
   onWidget: boolean;
   canPaste: boolean;
+  /** 「清理悬空连线」可用（specs/flowchart-closeout §7.6）：有断头线才亮；
+   *  只读分支恒 false（写命令菜单项禁用，命令层另有一层守卫） */
+  canPrune: boolean;
 }
 
 /**
@@ -26,6 +29,7 @@ export class ContextMenuService extends Disposable {
     y: 0,
     onWidget: false,
     canPaste: false,
+    canPrune: false,
   });
 
   constructor(
@@ -38,6 +42,9 @@ export class ContextMenuService extends Disposable {
      *  §5.3——画布右键会命中「点已选中件进编辑」路径异步开出编辑器，其挂载
      *  焦点会抢走菜单首项聚焦；开菜单 = 语境切换，先 flush 尾字收口） */
     private exitEdit: () => void = () => {},
+    /** 断头线计数（specs/flowchart-closeout §7.6）：菜单项禁用态判定——
+     *  组合根注入 countDanglingLines(vm+engine 扫描)；缺省 0 = 恒禁用 */
+    private countDangling: () => number = () => 0,
   ) {
     super();
   }
@@ -63,6 +70,7 @@ export class ContextMenuService extends Disposable {
           y: me.clientY,
           onWidget: false,
           canPaste: false,
+          canPrune: false, // 写命令菜单项禁用（命令层另有一层守卫）
         });
         return;
       }
@@ -91,6 +99,7 @@ export class ContextMenuService extends Disposable {
         y: me.clientY,
         onWidget: hit,
         canPaste: this.hasClipboard(),
+        canPrune: this.countDangling() > 0,
       });
     };
     const onClose = (e: PointerEvent): void => {
@@ -142,7 +151,14 @@ export class ContextMenuService extends Disposable {
     const center = { x: page.x + page.width / 2, y: page.y + page.height / 2 };
     if (!this.viewport.editable$.value) {
       const p = this.viewport.worldToClient(center);
-      this.options$.next({ show: true, x: p.x, y: p.y, onWidget: false, canPaste: false });
+      this.options$.next({
+        show: true,
+        x: p.x,
+        y: p.y,
+        onWidget: false,
+        canPaste: false,
+        canPrune: false,
+      });
       return;
     }
     const selected = this.selector.selected$.value;
@@ -162,6 +178,7 @@ export class ContextMenuService extends Disposable {
           y: p.y,
           onWidget: true,
           canPaste: this.hasClipboard(),
+          canPrune: false, // 元素菜单不出清理项（画布级命令）
         });
         return;
       }
@@ -173,6 +190,7 @@ export class ContextMenuService extends Disposable {
       y: p.y,
       onWidget: false,
       canPaste: this.hasClipboard(),
+      canPrune: this.countDangling() > 0,
     });
   }
 

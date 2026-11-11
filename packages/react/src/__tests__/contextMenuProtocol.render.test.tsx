@@ -54,7 +54,9 @@ const MENU_ITEMS = () =>
 describe('ContextMenu 键盘协议', () => {
   it('打开即聚焦首个非禁用项；仅一个 tabIndex=0 停靠', () => {
     const base = useSpinthStore.getState();
-    setState({ contextMenu: { show: true, x: 50, y: 50, onWidget: true, canPaste: false } });
+    setState({
+      contextMenu: { show: true, x: 50, y: 50, onWidget: true, canPaste: false, canPrune: false },
+    });
     render(<ContextMenu />);
     const items = MENU_ITEMS();
     expect(items.length).toBeGreaterThan(0);
@@ -66,7 +68,9 @@ describe('ContextMenu 键盘协议', () => {
 
   it('ArrowDown 跳过禁用项与分隔线；Home/End 落首尾', () => {
     const base = useSpinthStore.getState();
-    setState({ contextMenu: { show: true, x: 50, y: 50, onWidget: true, canPaste: false } });
+    setState({
+      contextMenu: { show: true, x: 50, y: 50, onWidget: true, canPaste: false, canPrune: false },
+    });
     render(<ContextMenu />);
     const items = MENU_ITEMS();
     // 元素菜单序：复制 剪切 粘贴(dis) | 置顶 置底 | 删除
@@ -86,7 +90,9 @@ describe('ContextMenu 键盘协议', () => {
       closeContextMenu: () =>
         useSpinthStore.setState((s) => ({ contextMenu: { ...s.contextMenu, show: false } })),
     } as unknown as BoardPublicApi);
-    setState({ contextMenu: { show: true, x: 50, y: 50, onWidget: false, canPaste: false } });
+    setState({
+      contextMenu: { show: true, x: 50, y: 50, onWidget: false, canPaste: false, canPrune: false },
+    });
     render(<ContextMenu />);
     pressKey(host.querySelector('[data-spinth-context-menu]')!, 'Escape');
     expect(useSpinthStore.getState().contextMenu.show).toBe(false);
@@ -99,7 +105,9 @@ describe('ContextMenu 键盘协议', () => {
       closeContextMenu: () =>
         useSpinthStore.setState((s) => ({ contextMenu: { ...s.contextMenu, show: false } })),
     } as unknown as BoardPublicApi);
-    setState({ contextMenu: { show: true, x: 50, y: 50, onWidget: false, canPaste: false } });
+    setState({
+      contextMenu: { show: true, x: 50, y: 50, onWidget: false, canPaste: false, canPrune: false },
+    });
     render(<ContextMenu />);
     pressKey(host.querySelector('[data-spinth-context-menu]')!, 'Tab');
     expect(useSpinthStore.getState().contextMenu.show).toBe(false);

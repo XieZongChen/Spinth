@@ -152,6 +152,7 @@ export class BoardOutputs {
       y: 0,
       onWidget: false,
       canPaste: false,
+      canPrune: false,
     });
     return this.ctxMenuFallback;
   }

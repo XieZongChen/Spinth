@@ -111,6 +111,11 @@ export abstract class BoardFacade {
   setGridSnap(on: boolean): void {
     return this.commands.setGridSnap(on);
   }
+
+  /** 清理悬空连线（specs/flowchart-closeout §7.6）：返回删除条数，单事务可撤销 */
+  pruneDanglingLines(): number {
+    return this.commands.pruneDanglingLines();
+  }
   setTheme(theme: 'light' | 'dark'): void {
     return this.commands.setTheme(theme);
   }

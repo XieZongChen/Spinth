@@ -11,6 +11,7 @@ import {
   type IAlignParticipant,
 } from './alignCommands';
 import { exportPNG as exportPNGImpl } from './exportCommand';
+import { danglingLineIds } from './widgets/line/linePrune';
 
 /**
  * BoardSDK 命令区（Batch 2 · app.ts 三分批 A，2026-10-18）：原门面 856-1192 行
@@ -78,6 +79,23 @@ export class BoardCommands {
    *  不受只读态限制（只读可开关）；持久化由组装层订阅写 localStorage */
   setGridSnap(on: boolean): void {
     this.ctx.gridSnap?.setEnabled(on);
+  }
+
+  /**
+   * 清理悬空连线（specs/flowchart-closeout §7.6，G-09）：删「恰好一端
+   *  nodeId === null」的线（删锚定节点遗留的断头线）；纯自由线（两端均
+   *  null）是合法图元不清。单事务批量删除 = 一步撤销；返回删除条数。
+   */
+  pruneDanglingLines(): number {
+    if (!this.assertEditable()) return 0;
+    const ids = danglingLineIds({
+      getAllVms: () => this.ctx.vmEngine?.getAllVms() ?? [],
+      getModelById: (id) => this.ctx.engine?.getModelById(id),
+    });
+    if (ids.length === 0) return 0;
+    this.ctx.engine?.removeByIds(ids);
+    this.ctx.history?.stopCapturing();
+    return ids.length;
   }
 
   updateEditable(v: boolean): void {

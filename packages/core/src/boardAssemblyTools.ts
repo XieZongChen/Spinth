@@ -10,6 +10,7 @@ import { EraserService } from './widgets/eraser/eraserService';
 import { StickyService } from './widgets/sticky/stickyService';
 import { ImageService } from './widgets/image/imageService';
 import { MindService } from './widgets/mind/mindService';
+import { countDanglingLines } from './widgets/line/linePrune';
 import { ViewportService } from './platform/viewport/viewportService';
 import type { IBoardConfig } from './boardConfig';
 import type { BoardSDK } from './app';
@@ -50,6 +51,12 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     () => sdk.clipboard !== null && sdk.clipboard.hasBuffer,
     () => sdk.viewport?.cursorMode$.value ?? 'cursor',
     () => sdk.editingService?.exitActive(),
+    // 断头线计数（specs/flowchart-closeout §7.6）：右键菜单「清理悬空连线」禁用态
+    () =>
+      countDanglingLines({
+        getAllVms: () => sdk.vmEngine?.getAllVms() ?? [],
+        getModelById: (id) => sdk.engine?.getModelById(id),
+      }),
   );
   sdk.contextMenu.initialize();
   // 物理断网守卫（docs/10 §4 两态拆分：editBlocked 与 wsState 无关）。

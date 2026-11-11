@@ -81,6 +81,11 @@ export const spinthCommands = {
   setGridSnap(on: boolean): void {
     board?.setGridSnap(on);
   },
+
+  /** 清理悬空连线（specs/flowchart-closeout §7.6）：返回删除条数（右键菜单） */
+  pruneDanglingLines(): number {
+    return board?.pruneDanglingLines() ?? 0;
+  },
   bringToFront(): void {
     board?.bringToFront();
   },

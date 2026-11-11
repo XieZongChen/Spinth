@@ -12,6 +12,8 @@ interface IMenuPanelOptions {
   y: number;
   onWidget: boolean;
   canPaste: boolean;
+  /** 「清理悬空连线」可用（specs/flowchart-closeout §7.6） */
+  canPrune: boolean;
 }
 
 /** 右键菜单（docs/12 §4）：contextMenuOptions$ 驱动，翻转 + 四面夹取防溢出。
@@ -189,6 +191,17 @@ function ContextMenuPanel({
       icon: 'select-all',
       action: () => {
         spinthCommands.setGridSnap(!gridSnap);
+        close();
+      },
+    },
+    {
+      // 清理悬空连线（specs/flowchart-closeout §7.6）：删锚定节点遗留的断头线；
+      // 无匹配禁用；只读态禁用（canPrune 恒 false，命令层另有一层守卫）
+      label: '清理悬空连线',
+      icon: 'link',
+      disabled: !options.canPrune,
+      action: () => {
+        spinthCommands.pruneDanglingLines();
         close();
       },
     },

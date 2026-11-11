@@ -85,6 +85,7 @@ export const BOARD_PUBLIC_MEMBERS = [
   'retryPersist',
   'refreshStorageStatus',
   'requestStoragePersist',
+  'pruneDanglingLines',
 ] as const satisfies readonly (keyof BoardSDK)[];
 
 export type BoardPublicMember = (typeof BOARD_PUBLIC_MEMBERS)[number];
