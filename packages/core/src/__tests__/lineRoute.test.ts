@@ -481,3 +481,84 @@ describe('collectRouteObstacles 收集（G-06 单源）', () => {
     expect(MAX_OBSTACLES).toBe(32);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 紧凑自环（specs/flowchart-closeout §7.5，G-07/M-02）
+// ---------------------------------------------------------------------------
+
+describe('routeSelfLoop 紧凑自环路由', () => {
+  const NODE: IRect = { x: 100, y: 100, width: 120, height: 80 };
+  const M = NODE_MARGIN;
+
+  it('top→top 锚点重合：按跨度 80 展开出 U 形（全轴对齐、车道在边外 M）', async () => {
+    const { routeSelfLoop } = await import('../widgets/line/lineRoute');
+    const pts = routeSelfLoop({
+      start: { x: 160, y: 100 },
+      end: { x: 160, y: 100 },
+      startJoin: 'top',
+      endJoin: 'top',
+      node: NODE,
+    });
+    expect(pts).toEqual([
+      { x: 120, y: 100 },
+      { x: 120, y: 100 - M },
+      { x: 200, y: 100 - M },
+      { x: 200, y: 100 },
+    ]);
+    expect(isOrthogonal(pts)).toBe(true);
+  });
+
+  it('right→right 显式不同 port：端点保持传入锚点，U 形不展开', async () => {
+    const { routeSelfLoop } = await import('../widgets/line/lineRoute');
+    const pts = routeSelfLoop({
+      start: { x: 220, y: 124 },
+      end: { x: 220, y: 156 },
+      startJoin: 'right',
+      endJoin: 'right',
+      node: NODE,
+    });
+    expect(pts[0]).toEqual({ x: 220, y: 124 });
+    expect(pts[pts.length - 1]).toEqual({ x: 220, y: 156 });
+    expect(isOrthogonal(pts)).toBe(true);
+    expect(pts.length).toBe(4);
+  });
+
+  it('top→bottom 对边：矩形环绕右侧车道（锚点均在中线 → 取右）', async () => {
+    const { routeSelfLoop } = await import('../widgets/line/lineRoute');
+    const pts = routeSelfLoop({
+      start: { x: 160, y: 100 },
+      end: { x: 160, y: 180 },
+      startJoin: 'top',
+      endJoin: 'bottom',
+      node: NODE,
+    });
+    const laneX = NODE.x + NODE.width + M;
+    expect(pts).toEqual([
+      { x: 160, y: 100 },
+      { x: 160, y: 100 - M },
+      { x: laneX, y: 100 - M },
+      { x: laneX, y: 180 + M },
+      { x: 160, y: 180 + M },
+      { x: 160, y: 180 },
+    ]);
+  });
+
+  it('top→left 邻边：外角点（水平出线 x + 垂直出线 y）五点环', async () => {
+    const { routeSelfLoop } = await import('../widgets/line/lineRoute');
+    const pts = routeSelfLoop({
+      start: { x: 160, y: 100 },
+      end: { x: 100, y: 140 },
+      startJoin: 'top',
+      endJoin: 'left',
+      node: NODE,
+    });
+    expect(pts).toEqual([
+      { x: 160, y: 100 },
+      { x: 160, y: 100 - M },
+      { x: 100 - M, y: 100 - M },
+      { x: 100 - M, y: 140 },
+      { x: 100, y: 140 },
+    ]);
+    expect(isOrthogonal(pts)).toBe(true);
+  });
+});

@@ -38,6 +38,7 @@ export {
   NODE_MARGIN,
   ELBOW_RADIUS,
   collectRouteObstacles,
+  routeSelfLoop,
   mergeCollinear,
   absorbTinyJogs,
   routeElbow,

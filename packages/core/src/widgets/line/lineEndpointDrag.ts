@@ -10,6 +10,7 @@ import {
   anchorOf,
   collectRouteObstacles,
   inverseRotatePoint,
+  routeSelfLoop,
   nearestJoin,
   nodeAnchorPoint,
   quantizeJoin,
@@ -120,40 +121,63 @@ export class LineEndpointDrag extends Disposable {
     };
     let route: Array<{ x: number; y: number }>;
     let nodeId: string | null;
+    // 从 A 拖回 A（重锚定到另一端同一节点）→ 紧凑自环（§7.5，G-07）
+    const selfLoopHit =
+      hit && join && d.which === 'end'
+        ? data.startNodeId && hit.id === data.startNodeId && data.startJoin
+        : data.endNodeId && hit?.id === data.endNodeId && data.endJoin;
     if (d.which === 'end') {
-      route = routeElbow({
-        start: pts[0]!,
-        startJoin: data.startJoin,
-        end: anchor,
-        endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
-        startNode: nodeAabb(data.startNodeId),
-        endNode: hostAabb(hit),
-        // 全局避障（G-06）：重锚定预览实时绕行第三节点
-        obstacles: collectRouteObstacles(
-          this.vmEngine,
-          pts[0]!,
-          anchor,
-          data.startNodeId,
-          hit?.id ?? null,
-        ),
-      });
+      route =
+        selfLoopHit && hit && join && data.startJoin
+          ? routeSelfLoop({
+              start: pts[0]!,
+              startJoin: data.startJoin,
+              end: anchor,
+              endJoin: join,
+              node: hostAabb(hit)!,
+            })
+          : routeElbow({
+              start: pts[0]!,
+              startJoin: data.startJoin,
+              end: anchor,
+              endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
+              startNode: nodeAabb(data.startNodeId),
+              endNode: hostAabb(hit),
+              // 全局避障（G-06）：重锚定预览实时绕行第三节点
+              obstacles: collectRouteObstacles(
+                this.vmEngine,
+                pts[0]!,
+                anchor,
+                data.startNodeId,
+                hit?.id ?? null,
+              ),
+            });
       nodeId = hit?.id ?? null;
     } else {
-      route = routeElbow({
-        start: anchor,
-        startJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
-        end: pts[pts.length - 1]!,
-        endJoin: data.endJoin,
-        startNode: hostAabb(hit),
-        endNode: nodeAabb(data.endNodeId),
-        obstacles: collectRouteObstacles(
-          this.vmEngine,
-          anchor,
-          pts[pts.length - 1]!,
-          hit?.id ?? null,
-          data.endNodeId,
-        ),
-      });
+      route =
+        selfLoopHit && hit && join && data.endJoin
+          ? routeSelfLoop({
+              start: anchor,
+              startJoin: join,
+              end: pts[pts.length - 1]!,
+              endJoin: data.endJoin,
+              node: hostAabb(hit)!,
+            })
+          : routeElbow({
+              start: anchor,
+              startJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
+              end: pts[pts.length - 1]!,
+              endJoin: data.endJoin,
+              startNode: hostAabb(hit),
+              endNode: nodeAabb(data.endNodeId),
+              obstacles: collectRouteObstacles(
+                this.vmEngine,
+                anchor,
+                pts[pts.length - 1]!,
+                hit?.id ?? null,
+                data.endNodeId,
+              ),
+            });
       nodeId = hit?.id ?? null;
     }
     const solid = route.map((p) => [r2(p.x), r2(p.y)] as [number, number]);

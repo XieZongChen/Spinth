@@ -15,6 +15,7 @@ import {
   quantizeJoin,
   collectRouteObstacles,
   r2,
+  routeSelfLoop,
   routeElbow,
   nodeAnchorPoint,
   type IPt,
@@ -201,25 +202,40 @@ export class LineDrawSession extends Disposable {
         ? (this.vmEngine.getVmById(this.startAnchorState.nodeId)?.getHostGeom() ?? null)
         : null;
     const startNodeBounds = hostAabb(startNodeGeom);
-    const route = routeElbow({
-      start: this.startAnchorState!.point,
-      startJoin:
-        this.startAnchorState!.join && startNodeGeom
-          ? quantizeJoin(this.startAnchorState!.join, startNodeGeom.rotation)
-          : this.startAnchorState!.join,
-      end,
-      endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
-      startNode: startNodeBounds,
-      endNode: hostAabb(hit ? hit.geom : null),
-      // 全局避障（G-06）：拉线过程实时绕行第三节点
-      obstacles: collectRouteObstacles(
-        this.vmEngine,
-        this.startAnchorState!.point,
-        end,
-        this.startAnchorState?.nodeId ?? null,
-        hit?.id ?? null,
-      ),
-    });
+    // 从 A 拖回 A（同节点）→ 紧凑自环（specs/flowchart-closeout §7.5，G-07）
+    const selfLoop =
+      hit &&
+      this.startAnchorState?.nodeId != null &&
+      hit.id === this.startAnchorState.nodeId &&
+      this.startAnchorState.join &&
+      join;
+    const route = selfLoop
+      ? routeSelfLoop({
+          start: this.startAnchorState!.point,
+          startJoin: this.startAnchorState!.join!,
+          end,
+          endJoin: join!,
+          node: hostAabb(hit.geom)!,
+        })
+      : routeElbow({
+          start: this.startAnchorState!.point,
+          startJoin:
+            this.startAnchorState!.join && startNodeGeom
+              ? quantizeJoin(this.startAnchorState!.join, startNodeGeom.rotation)
+              : this.startAnchorState!.join,
+          end,
+          endJoin: join && hit ? quantizeJoin(join, hit.geom.rotation) : join,
+          startNode: startNodeBounds,
+          endNode: hostAabb(hit ? hit.geom : null),
+          // 全局避障（G-06）：拉线过程实时绕行第三节点
+          obstacles: collectRouteObstacles(
+            this.vmEngine,
+            this.startAnchorState!.point,
+            end,
+            this.startAnchorState?.nodeId ?? null,
+            hit?.id ?? null,
+          ),
+        });
     model.update({
       points: route.map((p) => [r2(p.x), r2(p.y)] as [number, number]),
       endNodeId: hit?.id ?? null,
@@ -231,10 +247,15 @@ export class LineDrawSession extends Disposable {
   settle(id: string): void {
     const model = this.engine.getModelById(id);
     if (model) {
-      const data = model.toJSON() as unknown as { points: Array<[number, number]> };
+      const data = model.toJSON() as unknown as {
+        points: Array<[number, number]>;
+        startNodeId: string | null;
+        endNodeId: string | null;
+      };
       const [a, b] = data.points;
-      // 起终点重合（未拖出）→ 删除（docs/08 §7）
-      if (a && b && Math.hypot(b[0] - a[0], b[1] - a[1]) < 4) {
+      // 起终点重合（未拖出）→ 删除；自环例外（两端同节点 = 显式环路，G-07）
+      const selfAnchored = !!data.startNodeId && data.startNodeId === data.endNodeId;
+      if (a && b && Math.hypot(b[0] - a[0], b[1] - a[1]) < 4 && !selfAnchored) {
         this.engine.removeByIds([id]);
       } else {
         this.history.stopCapturing();

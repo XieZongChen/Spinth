@@ -6,6 +6,7 @@ import {
   anchorOf,
   collectRouteObstacles,
   mergeCollinear,
+  routeSelfLoop,
   pinKeepMiddle,
   quantizeJoin,
   r2,
@@ -237,6 +238,27 @@ export class LineAnchorFollow extends Disposable {
       const g = this.vmEngine.getVmById(id)?.getHostGeom();
       return g ? rotatedRectBounds(g.rect, g.rotation) : null;
     };
+    // 紧凑自环（specs/flowchart-closeout §7.5，G-07）：优先级 pinned（上方早退）
+    // > 自环 > 常规 routeElbow；θ≠0 出线方向量化到最近轴（与走廊同口径）
+    if (
+      data.startNodeId &&
+      data.endNodeId &&
+      data.startNodeId === data.endNodeId &&
+      data.startJoin &&
+      data.endJoin
+    ) {
+      const nodeAabb = hostAabb(data.startNodeId, startGeom ?? endGeom);
+      if (nodeAabb) {
+        const loop = routeSelfLoop({
+          start: startPoint,
+          end: endPoint,
+          startJoin: startGeom ? quantizeJoin(data.startJoin, startGeom.rotation) : data.startJoin,
+          endJoin: endGeom ? quantizeJoin(data.endJoin, endGeom.rotation) : data.endJoin,
+          node: nodeAabb,
+        });
+        return loop.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
+      }
+    }
     const startNode = hostAabb(data.startNodeId, startGeom);
     const endNode = hostAabb(data.endNodeId, endGeom);
     // 全局避障（G-06）：两端点外扩包围盒内的第三方节点参与穿模过滤（pinned

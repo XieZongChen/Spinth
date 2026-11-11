@@ -109,9 +109,16 @@ pointerdown（line 模式）
 pointermove
   → 实时更新 endNodeId/endJoin + 重算路由
 pointerup
-  → 起终点重合 || 起终点同一 widget → 删除；否则落盘
+  → 起终点重合（< 4px）且非自环 → 删除（未拖出）；从 A 拖回 A → 紧凑自环落盘
   → 工具保持激活（Esc/V 切回）
 ```
+
+- **自环**（`startNodeId === endNodeId !== null`）：显式环路，`routeSelfLoop`
+  生成——同 join 出 U 形（锚点重合时按跨度 `max(80, 边长×0.5)` 展开在边内）、
+  异 join 出矩形环（对边绕近侧车道、邻边走外角点）；全部线段轴对齐不自交。
+  路由优先级：`pinned`（用户手滑）> 自环 > 常规 `routeElbow`。端点可重锚定、
+  可拖段、可加箭头与标签；一端解绑退化为断头线；删除宿主节点两侧锚定同置
+  null。
 
 - 命中检测：8px（除以 scale）容差的逐段线段-点距离。
 - 悬停 widget 显示四边中点连接点（lineAnchorIndicator），选中形状时四向连接点常显。
