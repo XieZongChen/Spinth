@@ -107,6 +107,16 @@ describe('LineAnchorFollow.previewFollow 手势期零模型写', () => {
             ? {
                 getBounds: () => ({ x: 0, y: 0, width: 10, height: 10 }),
                 getHostGeom: () => ({ rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 }),
+                // 锚点单源经 vm.getAnchorPoint（specs/flowchart-closeout §7.1）——
+                // 桩与基类默认实现同式（bbox 边插值 + θ）
+                getAnchorPoint: (join: 'top' | 'right' | 'bottom' | 'left', t = 0.5) =>
+                  join === 'right'
+                    ? { x: 10, y: t * 10 }
+                    : join === 'left'
+                      ? { x: 0, y: t * 10 }
+                      : join === 'top'
+                        ? { x: t * 10, y: 0 }
+                        : { x: t * 10, y: 10 },
               }
             : null,
       } as never,

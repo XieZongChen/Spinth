@@ -19,6 +19,41 @@ export interface IHostGeom {
   rotation: number;
 }
 
+// ---------- 锚点沿边几何（specs/flowchart-closeout §7.1） ----------
+
+/** bbox 四边方向（与 line 域 JoinDir 同一联合；lineMathTypes re-export 单源） */
+export type JoinDir = 'top' | 'right' | 'bottom' | 'left';
+
+/**
+ * bbox 边上按 t ∈ [0,1] 插值的点（0.5 = 边中点；top/bottom 沿左→右，left/right
+ * 沿上→下），再绕矩形中心旋转 θ。t=0.5 与历史「边中点绕心旋转」逐字节等价
+ * （回归硬断言见 lineGeometry.test）。旋转数学内联（common 层不依赖 platform）。
+ */
+export function bboxAnchor(rect: IRect, join: JoinDir, t = 0.5, rotation = 0): IPoint {
+  let a: IPoint;
+  switch (join) {
+    case 'top':
+      a = { x: rect.x + rect.width * t, y: rect.y };
+      break;
+    case 'bottom':
+      a = { x: rect.x + rect.width * t, y: rect.y + rect.height };
+      break;
+    case 'left':
+      a = { x: rect.x, y: rect.y + rect.height * t };
+      break;
+    default:
+      a = { x: rect.x + rect.width, y: rect.y + rect.height * t };
+  }
+  if (rotation === 0) return a;
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const dx = a.x - cx;
+  const dy = a.y - cy;
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
+
 export function rectsIntersect(a: IRect, b: IRect): boolean {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }

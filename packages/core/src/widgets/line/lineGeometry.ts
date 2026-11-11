@@ -1,34 +1,21 @@
-import type { IRect } from '../../common/geometry';
+import { bboxAnchor, type IRect, type JoinDir } from '../../common/geometry';
 import { rotatePointAround, inverseRotatePoint } from '../../platform/rectEditor/rotateMath';
-import type { IPt, JoinDir } from './lineMathTypes';
+import type { IPt } from './lineMathTypes';
 
 /** 连线基础几何（docs/08 §3）：锚点 / 最近边 / 段方向 / 点线距离 / 折线命中 /
  *  线段-矩形裁剪与相交 / 折线长度 / 段几何。全部无状态纯函数；route / path /
  *  handles 子域共同依赖的最底层模块。 */
-
 function centerOf(rect: IRect): IPt {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
-/** 矩形四边中点（锚点，docs/08 §3）。rotation（可选，docs/05 §8 锚定链）：
- *  锚点 = 局部边中点绕矩形中心旋转 θ 后的世界点——θ=0 与旧行为逐字节等价 */
-export function anchorOf(rect: IRect, dir: JoinDir, rotation = 0): IPt {
-  let a: IPt;
-  switch (dir) {
-    case 'top':
-      a = { x: rect.x + rect.width / 2, y: rect.y };
-      break;
-    case 'bottom':
-      a = { x: rect.x + rect.width / 2, y: rect.y + rect.height };
-      break;
-    case 'left':
-      a = { x: rect.x, y: rect.y + rect.height / 2 };
-      break;
-    default:
-      a = { x: rect.x + rect.width, y: rect.y + rect.height / 2 };
-  }
-  if (rotation === 0) return a;
-  return rotatePointAround(a, centerOf(rect), rotation);
+/** 矩形四边锚点（docs/08 §3；specs/flowchart-closeout §7.1 沿边参数）。
+ *  t ∈ [0,1] 沿边插值（0.5 = 边中点，top/bottom 沿左→右、left/right 沿上→下），
+ *  rotation = 绕矩形中心 θ——数学单源在 common/geometry.bboxAnchor（VM 基类
+ *  getAnchorPoint 默认实现同源）；t=0.5 与旧「边中点绕心旋转」逐字节等价
+ *  （lineGeometry.test 回归锁） */
+export function anchorOf(rect: IRect, dir: JoinDir, rotation = 0, t = 0.5): IPt {
+  return bboxAnchor(rect, dir, t, rotation);
 }
 
 /** 光标落在矩形上时选最近边（小节点取最近边，docs/08 §3）。rotation（可选）：

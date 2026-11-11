@@ -2,7 +2,13 @@ import { Container, Point, Rectangle } from 'pixi.js';
 import type * as Y from 'yjs';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { deepDiff } from '../utils/deepDiff';
-import type { IHostGeom, IRect } from '../common/geometry';
+import {
+  bboxAnchor,
+  type IHostGeom,
+  type IPoint,
+  type IRect,
+  type JoinDir,
+} from '../common/geometry';
 import { markRender } from '../common/render';
 import type { IBaseModel, IBaseWidgetVm, IOnStateChangedInfo, IWidgetData } from '../types';
 import { BaseVm } from './baseVm';
@@ -137,6 +143,13 @@ export abstract class BaseWidgetVm<D extends IWidgetData = IWidgetData, S extend
    *  （docs/05 §8；points/树型恒 0） */
   getRotation(): number {
     return (this.state as { rotation?: number }).rotation ?? 0;
+  }
+
+  /** 锚点世界坐标默认实现（specs/flowchart-closeout §7.1）：bbox 边插值 + θ。
+   *  ShapeVm 覆写为轮廓交点（非矩形形状锚点贴边，G-04） */
+  getAnchorPoint(join: JoinDir, t: number): IPoint {
+    const g = this.getHostGeom();
+    return bboxAnchor(g.rect, join, t, g.rotation);
   }
 
   /* ---- 交互几何默认实现（rect 型语义；points 世界坐标型在 LINE/PEN 覆写） ---- */

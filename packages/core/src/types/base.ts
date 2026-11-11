@@ -1,7 +1,7 @@
 import type { BehaviorSubject, Subject } from 'rxjs';
 import type * as Y from 'yjs';
 import type { Container, Point, Rectangle } from 'pixi.js';
-import type { IHostGeom, IRect } from '../common/geometry';
+import type { IHostGeom, IPoint, IRect, JoinDir } from '../common/geometry';
 import type { IWidgetData } from './widget';
 
 /** 状态变化事件：diff 为字段级增量；local 区分本地/远端来源（协同语义的关键透传） */
@@ -54,6 +54,10 @@ export interface IBaseWidgetVm<D extends IWidgetData = IWidgetData> {
   getHostGeom(): IHostGeom;
   /** 宿主当前旋转角（弧度，docs/05 §8） */
   getRotation(): number;
+  /** 锚点世界坐标（specs/flowchart-closeout §7.1）：join 边 + 沿边参数
+   *  t ∈ [0,1]（0.5 = 中点，缺省）；θ 感知、预览敏感（getHostGeom）。基类默认
+   *  走 bbox 边插值；ShapeVm 覆写为轮廓交点（shapeOutline） */
+  getAnchorPoint(join: JoinDir, t: number): IPoint;
 
   /* ---- 交互几何（docs/05 §4）：视觉反馈例外条款的 per-type 封装 ----
    * rect 型（x/y/w/h 几何）用基类默认实现；points 世界坐标型（LINE/PEN）

@@ -56,6 +56,9 @@ export interface ILineAnchorData {
   points: Array<[number, number]>;
   lineType: 'STRAIGHT' | 'ELBOWED' | 'CURVE';
   pinned: boolean;
+  /** 沿边参数（specs/flowchart-closeout §7.1）：缺失 = 中点 + 参与自动错开 */
+  startPort?: number;
+  endPort?: number;
 }
 
 /** 宿主回调：拉线会话状态与节流通道（①绘制管线归属宿主） */

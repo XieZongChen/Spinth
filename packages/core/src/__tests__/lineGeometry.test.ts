@@ -18,6 +18,24 @@ describe('lineMath（docs/08 §3）', () => {
     expect(anchorOf(RECT, 'right')).toEqual({ x: 300, y: 150 });
   });
 
+  it('anchorOf 沿边参数 t（specs/flowchart-closeout §7.1）：t=0.5 逐字节等价 + 四边插值 + θ 感知', () => {
+    // t 缺省（0.5）与旧「边中点」逐字节等价——含 θ（绕心旋转同式）
+    for (const j of ['top', 'bottom', 'left', 'right'] as const) {
+      expect(anchorOf(RECT, j)).toEqual(anchorOf(RECT, j, 0, 0.5));
+      expect(anchorOf(RECT, j, Math.PI / 4)).toEqual(anchorOf(RECT, j, Math.PI / 4, 0.5));
+    }
+    // top/bottom 沿左→右、left/right 沿上→下线性插值
+    expect(anchorOf(RECT, 'top', 0, 0.25)).toEqual({ x: 150, y: 100 });
+    expect(anchorOf(RECT, 'bottom', 0, 0.75)).toEqual({ x: 250, y: 200 });
+    expect(anchorOf(RECT, 'left', 0, 0.25)).toEqual({ x: 100, y: 125 });
+    expect(anchorOf(RECT, 'right', 0, 0.75)).toEqual({ x: 300, y: 175 });
+    // θ=90°：top 边 1/4 点 (150,100)，中心 (200,150)，局部向量 (−50,−50)；
+    // (x·cos−y·sin, x·sin+y·cos) = (50,−50) → 世界 (250,100)
+    const a = anchorOf(RECT, 'top', Math.PI / 2, 0.25);
+    expect(a.x).toBeCloseTo(250, 6);
+    expect(a.y).toBeCloseTo(100, 6);
+  });
+
   it('nearestJoin：按象限选最近边', () => {
     expect(nearestJoin(RECT, { x: 400, y: 150 })).toBe('right');
     expect(nearestJoin(RECT, { x: 50, y: 150 })).toBe('left');

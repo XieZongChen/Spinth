@@ -9,6 +9,7 @@ import {
   quantizeJoin,
   r2,
   routeElbow,
+  type IPt,
   type JoinDir,
 } from './lineMath';
 import type { LineVm } from './lineVm';
@@ -121,6 +122,22 @@ export class LineAnchorFollow extends Disposable {
    * startGeom/endGeom 传 null = 该端不重锚（保持现点）；避让节点用世界 AABB
    * （rotatedRectBounds——旋转宿主保守外接，docs/05 §8 降级口径）。未锚定返回 null。
    */
+  /** 端点锚点单源：vm.getAnchorPoint（ShapeVm 覆写为轮廓交点，G-04；预览感知）
+   *  ——vm 缺失（桩/极端时序）回退 bbox anchorOf(geom)，t 缺省 0.5 = 边中点
+   *  （specs/flowchart-closeout §7.1 第 3 层：不再直接调 anchorOf） */
+  private anchorOfNode(
+    nodeId: string | null,
+    geom: IHostGeom | null,
+    join: JoinDir | null,
+    t: number,
+  ): IPt | null {
+    if (!join) return null;
+    if (!geom) return null;
+    const vm = nodeId ? this.vmEngine.getVmById(nodeId) : null;
+    if (vm) return vm.getAnchorPoint(join, t);
+    return anchorOf(geom.rect, join, geom.rotation, t);
+  }
+
   private routeLinePoints(
     data: ILineAnchorData,
     startGeom: IHostGeom | null,
@@ -132,12 +149,17 @@ export class LineAnchorFollow extends Disposable {
     if (data.lineType !== 'ELBOWED') {
       // STRAIGHT：只替换锚定端点（既有语义；θ 感知——锚点随边中点旋转）
       if (startGeom && data.startJoin) {
-        const a = anchorOf(startGeom.rect, data.startJoin, startGeom.rotation);
-        pts[0] = { x: a.x, y: a.y };
+        const a = this.anchorOfNode(
+          data.startNodeId,
+          startGeom,
+          data.startJoin,
+          data.startPort ?? 0.5,
+        );
+        if (a) pts[0] = { x: a.x, y: a.y };
       }
       if (endGeom && data.endJoin) {
-        const b = anchorOf(endGeom.rect, data.endJoin, endGeom.rotation);
-        pts[pts.length - 1] = { x: b.x, y: b.y };
+        const b = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5);
+        if (b) pts[pts.length - 1] = { x: b.x, y: b.y };
       }
       return pts.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
     }
@@ -147,12 +169,18 @@ export class LineAnchorFollow extends Disposable {
       // 重贴锚点（锚定跟随保持连通），中间拐点保持（锚定节点移动 U 形不丢）。
       // mergeCollinear 清锚点重贴可能产生的重合点（新锚点恰落旧拐点 → 零长段，
       // 段手柄/滑移几何随之退化）
-      const startAnchor =
-        startGeom && data.startJoin
-          ? anchorOf(startGeom.rect, data.startJoin, startGeom.rotation)
-          : null;
-      const endAnchor =
-        endGeom && data.endJoin ? anchorOf(endGeom.rect, data.endJoin, endGeom.rotation) : null;
+      const startAnchor = this.anchorOfNode(
+        data.startNodeId,
+        startGeom,
+        data.startJoin,
+        data.startPort ?? 0.5,
+      );
+      const endAnchor = this.anchorOfNode(
+        data.endNodeId,
+        endGeom,
+        data.endJoin,
+        data.endPort ?? 0.5,
+      );
       return mergeCollinear(pinKeepMiddle(pts, startAnchor, endAnchor)).map(
         (p) => [r2(p.x), r2(p.y)] as [number, number],
       );
@@ -160,13 +188,11 @@ export class LineAnchorFollow extends Disposable {
 
     // ELBOWED：全路径重路由（两端锚点 + 两端节点避让——避让用世界 AABB）
     const startPoint =
-      startGeom && data.startJoin
-        ? anchorOf(startGeom.rect, data.startJoin, startGeom.rotation)
-        : pts[0]!;
+      this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, data.startPort ?? 0.5) ??
+      pts[0]!;
     const endPoint =
-      endGeom && data.endJoin
-        ? anchorOf(endGeom.rect, data.endJoin, endGeom.rotation)
-        : pts[pts.length - 1]!;
+      this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5) ??
+      pts[pts.length - 1]!;
     const hostAabb = (id: string | null, fallback: IHostGeom | null): IRect | null => {
       if (fallback) return rotatedRectBounds(fallback.rect, fallback.rotation);
       if (!id) return null;
@@ -208,6 +234,8 @@ export class LineAnchorFollow extends Disposable {
       endNodeId: string | null;
       startJoin: JoinDir | null;
       endJoin: JoinDir | null;
+      startPort?: number;
+      endPort?: number;
       points: Array<[number, number]>;
     };
     if (data.lineType !== 'ELBOWED') return;
@@ -218,15 +246,17 @@ export class LineAnchorFollow extends Disposable {
     const endGeom = data.endNodeId
       ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
       : null;
-    const start =
-      data.startJoin && startGeom
-        ? anchorOf(startGeom.rect, data.startJoin, startGeom.rotation)
-        : { x: data.points[0]![0], y: data.points[0]![1] };
+    const start = this.anchorOfNode(
+      data.startNodeId,
+      startGeom,
+      data.startJoin,
+      data.startPort ?? 0.5,
+    ) ?? { x: data.points[0]![0], y: data.points[0]![1] };
     const last = data.points[data.points.length - 1]!;
-    const end =
-      data.endJoin && endGeom
-        ? anchorOf(endGeom.rect, data.endJoin, endGeom.rotation)
-        : { x: last[0], y: last[1] };
+    const end = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, data.endPort ?? 0.5) ?? {
+      x: last[0],
+      y: last[1],
+    };
     const route = routeElbow({
       start,
       startJoin: startGeom
