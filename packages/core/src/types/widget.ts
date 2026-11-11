@@ -74,6 +74,16 @@ export const ShapeSchema = z.object({
   /** 文字撑高形状（docs/17 §6 autoHeight，2026-10-10 四点拍板）：optional 无
    *  default——老文档零迁移，消费侧 `?? true`；手动拖角改宽/高即置 false */
   autoHeight: z.boolean().optional(),
+  /** 流程图样式批（specs/flowchart-closeout §4.2）：optional 无 default——老文档
+   *  零迁移，消费侧 `?? 缺省`（shapeStyle.resolveShapeStyle 单源）。borderColor
+   *  一旦写入即固定，不随填充色变化（无「自动（随填充）」还原选项——避免
+   *  「删除字段」写路径的语义未定义）；fill 'none' = 只描边不填充，命中
+   *  语义不变（bbox 命中） */
+  borderColor: z.string().optional(),
+  /** 描边宽（档位 1/2/4，SHAPE_BORDER_WIDTH_OPTIONS 单源）；缺失 = 1 */
+  borderWidth: z.number().optional(),
+  /** 填充态：'solid'（缺省）= 填充 color；'none' = 无填充标注框 */
+  fill: z.enum(['solid', 'none']).optional(),
   ...TypoFields,
   ...RotationField,
   ...GroupIdField,
@@ -121,6 +131,11 @@ export const LineSchema = z.object({
   text: z.string().default(''),
   /** 文字在路径上的位置比例 0~1（docs/08 §6） */
   textRatio: z.number().min(0).max(1).default(0.5),
+  /** 锚点沿边参数（specs/flowchart-closeout §7.1/§7.3）：optional 无 default——
+   *  缺失 = 边中点且参与同边多线自动错开（派生不落库）；显式写入 = 用户
+   *  手工固定该端，不参与错开分配。端点重锚定时由投影计算写入 */
+  startPort: z.number().min(0).max(1).optional(),
+  endPort: z.number().min(0).max(1).optional(),
   /** 线上文字排版 override（align 恒 center 与锚点语义绑定，不加字段） */
   fontSize: TypoFields.fontSize,
   textColor: TypoFields.textColor,
