@@ -17,7 +17,7 @@ export const BOARD_PUBLIC_MEMBERS = [
   // 生命周期
   'initialize',
   'dispose',
-  // 输出流（19）
+  // 输出流（20）
   'widgetsChanged$',
   'cursorMode$',
   'defaultShapeType$',
@@ -37,25 +37,27 @@ export const BOARD_PUBLIC_MEMBERS = [
   'dragMove$',
   'mindGhostSuppressed$',
   'mindFocusChanged$',
+  'gridSnap$',
   // 查询（6）
   'modelCount',
-  'defaultShapeType',
   'getSelectionBounds',
+  'defaultShapeType',
   'toScreenPoint',
   'getMindAddButtons',
   'getActionBarSchema',
-  // 命令（38）
+  // 命令（39）
   'setTheme',
   'setCursorMode',
   'setDefaultShapeType',
+  'setGridSnap',
   'setDefaultToolOption',
   'updateEditable',
-  'setPageScale',
   'zoomIn',
   'zoomOut',
-  'zoomToFit',
+  'setPageScale',
   'undo',
   'redo',
+  'zoomToFit',
   'removeSelected',
   'mindAddChild',
   'mindAddSibling',
@@ -96,6 +98,7 @@ export type BoardInternalMember =
   | 'engine'
   | 'vmEngine'
   | 'history'
+  | 'gridSnap'
   | 'selector'
   | 'shapeService'
   | 'rectEditor'

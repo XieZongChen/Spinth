@@ -2,6 +2,7 @@ import { Disposable } from '../../base/disposable';
 import { Subject } from 'rxjs';
 import { markRender } from '../../common/render';
 import type { IRect } from '../../common/geometry';
+import { quantizeResizeRect } from '../../common/grid';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -54,6 +55,8 @@ export class RectEditorService extends Disposable {
   /** 缩放手势逐帧通知（视觉预览已就位后发射）：连接点等覆盖层跟随用，
    *  与 selector.dragMove$ 同模式——缩放期 onStateChanged$ 不发射 */
   readonly resizeMove$ = new Subject<void>();
+  /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
+  gridSnapOn: () => boolean = () => false;
 
   /** 缩放松手落库后、stopCapturing 前的钩子（组合根接锚定线急切重路由——并入
    *  同一撤销项，docs/05 §4.4；next = commitResize 落库的目标矩形，正是微任务相
@@ -239,6 +242,18 @@ export class RectEditorService extends Disposable {
       // 参考线吸附：只有被拖动的边参与（docs/06 §3）；旋转态跳过
       const snapped = this.refLine.snapForResize(next, this.resize.dir);
       next = snapped.rect;
+      // 网格吸附（specs/flowchart-closeout §9.2）：参考线未命中的轴量化到格点，
+      // 固定角 = 被抓手柄的对侧（start 不动、移动边取整）；旋转态跳过。
+      // lastNext 即落库值（预览与落库同源）
+      if (this.gridSnapOn()) {
+        next = quantizeResizeRect(
+          this.resize.start,
+          this.resize.dir,
+          next,
+          snapped.matchedV.length === 0,
+          snapped.matchedH.length === 0,
+        );
+      }
     }
     this.resize.lastNext = next;
     // 视觉反馈：per-type 预览（rect 型 position+scale；points 世界坐标型

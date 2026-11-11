@@ -50,6 +50,8 @@ export interface SpinthUiState {
   mindGhostSuppressed: boolean;
   /** 工具默认参数聚合（docs/04 §2 工具默认参数节——key = CursorMode；Toolbar 常驻二级菜单/ToolGhost 消费） */
   defaultToolOptions: Record<string, Record<string, string>>;
+  /** 网格吸附开关（specs/flowchart-closeout §9.2 视图偏好——ContextMenu 勾选项消费） */
+  gridSnap: boolean;
 }
 
 export const useSpinthStore = create<SpinthUiState>(() => ({
@@ -73,6 +75,7 @@ export const useSpinthStore = create<SpinthUiState>(() => ({
   contextMenu: { show: false, x: 0, y: 0, onWidget: false, canPaste: false },
   actionBar: { schema: null, bounds: null },
   mindAddButtons: null,
+  gridSnap: false,
   mindGhostSuppressed: false,
   defaultToolOptions: {},
 }));

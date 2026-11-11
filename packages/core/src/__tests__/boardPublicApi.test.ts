@@ -44,9 +44,9 @@ describe('projectBoardPublicApi 运行时投影', () => {
     return stub;
   }
 
-  it('投影键集 = allowlist（65 项，排序全等）', () => {
+  it('投影键集 = allowlist（67 项，排序全等）', () => {
     const api = projectBoardPublicApi(new BoardSDK());
-    expect(Object.keys(api)).toHaveLength(65);
+    expect(Object.keys(api)).toHaveLength(67);
     expect(Object.keys(api).sort()).toEqual([...BOARD_PUBLIC_MEMBERS].sort());
     expect(
       Reflect.ownKeys(api)

@@ -10,6 +10,7 @@ import type {
 } from '../../types';
 import type { IRect } from '../../common/geometry';
 import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
+import { quantizeGrid } from '../../common/grid';
 
 /**
  * 「框型控件」创建工具的模板基类（docs/04 §2，对标既有设计 ShareShapeService）：
@@ -39,6 +40,14 @@ export abstract class DragCreateServiceBase extends Disposable {
 
   /** 拖拽草稿的最小尺寸下限（跟手期间钳制） */
   protected readonly minDraftSize = { width: 1, height: 1 };
+
+  /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
+  protected gridSnapOn: () => boolean = () => false;
+
+  /** 绑定网格开关探针（组合根调用；protected 字段的受控写入口） */
+  bindGridSnap(probe: () => boolean): void {
+    this.gridSnapOn = probe;
+  }
 
   /** 拖拽创建触发判定（默认：位移达到单击/拖拽分界）。分界复用选中拖拽的起拖
    *  阻尼（10 屏幕 px，docs/05 §4.1）：单击时手抖滑出几 px 不该画出小图形——
@@ -96,9 +105,20 @@ export abstract class DragCreateServiceBase extends Disposable {
   private onPointerUp(): void {
     if (this.start && !this.editingId) {
       // 单击：默认尺寸，以按下点为中心——按下点是用户瞄准处；单击容许
-      // 分界内的滑移，松手点可能偏出近 10 屏幕 px
+      // 分界内的滑移，松手点可能偏出近 10 屏幕 px。网格开时量化左上角
+      // （先按中心算矩形再取整，最多偏 8px，specs/flowchart-closeout §4.3）
       const d = this.defaultSize;
-      this.createWidget(this.start.x - d.width / 2, this.start.y - d.height / 2, d.width, d.height);
+      const rect = {
+        x: this.start.x - d.width / 2,
+        y: this.start.y - d.height / 2,
+        width: d.width,
+        height: d.height,
+      };
+      if (this.gridSnapOn()) {
+        rect.x = quantizeGrid(rect.x);
+        rect.y = quantizeGrid(rect.y);
+      }
+      this.createWidget(rect.x, rect.y, rect.width, rect.height);
       // 撤销项切分（Batch 1 · 1.11②）：单击创建此前无 stopCapturing——与 500ms
       // 内的下一操作（如随手拖动新件）并成一个 undo 项，「建件+拖动」一起消失
       this.history.stopCapturing();
@@ -114,15 +134,27 @@ export abstract class DragCreateServiceBase extends Disposable {
     this.editingId = null;
   }
 
-  /** 草稿矩形：起点锚定 + 当前为对角 + 下限钳制 */
+  /** 草稿矩形：起点锚定 + 当前为对角 + 下限钳制。网格开时起止两角量化到
+   *  格点（specs/flowchart-closeout §9.2 拖拽创建行——预览即量化后几何，
+   *  最后一帧输出落库，不出现「松手跳一格」） */
   private draftRect(dx: number, dy: number): IRect {
     const s = this.start!;
     const m = this.minDraftSize;
+    let x2 = s.x + dx;
+    let y2 = s.y + dy;
+    let x1 = s.x;
+    let y1 = s.y;
+    if (this.gridSnapOn()) {
+      x1 = quantizeGrid(s.x);
+      y1 = quantizeGrid(s.y);
+      x2 = quantizeGrid(x2);
+      y2 = quantizeGrid(y2);
+    }
     return {
-      x: s.x + Math.min(0, dx),
-      y: s.y + Math.min(0, dy),
-      width: Math.max(m.width, Math.abs(dx)),
-      height: Math.max(m.height, Math.abs(dy)),
+      x: Math.min(x1, x2),
+      y: Math.min(y1, y2),
+      width: Math.max(m.width, Math.abs(x2 - x1)),
+      height: Math.max(m.height, Math.abs(y2 - y1)),
     };
   }
 }

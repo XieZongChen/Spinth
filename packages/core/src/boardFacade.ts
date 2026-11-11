@@ -101,8 +101,16 @@ export abstract class BoardFacade {
     return this.outputs.mindFocusChanged$;
   }
 
+  /** 网格吸附开关（specs/flowchart-closeout §9.2）：视图偏好流（不写文档） */
+  get gridSnap$(): BehaviorSubject<boolean> {
+    return this.outputs.gridSnap$;
+  }
+
   // ---------- 命令委托（实现在 BoardCommands 及其分块模块） ----------
 
+  setGridSnap(on: boolean): void {
+    return this.commands.setGridSnap(on);
+  }
   setTheme(theme: 'light' | 'dark'): void {
     return this.commands.setTheme(theme);
   }

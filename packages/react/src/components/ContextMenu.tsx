@@ -28,11 +28,18 @@ interface IMenuPanelOptions {
  *  closeAndRestore()，不在各路径散写归还逻辑。 */
 export function ContextMenu() {
   const options = useSpinthStore((s) => s.contextMenu);
+  const gridSnap = useSpinthStore((s) => s.gridSnap);
   if (!options.show) return null;
-  return <ContextMenuPanel options={options} />;
+  return <ContextMenuPanel options={options} gridSnap={gridSnap} />;
 }
 
-function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
+function ContextMenuPanel({
+  options,
+  gridSnap,
+}: {
+  options: IMenuPanelOptions;
+  gridSnap: boolean;
+}) {
   const menuRef = useRef<HTMLDivElement>(null);
   /** 归还目标：面板挂载瞬间（首项聚焦前——layout effect 先于 hook 的被动
    *  effect）记录 activeElement，见 §5.4 焦点归还矩阵 */
@@ -175,6 +182,16 @@ function ContextMenuPanel({ options }: { options: IMenuPanelOptions }) {
       },
     },
     'divider',
+    {
+      // 网格吸附（specs/flowchart-closeout §9.2）：勾选态经 label 表达（MenuItem
+      // 无 toggle 语义，值在菜单打开时定格）；视图偏好——只读态可用
+      label: gridSnap ? '网格吸附 ✓' : '网格吸附',
+      icon: 'select-all',
+      action: () => {
+        spinthCommands.setGridSnap(!gridSnap);
+        close();
+      },
+    },
     {
       label: '适应屏幕',
       icon: 'zoom-fit',

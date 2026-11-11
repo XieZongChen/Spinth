@@ -76,6 +76,11 @@ export const spinthCommands = {
   pasteAtCenter(): void {
     board?.pasteAtScreenCenter();
   },
+
+  /** 网格吸附开关（specs/flowchart-closeout §9.2 视图偏好——右键菜单勾选项） */
+  setGridSnap(on: boolean): void {
+    board?.setGridSnap(on);
+  },
   bringToFront(): void {
     board?.bringToFront();
   },

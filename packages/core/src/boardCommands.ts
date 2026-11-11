@@ -74,6 +74,12 @@ export class BoardCommands {
     else if (tool === 'eraser' && key === 'size') this.ctx.eraserService?.setRadius(Number(id));
   }
 
+  /** 网格吸附开关（specs/flowchart-closeout §9.2）：视图偏好——不写文档、
+   *  不受只读态限制（只读可开关）；持久化由组装层订阅写 localStorage */
+  setGridSnap(on: boolean): void {
+    this.ctx.gridSnap?.setEnabled(on);
+  }
+
   updateEditable(v: boolean): void {
     if (v) {
       // 切回可写：只翻闸门 + 恢复写，不恢复工具/选区（无记忆，简单且可预期）

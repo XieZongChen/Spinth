@@ -76,6 +76,8 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     // 视口/数据变化 → ActionBar 跟随（schema 里的当前值同步刷新）
     sdk.vpScale$.subscribe(() => syncSchema()),
     sdk.vpBounds$.subscribe(() => syncSchema()),
+    // 网格吸附开关（specs/flowchart-closeout §9.2）：ContextMenu 勾选项消费
+    sdk.gridSnap$.subscribe((v) => store.setState({ gridSnap: v })),
     sdk.widgetsChanged$.subscribe(() => {
       invalidateSchema();
       syncSchema();

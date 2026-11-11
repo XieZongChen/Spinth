@@ -205,6 +205,9 @@ export interface ISelectorService {
   readonly dragMove$: Subject<void>;
   /** 脑图节点级拖拽代理（组合根晚绑定 MindService——避免 selector↔mind 构造环） */
   mindDragDelegate: IMindDragDelegate | null;
+  /** 网格吸附开关读取（specs/flowchart-closeout §9.2；组合根注入 gridSnap 服务，
+   *  缺省关——拖拽量化路径的 ISelectorDragContext.gridSnapOn 数据源） */
+  gridSnapOn: () => boolean;
   setSelected(ids: string[], options?: { silent?: boolean }): void;
   removeSelected(): void;
   /** 缩放流程中由 RectEditor 调用：选区框实时跟随被缩放的形状 */

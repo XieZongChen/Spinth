@@ -13,6 +13,9 @@ export type { IBoardConfig } from './boardConfig';
 
 // 多选几何命令（docs/05 §7）
 export type { AlignMode, DistributeAxis, IDelta } from './platform/selector/alignOps';
+// 网格吸附量化（specs/flowchart-closeout §9.2——@spinth/react 点阵背景 re-export
+// GRID_SPACING 消双源；quantize* 供测试与宿主复算）
+export { GRID_SPACING, quantizeGrid, quantizeGridRect } from './common/grid';
 
 // 公共契约（胶水层与测试消费）
 export type {

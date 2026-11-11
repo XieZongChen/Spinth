@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import { markRender } from '../../common/render';
 import { unionRects, type IRect } from '../../common/geometry';
 import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
+import { quantizeGrid } from '../../common/grid';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -12,7 +13,6 @@ import type {
 } from '../../types';
 import type { SelectionVm } from '../selection/selectionVm';
 import type { RefLineService } from '../refLine/refLineService';
-
 export interface DragState {
   startWorld: Point;
   ids: string[];
@@ -40,6 +40,8 @@ export interface ISelectorDragContext {
   getRefLine(): RefLineService;
   onDragCommitted(ids: string[], dx: number, dy: number): void;
   syncSelectionVm(): void;
+  /** 网格吸附开关读取（specs/flowchart-closeout §9.2；组合根注入 gridSnap 服务） */
+  gridSnapOn(): boolean;
 }
 
 /** 拖拽态创建（selector.onPointerDown 命中分支尾段）：
@@ -94,6 +96,17 @@ export function applyDragMove(
   const snapped = ctx.getRefLine().snapForDrag(d.initialUnion, dx, dy);
   dx = snapped.dx;
   dy = snapped.dy;
+  // 网格吸附（specs/flowchart-closeout §9.2）：优先级「参考线先、网格后」——
+  // 命中轴不量化（可见反馈优先）；量化基准 = 选区外接矩形左上角（多元素对齐
+  // 才整齐），修正量写回 lastDx/lastDy（松手落库同源，不会「松手跳一格」）
+  if (ctx.gridSnapOn()) {
+    if (snapped.matchedV.length === 0) {
+      dx = quantizeGrid(d.initialUnion.x + dx) - d.initialUnion.x;
+    }
+    if (snapped.matchedH.length === 0) {
+      dy = quantizeGrid(d.initialUnion.y + dy) - d.initialUnion.y;
+    }
+  }
   d.lastDx = dx;
   d.lastDy = dy;
   // 视觉反馈：per-type 平移预览（rect 型 root=init+delta；points 世界坐标型

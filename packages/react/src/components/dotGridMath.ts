@@ -20,7 +20,11 @@ export interface IGridTransform {
   dy: number;
 }
 
-export const BASE_WORLD_SPACING = 16;
+import { GRID_SPACING } from '@spinth/core';
+
+/** 网格步长单源在 @spinth/core（specs/flowchart-closeout §9.2：与网格吸附量化
+ *  同相位——点中心 ≡ 0 (mod 16)，量化落点压在点上） */
+export const BASE_WORLD_SPACING = GRID_SPACING;
 export const MIN_SCREEN_SPACING = 12;
 export const DOT_MIN = 1;
 export const DOT_MAX = 4;

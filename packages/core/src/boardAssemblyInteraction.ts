@@ -1,6 +1,7 @@
 import { HistoryService } from './platform/history/historyService';
 import { SelectorService } from './platform/selector/selectorService';
 import { RectEditorService } from './platform/rectEditor/rectEditorService';
+import { GridSnapService } from './platform/viewport/gridSnapService';
 import { RefLineService } from './platform/refLine/refLineService';
 import { LayerService } from './platform/layer/layerService';
 import { GroupService } from './platform/selector/groupService';
@@ -42,6 +43,12 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.refLine = new RefLineService(sdk.viewport!, sdk.vmEngine!, () => sdk.selector!, sdk.engine!);
   // 边缘自动滚屏（specs/edge-auto-scroll §5.4，docs/05 §4.5）：先于 selector
   // 构造（selector 上报指针位置与起停，服务独占 rAF 与热区数学）
+  // 网格吸附开关（specs/flowchart-closeout §9.2）：视图偏好——会话态 +
+  // localStorage；浏览器环境直连 localStorage（SSR/测试注入 null 走缺省关）
+  sdk.gridSnap = new GridSnapService(typeof localStorage !== 'undefined' ? localStorage : null);
+  if (typeof localStorage !== 'undefined') {
+    sdk.gridSnap.gridSnap$.subscribe(() => sdk.gridSnap?.persist(localStorage));
+  }
   sdk.edgeScroll = new EdgeAutoScrollService(sdk.viewport!);
   sdk.selector = new SelectorService(
     sdk.viewport!,
@@ -107,6 +114,12 @@ export function assembleInteraction(sdk: BoardSDK): void {
     sdk.history!,
     sdk.editingService!,
   );
+  // 网格吸附探针接线（specs/flowchart-closeout §9.2：四处落库量化共用同一开关）
+  sdk.selector.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
+  sdk.rectEditor.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
+  sdk.shapeService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
+  sdk.lineService.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
+
   sdk.lineService.defaultLineType$.subscribe((v) => sdk.syncToolOption('line', 'type', v));
   sdk.lineService.defaultStrokeWidth$.subscribe((v) =>
     sdk.syncToolOption('line', 'width', String(v)),

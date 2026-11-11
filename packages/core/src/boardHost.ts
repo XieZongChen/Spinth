@@ -44,18 +44,21 @@ import type { ImageService } from './widgets/image/imageService';
 import type { AssetStore } from './platform/dataEngine/assetStore';
 import type { ImageTextureCache } from './widgets/image/imageTextureCache';
 import type { EdgeAutoScrollService } from './platform/viewport/edgeAutoScrollService';
+import type { GridSnapService } from './platform/viewport/gridSnapService';
 
 /** BoardSDK 的全部服务字段（组装前为 null；键始终存在） */
 export interface IBoardServices {
   viewport: IViewportService | null;
   /** 边缘自动滚屏（specs/edge-auto-scroll）：交互装配阶段构造，selector 上报驱动 */
   edgeScroll: EdgeAutoScrollService | null;
+  /** 网格吸附开关（specs/flowchart-closeout §9.2）：视图偏好，不写文档 */
+  gridSnap: GridSnapService | null;
   engine: DataEngineService | null;
   vmEngine: IVmEngineService | null;
+  rectEditor: RectEditorService | null;
   history: IHistoryService | null;
   selector: ISelectorService | null;
   shapeService: ShapeService | null;
-  rectEditor: RectEditorService | null;
   refLine: RefLineService | null;
   layer: LayerService | null;
   group: GroupService | null;
@@ -100,6 +103,7 @@ export type IBoardStreamHost = Pick<
   | 'network'
   | 'storageStatus'
   | 'shapeService'
+  | 'gridSnap'
 >;
 
 /** 拉取式查询宿主（getSelectionBounds/toScreenPoint/getMindAddButtons） */

@@ -38,6 +38,10 @@ export class SelectorService extends Disposable implements ISelectorService {
   /** 脑图节点级拖拽代理（组合根晚绑定，避免 selector↔mind 构造环） */
   mindDragDelegate: IMindDragDelegate | null = null;
 
+  /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入 gridSnap
+   *  服务。缺省关——测试/未组装零行为差） */
+  gridSnapOn: () => boolean = () => false;
+
   private dragState: DragState | null = null;
   /** 拖拽操作上下文（initialize 后构造；ops 无状态——状态归本类字段） */
   private dragCtx!: ISelectorDragContext;
@@ -87,9 +91,10 @@ export class SelectorService extends Disposable implements ISelectorService {
       history: this.history,
       selectionVm: this.selectionVm,
       dragMove$: this.dragMove$,
+      gridSnapOn: () => this.gridSnapOn(),
       getRefLine: () => this.getRefLine(),
-      onDragCommitted: (ids, dx, dy) => this.onDragCommitted?.(ids, dx, dy),
       syncSelectionVm: () => this.syncSelectionVm(),
+      onDragCommitted: (ids, dx, dy) => this.onDragCommitted?.(ids, dx, dy),
     };
     this.marqueeCtx = {
       vmEngine: this.vmEngine,

@@ -134,6 +134,15 @@ export class BoardOutputs {
     );
   }
 
+  /** 网格吸附开关（specs/flowchart-closeout §9.2）：视图偏好流（不写文档）。
+   *  组装前兜底 false */
+  get gridSnap$(): BehaviorSubject<boolean> {
+    if (this.host.gridSnap) return this.host.gridSnap.gridSnap$;
+    this.gridSnapFallback ??= new BehaviorSubject<boolean>(false);
+    return this.gridSnapFallback;
+  }
+  private gridSnapFallback: BehaviorSubject<boolean> | null = null;
+
   get contextMenuOptions$(): BehaviorSubject<IContextMenuState> {
     // 组装前兜底（批 B 输出流族最后一员）：静止菜单
     if (this.host.contextMenu) return this.host.contextMenu.options$;

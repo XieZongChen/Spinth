@@ -89,6 +89,9 @@ export class LineService extends Disposable {
   /** 手势忙态探针（组合根注入：rectEditor 缩放中等——悬停指示器抑制） */
   busyProbe: (() => boolean) | null = null;
 
+  /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
+  gridSnapOn: () => boolean = () => false;
+
   /** 线上文字编辑协作者（A1 整理批刀 1：TipTap 生命周期/节流落库/镂空喂框） */
   private textEditor: LineTextEditor | null = null;
   /** 编辑中的线 id（各处会话守卫读——协作者状态经此最小暴露） */
@@ -195,6 +198,8 @@ export class LineService extends Disposable {
         this.overlay,
         {
           hitTest: (world) => hitWidget(this.vmEngine, this.viewport, world),
+          // 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入，缺省关）
+          gridSnapOn: () => this.gridSnapOn(),
         },
       );
       this.addDisposable(this.endpointDragCtl);

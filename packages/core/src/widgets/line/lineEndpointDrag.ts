@@ -6,6 +6,7 @@ import type {
   IVmEngineService,
   IViewportService,
 } from '../../types';
+import { quantizeGrid } from '../../common/grid';
 import {
   anchorOf,
   collectRouteObstacles,
@@ -22,19 +23,19 @@ import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { LineVm } from './lineVm';
 import type { LineHoverOverlay } from './lineHoverOverlay';
 import type { ILineAnchorData } from './lineQuickAdd';
-
 /**
  * 端点拖拽协作者（自 lineService 拆出，2026-10-05 A1 整理批刀 5）：
  * 单选连线拖端点手柄重锚定 / 拖离解绑（批次 2）。previewRoute 视觉预览 +
  * 松手单事务落库；pointercancel 走 Up 同款收尾（pending 落库语义对打断安全，
  * 外部审查 S1）。命中判定（hitWidget ①③ 共用）经 host 回调。
  */
-
 const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
 
 export interface ILineEndpointDragHost {
   /** 画布命中（宿主 hitWidget：严格命中 + 边缘容差回退，①绘制管线共用） */
   hitTest(world: { x: number; y: number }): { id: string; geom: IHostGeom } | null;
+  /** 网格吸附开关（specs/flowchart-closeout §9.2：自由端点量化；组合根注入） */
+  gridSnapOn(): boolean;
 }
 
 export class LineEndpointDrag extends Disposable {
@@ -104,8 +105,9 @@ export class LineEndpointDrag extends Disposable {
       ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join, port ?? 0.5)
       : null) ??
       (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation, port ?? 0.5) : null) ?? {
-        x: world.x,
-        y: world.y,
+        // 自由端：网格开时量化端点世界坐标（已锚定端不量化——宿主决定，§9.2）
+        x: this.host.gridSnapOn() ? quantizeGrid(world.x) : world.x,
+        y: this.host.gridSnapOn() ? quantizeGrid(world.y) : world.y,
       };
     // 吸附反馈：目标元素连接点亮起（悬停目标时）
     if (hit) this.overlay.showDrawFeedback(hit.geom, JOINS.indexOf(join!));
