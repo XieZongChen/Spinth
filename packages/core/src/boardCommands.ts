@@ -93,6 +93,9 @@ export class BoardCommands {
       getModelById: (id) => this.ctx.engine?.getModelById(id),
     });
     if (ids.length === 0) return 0;
+    // 前置关窗：Yjs UndoManager 默认 500ms captureTimeout 会把「删形状」与紧随
+    // 的清理并成一步（undo 复活形状）——先 stopCapturing 保证清理是独立撤销步
+    this.ctx.history?.stopCapturing();
     this.ctx.engine?.removeByIds(ids);
     this.ctx.history?.stopCapturing();
     return ids.length;

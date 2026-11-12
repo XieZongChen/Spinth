@@ -36,6 +36,10 @@ export interface ILineDrawHost {
   readonly overlay: Pick<LineHoverOverlay, 'showDrawFeedback' | 'hideDrawFeedback'> | null;
   getDefaultLineType(): LineType;
   getDefaultStrokeWidth(): number;
+  /** 线落定回调（specs/flowchart-closeout §7.3）：同边余线重排 + 本线终路由
+   *  经 anchorFollow 单源（避障/spread/探针）；在 settle 事务关闭前调用 =
+   *  重排写入并入本次创建（一步撤销）。 */
+  onSettled?(): void;
 }
 
 /**
@@ -258,6 +262,9 @@ export class LineDrawSession extends Disposable {
       if (a && b && Math.hypot(b[0] - a[0], b[1] - a[1]) < 4 && !selfAnchored) {
         this.engine.removeByIds([id]);
       } else {
+        // 落定重排（§7.3）：同边余线让位 + 本线终路由走 anchorFollow 单源
+        //（避障/spread/探针）；在 stopCapturing 前 = 并入本次创建一步撤销
+        this.host.onSettled?.();
         this.history.stopCapturing();
         this.selector.setSelected([id]);
         // 工具保持激活（docs/08 §10 批次 1，参考同款）：连续画线不必反复切工具；

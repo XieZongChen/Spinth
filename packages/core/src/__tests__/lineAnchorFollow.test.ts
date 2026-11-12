@@ -281,3 +281,133 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
   });
 });
+
+describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3——settle/unbind 触发）', () => {
+  const GEOM = { rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 };
+
+  function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>) {
+    const models = new Map(
+      lines.map((l) => [
+        l.id,
+        statefulLineModel({ id: l.id, lineType: 'STRAIGHT', startJoin: 'right', ...l.data }),
+      ]),
+    );
+    const lineVms = lines.map((l) => ({ id: l.id, type: 'LINE', previewRoute: vi.fn() }));
+    const follow = new LineAnchorFollow(
+      { getModelById: (id: string) => models.get(id)?.model } as never,
+      {
+        getAllVms: () => lineVms,
+        getVmById: (id: string) =>
+          id === 'N1'
+            ? {
+                getHostGeom: () => GEOM,
+                getAnchorPoint: (join: 'top' | 'right' | 'bottom' | 'left', t = 0.5) =>
+                  join === 'right' ? { x: 10, y: t * 10 } : { x: 0, y: t * 10 },
+              }
+            : null,
+      } as never,
+      { selected$: new BehaviorSubject<string[]>([]) } as never,
+    );
+    return { follow, models, lineVms };
+  }
+
+  const anchored = (id: string) => ({
+    id,
+    data: {
+      startNodeId: 'N1',
+      endNodeId: null,
+      endJoin: null,
+      points: [
+        [10, 5],
+        [100, 5],
+      ],
+    },
+  });
+
+  it('reattachAll（拉线落定）：三条同边线全部重排 0.35/0.5/0.65——中位线同值跳过', () => {
+    const { follow, models } = makeFollow([anchored('LA'), anchored('LB'), anchored('LC')]);
+    follow.reattachAll();
+    expect(models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 3.5],
+        [100, 5],
+      ],
+    });
+    expect(models.get('LB')!.model.update).not.toHaveBeenCalled(); // 0.5 = 原位
+    expect(models.get('LC')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 6.5],
+        [100, 5],
+      ],
+    });
+  });
+
+  it('删线（unbindFrom）：余线按 n=2 重均分 0.4/0.6（加删线后仍均分）', () => {
+    const built = makeFollow([anchored('LA'), anchored('LB'), anchored('LC')]);
+    // LC 已删：vm 枚举不再含它（unbindFrom 收到的 ids 里有它）
+    built.lineVms.splice(2, 1);
+    built.follow.unbindFrom(['LC']);
+    expect(built.models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 4],
+        [100, 5],
+      ],
+    });
+    expect(built.models.get('LB')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 6],
+        [100, 5],
+      ],
+    });
+  });
+
+  it('删形状（解绑线）：patched 线零 points 写（保持原位），组未变的同边线零写', () => {
+    const { follow, models } = makeFollow([
+      // LA/LB 预置在 n=2 均分位（真实链路里创建落定已重排）——组未变 → 零写
+      {
+        id: 'LA',
+        data: {
+          startNodeId: 'N1',
+          endNodeId: null,
+          endJoin: null,
+          points: [
+            [10, 4],
+            [100, 5],
+          ],
+        },
+      },
+      {
+        id: 'LB',
+        data: {
+          startNodeId: 'N1',
+          endNodeId: null,
+          endJoin: null,
+          points: [
+            [10, 6],
+            [100, 5],
+          ],
+        },
+      },
+      {
+        id: 'LD',
+        data: {
+          startNodeId: 'NX',
+          startJoin: 'right',
+          endNodeId: 'NZ',
+          endJoin: 'left',
+          points: [
+            [0, 5],
+            [50, 5],
+          ],
+        },
+      },
+    ]);
+    follow.unbindFrom(['NX']);
+    const ld = models.get('LD')!;
+    expect(ld.model.update).toHaveBeenCalledTimes(1);
+    expect(ld.calls[0]).toEqual({ startNodeId: null, startJoin: null }); // 无 points
+    // LA/LB 组未变（n=2 → t 同值）→ samePoints 跳过零写入
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
+  });
+});

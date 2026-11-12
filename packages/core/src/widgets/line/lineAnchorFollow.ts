@@ -53,9 +53,12 @@ export class LineAnchorFollow extends Disposable {
     return this.lastRouteObstacles;
   }
 
-  /** 解绑：线的 startNodeId/endNodeId 指向被删形状 → 置 null（points 不动） */
+  /** 解绑：线的 startNodeId/endNodeId 指向被删形状 → 置 null（points 不动）。
+   *  删线（非删形状）时同边余线让位重排（§7.3「加删线后仍均分」）——刚解绑的
+   *  悬空线跳过（「解绑保持原位」契约，lineEndpoint E2E 锁 points 逐字节不变） */
   unbindFrom(ids: string[]): void {
     const removed = new Set(ids);
+    const patched = new Set<string>();
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE' || removed.has(vm.id)) continue;
       const model = this.engine.getModelById(vm.id);
@@ -70,8 +73,12 @@ export class LineAnchorFollow extends Disposable {
         patch.endNodeId = null;
         patch.endJoin = null;
       }
-      if (Object.keys(patch).length > 0) model.update(patch as never);
+      if (Object.keys(patch).length > 0) {
+        model.update(patch as never);
+        patched.add(vm.id);
+      }
     }
+    this.respreadLines((id) => patched.has(id) || removed.has(id));
   }
 
   /** 节点移动时重算关联线（由组合根在 vm onStateChanged$ 上调用）。
@@ -95,6 +102,39 @@ export class LineAnchorFollow extends Disposable {
       // 会以相同输入重入——不拦会写出幻影事务（视觉无变化却多吃一步 undo）
       if (pts && !samePoints(data.points, pts)) model.update({ points: pts } as never);
     }
+  }
+
+  /**
+   * 线集合拓扑变化后的全量重排（specs/flowchart-closeout §7.3「加删线后仍
+   * 均分」）：新建落定（settle → onSettled）与删线（unbindFrom 尾）时
+   * spreadPorts 分配已变，对所有仍在锚定的线按当前分配 + 单源路由（避障/
+   * 自环/pinned）重算。samePoints 守卫保证无位移的线零写入（无幻影事务）；
+   * 未共享边的线输入不变 → 输出不变 → 恒跳过。skip = 不参与者（刚解绑的
+   * 悬空线等）。
+   */
+  private respreadLines(skip: (id: string) => boolean): void {
+    const spread = this.spreadPorts();
+    for (const vm of this.vmEngine.getAllVms()) {
+      if (vm.type !== 'LINE' || skip(vm.id)) continue;
+      const model = this.engine.getModelById(vm.id);
+      if (!model) continue;
+      const data = model.toJSON() as unknown as ILineAnchorData;
+      if (!data.startNodeId && !data.endNodeId) continue; // 纯自由线无锚定语义
+      const startGeom = data.startNodeId
+        ? (this.vmEngine.getVmById(data.startNodeId)?.getHostGeom() ?? null)
+        : null;
+      const endGeom = data.endNodeId
+        ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
+        : null;
+      const pts = this.routeLinePoints(data, startGeom, endGeom, spread);
+      if (pts && !samePoints(data.points, pts)) model.update({ points: pts } as never);
+    }
+  }
+
+  /** 拉线落定重排入口（LineDrawSession.onSettled → LineService）：settle 事务
+   *  关闭前调用——重排写入并入创建事务 = 加线让位一步撤销 */
+  reattachAll(): void {
+    this.respreadLines(() => false);
   }
 
   /**
