@@ -28,11 +28,11 @@ test('SHAPE ActionBar：填充色 + 边框三态落库', async ({ page }) => {
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.color, { timeout: 5000 })
     .toBe('#d1fae5');
-  await pick('边框', '虚线');
+  await pick('边框线型', '虚线'); // C2 拆三钮：线型/色/宽（specs/flowchart-closeout §4.2）
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.borderStyle, { timeout: 5000 })
     .toBe('dashed');
-  await pick('边框', '无边框');
+  await pick('边框线型', '无边框');
   await expect
     .poll(async () => (await probe(page)).shapes[0]!.borderStyle, { timeout: 5000 })
     .toBe('none');

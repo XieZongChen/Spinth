@@ -9,7 +9,7 @@ import { debugOf } from './helpers/debugE2e';
  * 不可枚举、不可读，写入抛 TypeError。
  */
 
-test('公共面：65 成员、冻结、内部字段不可见不可写', async ({ page }) => {
+test('公共面：68 成员、冻结、内部字段不可见不可写', async ({ page }) => {
   await openBoardDoc(page, `e2e-debug-surface-${Date.now()}`);
   const pub = await page.evaluate(() => {
     const w = window as unknown as { __spinth?: Record<string, unknown> };
@@ -35,7 +35,7 @@ test('公共面：65 成员、冻结、内部字段不可见不可写', async ({
     };
   });
   expect(pub).not.toBeNull();
-  expect(pub!.keyCount).toBe(65);
+  expect(pub!.keyCount).toBe(68); // gridSnap$/setGridSnap/pruneDanglingLines 后 68（specs/flowchart-closeout）
   expect(pub!.frozen).toBe(true);
   expect(pub!.viewport).toBeUndefined();
   expect(pub!.viewportIn).toBe(false);
