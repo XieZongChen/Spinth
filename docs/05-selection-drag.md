@@ -110,6 +110,11 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   `getLocalRect()` 返回未旋转数据矩形，供 resize/锚定/微移使用。
 - `hitTestPoint`：points 型先减 root 偏移再判定。
 
+- 网格吸附（specs/flowchart-closeout §9，默认关）：只门控**落库**量化（拖拽 /
+  缩放固定角 / 创建起止角 / 自由线端点四处），交互期零 Yjs 写不变；
+  量化顺序固定「参考线先、网格后」——命中参考线轴不量化；多选拖拽以选区
+  外接矩形左上角为基准（`GRID_SPACING=16`，`common/grid.ts` 单源）。
+
 ### 4.5 边缘自动滚屏
 
 拖拽（元素拖拽、脑图节点拖拽、框选）进入视口边缘热区时按帧自动平移视口，被拖

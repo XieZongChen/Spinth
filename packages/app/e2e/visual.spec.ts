@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { barPick, createRect } from './helpers/widgetProbeE2e';
 
 /**
  * 视觉快照回归（docs/15 §4，盘点 P3——此前像素级视觉验证为零）：
@@ -291,5 +292,60 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染——已旋转旧�
   // 4. 截控件区域（无选中，不含旋转框/手柄）
   await expect(page).toHaveScreenshot('rotate-45.png', {
     clip: { x: probe.x - 60, y: probe.y + 44 - 60, width: probe.w + 120, height: probe.h + 120 },
+  });
+});
+
+test('视觉快照 @visual：流程图样本（S1 白底黑框 + 锚定连线，specs/flowchart-closeout §18.2）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-flowchart-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+
+  // 三个节点（世界坐标：A 480..600/218..298，B 菱形 660..780/400..480，C 920..1040/400..480）。
+  // 形状工具一次创建后即回 cursor（连线工具才保持激活）——用 createRect 每件点按钮
+  await createRect(page, 540, 302); // A（屏幕中心 540,302）
+  await createRect(page, 720, 484); // B
+  await createRect(page, 980, 484); // C
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(80);
+
+  // B 切菱形（决策节点）：选中 → 图形类型
+  await page.mouse.click(720, 484); // B 中心（世界 720,440）
+  await page.waitForTimeout(200);
+  await barPick(page, '图形类型', '菱形');
+  await page.waitForTimeout(200);
+
+  // S1 白底黑框：三个节点统一 填充 #ffffff + 边框 #000000 + 2px
+  for (const [cx, cy] of [
+    [540, 282],
+    [720, 484],
+    [980, 484],
+  ]) {
+    await page.mouse.click(cx, cy);
+    await page.waitForTimeout(150);
+    await barPick(page, '填充色', '#ffffff');
+    await barPick(page, '边框色', '#000000');
+    await barPick(page, '边框宽', '2 px');
+    await page.waitForTimeout(150);
+  }
+
+  // 锚定连线 ×2：A 底 → B 顶；B 右 → C 左（默认 ELBOWED + 终点箭头）
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(540, 336); // A 底边内侧（世界 540,292）
+  await page.mouse.down();
+  await page.mouse.move(720, 452, { steps: 5 }); // B 顶边内侧（世界 720,408）
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.mouse.move(774, 484); // B 右缘内侧（世界 774,440）
+  await page.mouse.down();
+  await page.mouse.move(926, 484, { steps: 5 }); // C 左缘内侧（世界 926,440）
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape'); // 清工具与选中（不含手柄/ActionBar）
+  await page.waitForTimeout(150);
+
+  await expect(page.locator('canvas').first()).toHaveScreenshot('flowchart-sample.png', {
+    clip: { x: 380, y: 224, width: 700, height: 380 }, // 世界 380..1080 / 180..560
   });
 });

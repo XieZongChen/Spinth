@@ -100,6 +100,10 @@ abstract class BaseModel<D extends IWidgetData> {
 }
 ```
 
+schema 演进零迁移：新增能力字段一律 `optional()`，老文档缺字段不补写、不重建——
+消费侧 `?? 缺省`（形状 borderColor/borderWidth/fill、线 startPort/endPort），
+旧文档渲染与今日逐字节一致。
+
 约束上限：坐标 `WIDGET_POS_MAX`、尺寸 `WIDGET_SIZE_MAX` / `WIDGET_SIZE_MIN`、
 文本 `TEXT_MAX_CHARS`、points `POINTS_MAX`。超限 clamp/截断，不阻塞文档打开。
 

@@ -25,6 +25,10 @@ class ShapeModel extends BaseModel<ShapeData & IRect> {
 
 - `capabilities` 由控件自声明，交互层通过 `WIDGET_REGISTRY` / `TYPES_WHERE` 查询。
 - 几何字段不进入 schema 主对象，统一存 yRect；`toJSON()` 摊平为 x/y/width/height。
+- 新能力字段一律 `optional()` 零迁移：老文档缺字段时消费侧 `?? 缺省`
+  （如形状 borderColor/borderWidth/fill、线 startPort/endPort），渲染逐字节不变。
+- 视图偏好（主题、网格吸附开关）不入 Model/文档：经 localStorage 持久化 +
+  服务流广播（`gridSnap$`/`setGridSnap`），只门控落点量化。
 
 ### Vm（视图层）
 
@@ -168,3 +172,13 @@ VmEngine.initialize():
 
 - 形状类型由 `SHAPE_TYPE_OPTIONS` 单一源维护：四基础型 + 流程图/工程图扩展，共 20 型。
 - 几何内接、路径绘制与带字撑高见 `shapeGeometry.ts` / `shapePath.ts` / docs/17 §6。
+
+### 8.3 形状样式
+
+- 样式字段 optional 零迁移：`color`（填充色）/ `fill`（solid|none，none = 只描边
+  不填充）/ `borderColor` / `borderWidth`（档位 1/2/4）/ `borderStyle`
+  （solid|dashed|none）。
+- 解析单源 `shapeStyle.resolveShapeStyle`：缺省回退（无新字段的老文档渲染不变），
+  渲染与导出同源。
+- 「白底黑框」一次配出：填充 `#ffffff` + 边框 `#000000` + 宽 2（specs/flowchart-closeout
+  §4.2；色板含黑白两色与无填充/无边框态）。

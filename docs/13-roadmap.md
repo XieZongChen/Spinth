@@ -77,36 +77,22 @@
 
 #### 4.1 标准流程图
 
-**现状（审计起点）**：20 型形状 + 图形内富文本（内接换行 / autoHeight / per-实例
-排版）；线型 STRAIGHT / ELBOWED / CURVE，ELBOWED 走廊 30/60/90、R14、共线合并、
-抖动拉直；首尾独立箭头（open / solid / diamond + none）；单标签 + ratio；锚定
-跟随、quick-add、段滑移 + pinned；对齐 6 + 分布 2、参考线（粘滞 / 端部链）、
-编组、undo；PNG 与项目文件。已知文档漂移：docs/08 §5 箭头写四种（实现三型 +
-none）、docs/08 §7 自环写同 widget 删除（`settle` 只判起终点距离）。
+**状态**：已完成（specs/flowchart-closeout）。
 
-**检查范围（审计）**
+**能力**：
 
-- 形状 / 文字 / 线型 / 箭头 / 标签 / 锚点 / 路由 / 吸附 / 撤销 / 导出的 docs 与
-  实现逐项对账。
-- 白底黑框样式、描边宽度、同边多线汇聚、非矩形形状锚点、网格吸附、自环、
-  断头线、拐点、线跳。
-- 真实样本：含分支、回边、子流程、跨列节点的流程图。
+- 形状样式：`color/fill/borderColor/borderWidth/borderStyle` optional 零迁移，
+  「白底黑框」可达（docs/04 §8.3）。
+- 锚点沿边参数化：`startPort/endPort` + 同边多线错开（纯派生、加删线后仍均分）；
+  非矩形形状锚点为轮廓交点（`getAnchorPoint` 单源，docs/08 §3）。
+- ELBOWED 全局避障（`collectRouteObstacles` 单源、无解 fallback）、紧凑自环
+  （对边矩形环/同边 U 形）、内部拐点手柄（正交保形 + pinned）。
+- 网格吸附开关：视图偏好不入文档，四处落库量化、参考线先网格后（docs/05 §4.4）。
+- 断头线一键清理：`pruneDanglingLines`（恰好一端 null），右键菜单入口，
+  单事务一步撤销；500ms 捕获窗与前一删除命令隔离（前置 stopCapturing）。
 
-**补足 / 开发（MVP）**
-
-- 网格吸附开关：落点量化，交互期零 Yjs 写，松手落库；与参考线 / 对齐共存。
-- 形状描边样式：`borderColor` / `borderWidth`（或预设）与无填充 / 透明填充，
-  optional 零迁移；覆盖「白底黑框」。
-- 锚点沿边滑动：同边多线不重叠；非矩形形状用轮廓交点替代 bbox 边中点。
-- 自环口径收口：docs/08 §7 与实现二选一（同 widget 删除，或显式紧凑自环）；
-  明确不同节点的回边可用。
-- 删除节点时关联线：默认保留现状，补显式「删除关联线」命令或提示。
-- 拐点手柄（显式 waypoint）与段滑移并存。
-- 文档收口：箭头三型 + none、自环、锚点。
-
-**完成标志**：白底黑框流程图样本；同边多线不重叠；自环文档 = 实现；断头线可
-一键清理；网格吸附可开关；E2E + 视觉基线；`pnpm verify` 绿。
-**规格**：specs/flowchart-closeout.md（实施时建）。
+**验收**：`flowchart.spec.ts` F-1…F-8；视觉基线 `flowchart-sample` 双平台；
+`pnpm verify` 与全量 E2E 绿。
 
 #### 4.2 组织架构 / 树
 

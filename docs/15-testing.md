@@ -13,13 +13,14 @@
 
 ## 2. 当前基线
 
-- 单测：1155 passed（core 1039 + react 78 + app 38）。
-- E2E：49 个 spec（主配置 48 + pwa 1）、253 例（251 通过 + 2 跳过——旋转手柄用例
-  暂跳，specs/rotate-hide；分层：fast = 主配置 237（235 通过 + 2 跳过）+ pwa 7
-  另跑，CI gate 合计 244 / timing+bench 5 /
-  visual 4（237 + 7 + 5 + 4 = 253 对账）；混跑不作门禁，各层跑法见
+- 单测：1222 passed（core 1106 + react 78 + app 38）。
+- E2E：50 个 spec（主配置 49 + pwa 1）、262 例（260 通过 + 2 跳过——旋转手柄用例
+  暂跳，specs/rotate-hide；分层：fast = 主配置 245（243 通过 + 2 跳过）+ pwa 7
+  另跑，CI gate 合计 252 / timing+bench 5 /
+  visual 5（245 + 7 + 5 + 5 = 262 对账）；混跑不作门禁，各层跑法见
   `.github/workflows/ci.yml`）。
-- 视觉：4/4（darwin 系统 Chrome / linux 容器 Chromium，双平台基线齐全）。
+- 视觉：5/5（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 6 张齐全；
+  flowchart-sample 为流程图收口样本，specs/flowchart-closeout）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题

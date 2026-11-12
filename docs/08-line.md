@@ -21,7 +21,9 @@ const LineSchema = z.object({
   endNodeId: z.string().nullable().default(null),
   startJoin: z.enum(['top', 'right', 'bottom', 'left']).nullable().default(null),
   endJoin: z.enum(['top', 'right', 'bottom', 'left']).nullable().default(null),
-
+  // 沿边锚点参数（0~1，optional 零迁移）：显式 port 优先，缺省走同边错开分配
+  startPort: z.number().min(0).max(1).optional(),
+  endPort: z.number().min(0).max(1).optional(),
   color: z.string().default('#4b5563'),
   strokeWidth: z.number().default(2),
   lineType: z.enum(['STRAIGHT', 'ELBOWED', 'CURVE']).default('STRAIGHT'),
@@ -39,8 +41,17 @@ const LineSchema = z.object({
 
 ## 3. 锚定与跟随
 
-- 目标 VM 实现 `getAnchorsData()`：四边中点坐标；连线按 `startJoin/endJoin` 取锚点。
-- 悬停 widget：小节点取最近边，大节点按象限精确方向。
+- 锚点单源 `IBaseWidgetVm.getAnchorPoint(join, t?, geom?)`：基类按 bbox 边插值
+  （`anchorOf`，t 缺省 0.5 = 边中点，θ 感知）；`ShapeVm` 覆写为**轮廓交点**
+  （`shapeOutline.outlineAnchor`——diamond/triangle 等非矩形锚点贴轮廓，不悬空
+  于 bbox 边上）。`geom` 可显式传入权威几何：几何命令事务后急切 reattach 时
+  vm root 尚未应用新帧，读 vm 会滞后一拍产生幻影撤销项。
+- 沿边参数 t 的取值序：显式 `startPort/endPort`（端点拖拽落定投影落库）>
+  同边多线错开分配 > 0.5。错开分配为纯派生不落库：同端、同节点、同 join 的
+  n 条线按 id 字典序分 `0.2 + 0.6×(i+1)/(n+1)`；拉线落定 / 删线 / 删节点余线
+  均触发全量重排（加删线后仍均分），samePoints 守卫保证零位移线零写入。
+- 悬停 widget：小节点取最近边，大节点按象限精确方向；锚点指示器画在
+  `getAnchorPoint` 位置（与真实锚定同一单源）。
 - widget 移动/缩放 → 订阅其 `onStateChanged$` → 重算关联线 points（微任务合并）。
 - 解绑：拖离锚点后 `nodeId/join` 置 null，端点自由。
 - 删除锚定节点：`onModelRemoved$` 将该端 `nodeId/join` 置 null，points 不动；
@@ -52,13 +63,19 @@ const LineSchema = z.object({
 ## 4. 正交路由
 
 ```
-routeElbow(start, startJoin, end, endJoin, startNode?, endNode?):
+routeElbow(start, startJoin, end, endJoin, startNode?, endNode?, obstacles?):
   1. 两端沿 join 方向外扩 margin（30/60/90 三级）生成走廊点
   2. 候选中转 = 两轴交点（2 种）+ 同侧对开时的中线走廊
-  3. 过滤：任一段不穿过两端节点（矩形内缩 0.5 判交，锚点边界接触放行）
-  4. 择优：不穿节点 > 拐点最少 > 总长最短；全挡死退回首候选
+  3. 过滤：任一段不穿过两端节点与第三方障碍（矩形内缩 0.5 判交，
+     锚点边界接触放行）
+  4. 择优：不穿障碍 > 拐点最少 > 总长最短；全挡死退回首候选（无解仍连通）
 ```
 
+- **全局避障**：`collectRouteObstacles`（lineRoute.ts 单源）取两端点外扩
+  `OBSTACLE_PAD=120` 包围盒内候选 → 排除 LINE/PEN 与两端节点 → 旋转件保守
+  外接（rotatedRectBounds）→ 按中心距升序取前 `MAX_OBSTACLES=32`。五路共用：
+  reattach / previewFollow / rerouteLine / 拉线预览 / 端点拖拽；pinned 分支
+  不避障（用户手滑优先）。dev 探针 `lastRouteObstacles` 记录最近一次集合。
 - 同向对开（top→top 等）中线必须钳制到两侧走廊点之外，避免重影路由。
 - `mergeCollinear` 迭代至收敛，清理重复/共线邻接。
 - 拐点吸附：内部「抖动拐」（jog < 2×R）对齐到较长段拉直（`absorbTinyJogs`）。
@@ -76,8 +93,11 @@ routeElbow(start, startJoin, end, endJoin, startNode?, endNode?):
 
 ## 5. 箭头
 
-- 四种：开放箭头（45°）、内实心三角（30°）、外实心三角、菱形。
-- 首尾段方向确定后且线段长度超过阈值才绘制；被线上文字遮挡时不绘制。
+- 首尾独立四态：`none` / `arrow`（开放）/ `solid`（实心三角）/ `diamond`（菱形）；
+  默认 start=none、end=arrow。
+- 箭长 `ARROW_LEN=10` 世界像素，开放箭头张开半角 `ARROW_ANGLE=π/7`（≈25.7°）。
+- 首尾段方向确定后且线段长度超过阈值才绘制（首/末段须长于箭头，否则视觉挤压）；
+  被线上文字遮挡时不绘制。
 - 菱形箭头长轴 1.4×箭头长、短轴 0.7×，前顶点贴端点，实心填充与 solid 同色。
 
 ## 6. 线上文字
@@ -139,8 +159,8 @@ pointerup
 
 ## 9. 挂账
 
-- 拐点显隐（points 第三元）未落地。
-- 线身 waypoint 用户拐点编辑与「线不可整体拖动」的边界需再拍板。
+- ELBOWED 内部拐点手柄（拖拽正交保形 + pinned）与段滑移并存；「线不可整体
+  拖动」边界维持——拐点编辑不改锚点，整体平移仍只能随锚定节点。
 - 旋转件参考线/等间距排除、awareness 框恒 AABB。
 
 ## 10. 交互能力
