@@ -165,14 +165,15 @@ test.describe('R1 320×640（WCAG 1.4.10 Reflow）', () => {
     await boxWithin(page.locator('[data-spinth-context-menu]'), COMPACT, 8);
     await page.keyboard.press('Escape');
     // 操作栏：小画布上画形状后不越界；内容零溢出（320 下换行收纳，
-    // specs/flowchart-closeout §12.4 返工）+ popover 选项 44px 触摸目标
+    // specs/flowchart-closeout §12.4 二轮返工）+ popover 选项 ≥24px 触摸目标
+    // （WCAG 2.5.8 下限——44px 实测面板过大，用户拍板回落 28px）
     await drawShape(page, { x: 60, y: 120 }, { x: 180, y: 220 });
     const bar = page.locator('[data-spinth-action-bar]');
     await boxWithin(bar, COMPACT, 0);
     await barNoOverflow(bar, COMPACT);
     await bar.locator('[data-spinth-popover] button').first().click();
     const popOpt = page.locator('[data-spinth-popover-panel] button').first();
-    await minTarget(popOpt, 44);
+    await minTarget(popOpt);
     await page.keyboard.press('Escape');
   });
 });

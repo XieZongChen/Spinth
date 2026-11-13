@@ -507,12 +507,14 @@ specs/spacing-endchain）。本阶段只新增「与网格吸附的优先级」�
 ### 12.4 移动端
 
 工具坞二级菜单与新 popover（边框色/宽、填充）须遵循 390px 九面布局矩阵与触摸目标
-≥44px（specs/a11y-mobile）；长按 = 右键菜单的既有降级路径不变。
+≥24px（WCAG 2.5.8 下限，与 specs/a11y-mobile 护栏一致）；长按 = 右键菜单的既有
+降级路径不变。
 
-返工拍板（2026-11-14 复审收口）：popover 选项钮全部升至 44×44（h-11 w-11，rem 令牌
-随 textScale 缩放）；ActionBar 容器加 flex-wrap——形状 9 项在 390/320 下换行收纳
-（scrollWidth ≤ clientWidth、子项全在视口，`barNoOverflow` 断言进 mobile M7 与
-a11yLayout R1-c，后者另锁 minTarget 44）。
+返工拍板记录：一轮（2026-11-13）按本文「≥44px」原文把 popover 选项钮升至 44×44
+并加 ActionBar flex-wrap 换行收纳（`barNoOverflow` 断言进 mobile M7 与 a11yLayout
+R1-c）；二轮（2026-11-14）用户实测 44px 面板过大，**选项钮回落 28×28**（h-7 w-7，
+与触发钮同档、仍超 24px 下限），本节口径改为 ≥24px，minTarget 断言回落默认 24；
+flex-wrap 收纳与 barNoOverflow 维持不变。
 
 ## 13. 面板与 UI 落点
 
