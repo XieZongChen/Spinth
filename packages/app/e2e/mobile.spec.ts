@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import {
   MOBILE,
+  barNoOverflow,
   boxWithin,
   intersects,
   minTarget,
@@ -217,6 +218,8 @@ test('M7 操作栏 + Popover：画布右下选中后都收在视口内', async (
   const bar = page.locator('[data-spinth-action-bar]');
   await expect(bar).toBeVisible();
   await boxWithin(bar, MOBILE);
+  // 流程图样式批后 SHAPE 9 项 > 390 可用宽：换行收纳（无横滚、子项全在视口）
+  await barNoOverflow(bar, MOBILE);
 
   // 第一个 Popover 触发钮（颜色等；Tooltip 有 span 包裹层，用后代选择器）
   const popTrigger = bar.locator('[data-spinth-popover] button').first();

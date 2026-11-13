@@ -178,7 +178,7 @@ export function ActionBar() {
     <div
       ref={barRef}
       data-spinth-action-bar=""
-      className="pointer-events-auto absolute z-10 flex max-w-[calc(100%-16px)] items-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1 shadow-dock"
+      className="pointer-events-auto absolute z-10 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1 shadow-dock"
       style={{ left, top }}
       onPointerDown={(e) => e.stopPropagation()}
     >

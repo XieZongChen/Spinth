@@ -158,7 +158,7 @@ export function PopoverControl({
                     onPick(item.id, opt.id);
                     closeAndRefocus();
                   }}
-                  className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-100 ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-100 ${
                     active
                       ? 'bg-surface-hover text-ink'
                       : 'text-ink-2 hover:bg-surface-hover/60 hover:text-ink'
@@ -166,13 +166,13 @@ export function PopoverControl({
                 >
                   {opt.swatch ? (
                     <span
-                      className="h-4 w-4 rounded-full border border-black/10"
+                      className="h-5 w-5 rounded-full border border-black/10"
                       style={{ backgroundColor: opt.swatch }}
                     />
                   ) : opt.text !== undefined ? (
-                    <span className="text-xs font-semibold tabular-nums">{opt.text}</span>
+                    <span className="text-sm font-semibold tabular-nums">{opt.text}</span>
                   ) : (
-                    <Icon name={iconNameOf(opt.icon)} size={16} strokeWidth={2} />
+                    <Icon name={iconNameOf(opt.icon)} size={18} strokeWidth={2} />
                   )}
                 </button>
               </Tooltip>

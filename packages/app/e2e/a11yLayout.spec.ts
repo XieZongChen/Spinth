@@ -6,6 +6,7 @@ import {
   ZOOM_200,
   applySafeArea,
   assertNoTextClip,
+  barNoOverflow,
   boxWithin,
   minTarget,
   noDocHScroll,
@@ -163,9 +164,16 @@ test.describe('R1 320×640（WCAG 1.4.10 Reflow）', () => {
     await page.mouse.click(COMPACT.width - 6, COMPACT.height - 6, { button: 'right' });
     await boxWithin(page.locator('[data-spinth-context-menu]'), COMPACT, 8);
     await page.keyboard.press('Escape');
-    // 操作栏：小画布上画形状后不越界
+    // 操作栏：小画布上画形状后不越界；内容零溢出（320 下换行收纳，
+    // specs/flowchart-closeout §12.4 返工）+ popover 选项 44px 触摸目标
     await drawShape(page, { x: 60, y: 120 }, { x: 180, y: 220 });
-    await boxWithin(page.locator('[data-spinth-action-bar]'), COMPACT, 0);
+    const bar = page.locator('[data-spinth-action-bar]');
+    await boxWithin(bar, COMPACT, 0);
+    await barNoOverflow(bar, COMPACT);
+    await bar.locator('[data-spinth-popover] button').first().click();
+    const popOpt = page.locator('[data-spinth-popover-panel] button').first();
+    await minTarget(popOpt, 44);
+    await page.keyboard.press('Escape');
   });
 });
 

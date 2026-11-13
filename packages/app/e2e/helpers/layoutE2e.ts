@@ -95,6 +95,39 @@ export async function minTarget(locator: Locator, min = 24): Promise<void> {
 }
 
 /**
+ * 操作栏内容零溢出（specs/flowchart-closeout §12.4 返工）：容器只查四边不够
+ * ——flex 单行下子项会挤出容器与视口（实测 390 下 scrollWidth 459 > 374，
+ * 导出/删除钮整颗在视口外）。断言：scrollWidth ≤ clientWidth + 1（换行收纳
+ * 生效、无隐性横滚）且每个直接子元素的右缘/下缘都在容器内。
+ */
+export async function barNoOverflow(
+  bar: Locator,
+  viewport: { width: number; height: number },
+): Promise<void> {
+  const m = await bar.evaluate((el: HTMLElement) => ({
+    cw: el.clientWidth,
+    sw: el.scrollWidth,
+    kids: [...el.children].map((k) => {
+      const r = (k as HTMLElement).getBoundingClientRect();
+      return { right: r.right, bottom: r.bottom };
+    }),
+  }));
+  expect(m.sw, `操作栏横向溢出（scrollWidth ${m.sw} > clientWidth ${m.cw}）`).toBeLessThanOrEqual(
+    m.cw + 1,
+  );
+  for (const [i, k] of m.kids.entries()) {
+    expect(
+      k.right,
+      `操作栏第 ${i} 个子元素右缘 ${k.right} 超出视口 ${viewport.width}`,
+    ).toBeLessThanOrEqual(viewport.width + 0.5);
+    expect(
+      k.bottom,
+      `操作栏第 ${i} 个子元素底缘 ${k.bottom} 超出视口 ${viewport.height}`,
+    ).toBeLessThanOrEqual(viewport.height + 0.5);
+  }
+}
+
+/**
  * 注入安全区 inset（specs/a11y-closeout §7.4）：env() 不可伪造，但 app 壳把
  * env 包在 --spinth-safe-* 自定义属性里——覆盖这层变量即可在 CI 断言
  * 安全区行为（S1 用例的注入路径，不是只断言默认 0）。
