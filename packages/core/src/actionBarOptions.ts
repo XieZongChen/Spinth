@@ -6,6 +6,7 @@
 import type { IActionBarItem, IActionBarOption } from './types';
 import { FONT_SIZE_OPTIONS } from './widgets/text/textVm';
 import { PEN_COLOR_PALETTE } from './widgets/pen/penService';
+import { defaultTextColorForFill } from './widgets/shape/shapeVm';
 
 /** ActionBar 形状色板（视觉规格：与各控件 Service 默认色一致的语义色；流程图批
  *  追加 #ffffff/#000000——「白底黑框」可达，specs/flowchart-closeout §4.2） */
@@ -36,6 +37,11 @@ export const SHAPE_BORDER_WIDTH_OPTIONS: IActionBarOption[] = [1, 2, 4].map((n) 
 }));
 /** 连线/画笔共用色板（与 PEN_COLOR_PALETTE 同源——2026-10-11 提名导出消内联双份） */
 export const LINE_PALETTE: readonly string[] = PEN_COLOR_PALETTE;
+/** 文字色板（specs/flowchart-closeout §16 对比度护栏返工）：深色六色（与线色
+ *  板同源）+ 白/浅灰——黑填充（#000000）上默认字色自适应为白后，深色字仍
+ *  可显式选回、浅底上浅色字也可达；与 LINE_PALETTE 分源（线色板保持全深色：
+ *  白线在白画布不可见，文字底则是形状填充色） */
+export const TEXT_COLOR_PALETTE: readonly string[] = [...PEN_COLOR_PALETTE, '#ffffff', '#f9fafb'];
 
 /** 连线箭头选项（起点/终点两个字段共用；icon = @spinth/react Icon 语义名） */
 export const ARROW_BAR_OPTIONS: IActionBarOption[] = [
@@ -82,7 +88,12 @@ export const typoItems = (
       kind: 'popover',
       label: '文字颜色',
       value: String(data.textColor ?? ''),
-      options: LINE_PALETTE.map((hex) => ({ id: hex, label: hex, swatch: hex })),
+      // 深填充下缺省字色自适应为浅色（shapeVm 单源）——触发钮如实显示该色点；
+      // TEXT/STICKY 无 fill 概念，不注入
+      ...(data.textColor === undefined && data.fill === 'solid' && typeof data.color === 'string'
+        ? { displaySwatch: defaultTextColorForFill(data.fill, data.color) }
+        : {}),
+      options: TEXT_COLOR_PALETTE.map((hex) => ({ id: hex, label: hex, swatch: hex })),
     },
   ];
   if (withLineHeight) {

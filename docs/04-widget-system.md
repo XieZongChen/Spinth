@@ -180,5 +180,11 @@ VmEngine.initialize():
   （solid|dashed|none）。
 - 解析单源 `shapeStyle.resolveShapeStyle`：缺省回退（无新字段的老文档渲染不变），
   渲染与导出同源。
+- 默认字色随填充自适应（`shapeVm.defaultTextColorForFill`，specs/flowchart-closeout
+  §16）：浅填充维持 `#333333`、深填充（对比度 <4.5:1）切 `#ffffff`、无填充维持
+  深色（文字对画布底）；per-实例 `textColor` 恒优先。文字色板 `TEXT_COLOR_PALETTE`
+  深浅双底各可达（护栏单测 `shapeContrast.test.ts`）。
+- 边框色板含 `#ffffff`：定位为**深色填充上的选项**（浅底上低对比，属用户显式
+  选择；默认派生边框 = darkenHex(color, 0.25) 不受影响）。
 - 「白底黑框」一次配出：填充 `#ffffff` + 边框 `#000000` + 宽 2（specs/flowchart-closeout
   §4.2；色板含黑白两色与无填充/无边框态）。

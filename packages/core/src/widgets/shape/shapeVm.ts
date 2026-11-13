@@ -1,6 +1,7 @@
 import { Graphics, Point, type Rectangle } from 'pixi.js';
 import { BaseWidgetVm } from '../../base/baseWidgetVm';
 import { markRender } from '../../common/render';
+import { contrastRatio } from '../../common/contrast';
 import { type IHostGeom, type IPoint, type IRect, type JoinDir } from '../../common/geometry';
 import { outlineAnchor } from './shapeOutline';
 import { measureDoc, createCanvasMeasurer, type IDocView } from '../../platform/textEngine/measure';
@@ -26,13 +27,28 @@ const DASH = 8;
 export const SHAPE_TEXT_FONT_SIZE = 16;
 export const SHAPE_LINE_HEIGHT = 1.5;
 export const SHAPE_TEXT_COLOR = '#333333';
+/** 深填充上的默认字色（specs/flowchart-closeout §16：#333333 on #000000 仅
+ *  1.66:1——默认字色随填充自适应，与 borderColor 派生色同一「缺省派生」风格） */
+export const SHAPE_TEXT_LIGHT_COLOR = '#ffffff';
+
+/** 默认字色自适应（纯函数）：填充实色且深到 #333333 不达 AA（4.5:1）时切
+ *  浅色；无填充（文字对画布底）维持深色。per-实例 textColor 恒优先。 */
+export function defaultTextColorForFill(
+  fill: 'solid' | 'none' | undefined,
+  color: string | undefined,
+): string {
+  if (fill === 'none' || !color) return SHAPE_TEXT_COLOR;
+  return contrastRatio(SHAPE_TEXT_COLOR, color) >= 4.5 ? SHAPE_TEXT_COLOR : SHAPE_TEXT_LIGHT_COLOR;
+}
 
 /** 排版解析（docs/17 §4 per-实例：override → 图形常量默认；不主题化——
- *  与形状底色对称，per-实例 textColor 优先） */
+ *  与形状底色对称，per-实例 textColor 优先；缺省字色随填充自适应） */
 export function resolveShapeTextStyle(state: {
   fontSize?: number;
   textColor?: string;
   lineHeight?: number;
+  fill?: 'solid' | 'none';
+  color?: string;
 }): {
   fontFamily: string;
   fontSize: number;
@@ -43,7 +59,7 @@ export function resolveShapeTextStyle(state: {
     fontFamily: 'sans-serif',
     fontSize: state.fontSize ?? SHAPE_TEXT_FONT_SIZE,
     lineHeight: state.lineHeight ?? SHAPE_LINE_HEIGHT,
-    color: state.textColor ?? SHAPE_TEXT_COLOR,
+    color: state.textColor ?? defaultTextColorForFill(state.fill, state.color),
   };
 }
 
