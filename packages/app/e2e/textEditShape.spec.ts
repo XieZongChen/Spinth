@@ -429,3 +429,52 @@ test('1.7 旋转件测高同源：45° SHAPE 两次编辑提交高度稳定（�
   await page.waitForTimeout(400);
   expect((await shapeState()).height).toBeCloseTo(h1, 0); // 同文重复提交不二次撑高
 });
+
+test('SHAPE 编辑器字色随填充自适应（specs/flowchart-closeout §16 二轮返工）：黑填充 → 编辑器白字', async ({
+  page,
+}) => {
+  const docId = `e2e-shape-darkfill-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+
+  // 建矩形 → 选中 → 填充黑
+  await page.keyboard.press('r');
+  await page.mouse.move(560, 300);
+  await page.mouse.down();
+  await page.mouse.move(680, 380, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.mouse.click(620, 340); // 中心选中
+  await page.waitForTimeout(250);
+  await barPick(page, '填充色', '#000000');
+  await page.waitForTimeout(250);
+
+  // 两击进编辑 → 编辑器 color = 白（写死 #333 时黑底上文字直接不可见）
+  const c = await centerOf(page, 'SHAPE');
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(300);
+  await page.mouse.click(c.x, c.y);
+  const editor = page.locator('#spinth-text-layer [contenteditable="true"]');
+  await expect(editor).toHaveCSS('opacity', '1');
+  await expect(editor).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.keyboard.insertText('黑底白字');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
+  // 渲染层同步白字（resolveShapeTextStyle 同源）：textColor 未落库（缺省自适应）
+  const s = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
+    return d.vmStates.find((v) => String(v.type) === 'SHAPE') as unknown as {
+      color: string;
+      textColor?: string;
+      fill?: string;
+    };
+  });
+  expect(s.color).toBe('#000000');
+  expect(s.fill).toBe('solid');
+  expect(s.textColor).toBeUndefined();
+});

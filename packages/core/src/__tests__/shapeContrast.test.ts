@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from '../common/contrast';
+import { setTextTheme } from '../platform/textEngine/theme';
 import {
   SHAPE_TEXT_COLOR,
   defaultTextColorForFill,
@@ -33,12 +34,25 @@ describe('默认字色自适应（defaultTextColorForFill）', () => {
     }
   });
 
-  it('浅填充维持 #333333（老文档零漂移）；深填充切白；无填充维持深色', () => {
+  it('浅填充维持 #333333（老文档零漂移）；深填充切白；无填充随主题（dark #ededf2）', () => {
     expect(defaultTextColorForFill('solid', '#e8f0fb')).toBe(SHAPE_TEXT_COLOR);
     expect(defaultTextColorForFill('solid', '#ffffff')).toBe(SHAPE_TEXT_COLOR);
     expect(defaultTextColorForFill('solid', '#000000')).toBe('#ffffff');
-    expect(defaultTextColorForFill('none', '#000000')).toBe(SHAPE_TEXT_COLOR); // 文字对画布底
+    // 无填充 = 文字直对画布底（与 TEXT 同场景）——随主题默认，浅色态维持深字
+    expect(defaultTextColorForFill('none', '#000000')).toBe(SHAPE_TEXT_COLOR);
     expect(defaultTextColorForFill(undefined, undefined)).toBe(SHAPE_TEXT_COLOR);
+
+    setTextTheme('dark');
+    try {
+      const dark = defaultTextColorForFill('none', '#000000');
+      expect(dark).toBe('#ededf2'); // #333333 on #1b1b22 仅 1.36:1
+      expect(contrastRatio(dark, '#1b1b22')).toBeGreaterThanOrEqual(4.5); // 深画布 AA
+      // 实色填充不主题化（填充色是实例数据）
+      expect(defaultTextColorForFill('solid', '#000000')).toBe('#ffffff');
+      expect(defaultTextColorForFill('solid', '#e8f0fb')).toBe(SHAPE_TEXT_COLOR);
+    } finally {
+      setTextTheme('light'); // 复位保证测试隔离（theme.test 同款）
+    }
   });
 
   it('resolveShapeTextStyle：per-实例 textColor 恒优先；缺省走自适应', () => {

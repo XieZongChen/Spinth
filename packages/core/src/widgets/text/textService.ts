@@ -130,6 +130,8 @@ export class TextService extends Disposable {
       lineHeight?: number;
       align?: 'left' | 'center' | 'right';
       shapeType?: ShapeType;
+      fill?: 'solid' | 'none';
+      color?: string;
     };
     const st = editStyleOf(vm.type, data);
     const shapeType = data.shapeType ?? 'rect';
@@ -234,6 +236,8 @@ export class TextService extends Disposable {
           lineHeight?: number;
           align?: 'left' | 'center' | 'right';
           shapeType?: ShapeType;
+          fill?: 'solid' | 'none';
+          color?: string;
         },
       );
       if (

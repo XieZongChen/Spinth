@@ -2,6 +2,7 @@ import { Graphics, Point, type Rectangle } from 'pixi.js';
 import { BaseWidgetVm } from '../../base/baseWidgetVm';
 import { markRender } from '../../common/render';
 import { contrastRatio } from '../../common/contrast';
+import { defaultTextColor, textThemeVersion } from '../../platform/textEngine/theme';
 import { type IHostGeom, type IPoint, type IRect, type JoinDir } from '../../common/geometry';
 import { outlineAnchor } from './shapeOutline';
 import { measureDoc, createCanvasMeasurer, type IDocView } from '../../platform/textEngine/measure';
@@ -31,18 +32,21 @@ export const SHAPE_TEXT_COLOR = '#333333';
  *  1.66:1——默认字色随填充自适应，与 borderColor 派生色同一「缺省派生」风格） */
 export const SHAPE_TEXT_LIGHT_COLOR = '#ffffff';
 
-/** 默认字色自适应（纯函数）：填充实色且深到 #333333 不达 AA（4.5:1）时切
- *  浅色；无填充（文字对画布底）维持深色。per-实例 textColor 恒优先。 */
+/** 默认字色自适应（specs/flowchart-closeout §16）：填充实色且深到 #333333
+ *  不达 AA（4.5:1）时切浅色；无填充（文字对画布底）走主题默认
+ *  defaultTextColor()（light #333333 / dark #ededf2——文字直对画布与 TEXT
+ *  同场景，深色下 #333333 on #1b1b22 仅 1.36:1）。per-实例 textColor 恒优先。 */
 export function defaultTextColorForFill(
   fill: 'solid' | 'none' | undefined,
   color: string | undefined,
 ): string {
-  if (fill === 'none' || !color) return SHAPE_TEXT_COLOR;
+  if (fill === 'none' || !color) return defaultTextColor();
   return contrastRatio(SHAPE_TEXT_COLOR, color) >= 4.5 ? SHAPE_TEXT_COLOR : SHAPE_TEXT_LIGHT_COLOR;
 }
 
-/** 排版解析（docs/17 §4 per-实例：override → 图形常量默认；不主题化——
- *  与形状底色对称，per-实例 textColor 优先；缺省字色随填充自适应） */
+/** 排版解析（docs/17 §4 per-实例：override → 图形常量默认；实色填充的字色
+ *  不主题化——填充色是实例数据，无填充字色随主题（theme.ts 环境通道）；
+ *  per-实例 textColor 优先；缺省字色随填充自适应） */
 export function resolveShapeTextStyle(state: {
   fontSize?: number;
   textColor?: string;
@@ -76,6 +80,9 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
    *  DOM 编辑器独占）；退出自 refresh——全量恢复由 docDisplay===null 保证
    *  （快速路径首条件不命中），单源不变量 */
   private _textEditing = false;
+  /** 渲染时主题版本（textVm 同款守卫）：无填充字色随主题——setTheme 的
+   *  refreshAll 走 render(state,state)，无此守卫会被纯平移快速路径吞掉 */
+  private renderedThemeVer = 0;
 
   setTextEditing(editing: boolean): void {
     if (this._textEditing === editing) return;
@@ -145,6 +152,8 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
       sameShapeKeys &&
       (!hasText ||
         (this.docDisplay !== null &&
+          // 主题版本守卫（textVm 同模式）：无填充字色随主题，主题切换强制重建
+          this.renderedThemeVer === textThemeVersion() &&
           (prev.text || '') === (next.text || '') &&
           prev.fontSize === next.fontSize &&
           prev.textColor === next.textColor &&
@@ -155,6 +164,7 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
       this.textRender?.markDirty();
       return;
     }
+    this.renderedThemeVer = textThemeVersion();
     const g = this.shapeGraphics;
     g.clear();
     // 样式解析单源（specs/flowchart-closeout §4.2）：缺省 = 派生边框色/宽 1/

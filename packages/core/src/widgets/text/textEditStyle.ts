@@ -15,8 +15,8 @@ import {
 import {
   SHAPE_TEXT_FONT_SIZE,
   SHAPE_LINE_HEIGHT,
-  SHAPE_TEXT_COLOR,
   SHAPE_TEXT_PADDING,
+  defaultTextColorForFill,
 } from '../shape/shapeVm';
 
 /** 编辑样式（textService 编辑会话的排版事实——TEXT/STICKY/SHAPE 三型分流） */
@@ -42,6 +42,10 @@ export function editStyleOf(
     textColor?: string;
     lineHeight?: number;
     align?: 'left' | 'center' | 'right';
+    /** SHAPE 专属（运行时 model JSON 恒有——类型注解补读，textService 传全量）：
+     *  编辑器字色与渲染 resolveShapeTextStyle 单源（黑填充自适应白字等） */
+    fill?: 'solid' | 'none';
+    color?: string;
   },
 ): ITextEditStyle {
   if (type === 'STICKY') {
@@ -63,7 +67,9 @@ export function editStyleOf(
       align: data.align ?? 'center',
       fontSize: data.fontSize ?? SHAPE_TEXT_FONT_SIZE,
       lineHeight: data.lineHeight ?? SHAPE_LINE_HEIGHT,
-      color: data.textColor ?? SHAPE_TEXT_COLOR,
+      // 字色与渲染单源（shapeVm.defaultTextColorForFill）：黑填充编辑器白字、
+      // 无填充随主题——写死 #333333 会让黑填充形状进编辑文字直接消失
+      color: data.textColor ?? defaultTextColorForFill(data.fill, data.color),
     };
   }
   return {

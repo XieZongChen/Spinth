@@ -88,9 +88,12 @@ export const typoItems = (
       kind: 'popover',
       label: '文字颜色',
       value: String(data.textColor ?? ''),
-      // 深填充下缺省字色自适应为浅色（shapeVm 单源）——触发钮如实显示该色点；
-      // TEXT/STICKY 无 fill 概念，不注入
-      ...(data.textColor === undefined && data.fill === 'solid' && typeof data.color === 'string'
+      // 缺省字色自适应（shapeVm 单源：深填充浅字/无填充随主题）——触发钮如实
+      // 显示该色点；缺省 fill = 恒填充语义（正向判联收窄 unknown：undefined
+      // 或 solid 都算）；TEXT/STICKY 无 fill 概念，不注入
+      ...(data.textColor === undefined &&
+      (data.fill === undefined || data.fill === 'solid') &&
+      typeof data.color === 'string'
         ? { displaySwatch: defaultTextColorForFill(data.fill, data.color) }
         : {}),
       options: TEXT_COLOR_PALETTE.map((hex) => ({ id: hex, label: hex, swatch: hex })),
