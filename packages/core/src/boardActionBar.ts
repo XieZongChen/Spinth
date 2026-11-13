@@ -18,6 +18,7 @@ import {
   SHAPE_BORDER_WIDTH_OPTIONS,
   typoItems,
 } from './actionBarOptions';
+import { darkenHex, numToHex } from './common/color';
 
 /**
  * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
@@ -141,7 +142,9 @@ export function buildActionBarSchema(
             id: 'color',
             kind: 'popover',
             label: '填充色',
-            value: String(data.color ?? ''),
+            // 无填充时 value='none'（触发钮显示「无填充」图标、面板 aria-checked
+            // 如实反映 fill 态——data.color 保留旧值只是渲染不读，UI 不得说谎）
+            value: data.fill === 'none' ? 'none' : String(data.color ?? ''),
             options: [
               ...swatches(SHAPE_PALETTE),
               // 无填充（specs/flowchart-closeout §4.2）：只描边不填充的注释框。
@@ -166,6 +169,21 @@ export function buildActionBarSchema(
             kind: 'popover',
             label: '边框色',
             value: String(data.borderColor ?? ''),
+            // 未写过 borderColor = 渲染派生色（darkenHex(color,0.25)，shapeStyle
+            // 单源同式）——触发钮显示派生色点而非 fallback 灰点；面板仍无
+            // 「自动」选项（§22.1 拍板不提供还原入口）
+            ...(data.borderColor
+              ? {}
+              : {
+                  displaySwatch: numToHex(
+                    darkenHex(
+                      typeof data.color === 'string' && data.color.startsWith('#')
+                        ? data.color
+                        : '#e8f0fb',
+                      0.25,
+                    ),
+                  ),
+                }),
             options: swatches(SHAPE_BORDER_PALETTE),
           },
           {

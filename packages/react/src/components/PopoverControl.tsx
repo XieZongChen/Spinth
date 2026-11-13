@@ -111,10 +111,10 @@ export function PopoverControl({
               : 'text-ink-2 hover:bg-surface-hover/60 hover:text-ink'
           }`}
         >
-          {curOpt?.swatch ? (
+          {(curOpt?.swatch ?? item.displaySwatch) ? (
             <span
               className="h-3.5 w-3.5 rounded-full border border-black/10"
-              style={{ backgroundColor: curOpt.swatch }}
+              style={{ backgroundColor: curOpt?.swatch ?? item.displaySwatch }}
             />
           ) : curOpt?.text !== undefined ? (
             <span className="min-w-5 text-center text-xs font-semibold tabular-nums">

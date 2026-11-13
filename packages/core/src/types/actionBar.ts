@@ -28,6 +28,9 @@ export interface IActionBarItem {
   icon?: string;
   /** popover：当前值（option id，触发钮显示其图标/色点）；toggle：boolean */
   value?: string | boolean;
+  /** 触发钮兜底色点（value 无匹配选项时——如边框色缺省的「随填充派生色」；
+   *  只影响显示，不新增面板选项、不参与 aria-checked） */
+  displaySwatch?: string;
   /** popover 选项（图标型 / 色块型） */
   options?: IActionBarOption[];
   /** action：不可用时的禁用态（分布键 <3 选中，参考同款） */

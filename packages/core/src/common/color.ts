@@ -12,3 +12,8 @@ export function darkenHex(hex: string, amount = 0.25): number {
 export function hexToNum(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
+
+/** 数字色 → '#rrggbb'（displaySwatch 等展示位用；渲染管线仍走数字色单源） */
+export function numToHex(n: number): string {
+  return `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
+}

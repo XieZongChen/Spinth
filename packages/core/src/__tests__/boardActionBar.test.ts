@@ -143,14 +143,32 @@ describe('buildActionBarSchema 单选分支', () => {
     ]);
     expect(byId.borderWidth?.value).toBe('2');
     expect((byId.borderWidth?.options ?? []).map((o) => o.id)).toEqual(['1', '2', '4']);
-    // 缺省：边框色空串（未写过 = 派生色）、边框宽回落 1
+    // 无填充态：填充 value 如实 = 'none'（触发钮显示「无填充」图标——data.color
+    // 保留旧值只是渲染不读，UI 不得说谎）
+    expect(byId.color?.value).toBe('none');
+    // 缺省：边框色空串（未写过 = 派生色）+ 触发钮派生色点、边框宽回落 1
     const s2 = buildActionBarSchema(
       makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'SHAPE' }, data: {} }),
       () => 0,
     );
     const byId2 = Object.fromEntries((s2?.items ?? []).map((i) => [i.id, i]));
     expect(byId2.borderColor?.value).toBe('');
+    // 派生色点 = darkenHex(默认填充 #e8f0fb, 0.25) = #aeb4bc（shapeStyle 同式）
+    expect(byId2.borderColor?.displaySwatch).toBe('#aeb4bc');
     expect(byId2.borderWidth?.value).toBe('1');
+    // 显式 borderColor 时 value 命中选项、无需兜底色点
+    const s3 = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'SHAPE' },
+        data: { color: '#ffffff', borderColor: '#000000' },
+      }),
+      () => 0,
+    );
+    const byId3 = Object.fromEntries((s3?.items ?? []).map((i) => [i.id, i]));
+    expect(byId3.borderColor?.value).toBe('#000000');
+    expect(byId3.borderColor?.displaySwatch).toBeUndefined();
+    expect(byId3.color?.value).toBe('#ffffff');
   });
 
   it('LINE：8 项顺序固定（线型/线宽/虚线/双箭头/颜色 + 字号/文字色）', () => {
