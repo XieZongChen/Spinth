@@ -12,9 +12,9 @@ import type {
   ShapeType,
   LineType,
 } from '../../types';
-import { ANCHOR_JOINS, effectivePath, outlineAnchorsOf, type IPt, type JoinDir } from './lineMath';
+import { effectivePath, type IPt, type JoinDir } from './lineMath';
 import type { LineVm } from './lineVm';
-import type { IHostGeom } from '../../common/geometry';
+import type { IHostGeom, IRect } from '../../common/geometry';
 import type { Point } from 'pixi.js';
 import { LineHoverOverlay } from './lineHoverOverlay';
 import { LineQuickAdd, type ILineAnchorData } from './lineQuickAdd';
@@ -24,7 +24,7 @@ import { LineSegTextSlide } from './lineSegTextSlide';
 import { LineTextEditor } from './lineTextEditor';
 import { LineDrawSession } from './lineDrawSession';
 import { LINE_WIDTH_STEPS } from './lineOptions';
-import { hitWidget, nearestAnchorDot, nearestLineEndpoint } from './lineHitTest';
+import { hitWidget, nearestLineEndpoint } from './lineHitTest';
 
 /**
  * 连接线交互层（docs/08 §7）：line 工具按下→拖出→松手；
@@ -282,14 +282,11 @@ export class LineService extends Disposable {
     return this.anchorFollow?.previewFollowDebug ?? null;
   }
 
-  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发） */
-  get lastRouteObstaclesDebug(): Array<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }> | null {
-    return this.anchorFollow?.routeObstaclesDebug ?? null;
+  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发）。
+   *  getter 名走中性 routeObstaclesProbe——lastRouteObstacles 字面量只允许
+   *  存在于 dev 入口（debugSnapshot 键名），生产产物零残留 */
+  get routeObstaclesProbe(): IRect[] | null {
+    return this.anchorFollow?.routeObstaclesProbe ?? null;
   }
 
   /** dev 探针：段中点手柄快照（null = 未显示；E2E 断言段几何，批次 3） */
@@ -368,28 +365,7 @@ export class LineService extends Disposable {
     // 单选形状：四向连接点抓取（点击 = quick-add / 拖拽 = 拉线）。
     // 删除按钮组件后这是按下建线的唯一入口（此前该路径被上面的 LINE 早退
     // 挡成死代码，按点实际按中的是引力区里的按钮组件，E2E 一直没压到）
-    return this.maybeShapeAnchorGrab(world);
-  }
-
-  /**
-   * 选中形状的连接点抓取（docs/08 §10 批次 2，参考同款）：点击/拖拽四向
-   * 连接点 = 从该侧建线（点击 = quick-add、拖拽 = 拉线，同一管线分流）。
-   */
-  private maybeShapeAnchorGrab(world: { x: number; y: number }): boolean {
-    const sel = this.selector.selected$.value;
-    if (sel.length !== 1) return false;
-    const vm = this.vmEngine.getVmById(sel[0]!);
-    if (!vm || vm.type === 'LINE' || vm.getRotation() !== 0) return false; // 旋转件不出四点（docs/05 §8）
-    const geom = vm.getHostGeom();
-    // 抓取判定按**外移点**（轮廓锚点外 24px；θ=0——旋转件已禁）。
-    // anchors = 绘制/快照/抓取/落线起点同一集合（§7.1 第 3 层反馈层统一）
-    const anchors = outlineAnchorsOf(vm, geom);
-    const nearest = nearestAnchorDot(anchors, world, this.viewport.vpScale$.value || 1);
-    const grabRadius = 12 / (this.viewport.vpScale$.value || 1);
-    if (nearest.d > grabRadius) return false;
-    // 连线起点 = 该侧轮廓锚点（非矩形形状贴轮廓——与 hover ghost 预览同点）
-    this.quickAdd?.startConnectorFrom(anchors[ANCHOR_JOINS.indexOf(nearest.j)]!, nearest.j, world);
-    return true;
+    return this.quickAdd?.maybeAnchorGrab(world) ?? false;
   }
 
   /** 节点移动时重算关联线（app.ts 契约；本体在 LineAnchorFollow 协作者）。

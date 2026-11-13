@@ -34,8 +34,10 @@ export class LineAnchorFollow extends Disposable {
   private previewFollowLast: Array<[number, number]> | null = null;
 
   /** 探针：最近一次 ELBOWED 重路由的第三方避障集合（specs/flowchart-closeout
-   *  §8.2/§14——E2E 断言避障真的生效；null = 未触发重路由） */
-  private lastRouteObstacles: IRect[] | null = null;
+   *  §8.2/§14——E2E 断言避障真的生效；null = 未触发重路由）。字段名走中性
+   *  recentObstacles——探针路径名（debugSnapshot 的 lastRouteObstacles 键）
+   *  只允许存在于 dev 入口，生产产物零残留（check-debug-bundle 扫描） */
+  private recentObstacles: IRect[] | null = null;
 
   constructor(
     private readonly engine: IDataEngineService,
@@ -49,8 +51,8 @@ export class LineAnchorFollow extends Disposable {
     return this.previewFollowLast;
   }
 
-  get routeObstaclesDebug(): IRect[] | null {
-    return this.lastRouteObstacles;
+  get routeObstaclesProbe(): IRect[] | null {
+    return this.recentObstacles;
   }
 
   /** 解绑：线的 startNodeId/endNodeId 指向被删形状 → 置 null（points 不动）。
@@ -315,7 +317,7 @@ export class LineAnchorFollow extends Disposable {
       data.startNodeId,
       data.endNodeId,
     );
-    this.lastRouteObstacles = obstacles.map((r) => ({ ...r }));
+    this.recentObstacles = obstacles.map((r) => ({ ...r }));
     const route = routeElbow({
       start: startPoint,
       // 出线方向旋转感知（docs/05 §8 穿体修复）：锚点 θ 数学独立，走廊方向

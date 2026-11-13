@@ -12,7 +12,9 @@ import type {
 } from '../../types';
 import {
   anchorOf,
+  ANCHOR_JOINS,
   nodeAnchorPoint,
+  outlineAnchorsOf,
   quantizeJoin,
   r2,
   branchSlotOffset,
@@ -22,6 +24,7 @@ import {
   type IPt,
   type JoinDir,
 } from './lineMath';
+import { nearestAnchorDot } from './lineHitTest';
 import { Rectangle } from 'pixi.js';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 
@@ -99,6 +102,28 @@ export class LineQuickAdd extends Disposable {
     private readonly host: ILineQuickAddHost,
   ) {
     super();
+  }
+
+  /**
+   * 选中形状的连接点抓取（自 lineService 迁入，specs/flowchart-closeout
+   * §23 拆分——docs/08 §7.5 协作者表：连接点手势归本协作者）：点击/拖拽
+   * 四向连接点 = 从该侧建线（点击 = quick-add、拖拽 = 拉线，同一管线分流）。
+   * 抓取判定按**外移点**（轮廓锚点外 24px；θ=0——旋转件已禁）；anchors =
+   * 绘制/快照/抓取/落线起点同一集合（§7.1 第 3 层反馈层统一）。
+   */
+  maybeAnchorGrab(world: { x: number; y: number }): boolean {
+    const sel = this.selector.selected$.value;
+    if (sel.length !== 1) return false;
+    const vm = this.vmEngine.getVmById(sel[0]!);
+    if (!vm || vm.type === 'LINE' || vm.getRotation() !== 0) return false; // 旋转件不出四点（docs/05 §8）
+    const geom = vm.getHostGeom();
+    const anchors = outlineAnchorsOf(vm, geom);
+    const scale = this.viewport.vpScale$.value || 1;
+    const nearest = nearestAnchorDot(anchors, world, scale);
+    if (nearest.d > 12 / scale) return false;
+    // 连线起点 = 该侧轮廓锚点（非矩形形状贴轮廓——与 hover ghost 预览同点）
+    this.startConnectorFrom(anchors[ANCHOR_JOINS.indexOf(nearest.j)]!, nearest.j, world);
+    return true;
   }
 
   /**

@@ -80,3 +80,77 @@ describe('outlineAnchor 全型守卫（specs/flowchart-closeout §7.2）', () =>
     expect(b.x).toBeLessThan(28.8);
   });
 });
+
+describe('锚点 vs 真实曲线（drawShapePath 同参数高密度收敛，specs/flowchart-closeout 返工）', () => {
+  /** 二次贝塞尔高密度采样（真曲线基准——drawShapePath 的 quadraticCurveTo 同控制点） */
+  const quadPts = (
+    p0: { x: number; y: number },
+    c: { x: number; y: number },
+    p1: { x: number; y: number },
+    n = 256,
+  ): Array<{ x: number; y: number }> =>
+    Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      const k = 1 - t;
+      return {
+        x: k * k * p0.x + 2 * k * t * c.x + t * t * p1.x,
+        y: k * k * p0.y + 2 * k * t * c.y + t * t * p1.y,
+      };
+    });
+
+  const distTo = (p: { x: number; y: number }, poly: Array<{ x: number; y: number }>): number =>
+    Math.sqrt(Math.min(...poly.map((q) => (q.x - p.x) ** 2 + (q.y - p.y) ** 2)));
+
+  it('delay：大半径端帽上 t=0.35/0.65 锚点距真贝塞尔 ≤1px', () => {
+    const w = 200;
+    const h = 160; // r = 80（大半径）
+    const r = Math.min(h / 2, w);
+    const a = w - r;
+    const curve = quadPts({ x: a, y: 0 }, { x: a + 2 * r, y: h / 2 }, { x: a, y: h });
+    for (const t of [0.35, 0.5, 0.65]) {
+      const anchor = outlineAnchor('delay', w, h, 'right', t);
+      expect(distTo(anchor, curve)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('stadium：大端帽上 t=0.35/0.65 锚点距真圆弧 ≤1px（解析弧）', () => {
+    const w = 200;
+    const h = 120; // r = 60
+    const r = Math.min(w, h) / 2;
+    // 右端帽真圆弧：圆心 (w-r, h/2)、半径 r（roundRect 同口径）
+    const arc = Array.from({ length: 129 }, (_, i) => {
+      const ang = -Math.PI / 2 + (i / 128) * Math.PI;
+      return { x: w - r + r * Math.cos(ang), y: h / 2 + r * Math.sin(ang) };
+    });
+    for (const t of [0.35, 0.5, 0.65]) {
+      const anchor = outlineAnchor('stadium', w, h, 'right', t);
+      expect(distTo(anchor, arc)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('eng-database：底碗 t=0.35/0.65 锚点距真贝塞尔 ≤1px', () => {
+    const w = 140;
+    const h = 180; // s = 27（h ≥ 180 不钳）
+    const s = 27;
+    const curve = quadPts({ x: 0, y: h - s }, { x: w / 2, y: h + s }, { x: w, y: h - s });
+    for (const t of [0.3, 0.5, 0.7]) {
+      const anchor = outlineAnchor('eng-database', w, h, 'bottom', t);
+      expect(distTo(anchor, curve)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('document：底波 t∈{0.3,0.5,0.7} 锚点距真 S 波 ≤1px', () => {
+    const w = 160;
+    const h = 120; // c = 18（h ≥ 120 不钳）
+    const c = 18;
+    const base = h - c;
+    const wave = [
+      ...quadPts({ x: w, y: base }, { x: w * 0.8, y: h }, { x: w * 0.45, y: h }),
+      ...quadPts({ x: w * 0.45, y: h }, { x: w * 0.15, y: base - c * 0.6 }, { x: 0, y: base }),
+    ];
+    for (const t of [0.3, 0.5, 0.7]) {
+      const anchor = outlineAnchor('document', w, h, 'bottom', t);
+      expect(distTo(anchor, wave)).toBeLessThanOrEqual(1);
+    }
+  });
+});

@@ -328,20 +328,7 @@ export class SelectorService extends Disposable implements ISelectorService {
       // 单选限定（Batch 1 · 1.5，2026-10-17 审查）：多选/编组整组态下再点成员
       // 是「确认选区」语义，不应打开该件编辑器（其余成员仍选中态却出了编辑框）。
       // 手柄手势抑制同拦本分支：多指下第二指在手势期点已选中件，up 不得激活
-      if (
-        !d.moved &&
-        d.wasSelected &&
-        this.singleClickActivate &&
-        !e.shiftKey &&
-        !suppressClick &&
-        this.selected$.value.length === 1
-      ) {
-        const hits = this.vmEngine.getVmByPoint(e.world);
-        const top = hits[0];
-        if (top && this.selected$.value.includes(top.id)) {
-          this.onActivate?.(top.id, top.type, e.world);
-        }
-      }
+      if (!d.moved && d.wasSelected) this.maybeActivateOnClick(e, suppressClick);
       return;
     }
     if (this.marquee) {
@@ -350,12 +337,17 @@ export class SelectorService extends Disposable implements ISelectorService {
       m.finish(this.selected$.value);
       return;
     }
-    if (this.singleClickActivate && !e.shiftKey && !suppressClick) {
-      const hits = this.vmEngine.getVmByPoint(e.world);
-      const top = hits[0];
-      if (top && this.selected$.value.includes(top.id)) {
-        this.onActivate?.(top.id, top.type, e.world);
-      }
+    this.maybeActivateOnClick(e, suppressClick);
+  }
+
+  /** 单击已选中件的编辑激活（拖拽未起分支与常规收尾同判定——抽出消双份）：
+   *  shift 加选/手势抑制/非单选不激活；命中点在选中集内才触发 onActivate */
+  private maybeActivateOnClick(e: IPointerEventInfo, suppressClick: boolean): void {
+    if (!this.singleClickActivate || e.shiftKey || suppressClick) return;
+    if (this.selected$.value.length !== 1) return;
+    const top = this.vmEngine.getVmByPoint(e.world)[0];
+    if (top && this.selected$.value.includes(top.id)) {
+      this.onActivate?.(top.id, top.type, e.world);
     }
   }
 
