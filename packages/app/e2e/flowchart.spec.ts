@@ -16,6 +16,8 @@ interface ILineSnap {
   startJoin: string | null;
   endJoin: string | null;
   pinned?: boolean;
+  startArrow?: string;
+  text?: string;
 }
 
 async function linesOf(page: Page): Promise<ILineSnap[]> {
@@ -317,7 +319,9 @@ test('F-4 避障：中间节点挡路 → 绕行不穿 AABB + 探针记录障碍
   }
 });
 
-test('F-5 自环：同节点拖回生成非零面积正交环 + 撤销一步消失', async ({ page }) => {
+test('F-5 自环：同节点拖回生成非零面积正交环 + 选中/拖段/加箭头/加标签/逐步撤销', async ({
+  page,
+}) => {
   await page.goto(`/?doc=e2e-fc-selfloop-${Date.now()}`);
   await waitForSynced(page);
   await createRect(page, 500, 400); // 世界 (440,316,120,80)：顶边 y=316 / 底边 y=396
@@ -342,10 +346,57 @@ test('F-5 自环：同节点拖回生成非零面积正交环 + 撤销一步消�
     expect(axisAligned).toBe(true); // 全段正交、不自交
   }
 
-  // 撤销一步（单事务）→ 线消失
+  // ---- 可选中（spec §18.1：选中/拖段/加箭头/加标签/撤销）----
+  await selectLineBody(page);
+  expect((await lineProbe(page)).selectedIds).toHaveLength(1);
+
+  // ---- 拖段（段滑移）：中段向左 40px → 单事务 points + pinned ----
+  const pts1 = (await firstLine(page)).points;
+  const c1 = await canvasOffset(page);
+  const mid = Math.floor(pts1.length / 2);
+  const segX = (pts1[mid - 1]![0] + pts1[mid]![0]) / 2 + c1.left;
+  const segY = (pts1[mid - 1]![1] + pts1[mid]![1]) / 2 + c1.top;
+  await page.mouse.move(segX, segY);
+  await page.mouse.down();
+  await page.mouse.move(segX - 40, segY, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const slid = await firstLine(page);
+  expect(slid.pinned).toBe(true);
+  expect(JSON.stringify(slid.points)).not.toBe(JSON.stringify(pts1));
+
+  // ---- 加箭头（LINE ActionBar 起点箭头 → 实心）----
+  await barPick(page, '起点箭头', '实心箭头');
+  await page.waitForTimeout(250);
+  expect((await firstLine(page)).startArrow).toBe('solid');
+
+  // ---- 加标签（双击线身主段 → 输入 → Esc）----
+  const pts2 = (await firstLine(page)).points;
+  const mid2 = Math.floor(pts2.length / 2);
+  await page.mouse.dblclick(
+    (pts2[mid2 - 1]![0] + pts2[mid2]![0]) / 2 + c1.left,
+    (pts2[mid2 - 1]![1] + pts2[mid2]![1]) / 2 + c1.top,
+  );
+  await page.keyboard.type('回退');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  expect((await firstLine(page)).text).toContain('回退'); // 富文本（htmlDoc）包裹
+
+  // ---- 逐步撤销：标签 → 箭头 → 段滑移 → 自环创建（每操作单事务）----
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(200);
+  expect((await firstLine(page)).text ?? '').not.toContain('回退');
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(200);
+  expect((await firstLine(page)).startArrow).toBe('none');
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(200);
+  const restored = await firstLine(page);
+  expect(restored.pinned ?? false).toBe(false);
+  expect(JSON.stringify(restored.points)).toBe(JSON.stringify(pts1)); // 段滑移回拖前
   await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(250);
-  expect((await probe(page)).modelCount).toBe(1);
+  expect((await probe(page)).modelCount).toBe(1); // 自环创建一步撤销 → 只剩形状
 });
 
 test('F-6 网格吸附：开后落库坐标 mod 16 = 0，关后自由落点', async ({ page }) => {

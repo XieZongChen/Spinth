@@ -295,14 +295,16 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染——已旋转旧�
   });
 });
 
-test('视觉快照 @visual：流程图样本（S1 白底黑框 + 锚定连线，specs/flowchart-closeout §18.2）', async ({
+test('视觉快照 @visual：流程图样本（S1 白底黑框 + 回边 + 线上标签，specs/flowchart-closeout §18.2）', async ({
   page,
 }) => {
   const docId = `e2e-vis-flowchart-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);
 
-  // 三个节点（世界坐标：A 480..600/218..298，B 菱形 660..780/400..480，C 920..1040/400..480）。
+  // S1 场景（spec §19.1）：stadium 起止 / 菱形判定 / 矩形过程 三节点 +
+  // 两条正向锚定线 + 一条回边（C 底 → A 右）+ 三处线上标签。
+  // 世界坐标：A 480..600/218..298，B 菱形 660..780/400..480，C 920..1040/400..480。
   // 形状工具一次创建后即回 cursor（连线工具才保持激活）——用 createRect 每件点按钮
   await createRect(page, 540, 302); // A（屏幕中心 540,302）
   await createRect(page, 720, 484); // B
@@ -310,7 +312,11 @@ test('视觉快照 @visual：流程图样本（S1 白底黑框 + 锚定连线，
   await page.keyboard.press('Escape');
   await page.waitForTimeout(80);
 
-  // B 切菱形（决策节点）：选中 → 图形类型
+  // A 切起止（stadium）、B 切菱形（决策节点）：选中 → 图形类型
+  await page.mouse.click(540, 282); // A 中心
+  await page.waitForTimeout(200);
+  await barPick(page, '图形类型', '起止');
+  await page.waitForTimeout(200);
   await page.mouse.click(720, 484); // B 中心（世界 720,440）
   await page.waitForTimeout(200);
   await barPick(page, '图形类型', '菱形');
@@ -330,7 +336,7 @@ test('视觉快照 @visual：流程图样本（S1 白底黑框 + 锚定连线，
     await page.waitForTimeout(150);
   }
 
-  // 锚定连线 ×2：A 底 → B 顶；B 右 → C 左（默认 ELBOWED + 终点箭头）
+  // 锚定连线 ×3：A 底 → B 顶；B 右 → C 左；回边 C 底 → A 右（默认 ELBOWED + 终点箭头）
   await page.getByRole('button', { name: /连线/ }).click();
   await page.mouse.move(540, 336); // A 底边内侧（世界 540,292）
   await page.mouse.down();
@@ -342,10 +348,93 @@ test('视觉快照 @visual：流程图样本（S1 白底黑框 + 锚定连线，
   await page.mouse.move(926, 484, { steps: 5 }); // C 左缘内侧（世界 926,440）
   await page.mouse.up();
   await page.waitForTimeout(200);
+  await page.mouse.move(980, 518); // C 底边内侧（世界 980,474）
+  await page.mouse.down();
+  await page.mouse.move(598, 280, { steps: 6 }); // A 右缘内侧（世界 598,236）
+  await page.mouse.up();
+  await page.waitForTimeout(300);
   await page.keyboard.press('Escape'); // 清工具与选中（不含手柄/ActionBar）
   await page.waitForTimeout(150);
 
-  await expect(page.locator('canvas').first()).toHaveScreenshot('flowchart-sample.png', {
+  // 三处线上标签（spec §18.2 S1：双击线身 → 输入 → Esc）。线序 = 创建序：
+  // 0 = A→B、1 = B→C、2 = 回边。双击点取该线**各段中点中距其他线段 >14px 的
+  // 第一个**（按段长降序）——回边走廊会穿过其他线的主段中点，命中取 top
+  // 会把标签打到别的线上（实测 x=630 回边竖段挡住 A→B 主段中点）
+  const allLinePts = async (): Promise<Array<Array<[number, number]>>> =>
+    page.evaluate(() =>
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates
+        .filter((v) => String(v.type) === 'LINE')
+        .map(
+          (v) =>
+            ((v as { points?: Array<[number, number]> }).points ?? []) as Array<[number, number]>,
+        ),
+    );
+  const distToSeg = (px: number, py: number, a: [number, number], b: [number, number]): number => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    const t =
+      lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / lenSq));
+    return Math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy));
+  };
+  const pickDblclickAt = (
+    pts: Array<[number, number]>,
+    others: Array<Array<[number, number]>>,
+  ): { x: number; y: number } => {
+    const segs = pts.slice(0, -1).map((p, i) => ({
+      len: Math.hypot(pts[i + 1]![0] - p[0], pts[i + 1]![1] - p[1]),
+      a: p,
+      b: pts[i + 1]!,
+    }));
+    segs.sort((s, t) => t.len - s.len);
+    for (const s of segs) {
+      const mx = (s.a[0] + s.b[0]) / 2;
+      const my = (s.a[1] + s.b[1]) / 2;
+      const blocked = others.some((o) =>
+        o.slice(0, -1).some((p, j) => distToSeg(mx, my, p, o[j + 1]!) <= 14),
+      );
+      if (!blocked) return { x: mx, y: my + 44 }; // canvas 顶栏偏移
+    }
+    const f = segs[0]!;
+    return { x: (f.a[0] + f.b[0]) / 2, y: (f.a[1] + f.b[1]) / 2 + 44 };
+  };
+  for (const [i, label] of ['请求', '判定', '回退'].entries()) {
+    const lines = await allLinePts();
+    const at = pickDblclickAt(
+      lines[i] ?? [],
+      lines.filter((_, j) => j !== i),
+    );
+    await page.mouse.dblclick(at.x, at.y);
+    await page.keyboard.type(label);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(250);
+    // 标签必达（否则基线静默缺标签）：双击点被其他线抢占时 fail-fast
+    const texts = await page.evaluate(() =>
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates
+        .filter((v) => String(v.type) === 'LINE')
+        .map((v) => String(v.text ?? '')),
+    );
+    if (!(texts[i] ?? '').includes(label)) {
+      throw new Error(
+        `线上标签「${label}」未落库（texts=${JSON.stringify(texts)} pts=${JSON.stringify(lines)} at=${JSON.stringify(at)}）`,
+      );
+    }
+  }
+  // 清选区（双击退编辑后仍单选——手柄/ActionBar 不入镜）
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // page 级 clip（locator 级 toHaveScreenshot 的 clip 选项被忽略——基线曾是
+  // 整画布 1440×856，specs/flowchart-closeout 返工；rotate 用例同款 page 级写法）
+  await expect(page).toHaveScreenshot('flowchart-sample.png', {
     clip: { x: 380, y: 224, width: 700, height: 380 }, // 世界 380..1080 / 180..560
   });
 });
