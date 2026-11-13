@@ -211,8 +211,10 @@ export class LineEndpointDrag extends Disposable {
               points: d.pending.points,
               endNodeId: d.pending.nodeId,
               endJoin: d.pending.join,
-              // 命中即写 port 固定该端（§7.4）；拖离 = 自由端，port 随锚定一并清除
-              // （undefined 写路径 = 删字段，与 groupId 脱组同款先例）
+              // 命中即写 port 固定该端（§7.4）；拖离 = 自由端，port 随锚定一并
+              // 清除。注意：Yjs 对 undefined 走 set 保留 key（读回 undefined，
+              // dataProcessor 语义），消费方统一 ?? 兜底——非物理删字段；
+              // 未写过 port 的线此处为 no-op（Object.is 同值跳过，零幻影写）
               endPort: d.pending.nodeId ? d.pending.port : undefined,
               pinned: false,
             }

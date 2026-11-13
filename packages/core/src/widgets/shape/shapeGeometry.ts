@@ -190,19 +190,15 @@ export function shapeHeightFromTextHeight(shapeType: ShapeType, textH: number): 
   if (shapeType === 'parallelogram-right' || shapeType === 'parallelogram-left')
     return Math.round(textH * 1.25 * 100) / 100; // 0.8h ≥ textH 反解（既有设计 /0.8 同值）
   if (shapeType === 'eng-database')
-    if (shapeType === 'eng-database')
-      return Math.round((textH + CYLINDER_HEAD_FULL * 2 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 两头 54×2 + 上下 padding
+    return Math.round((textH + CYLINDER_HEAD_FULL * 2 + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 两头 54×2 + 上下 padding
   if (shapeType === 'eng-queue') return Math.round((textH + 40) * 100) / 100; // 纵向只有 20×2 视觉边距
   if (shapeType === 'eng-file')
-    if (shapeType === 'eng-file')
-      return Math.round((textH + FILE_FOLD_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 折角 50 + 上下 padding
+    return Math.round((textH + FILE_FOLD_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 折角 50 + 上下 padding
   if (shapeType === 'eng-folder')
-    if (shapeType === 'eng-folder')
-      return Math.round((textH + FOLDER_TAB_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 标签页 40 + 上下 padding
+    return Math.round((textH + FOLDER_TAB_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 标签页 40 + 上下 padding
   if (shapeType === 'stadium') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 上下 padding（端帽只吃水平）
   if (shapeType === 'document')
-    if (shapeType === 'document')
-      return Math.round((textH + DOCUMENT_WAVE_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 波浪 18 + 上下 padding
+    return Math.round((textH + DOCUMENT_WAVE_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 波浪 18 + 上下 padding
   if (shapeType === 'hexagon') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 斜宽只吃水平
   if (shapeType === 'predefined-process')
     return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 竖线带只吃水平
@@ -210,7 +206,6 @@ export function shapeHeightFromTextHeight(shapeType: ShapeType, textH: number): 
     return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 腰斜只吃水平
   if (shapeType === 'delay') return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 半圆只吃水平
   if (shapeType === 'off-page')
-    if (shapeType === 'off-page')
-      return Math.round((textH + OFFPAGE_TIP_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 尖区 35（未钳制口径）+ 上下 padding
+    return Math.round((textH + OFFPAGE_TIP_MAX + SHAPE_TEXT_PADDING * 2) * 100) / 100; // 尖区 35（未钳制口径）+ 上下 padding
   return Math.round((textH + SHAPE_TEXT_PADDING * 2) * 100) / 100;
 }

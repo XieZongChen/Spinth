@@ -139,12 +139,16 @@ export class LineSegTextSlide extends Disposable {
     if (!vm || !model) return;
     const moved = Math.hypot(e.clientX - d.downClient.x, e.clientY - d.downClient.y) >= 4;
     if (!moved || !d.lastTarget) {
-      // 点击无语义：恢复手柄（grab 时已 hide——同段滑移路径的教训）
+      // 点击无语义：恢复手柄（grab 时已 hide——同段滑移路径的教训）。
+      // 线身同步回提交态：cornerDragMove 对 <4px 微移也 previewRoute 过，
+      // 只重画手柄不重置会让线停在预览位与数据分离（手势期零写 → 无
+      // onStateChanged 广播来纠正，须显式拉回）
       const cur = effectivePath(
         vm.state.points.map((p) => ({ x: p[0], y: p[1] })),
         vm.state.lineType ?? 'ELBOWED',
       );
       if (cur.length >= 2) {
+        vm.previewRoute(cur);
         const corners = cur.length >= 3 ? cur.slice(1, -1) : null;
         this.overlay.showSegmentHandles(cur, this.viewport.vpScale$.value || 1, null, vm, corners);
       }
