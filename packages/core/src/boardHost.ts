@@ -124,6 +124,8 @@ export interface IBoardTeardownHost extends IBoardServices {
   initialized: boolean;
   disposed: boolean;
   cullingForgetSub: { unsubscribe(): void } | null;
+  /** gridSnap localStorage 持久化订阅（boardAssemblyInteraction 存入、teardown 退订） */
+  gridSnapPersistSub: { unsubscribe(): void } | null;
 }
 
 /** 项目文件门面宿主（NOT_READY 守卫读 projectFile） */

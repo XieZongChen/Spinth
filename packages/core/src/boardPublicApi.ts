@@ -131,7 +131,8 @@ export type BoardInternalMember =
   | 'initialized'
   | 'syncToolOption'
   | 'disposed'
-  | 'cullingForgetSub';
+  | 'cullingForgetSub'
+  | 'gridSnapPersistSub';
 
 export type BoardPublicApi = Readonly<Pick<BoardSDK, BoardPublicMember>>;
 

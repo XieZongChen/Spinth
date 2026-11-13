@@ -203,3 +203,32 @@ describe('refLineService 参照物类型矩阵', () => {
     svc.dispose();
   });
 });
+
+describe('refLineService 等间距让位标记（specs/flowchart-closeout §9.2「参考线先、网格后」含等间距）', () => {
+  beforeAll(stubPixiCanvasDocument); // 等距命中画徽标（PIXI Text 测量）
+
+  it('等间距命中轴：matchedV 空但 spacingV=true——网格量化凭此让位', () => {
+    // 两参照 x=0/150（50 宽，间隙 100）；拖拽矩形 60 拖 dx=15 → x=75，
+    // 两侧间隙各 25 等距（偏差 0）——纯等距解、无对齐线
+    const svc = createService([
+      { id: 'a', type: 'SHAPE', rect: { x: 0, y: 100, width: 50, height: 50 } },
+      { id: 'b', type: 'SHAPE', rect: { x: 150, y: 100, width: 50, height: 50 } },
+    ]);
+    const r = svc.snapForDrag({ x: 60, y: 100, width: 50, height: 50 }, 15, 0);
+    svc.dispose();
+    expect(r.dx).toBe(15); // 等距修正 = 期望位移（偏差 0）
+    expect(r.matchedV).toHaveLength(0); // 无对齐命中
+    expect(r.spacingV).toBe(true); // 网格让位标记（消费方 selectorDragOps）
+    expect(r.spacingH ?? false).toBe(false); // y 轴无等距
+  });
+
+  it('纯对齐命中：spacingV 不置位（网格量化路径不受扰）', () => {
+    const svc = createService([
+      { id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+    ]);
+    const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
+    svc.dispose();
+    expect(r.matchedV.length).toBeGreaterThan(0);
+    expect(r.spacingV ?? false).toBe(false);
+  });
+});

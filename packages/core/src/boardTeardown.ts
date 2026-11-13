@@ -44,7 +44,9 @@ export function disposeBoard(host: IBoardTeardownHost): void {
   //   projectFile/storageStatus/imageService 的 dispose 均不依赖本库仍打开）
   host.engine?.dispose();
   host.viewport?.dispose(); // 最后销毁 renderer
+  host.gridSnap?.dispose(); // 视图偏好服务（BehaviorSubject 终结）
   host.registry.dispose();
   host.cullingForgetSub?.unsubscribe();
+  host.gridSnapPersistSub?.unsubscribe();
   host.initialized = false;
 }

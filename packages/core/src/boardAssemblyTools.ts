@@ -31,6 +31,10 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
   sdk.eraserService.radiusPx$.subscribe((v) => sdk.syncToolOption('eraser', 'size', String(v)));
   sdk.stickyService = new StickyService(sdk.viewport!, sdk.engine!, sdk.history!, sdk.selector!);
   sdk.stickyService.initialize();
+  // 网格吸附（specs/flowchart-closeout §9.2 拖拽创建）：便签与形状同基类
+  // DragCreateServiceBase——开关探针同款接线（组装时序：interaction 步骤 9
+  // 绑形状，本步骤 10 绑便签）
+  sdk.stickyService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
   sdk.stickyService.defaultColor$.subscribe((v) => sdk.syncToolOption('sticky', 'color', v));
   // 资产层（Batch 2 资产服务首版）：贴图入库、文档只存 spinth-asset:<hash>；
   // AssetStore 本体已在第 1 步前置创建（P0 修复，见上）；vm 创建时注入

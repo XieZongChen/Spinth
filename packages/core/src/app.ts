@@ -250,4 +250,6 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   disposed = false;
   /** @internal 组装/命令层（批 B 三分）共享字段 */
   cullingForgetSub: { unsubscribe(): void } | null = null;
+  /** @internal 组装/命令层（批 B 三分）共享字段（gridSnap 持久化订阅） */
+  gridSnapPersistSub: { unsubscribe(): void } | null = null;
 }

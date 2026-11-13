@@ -47,7 +47,10 @@ export function assembleInteraction(sdk: BoardSDK): void {
   // localStorage；浏览器环境直连 localStorage（SSR/测试注入 null 走缺省关）
   sdk.gridSnap = new GridSnapService(typeof localStorage !== 'undefined' ? localStorage : null);
   if (typeof localStorage !== 'undefined') {
-    sdk.gridSnap.gridSnap$.subscribe(() => sdk.gridSnap?.persist(localStorage));
+    // 订阅句柄存字段（disposeBoard 退订——销毁序列唯一真源，boardTeardown）
+    sdk.gridSnapPersistSub = sdk.gridSnap.gridSnap$.subscribe(() =>
+      sdk.gridSnap?.persist(localStorage),
+    );
   }
   sdk.edgeScroll = new EdgeAutoScrollService(sdk.viewport!);
   sdk.selector = new SelectorService(

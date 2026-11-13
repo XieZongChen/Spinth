@@ -114,6 +114,10 @@ export class RefLineService extends Disposable {
       dy: outDy,
       matchedV: alignWinsV ? align.matchedV : [],
       matchedH: alignWinsH ? align.matchedH : [],
+      // 等间距让位轴（specs/flowchart-closeout §9.2）：消费方（selectorDragOps
+      // 网格量化）凭此跳过该轴——否则 matchedV/H 为空会被误判「未命中参考线」
+      spacingV: !alignWinsV && spacing.gaps.some((g) => g.axis === 'x'),
+      spacingH: !alignWinsH && spacing.gaps.some((g) => g.axis === 'y'),
     };
     this.drawMatches(result.matchedV, result.matchedH, gaps);
     return result;

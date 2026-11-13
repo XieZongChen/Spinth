@@ -97,13 +97,14 @@ export function applyDragMove(
   dx = snapped.dx;
   dy = snapped.dy;
   // 网格吸附（specs/flowchart-closeout §9.2）：优先级「参考线先、网格后」——
-  // 命中轴不量化（可见反馈优先）；量化基准 = 选区外接矩形左上角（多元素对齐
-  // 才整齐），修正量写回 lastDx/lastDy（松手落库同源，不会「松手跳一格」）
+  // 命中轴（对齐线或等间距）不量化（可见反馈优先）；量化基准 = 选区外接矩形
+  // 左上角（多元素对齐才整齐），修正量写回 lastDx/lastDy（松手落库同源，不会
+  // 「松手跳一格」）。等间距命中时 matchedV/H 为空，凭 spacingV/H 让位网格
   if (ctx.gridSnapOn()) {
-    if (snapped.matchedV.length === 0) {
+    if (snapped.matchedV.length === 0 && !snapped.spacingV) {
       dx = quantizeGrid(d.initialUnion.x + dx) - d.initialUnion.x;
     }
-    if (snapped.matchedH.length === 0) {
+    if (snapped.matchedH.length === 0 && !snapped.spacingH) {
       dy = quantizeGrid(d.initialUnion.y + dy) - d.initialUnion.y;
     }
   }

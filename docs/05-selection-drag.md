@@ -111,9 +111,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 - `hitTestPoint`：points 型先减 root 偏移再判定。
 
 - 网格吸附（specs/flowchart-closeout §9，默认关）：只门控**落库**量化（拖拽 /
-  缩放固定角 / 创建起止角 / 自由线端点四处），交互期零 Yjs 写不变；
-  量化顺序固定「参考线先、网格后」——命中参考线轴不量化；多选拖拽以选区
-  外接矩形左上角为基准（`GRID_SPACING=16`，`common/grid.ts` 单源）。
+  缩放固定角 / 创建起止角——形状与便签同基类、自由线端点——拉线与拖端点
+  一致，四处），交互期零 Yjs 写不变；量化顺序固定「参考线先、网格后」——
+  命中对齐线**或等间距**的轴不量化（`ISnapResult.spacingV/H` 让位标记）；
+  多选拖拽以选区外接矩形左上角为基准（`GRID_SPACING=16`，`common/grid.ts` 单源）。
 
 ### 4.5 边缘自动滚屏
 

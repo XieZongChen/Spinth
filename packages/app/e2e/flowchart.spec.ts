@@ -397,6 +397,96 @@ test('F-6 网格吸附：开后落库坐标 mod 16 = 0，关后自由落点', as
   expect(gridRem(b.y)).toBeGreaterThan(1);
 });
 
+test('F-6b 网格吸附：便签拖拽创建落点量化（spec §9.2 拖拽创建含便签）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-grid-sticky-${Date.now()}`);
+  await waitForSynced(page);
+  await page.evaluate(() =>
+    (window as unknown as { __spinth: { setGridSnap(b: boolean): void } }).__spinth.setGridSnap(
+      true,
+    ),
+  );
+  // 便签拖拽创建：屏幕 (450,350)→(510,410) = 世界 (450,306)→(510,366)，
+  // 两轴均非格点（余 2/2）→ 左上角量化到 448/360 附近
+  await page.getByRole('button', { name: /便签/ }).click();
+  await page.mouse.move(450, 350);
+  await page.mouse.down();
+  await page.mouse.move(510, 410, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const s = (await probe(page)).vmStates.find((v) => v.type === 'STICKY') as unknown as {
+    x: number;
+    y: number;
+    width: number;
+  };
+  expect(s, '便签已创建').toBeDefined();
+  expect(gridRem(Number(s.x))).toBeLessThanOrEqual(0.5);
+  expect(gridRem(Number(s.y))).toBeLessThanOrEqual(0.5);
+  expect(Number(s.width)).toBeGreaterThan(24); // 门控两轴 ≥24（未被量化压瘪）
+});
+
+test('F-6c 网格吸附：拉线自由起点/终点量化（未命中控件时）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-grid-line-${Date.now()}`);
+  await waitForSynced(page);
+  await page.evaluate(() =>
+    (window as unknown as { __spinth: { setGridSnap(b: boolean): void } }).__spinth.setGridSnap(
+      true,
+    ),
+  );
+  // 自由起点/终点：屏幕 (450,300)→(505,349) = 世界 (450,256)→(505,305)，
+  // x 两端余 2/1——量化后 448/500（y 已贴格）
+  await page.getByRole('button', { name: /连线/ }).click();
+  await drawLine(page, 450, 300, 505, 349);
+  const l = await firstLine(page);
+  expect(l.startNodeId).toBeNull();
+  expect(l.endNodeId).toBeNull();
+  const last = l.points[l.points.length - 1]!;
+  for (const [x, y] of [l.points[0]!, last] as Pt[]) {
+    expect(gridRem(x)).toBeLessThanOrEqual(0.5);
+    expect(gridRem(y)).toBeLessThanOrEqual(0.5);
+  }
+  expect(l.points[0]![0]).toBeCloseTo(448, 0); // 450 → 448（最近格点）
+  expect(last[0]).toBeCloseTo(512, 0); // 505 → 512（31.56 → 32×16）
+});
+
+test('F-6d 网格吸附：缩放手柄落库量化（se 角固定 nw）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-grid-resize-${Date.now()}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // 世界 (440,316,120,80)：右缘 560 贴格、下缘 396 余 12
+  await page.evaluate(() =>
+    (window as unknown as { __spinth: { setGridSnap(b: boolean): void } }).__spinth.setGridSnap(
+      true,
+    ),
+  );
+  await page.getByRole('button', { name: /选择/ }).click();
+  await page.waitForTimeout(150);
+  await page.mouse.click(500, 400); // 中心选中
+  await page.waitForTimeout(250);
+  const s0 = (await probe(page)).vmStates.find((v) => v.type === 'SHAPE') as unknown as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  // 拖东南角手柄 (+37,+29)：右缘 597/下缘 425（均非格点）→ 量化到最近格点
+  const c = await canvasOffset(page);
+  const corner = { x: s0.x + s0.width + c.left, y: s0.y + s0.height + c.top };
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.down();
+  await page.mouse.move(corner.x + 37, corner.y + 29, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const s1 = (await probe(page)).vmStates.find((v) => v.type === 'SHAPE') as unknown as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  expect(gridRem(s1.x + s1.width)).toBeLessThanOrEqual(0.5); // 右缘贴格
+  expect(gridRem(s1.y + s1.height)).toBeLessThanOrEqual(0.5); // 下缘贴格
+  expect(s1.width).toBeGreaterThan(s0.width); // 确实放大
+  expect(s1.x).toBeCloseTo(s0.x, 0); // 固定 nw 角不动
+});
+
 test('F-7 清理悬空连线：删中间节点 → API/菜单两路清理计数正确 + 撤销恢复', async ({ page }) => {
   await page.goto(`/?doc=e2e-fc-prune-${Date.now()}`);
   await waitForSynced(page);

@@ -164,6 +164,8 @@ export class LineService extends Disposable {
         overlay: this.overlay,
         getDefaultLineType: () => this.defaultType,
         getDefaultStrokeWidth: () => this.defaultWidth,
+        // 网格吸附开关探针（specs/flowchart-closeout §9.2 自由线端点；缺省关）
+        gridSnapOn: () => this.gridSnapOn(),
         // 落定重排（specs/flowchart-closeout §7.3）：同边余线让位 + 本线终路由
         // 单源（避障/spread/探针）；settle 事务内调用 = 一步撤销
         onSettled: () => this.anchorFollow?.reattachAll(),

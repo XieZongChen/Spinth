@@ -66,6 +66,10 @@ export interface ISnapResult {
   /** 命中线完整定义（kind+pos），调用方回写粘滞状态用 */
   matchedVDefs?: IRefLineDef[];
   matchedHDefs?: IRefLineDef[];
+  /** 该轴由等间距吸附定值（无对齐命中但有等距解）——网格量化须让位
+   *  （specs/flowchart-closeout §9.2「参考线先、网格后」含等间距） */
+  spacingV?: boolean;
+  spacingH?: boolean;
 }
 
 interface IEdgeDef {

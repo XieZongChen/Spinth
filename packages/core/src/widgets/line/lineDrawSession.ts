@@ -22,6 +22,7 @@ import {
   type JoinDir,
 } from './lineMath';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
+import { quantizeGrid } from '../../common/grid';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { LineHoverOverlay } from './lineHoverOverlay';
 import { hitWidget } from './lineHitTest';
@@ -36,6 +37,8 @@ export interface ILineDrawHost {
   readonly overlay: Pick<LineHoverOverlay, 'showDrawFeedback' | 'hideDrawFeedback'> | null;
   getDefaultLineType(): LineType;
   getDefaultStrokeWidth(): number;
+  /** 网格吸附开关探针（specs/flowchart-closeout §9.2 自由线端点；组合根注入，缺省关） */
+  gridSnapOn(): boolean;
   /** 线落定回调（specs/flowchart-closeout §7.3）：同边余线重排 + 本线终路由
    *  经 anchorFollow 单源（避障/spread/探针）；在 settle 事务关闭前调用 =
    *  重排写入并入本次创建（一步撤销）。 */
@@ -105,8 +108,10 @@ export class LineDrawSession extends Disposable {
     // 锚点单源经 vm.getAnchorPoint（ShapeVm 覆写轮廓交点；§7.1 第 3 层）
     const point = (hit && join ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join) : null) ??
       (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation) : null) ?? {
-        x: e.world.x,
-        y: e.world.y,
+        // 自由起点：网格开时量化（specs/flowchart-closeout §9.2 自由线端点——
+        // 与自由终点、端点拖拽 lineEndpointDrag 同款）
+        x: this.host.gridSnapOn() ? quantizeGrid(e.world.x) : e.world.x,
+        y: this.host.gridSnapOn() ? quantizeGrid(e.world.y) : e.world.y,
       };
     this.startAnchorState = { nodeId: hit?.id ?? null, join, point };
     const id = genId();
@@ -194,8 +199,10 @@ export class LineDrawSession extends Disposable {
     }
     const end = (hit && join ? nodeAnchorPoint(this.vmEngine, hit.id, hit.geom, join) : null) ??
       (hit && join ? anchorOf(hit.geom.rect, join, hit.geom.rotation) : null) ?? {
-        x: e.world.x,
-        y: e.world.y,
+        // 自由终点：网格开时量化（specs/flowchart-closeout §9.2 自由线端点——
+        // 与端点拖拽 lineEndpointDrag 同款，拉新线与拖旧线端点行为一致）
+        x: this.host.gridSnapOn() ? quantizeGrid(e.world.x) : e.world.x,
+        y: this.host.gridSnapOn() ? quantizeGrid(e.world.y) : e.world.y,
       };
     // 避让节点用世界 AABB（旋转宿主保守外接）；出线方向量化到最近轴
     // （旋转宿主的走廊方向旋转感知——穿体修复，docs/05 §8）
