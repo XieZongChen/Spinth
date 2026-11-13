@@ -241,25 +241,30 @@ F 中置中心正中。
 默认尺寸、以按下点为中心、工具保持可连击、不选中；单击手抖不再画出 8×8 小
 图形。便签门控维持两轴各 ≥ 24px，单击落点同为按下点居中（shape/sticky 一致）。
 
-标准流程图能力已落地（docs/13 阶段 4.1，specs/flowchart-closeout，含复审返工
-全量收口）：形状样式三字段（fill/borderColor/borderWidth——白底黑框一次配出、
+标准流程图能力已落地（docs/13 阶段 4.1，specs/flowchart-closeout，含两轮复审
+返工全量收口）：形状样式三字段（fill/borderColor/borderWidth——白底黑框一次配出、
 无填充两态、无填充态 ActionBar 如实显示）；20 型轮廓锚点单源
 （`getAnchorPoint` → `outlineAnchor`，反馈层指示器/外移快照/抓取热区/quick-add
 ghost 起点与落线起点同源，非矩形形状锚点贴轮廓）；同边多线错开
-（`(nodeId, join)` 两元组分組纯派生不落库，自环两端各占一槽）；ELBOWED 全局
-避障 + 紧凑自环 + 拐点手柄（微移 <4px 线身回提交态）+ 悬空线一键清理；网格吸附
+（`(nodeId, join)` 两元组分組纯派生不落库，**同边自环整条豁免**——两端恒 0.5，
+U 形跨度由 routeSelfLoop 按目标展开不被错开压窄）；ELBOWED 全局避障 + 紧凑自环 +
+拐点手柄（微移 <4px 线身/文字回提交态，三类手势同款）+ 悬空线一键清理；网格吸附
 开关（四处落库量化：拖拽/缩放/创建含便签/自由线端点，参考线含等间距先于网格；
 视图偏好 localStorage、销毁入 disposeBoard 序列）；ActionBar 窄屏 flex-wrap
-收纳 + popover 选项 44px 触摸目标 + 默认字色随填充自适应（对比度护栏
-`shapeContrast.test`，白边框定位深底选项）。E2E flowchart 13 例 + 视觉 S1 场景
-（stadium/菱形/矩形 + 回边 + 三标签）基线双平台；`lastRouteObstacles` 探针
-字面量生产零残留（check-debug-bundle 扩扫）。
+收纳 + 默认字色随填充自适应且**编辑器与渲染单源**（黑填充白字、无填充随主题
+dark #ededf2，对比度护栏 `shapeContrast.test`/`textEditStyle.test`，白边框定位
+深底选项；popover 选项钮 28px——44px 实测过大用户拍板回落，触摸目标口径 ≥24px）。
+E2E flowchart 14 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三标签）基线双平台
+（视觉用例已全部 clip 化/清 UI 入镜，DOM chrome 不再误伤基线，specs/linux-visual
+§14.10）；`lastRouteObstacles` 探针字面量生产零残留（check-debug-bundle 扩扫）。
 
-当前实测基线：`pnpm verify` 通过；1247 单测（core 1131 + react 78 + app 38）；
-E2E 50 spec / 265 例（263 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor 2/2、视觉 rotate-45 注入版与旧基线
-逐字节全等；flowchart 13 例（F-1..F-8 + F-3b/c 轮廓锚点判别 + F-6b/c/d 网格
-便签/自由端/缩放）；edgeAutoScroll 11/11 含
+当前实测基线：`pnpm verify` 通过；1257 单测（core 1141 + react 78 + app 38）；
+E2E 50 spec / 269 例（267 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 262 = 260 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 259 +
+a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
+2/2、视觉 rotate-45 注入版基线双平台；flowchart 14 例（F-1..F-8 + F-3b/c 轮廓
+锚点判别 + F-5b 同边自环跨度 + F-6b/c/d 网格便签/自由端/缩放）；edgeAutoScroll
+11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E 端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；
 clickCreateSlip 2/2（形状 + 便签）；视觉 5/5 双平台（6 张基线含 flowchart-sample
 S1 场景，`--stability` 双跑全等）；图片/资产专项 12/12；a11y 6/6；
