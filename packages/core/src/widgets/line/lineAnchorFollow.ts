@@ -196,10 +196,14 @@ export class LineAnchorFollow extends Disposable {
    * 同边多线错开分配（specs/flowchart-closeout §7.3，G-05）：纯派生不落库——
    * 每轮按线 id 字典序重算一致（组内加/删线会让他位线让位，可接受），零写入
    * 不产生幻影事务（samePoints 守卫继续有效）；显式 port 优先不参与分配，
-   * n=1 或未锚定恒 0.5（旧行为）。key = `${end}|${nodeId}|${join}|${lineId}`。
+   * n=1 或未锚定恒 0.5（旧行为）。
+   * 分组键 = `(nodeId, join)`——同一锚边上的出发线与进入线共享同一排槽位
+   * （早期按端拆组会让「从 A 右边出发」与「进入 A 右边」各取 0.5 在同一
+   * 锚点重叠，spec §7.3 原文即两元组）；槽位按 (end, lineId) 记，自环同边
+   * 两端各占一槽（0.4/0.6 对称展开）。输出键 = `${end}|${nodeId}|${join}|${lineId}`。
    */
   private spreadPorts(): Map<string, number> {
-    const groups = new Map<string, string[]>();
+    const groups = new Map<string, Array<{ end: 's' | 'e'; id: string }>>();
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE') continue;
       const data = this.engine.getModelById(vm.id)?.toJSON() as unknown as
@@ -210,19 +214,20 @@ export class LineAnchorFollow extends Disposable {
         const join = end === 's' ? data.startJoin : data.endJoin;
         const port = end === 's' ? data.startPort : data.endPort;
         if (!nodeId || !join || port !== undefined) continue;
-        const key = `${end}|${nodeId}|${join}`;
+        const key = `${nodeId}|${join}`;
         const g = groups.get(key) ?? [];
-        g.push(data.id);
+        g.push({ end, id: data.id });
         groups.set(key, g);
       }
     }
     const out = new Map<string, number>();
-    for (const [key, ids] of groups) {
-      if (ids.length <= 1) continue; // n=1 → 0.5 缺省（旧行为）
-      ids.sort();
-      ids.forEach((id, i) => {
-        const t = 0.2 + (0.6 * (i + 1)) / (ids.length + 1);
-        out.set(`${key}|${id}`, Math.min(0.9, Math.max(0.1, t)));
+    for (const [key, entries] of groups) {
+      if (entries.length <= 1) continue; // n=1 → 0.5 缺省（旧行为）
+      // 字典序稳定：先线 id、再端符（同线两端相邻——自环对称展开）
+      entries.sort((p, q) => (p.id < q.id ? -1 : p.id > q.id ? 1 : p.end < q.end ? -1 : 1));
+      entries.forEach((ent, i) => {
+        const t = 0.2 + (0.6 * (i + 1)) / (entries.length + 1);
+        out.set(`${ent.end}|${key}|${ent.id}`, Math.min(0.9, Math.max(0.1, t)));
       });
     }
     return out;

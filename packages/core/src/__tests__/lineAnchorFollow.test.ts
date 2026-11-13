@@ -280,6 +280,65 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     // 已在 (10,5) 中点 → samePoints 跳过，零写入（幂等守卫继续有效）
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
   });
+
+  it('混合端组：一线从 N1 right 出发、另一线进入 N1 right → 同组错开 0.4/0.6（分组键 = (nodeId, join) 两元组）', () => {
+    const { follow, models } = makeFollow([
+      baseLine('LA'), // start 端锚 N1 right
+      {
+        id: 'LB', // end 端锚 N1 right（同边反向——按端拆组会各取 0.5 重叠）
+        data: {
+          startNodeId: null,
+          startJoin: null,
+          endNodeId: 'N1',
+          endJoin: 'right',
+          points: [
+            [100, 5],
+            [10, 5],
+          ],
+        },
+      },
+    ]);
+    follow.reattach('N1', GEOM);
+    // 同组两条 → id 字典序 LA(start)=0.4、LB(end)=0.6，不再各 0.5 同点
+    expect(models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 4],
+        [100, 5],
+      ],
+    });
+    expect(models.get('LB')!.calls.at(-1)).toEqual({
+      points: [
+        [100, 5],
+        [10, 6],
+      ],
+    });
+  });
+
+  it('自环同边两端（start=end=N1 right/right）各占一槽：对称 0.4/0.6 展开', () => {
+    const { follow, models } = makeFollow([
+      {
+        id: 'LA',
+        data: {
+          startNodeId: 'N1',
+          endNodeId: 'N1',
+          endJoin: 'right',
+          points: [
+            [10, 5],
+            [100, 5],
+          ],
+        },
+      },
+    ]);
+    follow.reattach('N1', GEOM);
+    // 一线两端进同组占两槽（排序同 id 比较 end：e<s）：endT=0.4、startT=0.6
+    // STRAIGHT 分支两端都替换锚点
+    expect(models.get('LA')!.calls.at(-1)).toEqual({
+      points: [
+        [10, 6],
+        [10, 4],
+      ],
+    });
+  });
 });
 
 describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3——settle/unbind 触发）', () => {
