@@ -201,8 +201,11 @@ export class LineAnchorFollow extends Disposable {
    * n=1 或未锚定恒 0.5（旧行为）。
    * 分组键 = `(nodeId, join)`——同一锚边上的出发线与进入线共享同一排槽位
    * （早期按端拆组会让「从 A 右边出发」与「进入 A 右边」各取 0.5 在同一
-   * 锚点重叠，spec §7.3 原文即两元组）；槽位按 (end, lineId) 记，自环同边
-   * 两端各占一槽（0.4/0.6 对称展开）。输出键 = `${end}|${nodeId}|${join}|${lineId}`。
+   * 锚点重叠，spec §7.3 原文即两元组）。**同边自环两端豁免**：两端各占一槽
+   * 会被分到 0.4/0.6，锚点差 0.2×边长 ≥8px 反而绕过 routeSelfLoop 的重合
+   * 展开分支、把 U 压成 0.2×边宽（120 边 = 24px ≪ 设计跨度 max(80, 边长/2)，
+   * 二轮审查实测）——自环两端恒 0.5 交由 routeSelfLoop 按目标跨度展开，也
+   * 不挤占同边其他线的槽位。输出键 = `${end}|${nodeId}|${join}|${lineId}`。
    */
   private spreadPorts(): Map<string, number> {
     const groups = new Map<string, Array<{ end: 's' | 'e'; id: string }>>();
@@ -211,6 +214,15 @@ export class LineAnchorFollow extends Disposable {
       const data = this.engine.getModelById(vm.id)?.toJSON() as unknown as
         (ILineAnchorData & { id: string }) | undefined;
       if (!data) continue;
+      // 同边自环（两端同节点同 join）整条豁免（见上注释）
+      if (
+        data.startNodeId &&
+        data.startNodeId === data.endNodeId &&
+        data.startJoin &&
+        data.startJoin === data.endJoin
+      ) {
+        continue;
+      }
       for (const end of ['s', 'e'] as const) {
         const nodeId = end === 's' ? data.startNodeId : data.endNodeId;
         const join = end === 's' ? data.startJoin : data.endJoin;

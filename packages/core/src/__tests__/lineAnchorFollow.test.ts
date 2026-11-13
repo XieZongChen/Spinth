@@ -314,7 +314,7 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     });
   });
 
-  it('自环同边两端（start=end=N1 right/right）各占一槽：对称 0.4/0.6 展开', () => {
+  it('同边自环整条豁免错开（specs/flowchart-closeout §7.5 二轮返工）：两端恒 0.5', () => {
     const { follow, models } = makeFollow([
       {
         id: 'LA',
@@ -324,20 +324,40 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
           endJoin: 'right',
           points: [
             [10, 5],
-            [100, 5],
+            [10, 5],
           ],
         },
       },
     ]);
     follow.reattach('N1', GEOM);
-    // 一线两端进同组占两槽（排序同 id 比较 end：e<s）：endT=0.4、startT=0.6
-    // STRAIGHT 分支两端都替换锚点
-    expect(models.get('LA')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 6],
-        [10, 4],
-      ],
-    });
+    // 两端恒 0.5 → 锚点重合 (10,5) → STRAIGHT 替换后与原 points 同值 →
+    // samePoints 跳过零写入（ELBOWED 下 |Δ|<8 → routeSelfLoop 按目标跨度
+    // max(80, 边长/2) 展开——跨度断言见 lineRoute.test；若参与错开会分到
+    // 0.4/0.6，锚点差 0.2×边长 ≥8 反而压成 0.2×边宽的窄 U）
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+  });
+
+  it('自环 + 普通线同边：自环不占槽，普通线 n=1 恒 0.5 不被挤位', () => {
+    const { follow, models } = makeFollow([
+      baseLine('LA'), // 普通线 start 端锚 N1 right
+      {
+        id: 'LZ', // 同边自环（right/right）
+        data: {
+          startNodeId: 'N1',
+          endNodeId: 'N1',
+          endJoin: 'right',
+          points: [
+            [10, 5],
+            [10, 5],
+          ],
+        },
+      },
+    ]);
+    follow.reattach('N1', GEOM);
+    // 自环豁免后组内只剩 LA 的 start 端（n=1）→ 恒 0.5 → 已在中点零写；
+    // 若自环占槽则 n=2，LA 会被挤到 0.4（写入 (10,4)）
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LZ')!.model.update).not.toHaveBeenCalled();
   });
 });
 

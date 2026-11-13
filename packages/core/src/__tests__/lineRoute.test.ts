@@ -8,6 +8,7 @@ import {
   segmentIntersectsRect,
   pathLength,
   NODE_MARGIN,
+  routeSelfLoop,
   type IPt,
 } from '../widgets/line/lineMath';
 
@@ -560,5 +561,44 @@ describe('routeSelfLoop 紧凑自环路由', () => {
       { x: 100, y: 140 },
     ]);
     expect(isOrthogonal(pts)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 自环跨度（specs/flowchart-closeout §7.5 二轮返工：同 join 锚点重合按目标跨度展开）
+// ---------------------------------------------------------------------------
+
+describe('routeSelfLoop 同 join 跨度（错开豁免联动）', () => {
+  const NODE: IRect = { x: 0, y: 0, width: 120, height: 80 }; // top 边长 120
+
+  it('锚点重合（两端 0.5）：按跨度 max(80, 边长×0.5) 展开——U 宽 = 80', () => {
+    const pts = routeSelfLoop({
+      start: { x: 60, y: 0 },
+      end: { x: 60, y: 0 },
+      startJoin: 'top',
+      endJoin: 'top',
+      node: NODE,
+    });
+    expect(pts).toHaveLength(4); // U 形 e1/m1/m2/e2
+    const xs = pts.map((p) => p.x);
+    const width = Math.max(...xs) - Math.min(...xs);
+    expect(width).toBeCloseTo(80, 0); // min(max(80, 60), 120) = 80
+    // 展开钳在边内
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(NODE.x);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(NODE.x + NODE.width);
+  });
+
+  it('反例锁（二轮审查实测）：锚点差 0.2×边长 = 24px 时不展开、U 宽仅 24——spreadPorts 豁免同边自环的动因', () => {
+    const pts = routeSelfLoop({
+      start: { x: 48, y: 0 },
+      end: { x: 72, y: 0 },
+      startJoin: 'top',
+      endJoin: 'top',
+      node: NODE,
+    });
+    const xs = pts.map((p) => p.x);
+    const width = Math.max(...xs) - Math.min(...xs);
+    expect(width).toBeCloseTo(24, 0); // |Δ|=24 ≥ 8 → 不触发展开分支
+    expect(width).toBeLessThan(30); // ≪ 设计跨度 80
   });
 });

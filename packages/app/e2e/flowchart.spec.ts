@@ -399,6 +399,45 @@ test('F-5 自环：同节点拖回生成非零面积正交环 + 选中/拖段/�
   expect((await probe(page)).modelCount).toBe(1); // 自环创建一步撤销 → 只剩形状
 });
 
+test('F-5b 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 目标跨度 80（错开豁免）+ 撤销一步', async ({
+  page,
+}) => {
+  await page.goto(`/?doc=e2e-fc-selfloop-same-${Date.now()}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // 世界 (440,316,120,80)：顶边 y=316
+  await page.getByRole('button', { name: /连线/ }).click();
+  // 顶边内侧按下 → 顶边内侧偏移 10px 松手（同 join top、同节点）。
+  // 两端恒 0.5（spreadPorts 豁免自环）→ 锚点重合 → routeSelfLoop 按跨度
+  // min(max(80, 120×0.5), 120) = 80 展开；若参与错开会分到 0.4/0.6、
+  // 锚点差 24px 绕过展开分支压成 24px 窄 U（二轮审查实测）
+  await page.mouse.move(500, 362); // 世界 (500,318)：顶边内侧 2px
+  await page.mouse.down();
+  await page.mouse.move(510, 362, { steps: 3 }); // 世界 (510,318)：仍顶边内侧
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  const line = await firstLine(page);
+  expect(line.startNodeId).not.toBeNull();
+  expect(line.startNodeId).toBe(line.endNodeId); // 同节点
+  expect(line.startJoin).toBe('top');
+  expect(line.endJoin).toBe('top'); // 同边
+  const pts = line.points;
+  expect(pts.length).toBeGreaterThanOrEqual(4); // U 形 4 点
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const axisAligned =
+      Math.abs(pts[i]![0] - pts[i + 1]![0]) < 0.5 || Math.abs(pts[i]![1] - pts[i + 1]![1]) < 0.5;
+    expect(axisAligned).toBe(true); // 全段正交
+  }
+  // U 形跨度：x 极差 = 80（以边中点 500 为中心 → 460..540）
+  const xs = pts.map((p) => p[0]);
+  expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(80, 0);
+  expect(Math.min(...xs)).toBeCloseTo(460, 0);
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(250);
+  expect((await probe(page)).modelCount).toBe(1);
+});
+
 test('F-6 网格吸附：开后落库坐标 mod 16 = 0，关后自由落点', async ({ page }) => {
   await page.goto(`/?doc=e2e-fc-grid-${Date.now()}`);
   await waitForSynced(page);
