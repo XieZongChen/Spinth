@@ -140,7 +140,7 @@ export class LineDrawSession extends Disposable {
       const hit = hitWidget(this.vmEngine, this.viewport, e.world);
       if (hit) {
         const active = JOINS.indexOf(nearestJoin(hit.geom.rect, e.world, hit.geom.rotation));
-        this.host.overlay?.showDrawFeedback(hit.geom, active); // 连线工具目标反馈：紧贴边中点
+        this.host.overlay?.showDrawFeedback(hit.id, hit.geom, active); // 连线工具目标反馈：紧贴轮廓锚点
       } else {
         this.host.overlay?.hideDrawFeedback();
       }
@@ -187,8 +187,8 @@ export class LineDrawSession extends Disposable {
     const hit = hitWidget(this.vmEngine, this.viewport, e.world);
     const join = hit ? nearestJoin(hit.geom.rect, e.world, hit.geom.rotation) : null;
     if (hit) {
-      // 连线工具的目标反馈：连接点**紧贴边中点**（与选中态快速创建点是两套逻辑）
-      this.host.overlay?.showDrawFeedback(hit.geom, JOINS.indexOf(join!));
+      // 连线工具的目标反馈：连接点**紧贴轮廓锚点**（与选中态快速创建点是两套逻辑）
+      this.host.overlay?.showDrawFeedback(hit.id, hit.geom, JOINS.indexOf(join!));
     } else {
       this.host.overlay?.hideDrawFeedback();
     }

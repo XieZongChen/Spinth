@@ -12,7 +12,7 @@ import type {
   ShapeType,
   LineType,
 } from '../../types';
-import { anchorOf, effectivePath, type IPt, type JoinDir } from './lineMath';
+import { ANCHOR_JOINS, effectivePath, outlineAnchorsOf, type IPt, type JoinDir } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { IHostGeom } from '../../common/geometry';
 import type { Point } from 'pixi.js';
@@ -379,16 +379,14 @@ export class LineService extends Disposable {
     const vm = this.vmEngine.getVmById(sel[0]!);
     if (!vm || vm.type === 'LINE' || vm.getRotation() !== 0) return false; // 旋转件不出四点（docs/05 §8）
     const geom = vm.getHostGeom();
-    // 抓取判定按**外移点**（形状外 24px）；连线起点 = 该侧边中点（θ=0——旋转件已禁）
-    const nearest = nearestAnchorDot(geom, world, this.viewport.vpScale$.value || 1);
+    // 抓取判定按**外移点**（轮廓锚点外 24px；θ=0——旋转件已禁）。
+    // anchors = 绘制/快照/抓取/落线起点同一集合（§7.1 第 3 层反馈层统一）
+    const anchors = outlineAnchorsOf(vm, geom);
+    const nearest = nearestAnchorDot(anchors, world, this.viewport.vpScale$.value || 1);
     const grabRadius = 12 / (this.viewport.vpScale$.value || 1);
     if (nearest.d > grabRadius) return false;
-    // 锚点单源经 vm.getAnchorPoint（非矩形形状起点贴轮廓，§7.1 第 3 层）
-    this.quickAdd?.startConnectorFrom(
-      vm.getAnchorPoint(nearest.j, 0.5) ?? anchorOf(geom.rect, nearest.j),
-      nearest.j,
-      world,
-    );
+    // 连线起点 = 该侧轮廓锚点（非矩形形状贴轮廓——与 hover ghost 预览同点）
+    this.quickAdd?.startConnectorFrom(anchors[ANCHOR_JOINS.indexOf(nearest.j)]!, nearest.j, world);
     return true;
   }
 

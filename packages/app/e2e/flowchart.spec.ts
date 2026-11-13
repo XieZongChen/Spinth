@@ -150,7 +150,57 @@ test('F-2 同边多线：三条线锚 A 右缘/B 左缘 → 端点互异且按 0
   }
 });
 
-test('F-3 轮廓锚点：菱形四锚点 = 轮廓四顶点（贴边 ≤1px）', async ({ page }) => {
+test('F-3 轮廓锚点：三角形快照贴轮廓 + 实际拉线起点贴斜边中点（判别实现）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-anchor-tri-${Date.now()}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // 世界 (440,316,120,80)
+  await page.getByRole('button', { name: /选择/ }).click();
+  await page.waitForTimeout(150);
+  await page.mouse.click(500, 400); // 世界 (500,356) = 中心
+  await page.waitForTimeout(250);
+  await barPick(page, '图形类型', '上三角');
+  await page.waitForTimeout(250);
+
+  // 连线工具悬停 → 四锚点快照（世界坐标）。
+  // 上三角轮廓（局部 (60,0)/(120,80)/(0,80)）P→中心射线交点：left/right 落
+  // 斜边中点 (30,40)/(90,40)——与 bbox 边中点 (0,40)/(120,40) 相差 30px，
+  // 判别快照真走轮廓而非 bbox
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(500, 400);
+  await page.waitForTimeout(150);
+  const anchors = (await lineProbe(page)).lineAnchors!;
+  expect(anchors).toHaveLength(4);
+  const expected = [
+    { x: 500, y: 316 }, // top：顶点（恰与 bbox 重合）
+    { x: 530, y: 356 }, // right：右斜边中点
+    { x: 500, y: 396 }, // bottom：底边中点（恰与 bbox 重合）
+    { x: 470, y: 356 }, // left：左斜边中点
+  ];
+  for (const e of expected) {
+    const hit = anchors.some((a) => Math.abs(a.x - e.x) <= 1 && Math.abs(a.y - e.y) <= 1);
+    expect(hit, `锚点应贴轮廓交点 (${e.x},${e.y})，实际 ${JSON.stringify(anchors)}`).toBe(true);
+  }
+  // 反向判别：bbox 左右边中点 (440/560,356) 不在快照里
+  for (const wrong of [
+    { x: 440, y: 356 },
+    { x: 560, y: 356 },
+  ]) {
+    const hit = anchors.some((a) => Math.abs(a.x - wrong.x) <= 1 && Math.abs(a.y - wrong.y) <= 1);
+    expect(hit, `bbox 边中点 (${wrong.x},${wrong.y}) 不应出现在锚点快照中`).toBe(false);
+  }
+
+  // 实际拉线：从右斜边内侧按下（世界 (525,356)，join=right）→ 落库起点 =
+  // 轮廓锚点 (530,356)，不是 bbox 边中点 (560,356)（快照与落线同源的端到端锁）
+  await drawLine(page, 525, 400, 740, 400); // 屏幕 = 世界 + (0,44)
+  const line = await firstLine(page);
+  expect(line.startJoin).toBe('right');
+  expect(line.startNodeId).not.toBeNull();
+  expect(line.points[0]![0]).toBeCloseTo(530, 0);
+  expect(line.points[0]![1]).toBeCloseTo(356, 0);
+  expect(Math.abs(line.points[0]![0] - 560)).toBeGreaterThan(4); // ≠ bbox 边中点
+});
+
+test('F-3b 轮廓锚点：菱形四锚点 = 轮廓四顶点（贴边 ≤1px）', async ({ page }) => {
   await page.goto(`/?doc=e2e-fc-diamond-${Date.now()}`);
   await waitForSynced(page);
   await createRect(page, 500, 400); // 世界 (440,316,120,80)
@@ -177,6 +227,44 @@ test('F-3 轮廓锚点：菱形四锚点 = 轮廓四顶点（贴边 ≤1px）', 
   for (const e of expected) {
     const hit = anchors.some((a) => Math.abs(a.x - e.x) <= 1 && Math.abs(a.y - e.y) <= 1);
     expect(hit, `锚点应贴轮廓顶点 (${e.x},${e.y})，实际 ${JSON.stringify(anchors)}`).toBe(true);
+  }
+});
+
+test('F-3c 轮廓锚点：平行四边形左右锚点贴斜边（≠ bbox 边中点）', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-anchor-par-${Date.now()}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // 世界 (440,316,120,80)
+  await page.getByRole('button', { name: /选择/ }).click();
+  await page.waitForTimeout(150);
+  await page.mouse.click(500, 400);
+  await page.waitForTimeout(250);
+  await barPick(page, '图形类型', '右平行四边形');
+  await page.waitForTimeout(250);
+
+  // 轮廓 = [(21.6,0),(120,0),(98.4,80),(0,80)]（skew = 120×0.18）：
+  // right 锚点 = 右斜边中点 (109.2,40)、left 锚点 = 左斜边中点 (10.8,40)
+  // ——分别与 bbox 边中点 (0,40)/(120,40) 相差 10.8px
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(500, 400);
+  await page.waitForTimeout(150);
+  const anchors = (await lineProbe(page)).lineAnchors!;
+  expect(anchors).toHaveLength(4);
+  const expected = [
+    { x: 500, y: 316 }, // top：上边中点（x=60 ∈ (21.6,120)，恰与 bbox 重合）
+    { x: 549.2, y: 356 }, // right：右斜边中点
+    { x: 500, y: 396 }, // bottom：下边中点（x=60 ∈ (0,98.4)）
+    { x: 450.8, y: 356 }, // left：左斜边中点
+  ];
+  for (const e of expected) {
+    const hit = anchors.some((a) => Math.abs(a.x - e.x) <= 1 && Math.abs(a.y - e.y) <= 1);
+    expect(hit, `锚点应贴轮廓交点 (${e.x},${e.y})，实际 ${JSON.stringify(anchors)}`).toBe(true);
+  }
+  for (const wrong of [
+    { x: 440, y: 356 },
+    { x: 560, y: 356 },
+  ]) {
+    const hit = anchors.some((a) => Math.abs(a.x - wrong.x) <= 1 && Math.abs(a.y - wrong.y) <= 1);
+    expect(hit, `bbox 边中点 (${wrong.x},${wrong.y}) 不应出现在锚点快照中`).toBe(false);
   }
 });
 

@@ -137,8 +137,15 @@ const DOT_JOIN_NORMALS: Record<JoinDir, IPt> = {
 /** scale = 屏幕像素→世界单位换算（Batch 1 · 1.8③：外移量屏幕恒定——
  *  rectEditor 旋转柄同款口径；缺省 1 兼容既有单测的世界口径） */
 export function dotOffsetCenter(bounds: IRect, j: JoinDir, rotation = 0, scale = 1): IPt {
+  return anchorDotCenter(anchorOf(bounds, j, rotation), j, rotation, scale);
+}
+
+/** 外移点中心（预计算锚点版）：a 为已含旋转的锚点（bbox 或轮廓交点均可），
+ *  只沿 join 法向外移 24/scale——反馈层统一轮廓锚点后（specs/flowchart-closeout
+ *  §7.1 第 3 层），绘制圆点/外移快照/抓取热区共用同一锚点集合，本函数是
+ *  「锚点 → 外移点」的唯一数学。 */
+export function anchorDotCenter(a: IPt, j: JoinDir, rotation = 0, scale = 1): IPt {
   const off = ANCHOR_DOT_OFFSET / scale;
-  const a = anchorOf(bounds, j, rotation);
   const n = DOT_JOIN_NORMALS[j];
   if (rotation === 0) return { x: a.x + n.x * off, y: a.y + n.y * off };
   const rn = rotatePointAround(n, { x: 0, y: 0 }, rotation);

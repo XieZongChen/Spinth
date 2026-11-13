@@ -1,7 +1,6 @@
-import type { IHostGeom } from '../../common/geometry';
 import {
+  anchorDotCenter,
   capsuleAnchors,
-  dotOffsetCenter,
   nearestSegBody,
   SEGMENT_BODY_TOLERANCE,
   type IPt,
@@ -9,28 +8,41 @@ import {
 } from './lineMath';
 
 /** 连线悬停几何域（docs/08 §10 批次 2/3）：外移点坐标/快照、最近外移点、
- *  连线端点/段身 hover 判定与光标方向。纯函数，只依赖 points/lineType/
- *  knockout/world/scale——副作用（手柄显隐、setHoverCursor）归 LineHoverOverlay。 */
+ *  连线端点/段身 hover 判定与光标方向。纯函数，只依赖锚点集合/points/
+ *  lineType/knockout/world/scale——副作用（手柄显隐、setHoverCursor）归
+ *  LineHoverOverlay。
+ *  外移点族（dotCenter/dotSnapshots/nearestDot）收轮廓锚点数组（=
+ *  lineGeometry.outlineAnchorsOf 单源，specs/flowchart-closeout §7.1
+ *  第 3 层）：非矩形形状快照/命中贴轮廓，与指示器绘制、抓取判定同源。 */
 
 export const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
 
 /** 四向外移点坐标快照（快照供 E2E 探针 + hover 命中判定共用） */
-export function dotSnapshots(geom: IHostGeom, scale: number): Array<{ x: number; y: number }> {
+export function dotSnapshots(
+  anchors: readonly IPt[],
+  rotation = 0,
+  scale = 1,
+): Array<{ x: number; y: number }> {
   return JOINS.map((j) => {
-    const c = dotCenter(geom, j, scale);
+    const c = dotCenter(anchors, j, rotation, scale);
     return { x: c.x, y: c.y };
   });
 }
 
-/** 连接点外移点中心（edge 锚点 + 法向 24px——与指示器绘制同源，避开边中点缩放手柄） */
-export function dotCenter(geom: IHostGeom, j: JoinDir, scale: number): IPt {
+/** 连接点外移点中心（轮廓锚点 + 法向 24px——与指示器绘制同源，避开边中点缩放手柄） */
+export function dotCenter(anchors: readonly IPt[], j: JoinDir, rotation = 0, scale = 1): IPt {
   // 1.8③：外移量屏幕恒定（与抓取圆心同源）
-  return dotOffsetCenter(geom.rect, j, geom.rotation, scale);
+  return anchorDotCenter(anchors[JOINS.indexOf(j)]!, j, rotation, scale);
 }
 
 /** 最近外移点（四向距离排序取最近——hover 命中与按下抓取同口径） */
-export function nearestDot(geom: IHostGeom, world: IPt, scale: number): { j: JoinDir; d: number } {
-  return JOINS.map((j) => ({ j, c: dotCenter(geom, j, scale) }))
+export function nearestDot(
+  anchors: readonly IPt[],
+  world: IPt,
+  scale: number,
+  rotation = 0,
+): { j: JoinDir; d: number } {
+  return JOINS.map((j) => ({ j, c: dotCenter(anchors, j, rotation, scale) }))
     .map(({ j, c }) => ({ j, d: Math.hypot(c.x - world.x, c.y - world.y) }))
     .sort((p, q) => p.d - q.d)[0]!;
 }

@@ -1,7 +1,7 @@
 import type { Point } from 'pixi.js';
 import type { IHostGeom } from '../../common/geometry';
 import type { IViewportService, IVmEngineService } from '../../types';
-import { dotOffsetCenter, type IPt, type JoinDir } from './lineMath';
+import { anchorDotCenter, type IPt, type JoinDir } from './lineMath';
 
 const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
 
@@ -45,14 +45,15 @@ export function hitWidget(
   return null;
 }
 
-/** 选中形状的最近连接点外移点（抓取判定按**外移点**——形状外 24px；
- *  maybeShapeAnchorGrab 抓取与 hover 同口径） */
+/** 选中形状的最近连接点外移点（抓取判定按**外移点**——轮廓锚点外 24px；
+ *  maybeShapeAnchorGrab 抓取与 hover 同口径。anchors = outlineAnchorsOf
+ *  单源——可见圆点即抓取热区，非矩形形状不再点在这儿、抓在别处） */
 export function nearestAnchorDot(
-  geom: IHostGeom,
+  anchors: readonly IPt[],
   world: { x: number; y: number },
   scale: number,
 ): { j: JoinDir; d: number } {
-  return JOINS.map((j) => ({ j, a: dotOffsetCenter(geom.rect, j, 0, scale) }))
+  return JOINS.map((j, i) => ({ j, a: anchorDotCenter(anchors[i]!, j, 0, scale) }))
     .map(({ j, a }) => ({ j, d: Math.hypot(a.x - world.x, a.y - world.y) }))
     .sort((p, q) => p.d - q.d)[0]!;
 }

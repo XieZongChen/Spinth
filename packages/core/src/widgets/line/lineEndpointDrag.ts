@@ -110,7 +110,7 @@ export class LineEndpointDrag extends Disposable {
         y: this.host.gridSnapOn() ? quantizeGrid(world.y) : world.y,
       };
     // 吸附反馈：目标元素连接点亮起（悬停目标时）
-    if (hit) this.overlay.showDrawFeedback(hit.geom, JOINS.indexOf(join!));
+    if (hit) this.overlay.showDrawFeedback(hit.id, hit.geom, JOINS.indexOf(join!));
     else this.overlay.hideDrawFeedback();
     const pts = data.points.map((p) => ({ x: p[0], y: p[1] }));
     // 避让节点用世界 AABB（旋转宿主保守外接，docs/05 §8）

@@ -1,7 +1,13 @@
 import { Disposable } from '../../base/disposable';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { ISelectorService, IVmEngineService, IViewportService } from '../../types';
-import { anchorOf, capsuleAnchors, effectivePath, type IPt, type JoinDir } from './lineMath';
+import {
+  capsuleAnchors,
+  effectivePath,
+  outlineAnchorsOf,
+  type IPt,
+  type JoinDir,
+} from './lineMath';
 import { JOINS, dotSnapshots, nearestDot, resolveLineHover } from './lineHoverMath';
 import { LineAnchorIndicator } from './lineAnchorIndicator';
 import { LineEndpointHandles } from './lineEndpointHandles';
@@ -177,11 +183,16 @@ export class LineHoverOverlay extends Disposable {
       return;
     }
     // 非 LINE 形状（docs/08 §10 批次 2，参考同款）：四向连接点**常显**——
-    // 选中态视觉的一部分（非悬停提示）；快照 = 外移点（与抓取判定同坐标）
+    // 选中态视觉的一部分（非悬停提示）；快照 = 轮廓锚点外移点（与抓取判定同坐标）
     const geom = first.getHostGeom();
-    this.indicator.show(geom);
+    const anchors = outlineAnchorsOf(first, geom);
+    this.indicator.show(anchors, geom);
     this.hoverTarget = { id: first.id, geom };
-    this.anchorHoverSnapshot = dotSnapshots(geom, this.viewport.vpScale$.value || 1);
+    this.anchorHoverSnapshot = dotSnapshots(
+      anchors,
+      geom.rotation,
+      this.viewport.vpScale$.value || 1,
+    );
     this.anchorActiveSnapshot = null;
     this.ghostPreview.hide();
     // 模型几何变化（拖拽落库/键盘微移/undo/远端）→ 四点跟随
@@ -207,9 +218,14 @@ export class LineHoverOverlay extends Disposable {
       return;
     }
     const geom = vm.getHostGeom();
-    this.indicator.show(geom, this.anchorActiveSnapshot);
+    const anchors = outlineAnchorsOf(vm, geom);
+    this.indicator.show(anchors, geom, this.anchorActiveSnapshot);
     this.hoverTarget = { id: vm.id, geom };
-    this.anchorHoverSnapshot = dotSnapshots(geom, this.viewport.vpScale$.value || 1);
+    this.anchorHoverSnapshot = dotSnapshots(
+      anchors,
+      geom.rotation,
+      this.viewport.vpScale$.value || 1,
+    );
   }
 
   /**
@@ -270,10 +286,12 @@ export class LineHoverOverlay extends Disposable {
     }
     const world = this.viewport.clientToWorld(e.clientX, e.clientY);
     const scale = this.viewport.vpScale$.value || 1;
-    // 最近外移点（≤抓取半径 12/scale = hover 命中，与按下抓取 maybeShapeAnchorGrab 同口径）
-    const nearest = nearestDot(target.geom, world, scale);
+    // 轮廓锚点集合（与快照/抓取/落线起点同源）；最近外移点（≤抓取半径
+    // 12/scale = hover 命中，与按下抓取 maybeShapeAnchorGrab 同口径）
+    const anchors = outlineAnchorsOf(this.vmEngine.getVmById(target.id), target.geom);
+    const nearest = nearestDot(anchors, world, scale);
     if (nearest.d <= 12 / scale) {
-      const anchor = anchorOf(target.geom.rect, nearest.j, target.geom.rotation);
+      const anchor = anchors[JOINS.indexOf(nearest.j)]!;
       const sb = this.vmEngine.getVmById(target.id)?.getBounds() ?? null;
       const sbFull = sb ?? { x: anchor.x, y: anchor.y, width: 120, height: 80 };
       // 预览即结果（quickAddPlan 与点击共用）：只连线 = 灰线连已有形状；
@@ -286,8 +304,8 @@ export class LineHoverOverlay extends Disposable {
       this.clearQuickAnchor();
     }
     // 四点常显 + 指针贴近外移点时高亮
-    this.indicator.show(target.geom, this.anchorActiveSnapshot);
-    this.anchorHoverSnapshot = dotSnapshots(target.geom, scale);
+    this.indicator.show(anchors, target.geom, this.anchorActiveSnapshot);
+    this.anchorHoverSnapshot = dotSnapshots(anchors, target.geom.rotation, scale);
   };
 
   /** 外移点中心单源在 lineHoverMath.dotCenter（overlay 调用处传 scale） */
@@ -363,10 +381,12 @@ export class LineHoverOverlay extends Disposable {
     this.endpointHandles.hide();
   }
 
-  /** 绘制/端点拖拽的吸附反馈：指示器紧贴边中点（outside:false）+ 边锚点快照 */
-  showDrawFeedback(geom: IHostGeom, activeIndex: number | null): void {
-    this.indicator.show(geom, activeIndex, { outside: false });
-    this.anchorHoverSnapshot = JOINS.map((j) => anchorOf(geom.rect, j, geom.rotation));
+  /** 绘制/端点拖拽的吸附反馈：指示器紧贴轮廓锚点（outside:false）+ 锚点快照。
+   *  vmId 缺失（极端时序）回退 bbox 锚点——快照语义不变（E2E 探针消费）。 */
+  showDrawFeedback(vmId: string | null, geom: IHostGeom, activeIndex: number | null): void {
+    const anchors = outlineAnchorsOf(vmId ? this.vmEngine.getVmById(vmId) : null, geom);
+    this.indicator.show(anchors, geom, activeIndex, { outside: false });
+    this.anchorHoverSnapshot = anchors.map((p) => ({ x: p.x, y: p.y }));
     this.anchorActiveSnapshot = activeIndex;
   }
 

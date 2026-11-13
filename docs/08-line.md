@@ -50,8 +50,10 @@ const LineSchema = z.object({
   同边多线错开分配 > 0.5。错开分配为纯派生不落库：同端、同节点、同 join 的
   n 条线按 id 字典序分 `0.2 + 0.6×(i+1)/(n+1)`；拉线落定 / 删线 / 删节点余线
   均触发全量重排（加删线后仍均分），samePoints 守卫保证零位移线零写入。
-- 悬停 widget：小节点取最近边，大节点按象限精确方向；锚点指示器画在
-  `getAnchorPoint` 位置（与真实锚定同一单源）。
+- 悬停 widget：连接点判定取四向外移点最近侧（外移 24px 屏幕恒定）；锚点
+  指示器圆点、外移点快照、抓取热区与 quick-add ghost 起点共用同一轮廓锚点
+  集合（`lineGeometry.outlineAnchorsOf` → `getAnchorPoint`，与真实锚定同
+  一单源——非矩形形状上可见圆点即落线起点）。
 - widget 移动/缩放 → 订阅其 `onStateChanged$` → 重算关联线 points（微任务合并）。
 - 解绑：拖离锚点后 `nodeId/join` 置 null，端点自由。
 - 删除锚定节点：`onModelRemoved$` 将该端 `nodeId/join` 置 null，points 不动；

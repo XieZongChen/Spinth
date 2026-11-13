@@ -64,6 +64,28 @@ export function nodeAnchorPoint(
   return null;
 }
 
+/** 四向连接点求值序（快照/绘制/命中共用的锚点数组顺序） */
+export const ANCHOR_JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
+
+/** 四向轮廓锚点单源（specs/flowchart-closeout §7.1 第 3 层反馈层统一）：
+ *  指示器圆点、外移快照、抓取热区、quick-add ghost 起点共用同一锚点集合
+ *  ——非矩形形状（triangle/parallelogram 等）上「所见圆点 = 可抓点 = 落线
+ *  起点」，不再出现点在这儿、线从别处开始。vm 缺失（桩/极端时序）回退
+ *  bbox anchorOf；与 nodeAnchorPoint 同式（彼处按单端取点，此处整组）。 */
+export function outlineAnchorsOf(
+  vm:
+    | {
+        getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPt;
+      }
+    | null
+    | undefined,
+  geom: IHostGeom,
+): IPt[] {
+  return ANCHOR_JOINS.map(
+    (j) => vm?.getAnchorPoint(j, 0.5, geom) ?? anchorOf(geom.rect, j, geom.rotation),
+  );
+}
+
 /** 线段-点距离平方（命中检测，docs/08 §7） */
 export function sqDistToSegment(p: IPt, a: IPt, b: IPt): number {
   const dx = b.x - a.x;

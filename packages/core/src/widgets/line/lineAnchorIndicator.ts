@@ -43,19 +43,26 @@ export class LineAnchorIndicator extends Container {
   }
 
   /**
-   * 显示连接点（bounds 为世界坐标 = stage 坐标）：
-   * - 默认（选中态快速创建点）：形状**外** 24px——避开边缘缩放热区，与抓取判定
-   *   （dotCenter）/ 快捷创建快照同一坐标（历史上默认值写反过：点位画在边中点、
-   *   抓取却按外移点判定的隐形错位，2026-09-29 修正）；
-   * - outside=false（连线工具的目标反馈）：**紧贴边中点**（两套逻辑不同，docs/08 §10）；
+   * 显示连接点（世界坐标 = stage 坐标）：
+   * - anchors = outlineAnchorsOf 轮廓锚点集合（与快照/抓取/落线起点同源，
+   *   specs/flowchart-closeout §7.1 第 3 层）；元素缺失时回退 bbox anchorOf；
+   * - 默认（选中态快速创建点）：锚点**外** 24px——避开边缘缩放热区，与抓取
+   *   判定（dotCenter）/ 快捷创建快照同一坐标（历史上默认值写反过：点位画在
+   *   边中点、抓取却按外移点判定的隐形错位，2026-09-29 修正）；
+   * - outside=false（连线工具的目标反馈）：**紧贴锚点**（两套逻辑不同，docs/08 §10）；
    * activeIndex = 光标最近连接点（放大高亮——指示器本身 eventMode none，
    * 用视觉响应替代 hover 态）。
    */
-  show(geom: IHostGeom, activeIndex: number | null = null, opts?: { outside?: boolean }): void {
+  show(
+    anchors: readonly IPt[],
+    geom: IHostGeom,
+    activeIndex: number | null = null,
+    opts?: { outside?: boolean },
+  ): void {
     const off = opts?.outside === false ? 0 : ANCHOR_DOT_OFFSET;
     this.g.clear();
     JOINS.forEach((j, i) => {
-      const a = anchorOf(geom.rect, j, geom.rotation);
+      const a = anchors[i] ?? anchorOf(geom.rect, j, geom.rotation);
       const n =
         geom.rotation === 0
           ? JOIN_NORMALS[j]

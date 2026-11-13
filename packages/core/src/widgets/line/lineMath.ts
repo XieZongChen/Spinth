@@ -29,6 +29,8 @@ export {
   segmentGeoms,
   r2,
   nodeAnchorPoint,
+  outlineAnchorsOf,
+  ANCHOR_JOINS,
   nearestSegBody,
   intersectLine,
 } from './lineGeometry';
@@ -70,6 +72,7 @@ export {
   capsuleAnchors,
   ANCHOR_DOT_OFFSET,
   dotOffsetCenter,
+  anchorDotCenter,
   SEGMENT_BODY_TOLERANCE,
   SEG_SLIDE_STUB,
   slideSegment,
