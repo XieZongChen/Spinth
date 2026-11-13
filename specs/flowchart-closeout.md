@@ -627,8 +627,11 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
       等间距让位网格（spacingV/H 标记）、拉线自由端量化与 gridSnap 销毁序列）。
 - [x] 拐点手柄：ELBOWED 线可拖单拐点，相邻段保持正交，撤销一步（F-8；微移 <4px
       松手线身回提交态返工加测）。
-- [x] 老文档（无新字段）打开后渲染与今日逐字节一致（视觉基线 5 张全等；本批返工
-      重生成 6 张双平台，`--stability` 双跑逐字节全等）。
+- [x] 老文档（无新字段）打开后渲染与今日逐字节一致（视觉基线 5 张；二轮返工将
+      delay-tall/marks 改 page 级 clip、theme 双态清选区去 ActionBar 入镜后，
+      6 张双平台**同提交全量重生成**、`--stability` 双跑逐字节全等——一轮「重生成
+      6 张双平台」的说法不实：当时 darwin 仅 flowchart-sample 1 张被重写、4 张
+      linux 单侧漂移，根因与处置见 specs/linux-visual §14.10）。
 
 ### 18.2 质量门禁
 
@@ -638,8 +641,10 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
       返工扩至 13 例含 F-3b/c、F-6b/c/d）。
 - [x] 视觉基线：新增 `flowchart-sample` 1 张 + darwin/linux 双平台；
       `pnpm visual:linux --stability` 双跑全等（specs/linux-visual §10.3）。
-      返工：clip 改 page 级（locator 级 toHaveScreenshot 忽略 clip，旧基线实为
-      整画布 1440×856）、场景补齐 stadium/回边/三处线上标签（S1 完整形态）。
+      一轮返工：flowchart-sample clip 改 page 级（locator 级 toHaveScreenshot
+      忽略 clip，旧基线实为整画布 1440×856）、场景补齐 stadium/回边/三处线上
+      标签（S1 完整形态）。二轮返工：delay-tall/marks 同步 clip 化、theme 双态
+      清选区去 UI 入镜，6 张双平台同提交全量重生成（specs/linux-visual §14.10）。
 - [x] 渲染同步六条铁律回归：`renderSync.test.ts`、`adsorber.test.ts`、
       `refLineService.test.ts` 全绿。
 - [x] 生产构建零调试残留：`check-debug-bundle` 通过（`lastRouteObstacles` 不泄漏——

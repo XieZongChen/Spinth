@@ -82,10 +82,12 @@ test('视觉快照 @visual：delay 扁高守界（30×240 退化窄月牙不出 
   });
   expect(st).toEqual({ w: 30, h: 240 });
 
-  // 4. Escape 清选中（选中把手凸出 bbox 左缘会假阳性——33 轮审查坑①）后截图
+  // 4. Escape 清选中（选中把手凸出 bbox 左缘会假阳性——33 轮审查坑①）后截图。
+  //    page 级 clip（locator 级 toHaveScreenshot 忽略 clip，旧基线实为整画布
+  //    含工具坞 DOM——UI 改动会误伤本用例，specs/flowchart-closeout 二轮返工）
   await page.keyboard.press('Escape');
   await page.waitForTimeout(120);
-  await expect(page.locator('canvas').first()).toHaveScreenshot('delay-tall.png', {
+  await expect(page).toHaveScreenshot('delay-tall.png', {
     clip: { x: 290, y: 234, width: 160, height: 260 }, // 世界 400,200 起局部（含描边余量）
     animations: 'disabled',
   });
@@ -134,11 +136,16 @@ test('视觉快照 @visual：主题双态整帧（同文档 light/dark）', asyn
     )
     .toBe(true);
 
+  // 整帧是设计意图（底色/点阵/默认文字色全在画布上），但**清选区后再截**——
+  // 退出编辑仍单选会带 ActionBar/手柄入镜，ActionBar 改动会误伤主题基线
+  // （一轮返工 theme-light 变/dark 不变的根因，specs/linux-visual §14.10）
+  await page.keyboard.press('Escape'); // 再一次 Esc：清选区（退出编辑的 Esc 已按过）
+  await page.waitForTimeout(200);
   await expect(page.locator('canvas').first()).toHaveScreenshot('theme-light.png', {
     clip: canvasClip,
   });
 
-  // 切深色 → 整帧对比（底色/点阵/默认文字色全变）
+  // 切深色 → 整帧对比（底色/点阵/默认文字色全变）；reload 后无选中态
   await page.evaluate(() => {
     localStorage.setItem('spinth.theme', 'dark');
     window.location.reload();
@@ -202,7 +209,9 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
     .toBe(true);
 
   // 文字控件区域截图（粗细/斜体/下划线是纯视觉行为——textSpans 探针只证数据在；
-  // 下划线为 pixi 无原生能力的手绘 Graphics，位置/线宽以此快照为视觉定稿依据）
+  // 下划线为 pixi 无原生能力的手绘 Graphics，位置/线宽以此快照为视觉定稿依据）。
+  // page 级 clip（locator 级忽略 clip——旧基线实为整画布含工具坞 DOM，
+  // specs/flowchart-closeout 二轮返工）
   const b = await page.evaluate(() => {
     const s = (
       window as unknown as {
@@ -215,7 +224,7 @@ test('视觉快照 @visual：marks 渲染（粗体/斜体/下划线/彩色落画
     ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'TEXT')!;
     return { x: s.x, y: s.y, width: s.width, height: s.height };
   });
-  await expect(page.locator('canvas').first()).toHaveScreenshot('marks-render.png', {
+  await expect(page).toHaveScreenshot('marks-render.png', {
     clip: {
       x: Math.max(0, b.x - 20),
       y: Math.max(44, b.y - 20 + 44),

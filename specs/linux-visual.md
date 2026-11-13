@@ -231,6 +231,7 @@ packages/app/e2e/visual.spec.ts-snapshots/
   theme-dark-linux.png
   marks-render-linux.png
   rotate-45-linux.png
+  flowchart-sample-linux.png
 ```
 
 - 平台串由 Playwright 的 `{platform}` 决定，Linux 上是 `linux`，不手写、不改名。
@@ -374,7 +375,8 @@ Phase 1 接受「最迟 24 小时发现回归」的窗口；是否进 PR 需要�
 
 ### 10.1 用例与环境
 
-- 视觉用例数量不变：4 个测试 / 5 张快照；不为预检新增测试标题，避免文档计数漂移。
+- 视觉用例：5 个测试 / 6 张快照（flowchart-closeout 批新增 flowchart-sample）；
+  不为预检新增测试标题，避免文档计数漂移。
 - `ready()` 增加三项环境断言：`devicePixelRatio === 1`、WebGL 上下文非空、`document.fonts.ready` 已 resolve。它们只影响失败信息，不改变像素。
 - 运行参数：`--workers=1 --retries=0`；容差保持 0.02。
 
@@ -382,8 +384,8 @@ Phase 1 接受「最迟 24 小时发现回归」的窗口；是否进 PR 需要�
 
 | 验收        | 命令/动作                                                | 期望                            |
 | ----------- | -------------------------------------------------------- | ------------------------------- |
-| macOS 回归  | 本地 `npx playwright test --grep @visual`（系统 Chrome） | 4/4，darwin 基线零变化          |
-| Linux 校验  | `pnpm visual:linux`                                      | 4/4，5 张 linux 基线匹配        |
+| macOS 回归  | 本地 `npx playwright test --grep @visual`（系统 Chrome） | 5/5，darwin 基线零变化          |
+| Linux 校验  | `pnpm visual:linux`                                      | 5/5，6 张 linux 基线匹配        |
 | 可复现      | `pnpm visual:linux --stability`                          | 两次生成 SHA-256 全等           |
 | update 正确 | `pnpm visual:linux --update`                             | 5 张更新；随后自动校验通过      |
 | 负向        | N1–N5                                                    | 各自按预期红                    |
@@ -698,6 +700,45 @@ nightly（run 41357664325）visual 红：上游 `v1.64.1-noble` 同 tag 重发�
 - 本机镜像源与 CI digest 不一致（daocloud 滞后），本机 `pnpm visual:linux`
   不能作为 CI 等价验证——验收以 CI workflow_dispatch 为准。
 
+### 14.10 视觉用例解耦 UI 入镜：clip 化 + 清选区 + 双平台全量重生成（2026-11-14，flowchart-closeout 二轮返工）
+
+flowchart-closeout 一轮返工（`220595c`）的 `--update` 中 4 张既有 linux 基线变化
+（delay-tall/marks-render/rotate-45/theme-light）而 darwin 对应基线未重写，两平台
+内容漂移。二轮审查复盘根因——**不是环境变化**（镜像指纹输入自 11-03 `43dca79` 起
+零变化、同 tag 复用；§14.9 的 digest pin 之后 `c1c9abb` 一轮 `--update` 曾证实 5 张
+旧图逐字节不变），而是产品 UI 改动经基线入镜：
+
+- delay-tall / marks-render 用 locator 级 `toHaveScreenshot(..., { clip })`——
+  **clip 选项被 locator 断言忽略**，基线实为整画布 1440×856，含底部工具坞浮条
+  与缩放胶囊（DOM chrome 入镜）；
+- theme-light 整帧含**选中态 ActionBar**（退出编辑仍单选），44px 选项钮等
+  ActionBar 改动直接打进基线——theme-dark 在 reload 后无选中故逐字节不变，
+  与「light 变 dark 不变」的 diff 形态吻合。
+
+处置（解耦「UI 改动误伤视觉基线」）：
+
+- delay-tall / marks-render 改 **page 级 clip**（`expect(page).toHaveScreenshot`，
+  与 rotate-45/flowchart-sample 同款）——基线从整画布变纯画布裁剪区；
+- theme 双态保持整帧（设计意图：底色/点阵/默认文字色全在画布上），但
+  **截图前 Esc 清选区**，ActionBar/手柄不再入镜；
+- 6 张基线 darwin + linux **双平台同提交全量重生成**（§6.3「有意变化两平台
+  同提交」纪律），`--stability` 双跑 SHA-256 逐字节全等。
+
+本批 linux 基线 SHA-256（stability 双跑全等）：
+
+```
+d067aaeed9279913…  delay-tall-linux.png
+3f7e182edf7a39d0…  flowchart-sample-linux.png
+da7d5e14191ab7c0…  marks-render-linux.png
+96f14939cac1e1ea…  rotate-45-linux.png
+81c211e42af91724…  theme-dark-linux.png
+b8e77427e14fdd7f…  theme-light-linux.png
+```
+
+教训入册：视觉基线的入镜面必须只含被测渲染面——DOM chrome（工具坞/操作栏/
+胶囊）一旦入镜，任何 UI 批次都会「误伤」视觉基线；locator 级截图断言的 clip
+是被静默忽略的（Playwright locator 断言无 clip 选项），写 clip 必须用 page 级。
+
 ## 15. 附录
 
 ### A. 文件地图
@@ -715,7 +756,7 @@ scripts/visual-linux/run.mjs             安装预检/执行/runOnce/runStabilit
 scripts/visual-linux/artifact.mjs        哈希清单/审计采集/update 产物
 scripts/visual-linux/stems.mjs           基线清单单源提取
 scripts/check-visual-baselines.mjs
-packages/app/e2e/visual.spec.ts-snapshots/*-linux.png   (5 张)
+packages/app/e2e/visual.spec.ts-snapshots/*-linux.png   (6 张)
 specs/linux-visual.md                                   (本文)
 ```
 
