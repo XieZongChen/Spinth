@@ -505,6 +505,11 @@ specs/spacing-endchain）。本阶段只新增「与网格吸附的优先级」�
 工具坞二级菜单与新 popover（边框色/宽、填充）须遵循 390px 九面布局矩阵与触摸目标
 ≥44px（specs/a11y-mobile）；长按 = 右键菜单的既有降级路径不变。
 
+返工拍板（2026-11-14 复审收口）：popover 选项钮全部升至 44×44（h-11 w-11，rem 令牌
+随 textScale 缩放）；ActionBar 容器加 flex-wrap——形状 9 项在 390/320 下换行收纳
+（scrollWidth ≤ clientWidth、子项全在视口，`barNoOverflow` 断言进 mobile M7 与
+a11yLayout R1-c，后者另锁 minTarget 44）。
+
 ## 13. 面板与 UI 落点
 
 | 入口               | 文件                                                                  | 变更                                                    |
@@ -553,6 +558,13 @@ UI 约束（specs/rem-typography、a11y-closeout）：字号用 rem 令牌、对
 - 键盘可达：清理命令与新 popover 必须能纯键盘完成（Tab 进入 popover、方向键选值、
   Esc 关闭）。
 
+返工拍板（2026-11-14 复审收口，护栏落地形态）：默认字色随填充自适应
+（`shapeVm.defaultTextColorForFill`——浅填充 #333333 / 深填充 #ffffff / 无填充深色，
+per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（深色 + 白/浅灰，
+深浅双底可达）；护栏单测 `shapeContrast.test.ts`（每填充色默认字色 ≥4.5、色板双底
+可达、contrastRatio 口径）。白边框保留为深色填充上的显式选项（浅底低对比属用户
+选择，docs/04 §8.3 标注用途）；护栏不逐色硬锁边框 vs 画布底。
+
 ## 17. 实施分期
 
 按依赖与可回退性排序。P0 是「样本能看」，P1 是「完成标志达标」，P2 是打磨。
@@ -590,43 +602,67 @@ UI 约束（specs/rem-typography、a11y-closeout）：字号用 rem 令牌、对
 
 ### 18.1 功能验收
 
-- [ ] S1 白底黑框样本：`fill: solid` + `#ffffff` + `borderColor: #000000` + `borderWidth: 1/2`
-      可一次配出，导出 PNG 与屏幕一致。
-- [ ] S3 同边多线：三条线锚同一对边，间距均匀、无重叠，加删线后仍均分。
-- [ ] 非矩形锚点：diamond/triangle/parallelogram/document 的四个锚点均贴轮廓
-      （视觉 E2E 断点圆点距图形边缘 ≤1px）。
-- [ ] S2 避障：中间节点挡路时线绕行，不穿过该节点；无解时仍连通（fallback）。
-- [ ] 自环：从 A 拖回 A 生成紧凑自环，可选中/拖段/加箭头/加标签/撤销一步。
-- [ ] 删节点后线保留且可一键清理；纯自由线不被误清。
-- [ ] 网格吸附：开关生效于拖拽移动/缩放/创建/自由端点；关闭后行为与今日逐字节一致。
-- [ ] 拐点手柄：ELBOWED 线可拖单拐点，相邻段保持正交，撤销一步。
-- [ ] 老文档（无新字段）打开后渲染与今日逐字节一致（视觉基线 5 张全等）。
+- [x] S1 白底黑框样本：`fill: solid` + `#ffffff` + `borderColor: #000000` + `borderWidth: 1/2`
+      可一次配出，导出 PNG 与屏幕一致（F-1 + 视觉 S1 场景；§19.2 屏幕对照属手工）。
+- [x] S3 同边多线：三条线锚同一对边，间距均匀、无重叠，加删线后仍均分
+      （F-2 E2E + lineAnchorFollow 单测；返工后分组键为 (nodeId, join) 两元组，
+      混合端组/自环两端单测锁定）。
+- [x] 非矩形锚点：diamond/triangle/parallelogram/document 的四个锚点均贴轮廓
+      （F-3 三角形快照 + 实际拉线起点判别、F-3b 菱形、F-3c 平行四边形快照；
+      document 等 20 型锚点贴折线 ≤0.5px 由 shapeOutline 单测锁、大半径曲线对
+      真贝塞尔/真圆弧收敛 ≤1px 返工加测；指示器/快照/抓取热区/ghost 起点已与
+      落线起点同源——返工修复「点在这儿、线从别处开始」）。
+- [x] S2 避障：中间节点挡路时线绕行，不穿过该节点；无解时仍连通（fallback）（F-4）。
+- [x] 自环：从 A 拖回 A 生成紧凑自环，可选中/拖段/加箭头/加标签/撤销一步
+      （F-5 返工扩为交互链五步 + 逐步撤销）。
+- [x] 删节点后线保留且可一键清理；纯自由线不被误清（F-7）。
+- [x] 网格吸附：开关生效于拖拽移动/缩放/创建/自由端点；关闭后行为与今日逐字节一致
+      （F-6 移动 + F-6b 便签创建 + F-6c 拉线自由端 + F-6d 缩放；返工补齐便签接线、
+      等间距让位网格（spacingV/H 标记）、拉线自由端量化与 gridSnap 销毁序列）。
+- [x] 拐点手柄：ELBOWED 线可拖单拐点，相邻段保持正交，撤销一步（F-8；微移 <4px
+      松手线身回提交态返工加测）。
+- [x] 老文档（无新字段）打开后渲染与今日逐字节一致（视觉基线 5 张全等；本批返工
+      重生成 6 张双平台，`--stability` 双跑逐字节全等）。
 
 ### 18.2 质量门禁
 
-- [ ] `pnpm verify` 全绿（hygiene + lint + font-units + prettier + typecheck +
+- [x] `pnpm verify` 全绿（hygiene + lint + font-units + prettier + typecheck +
       license + notices + visual-baselines + 单测 + build）。
-- [ ] `pnpm test:e2e` 全绿；新增 `flowchart.spec.ts` 用例 F-1…F-8（见 §18.3）。
-- [ ] 视觉基线：新增 `flowchart-sample` 1 张 + darwin/linux 双平台；
+- [x] `pnpm test:e2e` 全绿；新增 `flowchart.spec.ts` 用例 F-1…F-8（见 §18.3，
+      返工扩至 13 例含 F-3b/c、F-6b/c/d）。
+- [x] 视觉基线：新增 `flowchart-sample` 1 张 + darwin/linux 双平台；
       `pnpm visual:linux --stability` 双跑全等（specs/linux-visual §10.3）。
-- [ ] 渲染同步六条铁律回归：`renderSync.test.ts`、`adsorber.test.ts`、
+      返工：clip 改 page 级（locator 级 toHaveScreenshot 忽略 clip，旧基线实为
+      整画布 1440×856）、场景补齐 stadium/回边/三处线上标签（S1 完整形态）。
+- [x] 渲染同步六条铁律回归：`renderSync.test.ts`、`adsorber.test.ts`、
       `refLineService.test.ts` 全绿。
-- [ ] 生产构建零调试残留：`check-debug-bundle` 通过（`lastRouteObstacles` 不泄漏）。
+- [x] 生产构建零调试残留：`check-debug-bundle` 通过（`lastRouteObstacles` 不泄漏——
+      返工：生产侧改中性名 routeObstaclesProbe/recentObstacles，字面量扩入扫描）。
 
 ### 18.3 E2E 用例清单
 
-| 编号 | 用例                                                         |
-| ---- | ------------------------------------------------------------ |
-| F-1  | 白底黑框：设填充/边框色/边框宽 → 断言渲染样式探针 + 导出成功 |
-| F-2  | 同边多线：三条线同边 → 端点 y 坐标互不相同且等距             |
-| F-3  | 轮廓锚点：diamond 四锚点贴边（取锚点坐标与形状几何核对）     |
-| F-4  | 避障：中间节点 → 路由折线不与该节点 AABB 相交                |
-| F-5  | 自环：拖回同节点 → 线存在、非零面积、可撤销一步              |
-| F-6  | 网格吸附：开关前后落库坐标取模 16 的断言                     |
-| F-7  | 清理断头线：删中间节点 → 清理 → 计数正确、撤销恢复           |
-| F-8  | 拐点手柄：拖单拐点 → 相邻段正交、撤销一步                    |
+| 编号 | 用例                                                                         |
+| ---- | ---------------------------------------------------------------------------- |
+| F-1  | 白底黑框：设填充/边框色/边框宽 → 断言渲染样式探针 + 导出成功                 |
+| F-2  | 同边多线：三条线同边 → 端点 y 坐标互不相同且等距                             |
+| F-3  | 轮廓锚点（返工判别版）：triangle 快照贴轮廓 + 反判 bbox + 拉线起点贴斜边中点 |
+| F-3b | 轮廓锚点：diamond 四锚点 = 轮廓四顶点（贴边 ≤1px）                           |
+| F-3c | 轮廓锚点：parallelogram 左右锚点贴斜边（≠ bbox 边中点）                      |
+| F-4  | 避障：中间节点 → 路由折线不与该节点 AABB 相交                                |
+| F-5  | 自环：拖回同节点 → 非零面积 + 选中/拖段/加箭头/加标签/逐步撤销               |
+| F-6  | 网格吸附：开关前后落库坐标取模 16 的断言（拖拽移动）                         |
+| F-6b | 网格吸附：便签拖拽创建落点量化（返工补齐接线）                               |
+| F-6c | 网格吸附：拉线自由起点/终点量化（未命中控件时）                              |
+| F-6d | 网格吸附：缩放手柄落库量化（se 角固定 nw）                                   |
+| F-7  | 清理断头线：删中间节点 → 清理 → 计数正确、撤销恢复                           |
+| F-8  | 拐点手柄：拖单拐点 → 相邻段正交、撤销一步                                    |
 
 ## 19. 手工验证步骤
+
+> 结果记录（2026-11-14 返工收口）：以下 12 步为**待人工执行**清单——自动化等价物
+> 已全部就位（F-1…F-8 + F-3b/c + F-6b/c/d + 视觉 S1 场景 + `pnpm verify`/
+> `pnpm test:e2e`/`visual:linux --stability` 全绿），人工面聚焦手感与屏幕-导出
+> 对照（§19.2 的 PNG 与屏幕逐像素对照无法自动化断言）。
 
 1. `pnpm dev`，`r` 拖三个形状，分别设 stadium / rect / diamond。
 2. ActionBar：填充 → 白；边框色 → 黑；边框宽 → 2；确认屏幕与 `导出画布 PNG` 一致。
@@ -673,12 +709,23 @@ UI 约束（specs/rem-typography、a11y-closeout）：字号用 rem 令牌、对
 
 ## 22. 待人类拍板
 
+返工收口记录（2026-11-14，复审后的处置状态）：
+
 1. 边框色是否提供「自动（随填充）」还原入口——本 spec 定为**不提供**（写死派生色）。
-2. 网格步长 16（与点阵同相位）vs 10/8（更细、但与点阵不同相）。
-3. 网格吸附默认状态（本 spec：关）与入口位置（右键菜单 vs 工具坞）。
-4. 自环保留（本 spec）vs 维持 docs 现状（同 widget 删除）。
-5. 清理命令判定口径（单端 null）是否可接受其副作用。
-6. `fill: 'none'` 是否还要 `fillOpacity`（半透明）——本 spec 不做。
+   **已按此执行**：面板无「自动」选项；返工补了触发钮兜底色点
+   （`IActionBarItem.displaySwatch` = 派生色，只影响显示）。
+2. 网格步长 16（与点阵同相位）vs 10/8（更细、但与点阵不同相）。**现状维持 16**
+   （GRID_SPACING 单源 + gridSnap.test 锁相位）；如需改细属后续独立批次。
+3. 网格吸附默认状态（本 spec：关）与入口位置（右键菜单 vs 工具坞）。**已落地：
+   默认关 + 右键菜单**（localStorage 视图偏好）；入口迁工具坞未排期。
+4. 自环保留（本 spec）vs 维持 docs 现状（同 widget 删除）。**已落地：保留**
+   （F-5 交互链锁定）。
+5. 清理命令判定口径（单端 null）是否可接受其副作用。**已落地：单端 null**
+   （F-7 锁计数与撤销）。
+6. `fill: 'none'` 是否还要 `fillOpacity`（半透明）——本 spec 不做。**维持不做。**
+
+真正待人类确认的开放项：#2 的步长偏好（改 10/8 需连动点阵相位）与 #3 的入口
+迁移（工具坞）——两者都不阻塞本批验收，列入后续路线再议。
 
 ## 23. 设计自审（铁律对账）
 

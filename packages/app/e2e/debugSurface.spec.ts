@@ -4,7 +4,7 @@ import { debugOf } from './helpers/debugE2e';
 
 /**
  * 运行时公共面 / 调试面 E2E（specs/runtime-narrowing §6.2）：
- * `window.__spinth` 是 createBoard() 的冻结投影（65 成员 allowlist），
+ * `window.__spinth` 是 createBoard() 的冻结投影（68 成员 allowlist），
  * `window.__spinthDebug.__debug` 是 DEV 调试入口；内部字段在公开面
  * 不可枚举、不可读，写入抛 TypeError。
  */
