@@ -6,10 +6,10 @@ import { JOIN_DIRS, pathLength, segmentIntersectsRect } from './lineGeometry';
 /** ELBOWED 正交路由（docs/08 §4 候选走廊法）：走廊生成 / 候选过滤 / 择优 /
  *  绕行兜底 / 拐点整理 / pinned 保形。依赖 lineGeometry 的法向表与长度度量。 */
 
-/** 节点外扩走廊距离（docs/08 §4 Node_Margin，视觉规格：拐点离节点至少这么多） */
-export const NODE_MARGIN = 30;
-/** ELBOWED 拐角圆角半径（参考视频量级 15-25px，docs/08 §4） */
-export const ELBOW_RADIUS = 14;
+// 走廊/圆角常量单源在 lineGeometry（route 与 selfLoop 共用且 lineRouteSelfLoop
+// 反向 re-export routeSelfLoop——常量放本文件会成环；re-export 保旧 import 路径）
+import { ELBOW_RADIUS, NODE_MARGIN } from './lineGeometry';
+export { ELBOW_RADIUS, NODE_MARGIN };
 
 /** 路径各段均不穿过任一障碍矩形（内缩语义，边界接触放行）。
  *  首段对 startNode / 末段对 endNode 豁免（2026-10-16 旋转穿体修复）：

@@ -19,6 +19,8 @@ export { rotatePointAround, inverseRotatePoint } from '../../platform/rectEditor
 
 export {
   anchorOf,
+  NODE_MARGIN,
+  ELBOW_RADIUS,
   nearestJoin,
   segmentDirection,
   sqDistToSegment,
@@ -37,8 +39,6 @@ export {
 export type { ISegmentGeom } from './lineGeometry';
 
 export {
-  NODE_MARGIN,
-  ELBOW_RADIUS,
   collectRouteObstacles,
   routeSelfLoop,
   mergeCollinear,

@@ -1,6 +1,6 @@
 import type { IRect } from '../../common/geometry';
 import type { IPt, JoinDir } from './lineMathTypes';
-import { JOIN_DIRS } from './lineGeometry';
+import { JOIN_DIRS, NODE_MARGIN } from './lineGeometry';
 
 /** 自环路由（specs/flowchart-closeout §7.5，§23 拆分自 lineRoute）：
  *  仅 routeSelfLoop 一个纯函数——同 join U 形 / 异 join 矩形环与外角点，
@@ -14,10 +14,6 @@ export interface IRouteSelfLoopOptions {
   /** 宿主节点包围盒（车道/跨度参照；θ≠0 用世界 AABB 近似） */
   node: IRect;
 }
-
-/** 节点外扩走廊距离（单源在 lineRoute——re-export 消双份） */
-import { NODE_MARGIN } from './lineRoute';
-export { NODE_MARGIN };
 
 /**
  * 紧凑自环路由（specs/flowchart-closeout §7.5，G-07/M-02）：startNodeId ===

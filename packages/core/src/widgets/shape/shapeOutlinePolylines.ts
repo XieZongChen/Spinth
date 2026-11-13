@@ -17,11 +17,9 @@ import { ELLIPSE_SAMPLES, quadChain, roundedOutline } from './shapeOutlineCurves
 
 /**
  * 20 型闭合轮廓折线数据表（specs/flowchart-closeout §7.2 / §23 拆分）：
- * 局部系（原点 = bbox 左上）、与 drawShapePath 同参数单源（shapeMetrics）；
- * 曲线型经 shapeOutlineCurves 采样折线化；锚点求交在 shapeOutline.ts。
+ * 局部系、与 drawShapePath 同参数单源（shapeMetrics）；曲线型经
+ * shapeOutlineCurves 采样折线化；锚点求交在 shapeOutline.ts。
  */
-
-/** 闭合轮廓折线（局部系，原点 = bbox 左上）。与 drawShapePath 同参数单源。 */
 export function outlinePolyline(shapeType: ShapeType, w: number, h: number): IPoint[] {
   switch (shapeType) {
     case 'rect':

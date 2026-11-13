@@ -282,9 +282,8 @@ export class LineService extends Disposable {
     return this.anchorFollow?.previewFollowDebug ?? null;
   }
 
-  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发）。
-   *  getter 名走中性 routeObstaclesProbe——lastRouteObstacles 字面量只允许
-   *  存在于 dev 入口（debugSnapshot 键名），生产产物零残留 */
+  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发）。getter
+   *  名走中性 routeObstaclesProbe——lastRouteObstacles 字面量只允许存在于 dev 入口 */
   get routeObstaclesProbe(): IRect[] | null {
     return this.anchorFollow?.routeObstaclesProbe ?? null;
   }

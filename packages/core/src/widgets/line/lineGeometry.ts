@@ -5,6 +5,14 @@ import type { IPt } from './lineMathTypes';
 /** 连线基础几何（docs/08 §3）：锚点 / 最近边 / 段方向 / 点线距离 / 折线命中 /
  *  线段-矩形裁剪与相交 / 折线长度 / 段几何。全部无状态纯函数；route / path /
  *  handles 子域共同依赖的最底层模块。 */
+
+/** 节点外扩走廊距离（docs/08 §4 Node_Margin，视觉规格：拐点离节点至少这么多）。
+ *  单源在此（route/selfLoop/lineHandles 共用；lineRoute 与 lineRouteSelfLoop
+ *  互相 re-export，常量放任一侧都会成模块环） */
+export const NODE_MARGIN = 30;
+/** ELBOWED 拐角圆角半径（参考视频量级 15-25px，docs/08 §4） */
+export const ELBOW_RADIUS = 14;
+
 function centerOf(rect: IRect): IPt {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }

@@ -216,7 +216,13 @@ export class LineSegTextSlide extends Disposable {
     const model = this.engine.getModelById(d.id);
     if (!vm || !model) return;
     const moved = Math.hypot(e.clientX - d.downClient.x, e.clientY - d.downClient.y) >= 4;
-    if (!moved) return; // 单击无语义（2026-09-30 拍板：双击连线才进文字编辑）
+    if (!moved) {
+      // 单击无语义（2026-09-30 拍板：双击连线才进文字编辑），但文字须回提交态
+      // ratio——textDragMove 对微移也 previewTextRatio 过，零模型写无广播纠正，
+      // 不拉回则文字停在预览位与数据分离（拐点/段滑移同款，二轮返工）
+      vm.previewTextRatio(vm.state.textRatio ?? 0.5); // 0.5 = lineVm 渲染缺省
+      return;
+    }
     if (d.lastRatio === null) return;
     model.update({ textRatio: d.lastRatio } as never);
     this.history.stopCapturing();
@@ -311,12 +317,15 @@ export class LineSegTextSlide extends Disposable {
     if (!moved) {
       // 点击无语义，但恢复段条——grab 时已 hide（2026-09-30 用户实测：单击
       // 线身后段条消失且不再出现，须重新选中才恢复——落库路径由 targetSub
-      // 几何订阅重显，仅此路径漏）；端点手柄未被 hide 无需恢复
+      // 几何订阅重显，仅此路径漏）；端点手柄未被 hide 无需恢复。
+      // 线身同步回提交态：segSlideMove 对微移也 previewRoute 过，零模型写无
+      // 广播纠正，不拉回则线停在预览位与数据分离（拐点同款，二轮返工）
       const cur = effectivePath(
         vm.state.points.map((p) => ({ x: p[0], y: p[1] })),
         vm.state.lineType ?? 'ELBOWED',
       );
-      if (cur.length >= 2)
+      if (cur.length >= 2) {
+        vm.previewRoute(cur);
         this.overlay.showSegmentHandles(
           cur,
           this.viewport.vpScale$.value || 1,
@@ -324,6 +333,7 @@ export class LineSegTextSlide extends Disposable {
           vm,
           cur.length >= 3 ? cur.slice(1, -1) : null,
         );
+      }
       return;
     }
     // 单事务落库 points + pinned（一次撤销）；mergeCollinear 清滑移可能产生的

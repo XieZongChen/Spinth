@@ -26,14 +26,19 @@ function makeSlide() {
   const state = {
     points: PTS.map((p) => [p[0]!, p[1]!] as [number, number]),
     lineType: 'ELBOWED',
+    text: '<p>字</p>',
+    textRatio: 0.5,
   };
   const previewCalls: Array<Array<{ x: number; y: number }>> = [];
+  const previewRatioCalls: number[] = [];
   const vm = {
     id: 'L1',
     type: 'LINE',
     state,
     previewRoute: (pts: Array<{ x: number; y: number }>) =>
       previewCalls.push(pts.map((p) => ({ ...p }))),
+    previewTextRatio: (ratio: number) => previewRatioCalls.push(ratio),
+    hitTestText: () => true,
   } as unknown as LineVm;
   const updates: unknown[] = [];
   const viewport = {
@@ -48,7 +53,7 @@ function makeSlide() {
     { stopCapturing: () => {} } as never,
     { hideSegmentHandles: () => {}, showSegmentHandles: () => {} } as never,
   );
-  return { slide, previewCalls, updates, state };
+  return { slide, previewCalls, previewRatioCalls, updates, state };
 }
 
 /** jsdom 无 PointerEvent 构造器——MouseEvent 携 clientX/Y、type 对齐即可送达 */
@@ -75,5 +80,36 @@ describe('拐点微移 <4px 松手：线身回提交态', () => {
       'ELBOWED',
     );
     expect(restored).toEqual(committed);
+  });
+});
+
+describe('段滑移微移 <4px 松手：线身回提交态（二轮返工同款）', () => {
+  it('微移预览后松手 → 最后一次 previewRoute = 提交态路径，零模型写', () => {
+    const { slide, previewCalls, updates, state } = makeSlide();
+    // 主线身段 (0,200)-(400,200) 中点附近按下（线身任意点即拖）
+    expect(slide.maybeSegmentSlideGrab('L1', { x: 200, y: 200 }, false)).toBe(true);
+    fire('pointermove', 200, 202); // 微移 2px（段法向 y）→ previewRoute(微移)
+    expect(previewCalls.length).toBe(1);
+    fire('pointerup', 200, 202); // 总位移 <4px → 恢复分支
+    expect(updates).toHaveLength(0);
+    const restored = previewCalls.at(-1)!;
+    const committed = effectivePath(
+      state.points.map((p) => ({ x: p[0], y: p[1] })),
+      'ELBOWED',
+    );
+    expect(restored).toEqual(committed);
+  });
+});
+
+describe('文字滑移微移 <4px 松手：文字回提交态 ratio（二轮返工同款）', () => {
+  it('微移预览后松手 → 最后一次 previewTextRatio = 提交态 0.5，零模型写', () => {
+    const { slide, previewRatioCalls, updates } = makeSlide();
+    expect(slide.maybeTextSlideGrab('L1', { x: 200, y: 200 })).toBe(true);
+    fire('pointermove', 202, 201); // 微移 → ratio 预览
+    expect(previewRatioCalls.length).toBe(1);
+    expect(previewRatioCalls[0]).not.toBe(0.5); // 确实动过
+    fire('pointerup', 202, 201); // <4px → 恢复分支
+    expect(updates).toHaveLength(0);
+    expect(previewRatioCalls.at(-1)).toBe(0.5); // 显式拉回提交态
   });
 });
