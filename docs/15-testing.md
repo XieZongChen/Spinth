@@ -17,9 +17,10 @@
 - E2E：50 个 spec（主配置 49 + pwa 1）、274 例 = 主配置 267（265 通过 + 2 跳过
   ——旋转手柄用例暂跳，specs/rotate-hide）+ pwa 7。计数口径：静态声明 264 +
   a11y.spec 3 用例 × 浅/深两主题循环展开 = 主配置 267；分层对账 = 主配置 267 −
-  @visual 5 − @timing/@bench 5 = fast 257（255 通过 + 2 跳过）+ pwa 7 另跑 =
-  CI gate 合计 274（257 + 7 + 5 + 5 = 274 对账）；混跑不作门禁，各层跑法见
-  `.github/workflows/ci.yml`。
+  @visual 5 − @timing/@bench 5 = fast 257（255 通过 + 2 跳过）+ pwa 7 =
+  CI gate 264（262 通过 + 2 跳过，fast + pwa 两层）；四层全量 274
+  （gate 264 + nightly @visual 5 + @timing/@bench 5；272 通过 + 2 跳过）；
+  混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：5/5（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 6 张齐全；
   flowchart-sample 为流程图收口样本，specs/flowchart-closeout）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素

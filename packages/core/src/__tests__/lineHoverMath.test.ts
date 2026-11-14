@@ -49,7 +49,7 @@ describe('resolveLineHover 端点/段身判定', () => {
   });
 
   it('过滤后索引空间回归锁：长首末段被过滤时 hover 中段 → segmentActive = 过滤数组首位', () => {
-    // U_PTS 四段？三段各 ≥60（90/100/110）均为主段；两端锚定 → 过滤后只剩
+    // U_PTS 三段各 ≥60（90/100/110）均为主段；两端锚定 → 过滤后只剩
     // 段 1 一个胶囊（渲染数组 [0]）——findIndex 必须在过滤数组上进行
     const hit = resolveLineHover(U_PTS, 'ELBOWED', null, { x: 93, y: 50 }, 1, {
       start: true,
