@@ -9,7 +9,7 @@
 import { act } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionBar } from '../components/ActionBar';
 import { useSpinthStore, type SpinthUiState } from '../store/spinthStore';
 import type { IActionBarSchema } from '@spinth/core';
@@ -28,6 +28,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  vi.restoreAllMocks();
 });
 
 function render(el: ReactNode): void {
@@ -149,6 +150,27 @@ describe('ActionBar popover 互斥（开合单源 openPopoverId）', () => {
 
     setState({ actionBar: { schema: { ...schema }, bounds } }); // 新 schema 身份 = 选区重建
     expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(0);
+    restore();
+  });
+
+  it('宿主重渲染（bounds 变、schema 引用不变）不重挂 Esc/外点监听', () => {
+    mount();
+    fire(trigger('填充'), 'pointerdown');
+    fire(trigger('填充'), 'click');
+    expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(1);
+
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+
+    // ActionBar 每次渲染都重建内联 onOpenChange；latest-ref 下两路 effect 只随
+    // open 挂卸，宿主重渲染不应再碰 window 监听（旧实现会 remove+add 各一次）
+    setState({ actionBar: { schema, bounds: { ...bounds, x: bounds.x + 8 } } });
+    expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(1);
+
+    const relevantCount = (calls: ReadonlyArray<readonly unknown[]>): number =>
+      calls.filter(([type]) => type === 'keydown' || type === 'pointerdown').length;
+    expect(relevantCount(addSpy.mock.calls)).toBe(0);
+    expect(relevantCount(removeSpy.mock.calls)).toBe(0);
     restore();
   });
 });

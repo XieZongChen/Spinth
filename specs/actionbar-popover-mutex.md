@@ -29,13 +29,16 @@ outside-click 监听——点另一个触发钮时旧面板不关、新面板又
 - `useEffect(() => setOpenPopoverId(null), [schema])`：选区/schema 重建即收起
   （面板语义属于旧 schema）；
 - `PopoverControl.tsx` 改受控：删内部 useState，`closeAndRefocus`/Esc/
-  outside-click/选项点击统一 `onOpenChange(false)`；回焦、roving、面板定位不动。
+  outside-click/选项点击统一 `onOpenChange(false)`；回焦、roving、面板定位不动；
+- `onOpenChange` 经 latest-ref 透传：宿主每次渲染重建内联回调，Esc/outside-click
+  两个 window 监听只随 `open` 挂卸（不再随宿主重渲染反复挂卸）。
 
 ## 3. 测试
 
-- 组件测试 `packages/react/src/__tests__/actionBarPopover.render.test.tsx`（4 例）：
-  连点两个触发钮同屏至多一面板（aria-expanded 联动）/ 点 bar 空白收起 / Esc
-  收起回焦 / schema 重建收起；
+- 组件测试 `packages/react/src/__tests__/actionBarPopover.render.test.tsx`（6 例）：
+  连点两个触发钮同屏至多一面板（aria-expanded 联动）/ 点 bar 空白收起并回焦 /
+  只读往返不重开 / Esc 收起回焦 / schema 重建收起 / 宿主重渲染不重挂 Esc/外点
+  监听（latest-ref 回归锁）；
 - E2E `lineStyle.spec.ts`「ActionBar popover 互斥」：连点线型→线宽面板恒 1、
   首触发钮 `aria-expanded=false`；点虚线 toggle 收起（bar 内 pointerdown 路径）。
 

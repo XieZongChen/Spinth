@@ -274,7 +274,7 @@ popover 只读往返清开合 + 栏内收起回焦触发钮；quick-add 单撤�
 stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广播的挂线 reattach
 滞后写并入同捕获窗，一次 quick-add 恒一步 undo、不暴露 [0,0] 草稿中间态）。
 
-当前实测基线：`pnpm verify` 通过；1282 单测（core 1161 + react 83 + app 38）；
+当前实测基线：`pnpm verify` 通过；1283 单测（core 1161 + react 84 + app 38）；
 E2E 50 spec / 274 例（272 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
 主配置 267（--list 实测）= 265 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 264 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
