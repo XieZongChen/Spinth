@@ -12,7 +12,7 @@ import type {
   ShapeType,
   LineType,
 } from '../../types';
-import { effectivePath, type IPt, type JoinDir } from './lineMath';
+import { effectivePath } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { Point } from 'pixi.js';

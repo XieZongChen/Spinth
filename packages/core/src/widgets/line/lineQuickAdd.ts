@@ -7,8 +7,6 @@ import type {
   ISelectorService,
   IVmEngineService,
   IViewportService,
-  LineType,
-  ShapeType,
 } from '../../types';
 import {
   anchorOf,

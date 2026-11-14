@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { IActionBarItem } from '@spinth/core';
 import { useRovingFocus } from '../a11y/useRovingFocus';
 import { Icon } from './Icon';
@@ -39,11 +39,12 @@ export function PopoverControl({
   const curOpt = item.options?.find((o) => o.id === current);
 
   // 关闭即回焦触发钮（specs/a11y-closeout §5.7：选项/外点/Esc 三路一致——
-  // 面板收起即卸载，焦点不落地会掉到 body）
-  const closeAndRefocus = (): void => {
+  // 面板收起即卸载，焦点不落地会掉到 body）；useCallback 稳定引用供两个
+  // window 监听 effect 依赖
+  const closeAndRefocus = useCallback((): void => {
     onOpenChange(false);
     triggerRef.current?.focus();
-  };
+  }, [onOpenChange]);
 
   // roving（specs/a11y-closeout §5.7）：面板 both 方向 + wrap；面板仅在 open
   // 时挂载，收起时容器为 null——hook 对空容器不做任何事
@@ -66,7 +67,7 @@ export function PopoverControl({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
+  }, [open, closeAndRefocus]);
 
   // 点击外部收起（面板与触发钮之外）
   useEffect(() => {
@@ -76,7 +77,7 @@ export function PopoverControl({
     };
     window.addEventListener('pointerdown', onDown);
     return () => window.removeEventListener('pointerdown', onDown);
-  }, [open]);
+  }, [open, closeAndRefocus]);
 
   // 面板 x 视口钳制：跟随触发钮居中，出界时夹回（两侧留 8px）。
   // useLayoutEffect 在绘制前完成校正（与 ActionBar 宽度实测同款手法）。
