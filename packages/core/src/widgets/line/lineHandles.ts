@@ -133,8 +133,9 @@ export function capsuleAnchors(
     if (out.length === 0) out = majorSegments(pts, scale);
   }
   if (!anchored) return out;
-  const segCount = pts.length - 1;
-  return out.filter((c) => segmentBodyGrabbable(anchored, c.index, segCount));
+  // 判定点 = 胶囊中点（胶囊所见即所拖；抓取路径另按指针位置判定，两者边缘
+  // 差异为「无胶囊也可拖线身」的合法子集）
+  return out.filter((c) => segmentBodyGrabbable(anchored, pts, c.index, c.geom.mid, scale));
 }
 
 /** 连接点外移点中心：edge 锚点 + 法向偏移（选中态外移 24px——与指示器绘制
@@ -170,24 +171,43 @@ export function anchorDotCenter(a: IPt, j: JoinDir, rotation = 0, scale = 1): IP
  *  （与 polylineHit 命中同 8px 口径；A1 整理批收单源，overlay/滑移共用） */
 export const SEGMENT_BODY_TOLERANCE = 8;
 
+/** 近形禁拖的抓取距离阈值（屏幕像素，缩放感知）：抓取点（或胶囊中点）距
+ *  锚定端点 ≤ 此值不响应拖拽。2026-11 二次拍板：首版「锚定端相邻段全禁」
+ *  在中长直线上过度泛化——两点直线（唯一段）140px 长、中点距两端各 70px
+ *  也被禁，用户实测感知异常。与 NODE_MARGIN 同量级取整 30。 */
+export const NEAR_SHAPE_GRAB_SCREEN = 30;
+
 /**
- * 段是否可抓取拖拽（线身段滑移/胶囊/hover 光标三处共用单源）：
- * 锚定端相邻的首/末段不响应（2026-11 用户拍板「靠近图形不让拖拽」——贴图形
- * 短段拖拽曾按旧「短段斜连」规则在锚点处产出斜段，docs/08 §10.3 两档已废）；
- * 自由端（悬空端）相邻段照常可拖。唯一段（两点线）任一端锚定即整条不可拖
- * ——两端都贴图形（或一端贴一端悬空仍属近形侧），中段不存在。
+ * 段是否可抓取拖拽（线身段滑移/胶囊/hover 光标三处共用单源，2026-11
+ * 二次拍板「靠近图形 = 距锚定端 30 屏幕像素内」）：
+ * - 中段恒可拖；自由端（悬空端）相邻段恒可拖；
+ * - 锚定端相邻的首/末/唯一段：**抓取点距每个锚定端 > 30/scale** 才可拖
+ *   （长段远端是真正的「线身中段」）；段长 < NODE_MARGIN(30 世界 px) 的
+ *   整段恒拒——走廊短段抓取点必在近形带内，且放大缩放下按段长兜底，
+ *   杜绝 <30 短段走 slideSegment 斜连分支（用户最初抱怨的锚点斜线）。
+ * 可拖路径均为正交拆段（长段几字形/唯一段拆五点），不产出斜段。
  */
 export function segmentBodyGrabbable(
   anchored: { start: boolean; end: boolean },
+  pts: readonly IPt[],
   segIndex: number,
-  segCount: number,
+  grab: IPt,
+  scale: number,
 ): boolean {
+  const segCount = pts.length - 1;
   const first = segIndex === 0;
   const last = segIndex === segCount - 1;
-  if (first && last) return !anchored.start && !anchored.end; // 唯一段
-  if (first) return !anchored.start;
-  if (last) return !anchored.end;
-  return true; // 中段
+  if (!first && !last) return true; // 中段
+  const near = NEAR_SHAPE_GRAB_SCREEN / (scale || 1);
+  const a = pts[segIndex]!;
+  const b = pts[segIndex + 1]!;
+  if (Math.hypot(b.x - a.x, b.y - a.y) < NODE_MARGIN) return false; // 走廊短段整段近形
+  const startNear = anchored.start && Math.hypot(grab.x - pts[0]!.x, grab.y - pts[0]!.y) <= near;
+  const endPt = pts[pts.length - 1]!;
+  const endNear = anchored.end && Math.hypot(grab.x - endPt.x, grab.y - endPt.y) <= near;
+  if (first && last) return !startNear && !endNear; // 唯一段：距任一锚定端近形带内即拒
+  if (first) return !anchored.start || !startNear;
+  return !anchored.end || !endNear;
 }
 
 // ---------------------------------------------------------------------------

@@ -371,7 +371,7 @@ test('批次3：段滑移——拖中段落库 pinned、undo 回退、锚定移�
   expect(bodyAfter.segments).not.toBeNull();
 });
 
-test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段条、按下无响应', async ({ page }) => {
+test('批次3.7：近形带内外分界（2026-11 二次拍板：距锚定端 30 屏显 px）', async ({ page }) => {
   const docId = `e2e-seg-edge-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -402,8 +402,8 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   );
   await page.waitForTimeout(250);
 
-  // 中段上移 60：走廊首段从 30px 变 90px（≥60 主段阈值）——但首段锚定相邻，
-  // 段条快照里仍不出现它（近形禁拖：胶囊与抓取同源过滤）
+  // 中段上移 60：走廊首段从 30px 变 90px（≥60 主段阈值）——长首段中点距
+  // 锚定端 45 >30 → 段条照常出现（首版「锚定相邻段全禁」已修订）
   const segLens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]));
   let segIdx = -1;
   let segLen = -1;
@@ -423,7 +423,7 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
         ? y
         : x,
     )!;
-  let sel = await lineSelectionState(page);
+  const sel = await lineSelectionState(page);
   const mid0 = pickMid(sel.segments!);
   await page.mouse.move(mid0.x + c.left, mid0.y + c.top);
   await page.mouse.down();
@@ -432,27 +432,14 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   await page.mouse.up();
   await page.waitForTimeout(300);
   const s1 = await lineSegState(page);
-  expect(s1.pinned).toBe(true); // 中段滑移照常（禁拖只针对锚定相邻段）
+  expect(s1.pinned).toBe(true); // 中段滑移照常
 
-  // 段条快照不含首末段：全部段条距首/末段中点都超出胶囊半径（≈12px 量级）
+  // 带外（首段中点，距锚定端 45 >30）：拖右 40 → 几字形落库——锚点保持、
+  // 全程正交（相邻点仅一轴差，不出现斜段 = 原始「近形斜线」诉求不回归）
   const firstMid = {
     x: (s1.points[0]![0] + s1.points[1]![0]) / 2,
     y: (s1.points[0]![1] + s1.points[1]![1]) / 2,
   };
-  const lastMid = {
-    x: (s1.points.at(-1)![0] + s1.points.at(-2)![0]) / 2,
-    y: (s1.points.at(-1)![1] + s1.points.at(-2)![1]) / 2,
-  };
-  sel = await lineSelectionState(page);
-  // 非空守卫：过滤若把所有胶囊吃掉，下方循环会空跑通过（2026-11 审查返工）
-  expect(sel.segments!.length).toBeGreaterThan(0);
-  for (const seg of sel.segments!) {
-    expect(Math.hypot(seg.x - firstMid.x, seg.y - firstMid.y)).toBeGreaterThan(24);
-    expect(Math.hypot(seg.x - lastMid.x, seg.y - lastMid.y)).toBeGreaterThan(24);
-  }
-
-  // 按在首段中点拖 40：无响应——points 逐字节不变（连段滑移会话都不进入，
-  // pinned 维持中段滑移的落库值）、undo 深度不动
   await page.mouse.move(firstMid.x + c.left, firstMid.y + c.top);
   await page.mouse.down();
   await page.mouse.move(firstMid.x + 40 + c.left, firstMid.y + c.top, { steps: 4 });
@@ -460,26 +447,34 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   await page.mouse.up();
   await page.waitForTimeout(300);
   const s2 = await lineSegState(page);
-  expect(JSON.stringify(s2.points)).toBe(JSON.stringify(s1.points)); // 零位移零写
   expect(s2.pinned).toBe(true);
+  expect(s2.points[0]).toEqual(s1.points[0]); // 锚点端保持
+  expect(JSON.stringify(s2.points)).not.toBe(JSON.stringify(s1.points)); // 几字形拆段落库
+  for (let i = 1; i < s2.points.length - 1; i++) {
+    const p = s2.points[i]!;
+    const q = s2.points[i + 1]!;
+    // 正交锁：相邻点仅一轴不同（差值点积为 0；toBeCloseTo 规避 -0/0 的
+    // Object.is 差异）
+    expect(Math.abs((p[0] - q[0]) * (p[1] - q[1]))).toBeLessThan(1e-6);
+  }
 
-  // undo 一步直接回退中段滑移（首段拖拽未产生事务）
+  // 带内（距锚定端 <30 屏显 px）的拒绝面由单测（段长 <30 恒拒）与下方
+  // 「唯一段近形带分界」用例覆盖——几字形拆段后首段只剩 30px stub，
+  // 整段都在近形带内且贴端点热区，本用例几何上不可达
   await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(300);
-  const s3 = await lineSegState(page);
-  expect(JSON.stringify(s3.points)).toBe(JSON.stringify(pts));
-  expect(s3.pinned).toBe(false); // 同上：探针已归一化
+  const s4 = await lineSegState(page);
+  expect(JSON.stringify(s4.points)).toBe(JSON.stringify(s1.points));
 });
 
-test('纯线选区拖线身：零写入零会话，ActionBar 不停隐（2026-11 回归锁）', async ({ page }) => {
+test('唯一段近形带分界：中点可拖（拆五点正交）、带内无响应，ActionBar 不停隐', async ({ page }) => {
   const docId = `e2e-line-drag-bar-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
   const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
-  // 两形状水平对齐 → 连线为唯一段直线（近形禁拖口径下线身不可抓，
-  // 手势落回 selector——回归前此处会建「空操作拖拽会话」：dragMove$ 触发
-  // 拖拽中隐藏 ActionBar，松手零写入 widgetsChanged$ 恢复链不跑 → 操作栏
-  // 永久消失且选区未变时点线无反应，用户感知「线选不中」）
+  // 两形状水平对齐 → 连线为唯一段直线（160 长，中点距两端各 80）。
+  // 首版「锚定相邻段全禁」曾把唯一段整条禁掉（用户实测 140px 垂直连线中点
+  // 不可拖感知异常，2026-11 二次拍板改为距锚定端 30 屏显 px 的近形带）
   await page.getByRole('button', { name: /矩形|形状/ }).click();
   await page.mouse.move(200 + c.left, 300 + c.top);
   await page.mouse.down();
@@ -501,14 +496,22 @@ test('纯线选区拖线身：零写入零会话，ActionBar 不停隐（2026-11
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
 
-  const ptsBefore = await page.evaluate(() => {
-    const d = (
-      window as unknown as {
-        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
-      }
-    ).__spinthDebug.__debug.vmStates;
-    return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
-  });
+  const readLine = () =>
+    page.evaluate(() => {
+      const d = (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
+          };
+        }
+      ).__spinthDebug.__debug;
+      return {
+        selected: d.selectedIds,
+        pts: (d.vmStates.find((s) => s.type === 'LINE') as { points: Array<[number, number]> })
+          .points,
+      };
+    });
+  const ptsBefore = (await readLine()).pts;
 
   // 选中线（唯一段中点）→ ActionBar 出现
   await page.mouse.click(400 + c.left, 340 + c.top);
@@ -516,29 +519,39 @@ test('纯线选区拖线身：零写入零会话，ActionBar 不停隐（2026-11
   const bar = page.locator('[data-spinth-action-bar]');
   await expect(bar).toBeVisible();
 
-  // 按住线身拖 30px 松手：无会话无写入（points 不变、选区保持）
+  // 带外（中点，距两端各 80 >30）：沿法向（竖直）拖 40 → 拆五点落库——
+  // 锚点两端保持、全程正交、被拖段位移 40（2026-11 二次拍板：唯一段中点
+  // 即「线身中段」，可拖）
   await page.mouse.move(400 + c.left, 340 + c.top);
   await page.mouse.down();
-  await page.mouse.move(430 + c.left, 340 + c.top, { steps: 4 });
+  await page.mouse.move(400 + c.left, 380 + c.top, { steps: 4 });
   await page.waitForTimeout(120);
   await page.mouse.up();
   await page.waitForTimeout(500);
-  const after = await page.evaluate(() => {
-    const d = (
-      window as unknown as {
-        __spinthDebug: {
-          __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
-        };
-      }
-    ).__spinthDebug.__debug;
-    return {
-      selected: d.selectedIds,
-      pts: (d.vmStates.find((s) => s.type === 'LINE') as { points: Array<[number, number]> })
-        .points,
-    };
-  });
-  expect(after.selected).toHaveLength(1); // 选区保持（端点圆在）
-  expect(JSON.stringify(after.pts)).toBe(JSON.stringify(ptsBefore)); // 线身拖拽零写入
-  // 操作栏不得停隐（回归点：拖拽中隐藏后无写入恢复）
-  await expect(bar).toBeVisible();
+  let s = await readLine();
+  expect(s.selected).toHaveLength(1);
+  expect(s.pts.length).toBe(6); // 拆五点：a, a+stub, +off, +off, b−stub, b
+  expect(s.pts[0]).toEqual(ptsBefore[0]); // 锚点保持
+  expect(s.pts.at(-1)).toEqual(ptsBefore.at(-1));
+  const midY = (s.pts[2]![1] + s.pts[3]![1]) / 2;
+  expect(midY - ptsBefore[0]![1]).toBeCloseTo(40, 0); // 被拖段竖直位移 40
+  for (let i = 0; i + 1 < s.pts.length; i++) {
+    const p = s.pts[i]!;
+    const q = s.pts[i + 1]!;
+    expect(Math.abs((p[0] - q[0]) * (p[1] - q[1]))).toBeLessThan(1e-6); // 正交锁
+  }
+  const pinnedPts = s.pts.map((p) => [...p]);
+
+  // 带内（距起端 20px：>12 避开端点热区、<30 近形带内）：无响应——points
+  // 逐字节不变、ActionBar 不得停隐（回归点：首版空操作拖拽曾致停隐）
+  await page.mouse.move(340 + c.left, 340 + c.top);
+  await page.mouse.down();
+  await page.mouse.move(380 + c.left, 340 + c.top, { steps: 4 });
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  s = await readLine();
+  expect(s.selected).toHaveLength(1); // 选区保持（端点圆在）
+  expect(JSON.stringify(s.pts)).toBe(JSON.stringify(pinnedPts)); // 带内零写入
+  await expect(bar).toBeVisible(); // 操作栏不得停隐
 });

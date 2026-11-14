@@ -264,15 +264,18 @@ export class LineSegTextSlide extends Disposable {
       segIndex = seg?.index ?? -1;
     }
     if (segIndex < 0) return false;
-    // 近形禁拖门控：锚定端相邻段（唯一段任一端锚定同样不可抓）。
-    // toJSON?.()：桩/极端时序缺模型投影时按全自由处理（不拒中段）
+    // 近形禁拖门控（2026-11 二次拍板：抓取点距锚定端 >30 屏幕像素才可拖，
+    // 段长 <30 世界 px 整段近形）。toJSON?.()：桩/极端时序缺模型投影时按
+    // 全自由处理（不拒中段）
     const data = this.engine.getModelById(id)?.toJSON?.() as
       { startNodeId: string | null; endNodeId: string | null } | undefined;
     if (
       !segmentBodyGrabbable(
         { start: Boolean(data?.startNodeId), end: Boolean(data?.endNodeId) },
+        pts,
         segIndex,
-        pts.length - 1,
+        world,
+        scale,
       )
     ) {
       return false;

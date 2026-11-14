@@ -110,7 +110,7 @@ export function resolveLineHover(
     const seg = nearestSegBody(pts, world, SEGMENT_BODY_TOLERANCE / scale);
     if (
       seg &&
-      segmentBodyGrabbable(anchored ?? { start: false, end: false }, seg.index, pts.length - 1)
+      segmentBodyGrabbable(anchored ?? { start: false, end: false }, pts, seg.index, world, scale)
     ) {
       hoverSegIndex = seg.index;
       // 胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段）——findIndex

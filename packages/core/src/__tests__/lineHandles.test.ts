@@ -289,40 +289,71 @@ describe('branchSlotOffset 交替落位槽位（docs/08 §10 批次 2，2026-10-
   });
 });
 
-describe('segmentBodyGrabbable 近形禁拖（2026-11 用户拍板：锚定端相邻段不可拖）', () => {
-  // U 形三段折线：段 0（首/贴起点）、段 1（中）、段 2（末/贴终点）
+describe('segmentBodyGrabbable 近形禁拖（2026-11 二次拍板：距锚定端 30 屏显 px 内 + 短段整段）', () => {
+  // U 形三段折线（各 100 长 ≥30 世界）：段 0（首/贴起点）、段 1（中）、段 2（末/贴终点）
+  const U: IPt[] = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+    { x: 200, y: 100 },
+  ];
   const FREE = { start: false, end: false };
   const ANCH_S = { start: true, end: false };
   const ANCH_E = { start: false, end: true };
   const ANCH_BOTH = { start: true, end: true };
+  const g = (a: { start: boolean; end: boolean }, pts: IPt[], i: number, grab: IPt, scale = 1) =>
+    segmentBodyGrabbable(a, pts, i, grab, scale);
 
-  it('真值表：锚定侧首/末段拒、中段恒可、自由端侧段放行', () => {
-    expect(segmentBodyGrabbable(FREE, 0, 3)).toBe(true); // 全自由线不受限
-    expect(segmentBodyGrabbable(ANCH_S, 0, 3)).toBe(false); // 贴起点段
-    expect(segmentBodyGrabbable(ANCH_S, 1, 3)).toBe(true); // 中段
-    expect(segmentBodyGrabbable(ANCH_S, 2, 3)).toBe(true); // 自由端侧末段
-    expect(segmentBodyGrabbable(ANCH_E, 2, 3)).toBe(false); // 贴终点段
-    expect(segmentBodyGrabbable(ANCH_E, 0, 3)).toBe(true);
-    expect(segmentBodyGrabbable(ANCH_BOTH, 1, 3)).toBe(true); // 两端锚定仍留中段
+  it('中段恒可拖；自由端相邻段不受限（任意抓取点）', () => {
+    expect(g(ANCH_BOTH, U, 1, { x: 100, y: 50 })).toBe(true);
+    expect(g(ANCH_E, U, 0, { x: 20, y: 0 })).toBe(true); // start 自由 → 首段全程可拖
+    expect(g(FREE, U, 0, { x: 5, y: 0 })).toBe(true); // 全自由线不受限
   });
 
-  it('唯一段（两点线）：任一端锚定即整条不可拖，全自由可拖', () => {
-    expect(segmentBodyGrabbable(ANCH_S, 0, 1)).toBe(false);
-    expect(segmentBodyGrabbable(ANCH_E, 0, 1)).toBe(false);
-    expect(segmentBodyGrabbable(ANCH_BOTH, 0, 1)).toBe(false);
-    expect(segmentBodyGrabbable(FREE, 0, 1)).toBe(true);
+  it('锚定侧首/末段：抓取点距锚定端 ≤30 拒、>30 放行', () => {
+    expect(g(ANCH_S, U, 0, { x: 25, y: 0 })).toBe(false); // 距起点 25
+    expect(g(ANCH_S, U, 0, { x: 31, y: 0 })).toBe(true);
+    expect(g(ANCH_E, U, 2, { x: 175, y: 100 })).toBe(false); // 距末点 (200,100) 25
+    expect(g(ANCH_E, U, 2, { x: 168, y: 100 })).toBe(true); // 32
   });
 
-  it('capsuleAnchors 同源过滤：锚定端相邻段不出胶囊（缺省不过滤 = 纯数学兼容）', () => {
-    const pts: IPt[] = [
+  it('唯一段（两点直线）：中点距两端 >30 可拖（2026-11 用户截图场景），近任一端拒', () => {
+    const L: IPt[] = [
       { x: 0, y: 0 },
-      { x: 100, y: 0 },
-      { x: 100, y: 100 },
-      { x: 200, y: 100 },
+      { x: 140, y: 0 },
     ];
-    expect(capsuleAnchors(pts, 1, null).map((c) => c.index)).toEqual([0, 1, 2]); // 缺省全出
-    expect(capsuleAnchors(pts, 1, null, ANCH_S).map((c) => c.index)).toEqual([1, 2]);
-    expect(capsuleAnchors(pts, 1, null, ANCH_E).map((c) => c.index)).toEqual([0, 1]);
-    expect(capsuleAnchors(pts, 1, null, ANCH_BOTH).map((c) => c.index)).toEqual([1]);
+    expect(g(ANCH_BOTH, L, 0, { x: 20, y: 0 })).toBe(false); // 近起端
+    expect(g(ANCH_BOTH, L, 0, { x: 120, y: 0 })).toBe(false); // 近末端
+    expect(g(ANCH_BOTH, L, 0, { x: 70, y: 0 })).toBe(true); // 中点距两端各 70
+    expect(g(FREE, L, 0, { x: 5, y: 0 })).toBe(true); // 全自由不受限
+  });
+
+  it('段长 <30 世界 px 整段近形（缩放兜底：放大后屏显超过 30 仍拒，杜绝短段斜连）', () => {
+    const S: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 25, y: 0 },
+      { x: 125, y: 0 },
+    ];
+    expect(g(ANCH_S, S, 0, { x: 24, y: 0 })).toBe(false);
+    expect(g(ANCH_S, S, 0, { x: 20, y: 0 }, 2)).toBe(false); // 200% 下屏显 40 >30 仍按段长拒
+  });
+
+  it('capsuleAnchors 同源过滤：长段中点（远端）照常出胶囊、短段无胶囊（缺省不过滤）', () => {
+    expect(capsuleAnchors(U, 1, null).map((c) => c.index)).toEqual([0, 1, 2]); // 缺省全出
+    // 锚定侧长首/末段：胶囊中点距锚定端 50/50 >30 → 照常出（所见即可拖）
+    expect(capsuleAnchors(U, 1, null, ANCH_BOTH).map((c) => c.index)).toEqual([0, 1, 2]);
+    // 60 边际主段（中点恰 30 ≤30 近形带内）不出；62 起（中点 31 >30）出
+    const M: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 60, y: 0 },
+      { x: 160, y: 0 },
+    ];
+    expect(capsuleAnchors(M, 1, null, ANCH_S).map((c) => c.index)).toEqual([1]);
+    const N: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 62, y: 0 },
+      { x: 162, y: 0 },
+    ];
+    expect(capsuleAnchors(N, 1, null, ANCH_S).map((c) => c.index)).toEqual([0, 1]);
   });
 });
