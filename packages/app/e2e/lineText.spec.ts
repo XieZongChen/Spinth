@@ -383,7 +383,22 @@ test('线上文字：有字连线选中态——文字两侧各一个拖拽手�
   await page.waitForTimeout(250);
   const st1 = await lineSelectionState(page);
   expect(st1.segments).not.toBeNull();
-  expect(st1.segments!.length).toBe(2);
+  // 近形禁拖口径（specs/line-body-drag-near-shape §4，2026-11）：左胶囊滑移
+  // 重塑折线后，另一侧胶囊的弧长中点落到锚定端相邻段——随门控消失，双胶囊
+  // 退单胶囊（胶囊与抓取 segmentBodyGrabbable 同源过滤）
+  expect(st1.segments!.length).toBe(1);
+  // 剩余胶囊不落在锚定端相邻段（距首/末段中点 >24px，胶囊半径量级之外）
+  const firstMid = {
+    x: (after.points[0]![0] + after.points[1]![0]) / 2,
+    y: (after.points[0]![1] + after.points[1]![1]) / 2,
+  };
+  const endMid = {
+    x: (after.points.at(-1)![0] + after.points.at(-2)![0]) / 2,
+    y: (after.points.at(-1)![1] + after.points.at(-2)![1]) / 2,
+  };
+  const seg = st1.segments![0]!;
+  expect(Math.hypot(seg.x - firstMid.x, seg.y - firstMid.y)).toBeGreaterThan(24);
+  expect(Math.hypot(seg.x - endMid.x, seg.y - endMid.y)).toBeGreaterThan(24);
 });
 
 /** 批次 3：单选连线选中态探针（段中点手柄快照 + hover 段/端点下标） */

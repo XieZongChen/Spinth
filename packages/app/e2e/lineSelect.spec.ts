@@ -443,6 +443,8 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
     y: (s1.points.at(-1)![1] + s1.points.at(-2)![1]) / 2,
   };
   sel = await lineSelectionState(page);
+  // 非空守卫：过滤若把所有胶囊吃掉，下方循环会空跑通过（2026-11 审查返工）
+  expect(sel.segments!.length).toBeGreaterThan(0);
   for (const seg of sel.segments!) {
     expect(Math.hypot(seg.x - firstMid.x, seg.y - firstMid.y)).toBeGreaterThan(24);
     expect(Math.hypot(seg.x - lastMid.x, seg.y - lastMid.y)).toBeGreaterThan(24);

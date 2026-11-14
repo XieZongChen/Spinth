@@ -1,6 +1,7 @@
 import {
   anchorDotCenter,
   capsuleAnchors,
+  effectivePath,
   nearestSegBody,
   segmentBodyGrabbable,
   SEGMENT_BODY_TOLERANCE,
@@ -17,6 +18,27 @@ import {
  *  第 3 层）：非矩形形状快照/命中贴轮廓，与指示器绘制、抓取判定同源。 */
 
 export const JOINS: readonly JoinDir[] = ['top', 'right', 'bottom', 'left'];
+
+/** 视觉语义折线（effectivePath 折叠——overlay 的 hover 判定与手柄刷新共用，
+ *  自 lineHoverOverlay 拆入，2026-11 审查返工批 400 行铁律） */
+export function effectiveLinePts(state: {
+  points: Array<[number, number]>;
+  lineType?: 'STRAIGHT' | 'ELBOWED' | 'CURVE' | null;
+}): IPt[] {
+  return effectivePath(
+    state.points.map((p) => ({ x: p[0], y: p[1] })),
+    state.lineType ?? 'ELBOWED',
+  );
+}
+
+/** 线锚定标记（近形禁拖门控源，2026-11）：锚定端相邻段不可抓/不出胶囊——
+ *  overlay 的 hover/段手柄与抓取判定共用同一布尔对 */
+export function lineAnchorFlags(state: {
+  startNodeId: unknown;
+  endNodeId: unknown;
+}): { start: boolean; end: boolean } {
+  return { start: Boolean(state.startNodeId), end: Boolean(state.endNodeId) };
+}
 
 /** 四向外移点坐标快照（快照供 E2E 探针 + hover 命中判定共用） */
 export function dotSnapshots(
@@ -91,8 +113,12 @@ export function resolveLineHover(
       segmentBodyGrabbable(anchored ?? { start: false, end: false }, seg.index, pts.length - 1)
     ) {
       hoverSegIndex = seg.index;
-      // 胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段）
-      const k = capsuleAnchors(pts, scale, knockout).findIndex(({ index }) => index === seg.index);
+      // 胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段）——findIndex
+      // 必须在与渲染（lineSegmentHandles.show）相同的**过滤后**锚点数组上进行，
+      // 否则锚定长首/末段被过滤后 activeIndex 指错位/不亮（2026-11 审查返工）
+      const k = capsuleAnchors(pts, scale, knockout, anchored).findIndex(
+        ({ index }) => index === seg.index,
+      );
       segmentActive = k >= 0 ? k : null;
     }
   }
