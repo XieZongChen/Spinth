@@ -67,7 +67,6 @@ export interface ILineAnchorData {
   endPort?: number;
 }
 
-
 export class LineQuickAdd extends Disposable {
   /** 连接点手势的路标（client 坐标，区分点击与拖拽） */
   private connectorDownClient: { x: number; y: number } | null = null;

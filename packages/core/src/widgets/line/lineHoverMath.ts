@@ -33,10 +33,10 @@ export function effectiveLinePts(state: {
 
 /** 线锚定标记（近形禁拖门控源，2026-11）：锚定端相邻段不可抓/不出胶囊——
  *  overlay 的 hover/段手柄与抓取判定共用同一布尔对 */
-export function lineAnchorFlags(state: {
-  startNodeId: unknown;
-  endNodeId: unknown;
-}): { start: boolean; end: boolean } {
+export function lineAnchorFlags(state: { startNodeId: unknown; endNodeId: unknown }): {
+  start: boolean;
+  end: boolean;
+} {
   return { start: Boolean(state.startNodeId), end: Boolean(state.endNodeId) };
 }
 
