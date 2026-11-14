@@ -188,6 +188,9 @@ export class LineService extends Disposable {
         getDefaultLineType: () => this.defaultType,
         getDefaultStrokeWidth: () => this.defaultWidth,
         getDefaultShapeType: () => this.quickAddShapeTypeProbe(),
+        // 点击落定重排（与拉线 settle/端点拖拽同源，docs/08 §5）：同边多线
+        // 槽位即时物化，删除目标形状时 respreadLines 对幸存线 samePoints 零写
+        onSettled: () => this.anchorFollow?.reattachAll(),
       },
     );
     this.addDisposable(this.quickAdd);

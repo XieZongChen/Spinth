@@ -85,6 +85,10 @@ export interface ILineQuickAddHost {
   getDefaultStrokeWidth(): number;
   /** quick-add 落新形状的默认型（组合根注入 ShapeService 会话态） */
   getDefaultShapeType(): ShapeType;
+  /** 点击落定重排（与拉线 settle 同源，docs/08 §5 重排触发清单）：建线/连线
+   *  落定后全量重排，同边槽位即时物化——否则两条同边 quick-add 线都停在
+   *  t=0.5，删除目标形状时才第一次物化 0.4/0.6 分配，幸存线跳槽重路由扭结 */
+  onSettled(): void;
 }
 
 export class LineQuickAdd extends Disposable {
@@ -226,6 +230,7 @@ export class LineQuickAdd extends Disposable {
         endNodeId: plan.targetId,
         endJoin: plan.endJoin,
       } as never);
+      this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
       this.history.stopCapturing(); // 建线 + 锚定 = 单撤销单元
       this.selector.setSelected([lineId]); // 参考同款：选中连线（非目标形状）
       return;
@@ -248,6 +253,7 @@ export class LineQuickAdd extends Disposable {
       endNodeId: shape.id,
       endJoin: plan.endJoin,
     } as never);
+    this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
     this.history.stopCapturing();
     this.selector.setSelected([shape.id]);
   }
