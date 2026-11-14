@@ -39,12 +39,18 @@ export function PopoverControl({
   const curOpt = item.options?.find((o) => o.id === current);
 
   // 关闭即回焦触发钮（specs/a11y-closeout §5.7：选项/外点/Esc 三路一致——
-  // 面板收起即卸载，焦点不落地会掉到 body）；useCallback 稳定引用供两个
-  // window 监听 effect 依赖
+  // 面板收起即卸载，焦点不落地会掉到 body）。
+  // latest-ref：宿主 ActionBar 传的 onOpenChange 是每渲染重建的内联箭头，
+  // 直接进 useCallback 依赖会让 Esc/outside-click 两个 window 监听随宿主
+  // 重渲染（拖拽每帧）反复挂卸——回调经 ref 透传，closeAndRefocus 引用恒稳
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
   const closeAndRefocus = useCallback((): void => {
-    onOpenChange(false);
+    onOpenChangeRef.current(false);
     triggerRef.current?.focus();
-  }, [onOpenChange]);
+  }, []);
 
   // roving（specs/a11y-closeout §5.7）：面板 both 方向 + wrap；面板仅在 open
   // 时挂载，收起时容器为 null——hook 对空容器不做任何事
