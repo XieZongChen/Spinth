@@ -180,11 +180,13 @@ export const NEAR_SHAPE_GRAB_SCREEN = 30;
 /**
  * 段是否可抓取拖拽（线身段滑移/胶囊/hover 光标三处共用单源，2026-11
  * 二次拍板「靠近图形 = 距锚定端 30 屏幕像素内」）：
- * - 中段恒可拖；自由端（悬空端）相邻段恒可拖；
+ * - 中段恒可拖；自由端（悬空端）相邻段恒可拖——**含自由端短段**；
  * - 锚定端相邻的首/末/唯一段：**抓取点距每个锚定端 > 30/scale** 才可拖
- *   （长段远端是真正的「线身中段」）；段长 < NODE_MARGIN(30 世界 px) 的
- *   整段恒拒——走廊短段抓取点必在近形带内，且放大缩放下按段长兜底，
+ *   （长段远端是真正的「线身中段」）；锚定侧段长 < NODE_MARGIN(30 世界 px)
+ *   的整段恒拒——走廊短段抓取点必在近形带内，且放大缩放下按段长兜底，
  *   杜绝 <30 短段走 slideSegment 斜连分支（用户最初抱怨的锚点斜线）。
+ *   短段兜底只作用于锚定侧（自由端短段不受限——2026-11 三轮审查 P1 修正：
+ *   首版无条件短段拒绝曾把自由悬空尾段一并禁掉）。
  * 可拖路径均为正交拆段（长段几字形/唯一段拆五点），不产出斜段。
  */
 export function segmentBodyGrabbable(
@@ -201,13 +203,24 @@ export function segmentBodyGrabbable(
   const near = NEAR_SHAPE_GRAB_SCREEN / (scale || 1);
   const a = pts[segIndex]!;
   const b = pts[segIndex + 1]!;
-  if (Math.hypot(b.x - a.x, b.y - a.y) < NODE_MARGIN) return false; // 走廊短段整段近形
+  const short = Math.hypot(b.x - a.x, b.y - a.y) < NODE_MARGIN;
   const startNear = anchored.start && Math.hypot(grab.x - pts[0]!.x, grab.y - pts[0]!.y) <= near;
   const endPt = pts[pts.length - 1]!;
   const endNear = anchored.end && Math.hypot(grab.x - endPt.x, grab.y - endPt.y) <= near;
-  if (first && last) return !startNear && !endNear; // 唯一段：距任一锚定端近形带内即拒
-  if (first) return !anchored.start || !startNear;
-  return !anchored.end || !endNear;
+  if (first && last) {
+    // 唯一段：全自由不受限（含短段）；任一端锚定才走短段/近形带判定
+    if (!anchored.start && !anchored.end) return true;
+    if (short) return false;
+    return !startNear && !endNear;
+  }
+  if (first) {
+    if (!anchored.start) return true; // 自由端侧（含短段）
+    if (short) return false;
+    return !startNear;
+  }
+  if (!anchored.end) return true; // 自由端侧（含短段）
+  if (short) return false;
+  return !endNear;
 }
 
 // ---------------------------------------------------------------------------

@@ -245,18 +245,11 @@ export class SelectorService extends Disposable implements ISelectorService {
         this.setSelected(ids);
       }
       // initial（per-id）= getLocalRect（commitDrag/预览的输入语义——数据矩形）；
-      // initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）
-      // 纯线选区不建拖拽会话（LineVm 四覆写空操作，docs/08 §3「线不可整体拖
-      // 动」）：空会话仍发 dragMove$ 触发「拖拽中隐藏 ActionBar」（docs/12 §3），
-      // 而松手零写入 → widgetsChanged$ 恢复链不触发——浮动栏停隐直到选区重建
-      // （2026-11 近形禁拖后线身抓取被拒落回此处，用户实测「拖完线身操作栏
-      // 消失且点线无反应」）。含形状的混合选区照常（形状移动带动线跟随）
-      const allLines =
-        ids.length > 0 && ids.every((id) => this.vmEngine.getVmById(id)?.type === 'LINE');
-      if (!allLines) {
-        const dragState = createDragState(this.dragCtx, ids, e, wasSelected);
-        if (dragState) this.dragState = dragState;
-      }
+      // initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）。
+      // 纯线选区在 createDragState 内部拒绝（空操作会话的 ActionBar 停隐
+      // 副作用——完整因果见 selectorDragOps 注释，2026-11 三轮审查下沉）
+      const dragState = createDragState(this.dragCtx, ids, e, wasSelected);
+      if (dragState) this.dragState = dragState;
     } else {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);

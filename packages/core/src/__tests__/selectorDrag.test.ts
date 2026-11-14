@@ -1,6 +1,7 @@
 import { BehaviorSubject, Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectorService } from '../platform/selector/selectorService';
+import { createDragState } from '../platform/selector/selectorDragOps';
 import type { RefLineService } from '../platform/refLine/refLineService';
 
 /**
@@ -310,5 +311,36 @@ describe('选中元素被 undo 删除 → 选区清理（2026-09-22 用户实测
     onModelRemoved$.next(['s1']);
     expect(selector.selected$.value).toEqual([]);
     expect(frame.visible).toBe(false); // 曾残留在原位置
+  });
+});
+
+describe('createDragState 纯线选区不建会话（2026-11 三轮审查下沉）', () => {
+  type VmLike = { type: string; getLocalRect?: () => unknown; getBounds?: () => unknown };
+  const mkCtx = (vms: Record<string, VmLike>) =>
+    ({ vmEngine: { getVmById: (id: string) => vms[id] ?? null } }) as never;
+  const EVT = {
+    world: { x: 0, y: 0, clone: () => ({ x: 0, y: 0 }) },
+    screen: { x: 0, y: 0 },
+  } as never;
+
+  it('纯线选区（单线/多线）→ null：空操作会话只带来 ActionBar 停隐副作用', () => {
+    expect(createDragState(mkCtx({ l1: { type: 'LINE' } }), ['l1'], EVT, true)).toBeNull();
+    expect(
+      createDragState(
+        mkCtx({ l1: { type: 'LINE' }, l2: { type: 'LINE' } }),
+        ['l1', 'l2'],
+        EVT,
+        true,
+      ),
+    ).toBeNull();
+  });
+
+  it('含形状的混合选区照常建会话（形状移动带动线跟随）', () => {
+    const rect = () => ({ x: 0, y: 0, width: 10, height: 10 });
+    const ctx = mkCtx({
+      s1: { type: 'SHAPE', getLocalRect: rect, getBounds: rect },
+      l1: { type: 'LINE', getLocalRect: rect, getBounds: rect },
+    });
+    expect(createDragState(ctx, ['s1', 'l1'], EVT, true)).not.toBeNull();
   });
 });

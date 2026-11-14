@@ -304,10 +304,23 @@ describe('segmentBodyGrabbable 近形禁拖（2026-11 二次拍板：距锚定�
   const g = (a: { start: boolean; end: boolean }, pts: IPt[], i: number, grab: IPt, scale = 1) =>
     segmentBodyGrabbable(a, pts, i, grab, scale);
 
-  it('中段恒可拖；自由端相邻段不受限（任意抓取点）', () => {
+  it('中段恒可拖；自由端相邻段不受限（任意抓取点，含自由短段——2026-11 三轮审查 P1）', () => {
     expect(g(ANCH_BOTH, U, 1, { x: 100, y: 50 })).toBe(true);
     expect(g(ANCH_E, U, 0, { x: 20, y: 0 })).toBe(true); // start 自由 → 首段全程可拖
     expect(g(FREE, U, 0, { x: 5, y: 0 })).toBe(true); // 全自由线不受限
+    // 全自由两点线长 20（<30）：短段兜底只限锚定侧，自由短段照常可拖
+    const SHORT_FREE: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+    ];
+    expect(g(FREE, SHORT_FREE, 0, { x: 10, y: 0 })).toBe(true);
+    // start 锚定 + 末段自由 20 长（距唯一锚定端 200）：自由悬空尾段可拖
+    const TAIL_FREE: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+      { x: 220, y: 0 },
+    ];
+    expect(g(ANCH_S, TAIL_FREE, 2, { x: 210, y: 0 })).toBe(true);
   });
 
   it('锚定侧首/末段：抓取点距锚定端 ≤30 拒、>30 放行', () => {

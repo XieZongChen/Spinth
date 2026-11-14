@@ -1,5 +1,9 @@
 # 连线锚定端相邻段禁拖（近形禁拖）
 
+> **口径注（2026-11 三轮审查）**：§1-§6 为首版「锚定端相邻段全禁」口径，
+> 近形判定已被 **§7 二次拍板（距锚定端 30 屏显 px 近形带 + 锚定侧段长
+> <30 世界整段）** 修订；当前事实以 §7 与 docs/08 §10.3 为准。
+
 ## 0. 结论摘要
 
 拖动连线贴着图形的那段（锚定端相邻的首/末段，通常是短 stub 段）时，线在锚点处
@@ -19,8 +23,8 @@
 
 ## 2. 实施（segmentBodyGrabbable 单源）
 
-- `lineHandles.ts`：新纯函数 `segmentBodyGrabbable(anchored, segIndex, segCount)`
-  ——段 0 且 start 锚定 / 末段且 end 锚定 / 唯一段任一端锚定 → 不可抓；
+- `lineHandles.ts`：纯函数 `segmentBodyGrabbable`（现签名 `(anchored, pts,
+segIndex, grab, scale)`——§7 二次拍板并入距离/段长参数，首版签名已废）；
   `capsuleAnchors` 加可选 `anchored` 参数（fallback 决策后过滤，缺省不过滤
   = 纯数学口径兼容既有单测）；
 - `lineSegTextSlide.ts` `maybeSegmentSlideGrab`：segIndex 定出后读模型
@@ -37,6 +41,11 @@
   端侧），仅更新注释与 docs/08 §10.3 规格。
 
 ## 3. 测试
+
+（§7 二次拍板后矩阵已重写为近形带内外/唯一段中点/锚定侧短段缩放兜底/胶囊
+60-62 边际/自由短段两例；selectorDrag 补纯线与混合选区会话锁；E2E 批次 3.7
+为「长首段带外几字形滑移 + 正交锁」、新增「唯一段近形带分界」用例、lineText
+双胶囊恢复 toBe(2)。以下为首版清单。）
 
 - 单测 `lineHandles.test.ts` 新增 describe（3 例）：segmentBodyGrabbable
   真值表（锚定侧首末拒/中段恒可/自由端侧放行）、唯一段（任一端锚定拒/全自由
