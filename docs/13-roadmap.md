@@ -91,9 +91,9 @@
 - 断头线一键清理：`pruneDanglingLines`（恰好一端 null），右键菜单入口，
   单事务一步撤销；500ms 捕获窗与前一删除命令隔离（前置 stopCapturing）。
 
-**验收**：`flowchart.spec.ts` 14 例（F-1…F-8 + F-3b/c 轮廓锚点、F-5b 同边自环、
-F-6b/c/d 网格三路）；视觉基线 `flowchart-sample` 双平台；`pnpm verify` 与全量
-E2E 绿。
+**验收**：`flowchart.spec.ts` 15 例（F-1…F-8 + F-3b/c 轮廓锚点、F-5b/c 同边自环/
+双环嵌套、F-6b/c/d 网格三路）；视觉基线 `flowchart-sample` 双平台；`pnpm verify`
+与全量 E2E 绿。
 
 #### 4.2 组织架构 / 树
 

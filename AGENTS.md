@@ -254,17 +254,18 @@ U 形跨度由 routeSelfLoop 按目标展开不被错开压窄）；ELBOWED 全�
 收纳 + 默认字色随填充自适应且**编辑器与渲染单源**（黑填充白字、无填充随主题
 dark #ededf2，对比度护栏 `shapeContrast.test`/`textEditStyle.test`，白边框定位
 深底选项；popover 选项钮 28px——44px 实测过大用户拍板回落，触摸目标口径 ≥24px）。
-E2E flowchart 14 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三标签）基线双平台
-（视觉用例已全部 clip 化/清 UI 入镜，DOM chrome 不再误伤基线，specs/linux-visual
-§14.10）；`lastRouteObstacles` 探针字面量生产零残留（check-debug-bundle 扩扫）。
+E2E flowchart 15 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三标签）基线双平台
+（视觉用例除 theme 双态整帧（设计意图）外已 clip 化/清 UI 入镜，DOM chrome 不再
+误伤基线，specs/linux-visual §14.10）；同边多自环嵌套展开（spanScale 跨度/车道
+分层）；`lastRouteObstacles` 探针字面量生产零残留（check-debug-bundle 扩扫）。
 
-当前实测基线：`pnpm verify` 通过；1257 单测（core 1141 + react 78 + app 38）；
-E2E 50 spec / 269 例（267 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 262 = 260 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 259 +
+当前实测基线：`pnpm verify` 通过；1259 单测（core 1143 + react 78 + app 38）；
+E2E 50 spec / 271 例（269 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 264 = 262 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 261 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
-2/2、视觉 rotate-45 注入版基线双平台；flowchart 14 例（F-1..F-8 + F-3b/c 轮廓
-锚点判别 + F-5b 同边自环跨度 + F-6b/c/d 网格便签/自由端/缩放）；edgeAutoScroll
-11/11 含
+2/2、视觉 rotate-45 注入版基线双平台；flowchart 15 例（F-1..F-8 + F-3b/c 轮廓
+锚点判别 + F-5b/c 同边自环跨度/双环嵌套 + F-6b/c/d 网格便签/自由端/缩放）；
+edgeAutoScroll 11/11 含
 E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E 端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；
 clickCreateSlip 2/2（形状 + 便签）；视觉 5/5 双平台（6 张基线含 flowchart-sample
 S1 场景，`--stability` 双跑全等）；图片/资产专项 12/12；a11y 6/6；

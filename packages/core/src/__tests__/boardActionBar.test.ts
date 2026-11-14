@@ -169,6 +169,41 @@ describe('buildActionBarSchema 单选分支', () => {
     expect(byId3.borderColor?.value).toBe('#000000');
     expect(byId3.borderColor?.displaySwatch).toBeUndefined();
     expect(byId3.color?.value).toBe('#ffffff');
+    // 文字色触发钮兜底（shapeType 判别 SHAPE）：fill 三态全收——无填充随主题
+    // （light #333333）、深填充自适应白（shapeVm 单源）；TEXT/STICKY 无 shapeType
+    // 不注入（STICKY 的便签底色不被误当填充）
+    expect(byId.textColor?.displaySwatch).toBeUndefined(); // 顶层 fill:'none' shape
+    expect(byId2.textColor?.displaySwatch).toBeUndefined(); // 缺省 color（非 string）
+    const s4 = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'SHAPE' },
+        data: { shapeType: 'rect', color: '#000000' },
+      }),
+      () => 0,
+    );
+    const byId4 = Object.fromEntries((s4?.items ?? []).map((i) => [i.id, i]));
+    expect(byId4.textColor?.displaySwatch).toBe('#ffffff'); // 黑填充自适应
+    const s5 = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'SHAPE' },
+        data: { shapeType: 'rect', color: '#000000', fill: 'none' },
+      }),
+      () => 0,
+    );
+    const byId5 = Object.fromEntries((s5?.items ?? []).map((i) => [i.id, i]));
+    expect(byId5.textColor?.displaySwatch).toBe('#333333'); // 无填充随主题 light
+    const s6 = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'STICKY' },
+        data: { color: '#fff3b0' },
+      }),
+      () => 0,
+    );
+    const byId6 = Object.fromEntries((s6?.items ?? []).map((i) => [i.id, i]));
+    expect(byId6.textColor?.displaySwatch).toBeUndefined(); // 非 SHAPE 不注入
   });
 
   it('LINE：8 项顺序固定（线型/线宽/虚线/双箭头/颜色 + 字号/文字色）', () => {

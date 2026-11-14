@@ -478,3 +478,33 @@ test('SHAPE 编辑器字色随填充自适应（specs/flowchart-closeout §16 �
   expect(s.fill).toBe('solid');
   expect(s.textColor).toBeUndefined();
 });
+
+test('SHAPE 无填充编辑器字色随主题（dark → #ededf2，specs/flowchart-closeout §16 二轮）', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('spinth.theme', 'dark'));
+  const docId = `e2e-shape-nofill-dark-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+
+  // 建矩形 → 选中 → 无填充（文字直对画布底 → 随主题默认）
+  await page.keyboard.press('r');
+  await page.mouse.move(560, 300);
+  await page.mouse.down();
+  await page.mouse.move(680, 380, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.mouse.click(620, 340);
+  await page.waitForTimeout(250);
+  await barPick(page, '填充色', '无填充');
+  await page.waitForTimeout(250);
+
+  // 两击进编辑 → 编辑器 color = #ededf2（#333 on #1b1b22 仅 1.36:1）
+  const c = await centerOf(page, 'SHAPE');
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(300);
+  await page.mouse.click(c.x, c.y);
+  const editor = page.locator('#spinth-text-layer [contenteditable="true"]');
+  await expect(editor).toHaveCSS('opacity', '1');
+  await expect(editor).toHaveCSS('color', 'rgb(237, 237, 242)');
+});

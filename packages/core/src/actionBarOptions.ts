@@ -89,11 +89,13 @@ export const typoItems = (
       label: '文字颜色',
       value: String(data.textColor ?? ''),
       // 缺省字色自适应（shapeVm 单源：深填充浅字/无填充随主题）——触发钮如实
-      // 显示该色点；缺省 fill = 恒填充语义（正向判联收窄 unknown：undefined
-      // 或 solid 都算）；TEXT/STICKY 无 fill 概念，不注入
+      // 显示该色点。SHAPE 判别用 data.shapeType（TEXT/STICKY 的 model 无此
+      // 字段，避免 STICKY 的便签底色被误当填充）；fill 三态全收（缺省 = 恒填充，
+      // 正向判联收窄 unknown）
       ...(data.textColor === undefined &&
-      (data.fill === undefined || data.fill === 'solid') &&
-      typeof data.color === 'string'
+      typeof data.shapeType === 'string' &&
+      typeof data.color === 'string' &&
+      (data.fill === undefined || data.fill === 'solid' || data.fill === 'none')
         ? { displaySwatch: defaultTextColorForFill(data.fill, data.color) }
         : {}),
       options: TEXT_COLOR_PALETTE.map((hex) => ({ id: hex, label: hex, swatch: hex })),

@@ -131,8 +131,8 @@ export class LineService extends Disposable {
       onPointerMove: (e) => this.drawSession.pointerMove(e),
       onPointerUp: (e) => this.drawSession.pointerUp(e),
       onPointerUpOutside: (e) => this.drawSession.pointerUp(e),
-      // 手势取消（Batch 1 · 1.9）：打断 ≠ 点击——settle 清零长草稿线（up 同款
-      // 收尾；up 内部读 e 处仅 flush 用，占位世界位不影响收尾语义）
+      // 手势取消（Batch 1 · 1.9）：打断 ≠ 点击——settle 清零长草稿线（up 同款收尾；
+      // up 读 e 处仅 flush 用，占位世界位不影响收尾语义）
       onPointerCancel: () =>
         this.drawSession.pointerUp({ world: { x: -1e5, y: -1e5 } } as IPointerEventInfo),
     });
@@ -218,14 +218,13 @@ export class LineService extends Disposable {
       );
       this.addDisposable(this.segTextSlide);
     }
-    // 拖拽预览期的连线实时跟随（docs/08 §3）：通用拖拽与脑图节点拖拽两条
-    // 通道都发射 dragMove$——预览 bounds 重路由、仅视觉不写模型
+    // 拖拽预览期的连线实时跟随（docs/08 §3）：通用与脑图节点拖拽两通道都发
+    // dragMove$——预览 bounds 重路由、仅视觉不写模型
     this.addDisposable(this.selector.dragMove$.subscribe(() => this.anchorFollow?.previewFollow()));
     if (typeof window !== 'undefined') {
-      // 双击连线进文字编辑（2026-09-30 用户拍板：单击一律不进编辑）：原生
-      // dblclick 只在两次完整 click 时触发——「单击选中后立即按下拖动」不会
-      // 产生该事件，天然无伪双击（自定义 350ms/8px 按下时判定的方案正因此
-      // 吞拖拽被否）
+      // 双击连线进文字编辑（2026-09-30 拍板：单击一律不进编辑）：原生 dblclick
+      // 只在两次完整 click 时触发——「单击选中后立即按下拖动」不产生该事件，
+      // 天然无伪双击（自定义 350ms/8px 判定方案正因吞拖拽被否）
       window.addEventListener('dblclick', this.onLineDblClick, true);
       this.addDisposable(() => window.removeEventListener('dblclick', this.onLineDblClick, true));
     }

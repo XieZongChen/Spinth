@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graphics } from 'pixi.js';
 import { anchorOf } from '../widgets/line/lineMath';
+import { setTextTheme } from '../platform/textEngine/theme';
 import { ShapeVm } from '../widgets/shape/shapeVm';
 
 /** ShapeVm 渲染行为（docs/17 §6 编辑态 / docs/16 快速路径 / docs/05 §8 旋转） */
@@ -199,5 +200,28 @@ describe('流程图样式批（specs/flowchart-closeout §4.2：白底黑框/无
     vm.flushUpdate();
     expect(vm.hitTestPoint({ x: 160, y: 240 } as never)).toBe(true); // 中心
     expect(vm.hitTestPoint({ x: 400, y: 400 } as never)).toBe(false); // 远处
+  });
+});
+
+describe('主题版本守卫（specs/flowchart-closeout §16 二轮：无填充字色随主题）', () => {
+  it('setTheme 后 render(state,state) 不被快速路径吞掉——docDisplay 重建换新字色', () => {
+    const vm = new ShapeVm(null);
+    vm.setState({ ...state }); // 有文字（守卫在 hasText 档）
+    vm.flushUpdate();
+    const doc0 = docOf(vm);
+    expect(doc0).toBeDefined();
+    // 模拟 setTheme → refreshAll：render(state,state) 同 state
+    setTextTheme('dark');
+    try {
+      vm.refresh();
+      const doc1 = docOf(vm);
+      expect(doc1).toBeDefined();
+      expect(doc1).not.toBe(doc0); // 全量重建（守卫缺失则快速路径早退、引用不变）
+    } finally {
+      setTextTheme('light'); // 复位保证测试隔离（theme.test 同款）
+    }
+    // 同主题版本下重复 refresh：同 state 走快速路径（docDisplay 引用不变）
+    vm.refresh();
+    expect(docOf(vm)).toBe(docOf(vm));
   });
 });

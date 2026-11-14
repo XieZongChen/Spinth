@@ -387,7 +387,7 @@ Phase 1 接受「最迟 24 小时发现回归」的窗口；是否进 PR 需要�
 | macOS 回归  | 本地 `npx playwright test --grep @visual`（系统 Chrome） | 5/5，darwin 基线零变化          |
 | Linux 校验  | `pnpm visual:linux`                                      | 5/5，6 张 linux 基线匹配        |
 | 可复现      | `pnpm visual:linux --stability`                          | 两次生成 SHA-256 全等           |
-| update 正确 | `pnpm visual:linux --update`                             | 5 张更新；随后自动校验通过      |
+| update 正确 | `pnpm visual:linux --update`                             | 6 张更新；随后自动校验通过      |
 | 负向        | N1–N5                                                    | 各自按预期红                    |
 | 全量        | `pnpm verify`                                            | 绿；基线检查通过                |
 | CI          | 一次普通 dispatch + 一次 update dispatch                 | 前者绿；后者产出可审计 artifact |
