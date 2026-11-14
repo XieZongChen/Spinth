@@ -156,7 +156,10 @@ function addDraft(bench: IBench, id: string): void {
 }
 
 describe('quick-add 点击落定 onSettled（顺序：update → 重排 → 单撤销收口）', () => {
-  it('create 分支：onSettled 在 line.update 之后、stopCapturing 之前恰好一次', () => {
+  /** 排空微任务队列（stopCapturing 延后一拍经 queueMicrotask 调用） */
+  const flushMicrotasks = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+  it('create 分支：onSettled 在 update 后同步调用；stopCapturing 延后微任务收口', async () => {
     const bench = makeBench();
     addDraft(bench, 'L1');
     bench.qa.quickAddConnectedShape('L1');
@@ -164,15 +167,15 @@ describe('quick-add 点击落定 onSettled（顺序：update → 重排 → 单�
     const l1 = bench.lines.get('L1')!;
     expect(l1.model.update).toHaveBeenCalledTimes(1); // 只有 quickAdd 自身写
     // n=1 → 0.5 槽与 plan 路由同值 → reattachAll samePoints 零写（无幻影事务）
-    expect(bench.order).toEqual([
-      'onSettled',
-      'stopCapturing',
-      'setSelected:' + bench.addedShapes[0],
-    ]);
+    expect(bench.order).toEqual(['onSettled', 'setSelected:' + bench.addedShapes[0]]);
     expect((l1.store.data.points as Array<[number, number]>)[0]).toEqual([220, 140]);
+    // stopCapturing 延后一拍（微任务相）：新建形状首帧几何广播的挂线 reattach
+    // 滞后写并入同一捕获窗 → 一次 quick-add 恒一步 undo（2026-11 审查返工）
+    await flushMicrotasks();
+    expect(bench.order.at(-1)).toBe('stopCapturing');
   });
 
-  it('connect 分支（落位被无连线孤立元素占）：onSettled 同样先于 stopCapturing', () => {
+  it('connect 分支（落位被无连线孤立元素占）：onSettled 同步、stopCapturing 微任务收口', async () => {
     // 占位元素 = 正对落位（中心 330,140），无任何连线 → plan 走 connect；
     // 本用例单独搭小 bench（含占位形状）
     const occupied: IRect = { x: 270, y: 100, width: 120, height: 80 };
@@ -242,7 +245,9 @@ describe('quick-add 点击落定 onSettled（顺序：update → 重排 → 单�
     );
     qa.quickAddConnectedShape('L1');
     expect(l1.store.data.endNodeId).toBe('occupier');
-    expect(order).toEqual(['onSettled', 'anchored', 'stopCapturing', 'setSelected:L1']);
+    expect(order).toEqual(['onSettled', 'anchored', 'setSelected:L1']);
+    await flushMicrotasks();
+    expect(order.at(-1)).toBe('stopCapturing');
   });
 });
 

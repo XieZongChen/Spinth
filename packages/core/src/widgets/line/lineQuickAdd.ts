@@ -25,6 +25,7 @@ import {
   type JoinDir,
 } from './lineMath';
 import { nearestAnchorDot } from './lineHitTest';
+import type { ILineQuickAddHost } from './lineQuickAddHost';
 import { Rectangle } from 'pixi.js';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 
@@ -66,30 +67,6 @@ export interface ILineAnchorData {
   endPort?: number;
 }
 
-/** 宿主回调：拉线会话状态与节流通道（①绘制管线归属宿主） */
-export interface ILineQuickAddHost {
-  /** 开始拉线会话（写 drawingId/startAnchor） */
-  beginSession(id: string, anchor: { nodeId: string; join: JoinDir; point: IPt }): void;
-  /** 结束会话：flush 节流尾帧 + 清 drawingId（顺序敏感——先 flush 再清） */
-  endSession(): void;
-  /** 节流落库通道（与 line 工具管线共用 pendingMove/moveTimer） */
-  throttledMove(world: { x: number; y: number }): void;
-  /** 连线落定（未拖出删除 / 否则保留选中） */
-  settle(id: string): void;
-  /** 会话期浮层收场 */
-  hideOverlays(): void;
-  /** 读起点锚（quickAddConnectedShape 用） */
-  getStartAnchor(): { nodeId: string; join: JoinDir; point: IPt } | null;
-  /** 会话默认线型/线宽（与 line 工具拉线同源——双创建链统一，docs/04 §2） */
-  getDefaultLineType(): LineType;
-  getDefaultStrokeWidth(): number;
-  /** quick-add 落新形状的默认型（组合根注入 ShapeService 会话态） */
-  getDefaultShapeType(): ShapeType;
-  /** 点击落定重排（与拉线 settle 同源，docs/08 §5 重排触发清单）：建线/连线
-   *  落定后全量重排，同边槽位即时物化——否则两条同边 quick-add 线都停在
-   *  t=0.5，删除目标形状时才第一次物化 0.4/0.6 分配，幸存线跳槽重路由扭结 */
-  onSettled(): void;
-}
 
 export class LineQuickAdd extends Disposable {
   /** 连接点手势的路标（client 坐标，区分点击与拖拽） */
@@ -231,7 +208,10 @@ export class LineQuickAdd extends Disposable {
         endJoin: plan.endJoin,
       } as never);
       this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
-      this.history.stopCapturing(); // 建线 + 锚定 = 单撤销单元
+      // stopCapturing 延后一拍（微任务相）：新建/新锚形状的首帧几何广播会触发
+      // 挂线 reattach 的滞后写（vm root 未应用新帧——docs/02 幻影撤销项家族），
+      // 并入同一捕获窗 → quick-add 一次操作恒一步 undo、不暴露草稿中间态
+      queueMicrotask(() => this.history.stopCapturing());
       this.selector.setSelected([lineId]); // 参考同款：选中连线（非目标形状）
       return;
     }
@@ -254,7 +234,7 @@ export class LineQuickAdd extends Disposable {
       endJoin: plan.endJoin,
     } as never);
     this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
-    this.history.stopCapturing();
+    queueMicrotask(() => this.history.stopCapturing()); // 延后一拍——见 connect 分支注释
     this.selector.setSelected([shape.id]);
   }
 

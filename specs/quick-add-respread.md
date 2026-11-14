@@ -47,7 +47,25 @@
   第一目标后悬空线 points 原位、幸存线起点槽位不跳（B 中心可能被折线穿过，
   选中 B 需扫内部点位）。
 
-## 4. 边界与挂账
+## 4. 单撤销单元收口（2026-11 审查返工补）
+
+undo E2E 实测揪出存量缺陷：一次 quick-add 占两个撤销项、第一步 undo 暴露
+「终点 [0,0] 草稿中间态」——新建形状首帧几何广播触发挂线 reattach 的滞后写
+（vm root 未应用新帧，docs/02 幻影撤销项家族）落在创建事务 stopCapturing
+之后成独立栈项；另 LineVm 初始 state 默认 lineType 'STRAIGHT' 与「新线一律
+ELBOWED」不符，每条新建 ELBOWED 线首帧产生 lineType diff → 微任务相
+rerouteLine 多写一次「spread 起点的怪路由」。修复：
+
+- `lineVm.ts` 初始 state 默认 lineType 对齐 'ELBOWED'（首帧无 diff）；
+- `quickAddConnectedShape` 两分支 `stopCapturing` 经 `queueMicrotask` 延后
+  一拍（微任务相的滞后写并入同一捕获窗——微任务注册序保证滞后写先执行、
+  切窗后执行）→ 一次 quick-add 恒一步 undo、一步 redo 完整恢复。
+
+测试：`quickAddSettle.test.ts` 顺序断言改为「onSettled 同步、stopCapturing
+微任务收尾」；E2E 新用例「quick-add 单撤销单元」——第二次 quick-add（建线+
+建形+让位）Ctrl+Z 一步全等第一次后快照、redo 完整恢复。
+
+## 5. 边界与挂账
 
 - 悬空线仍占槽（删除 vs 删线的不对称是既有设计：悬空线待一键清理）；清理
   悬空线后组缩小、余线重均分，语义不变；

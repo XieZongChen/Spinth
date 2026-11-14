@@ -66,7 +66,11 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
       strokeWidth: 2,
       startArrow: 'none',
       endArrow: 'arrow',
-      lineType: 'STRAIGHT',
+      // 默认对齐「新线一律 ELBOWED」（docs/08 §4）：初始 'STRAIGHT' 会让每条
+      // 新建 ELBOWED 线首帧产生 lineType diff → 微任务相 rerouteLine 多写一次
+      // 「spread 起点的怪路由」，且落在创建事务 stopCapturing 之后成独立撤销项
+      // （quick-add 一次操作两步 undo、undo 暴露草稿中间态——2026-11 审查返工）
+      lineType: 'ELBOWED',
       dashed: false,
       text: '',
       textRatio: 0.5,

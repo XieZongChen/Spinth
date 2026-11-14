@@ -531,3 +531,87 @@ test('批次2：quick-add 手势被打断（pointercancel）→ 零长草稿线�
 
   await page.mouse.up(); // 会话监听已移除，补 up 仅复位 Playwright 鼠标态
 });
+
+test('quick-add 单撤销单元：第二次 quick-add（建线+建形+让位重排）Ctrl+Z 一步回退', async ({
+  page,
+}) => {
+  const docId = `e2e-quickadd-undo-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  await createRect(page, 450, 350);
+
+  const a = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
+    const s = d.find((v) => v.type === 'SHAPE') as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    return { x: Number(s.x), y: Number(s.y), w: Number(s.width), h: Number(s.height) };
+  });
+  const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
+  const aCx = a.x + a.w / 2;
+  const aCy = a.y + a.h / 2;
+  const hoverRightDot = async () => {
+    await page.mouse.click(aCx + c.left, aCy + c.top); // 选中 A
+    await page.waitForTimeout(250);
+    await page.mouse.move(a.x + a.w + 24 + c.left, aCy + c.top); // 右外移点
+    await page.waitForTimeout(250);
+  };
+  const clickDot = async () => {
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  };
+  const snap = () =>
+    page.evaluate(() => {
+      const dd = (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug;
+      return {
+        shapes: dd.vmStates.filter((s) => s.type === 'SHAPE').length,
+        lines: dd.vmStates
+          .filter((s) => s.type === 'LINE')
+          .map((l) => (l as { points: Array<[number, number]> }).points),
+      };
+    });
+
+  // 第一次：方向空闲 → 建 B1 + L1（n=1 槽 0.5）
+  await hoverRightDot();
+  await clickDot();
+  const s1 = await snap();
+  expect(s1.shapes).toBe(2);
+  expect(s1.lines).toHaveLength(1);
+  const l1Pts = JSON.stringify(s1.lines[0]);
+
+  // 第二次：同边分支 → 建 B2 + L2 + L1 让位槽位物化（onSettled 并入同捕获窗）
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  await hoverRightDot();
+  await clickDot();
+  const s2 = await snap();
+  expect(s2.shapes).toBe(3);
+  expect(s2.lines).toHaveLength(2);
+
+  // 单撤销单元：Ctrl+Z 一步回退「建线 + 建形 + 既有线让位」（三写同窗）
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(300);
+  const s3 = await snap();
+  expect(s3.shapes).toBe(2);
+  expect(s3.lines).toHaveLength(1);
+  expect(JSON.stringify(s3.lines[0])).toBe(l1Pts); // L1 回 0.5 槽原几何
+
+  // redo 完整恢复
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await page.waitForTimeout(300);
+  const s4 = await snap();
+  expect(s4.shapes).toBe(3);
+  expect(s4.lines).toHaveLength(2);
+});
