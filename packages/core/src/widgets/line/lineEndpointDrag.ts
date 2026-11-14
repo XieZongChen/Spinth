@@ -19,6 +19,7 @@ import {
   routeElbow,
   type JoinDir,
 } from './lineMath';
+import { selfLoopSpanOf } from './linePortSpread';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { LineVm } from './lineVm';
 import type { LineHoverOverlay } from './lineHoverOverlay';
@@ -137,6 +138,14 @@ export class LineEndpointDrag extends Disposable {
               end: anchor,
               endJoin: join,
               node: hostAabb(hit)!,
+              // 同边多自环嵌套档（§7.5 四轮）：预览走 previewRoute 不写 model
+              // ——live 传当帧锚定（end 端 = 悬停命中），与落库 reattach 同源
+              spanScale: selfLoopSpanOf(this.engine, this.vmEngine, d.id, {
+                startNodeId: data.startNodeId,
+                startJoin: data.startJoin,
+                endNodeId: hit.id,
+                endJoin: join,
+              }),
             })
           : routeElbow({
               start: pts[0]!,
@@ -164,6 +173,12 @@ export class LineEndpointDrag extends Disposable {
               end: pts[pts.length - 1]!,
               endJoin: data.endJoin,
               node: hostAabb(hit)!,
+              spanScale: selfLoopSpanOf(this.engine, this.vmEngine, d.id, {
+                startNodeId: hit.id,
+                startJoin: join,
+                endNodeId: data.endNodeId,
+                endJoin: data.endJoin,
+              }),
             })
           : routeElbow({
               start: anchor,

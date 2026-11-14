@@ -454,10 +454,21 @@ test('F-5c 同边双自环嵌套：两条 A 顶边拖回 → 内环 80 / 外环 
   await page.mouse.move(520, 362);
   await page.mouse.down();
   await page.mouse.move(530, 362, { steps: 3 });
+  // 预览与落库同源（§7.5 四轮）：拖拽中 spanScale 已按字典序定档（live 覆写
+  // 当帧锚定——新线首帧 endNodeId 尚未落库也不滞后），新线可能是内环 80 或
+  // 外环 120（genId 字典序不定），松手 reattachAll 前后**同线跨度不变**
+  await page.waitForTimeout(120);
+  const dragging = await linesOf(page);
+  expect(dragging).toHaveLength(2);
+  const spanOf = (pts: Pt[]) =>
+    Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
+  const draggingSpan = spanOf(dragging[1]!.points);
   await page.mouse.up();
   await page.waitForTimeout(300);
 
   const ls = await linesOf(page);
+  // 同线松手前后跨度不变（预览=落库；跳变即红）
+  expect(spanOf(ls[1]!.points)).toBe(draggingSpan);
   expect(ls).toHaveLength(2);
   for (const l of ls) {
     expect(l.startNodeId).toBe(l.endNodeId);

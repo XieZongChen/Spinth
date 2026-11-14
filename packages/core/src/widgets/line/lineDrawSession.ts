@@ -21,6 +21,7 @@ import {
   type IPt,
   type JoinDir,
 } from './lineMath';
+import { selfLoopSpanOf } from './linePortSpread';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import { quantizeGrid } from '../../common/grid';
 import type { IHostGeom, IRect } from '../../common/geometry';
@@ -227,6 +228,14 @@ export class LineDrawSession extends Disposable {
           end,
           endJoin: join!,
           node: hostAabb(hit.geom)!,
+          // 同边多自环嵌套档（§7.5 四轮：预览与落库同源——live 传当帧锚定，
+          // 拖拽首帧 endNodeId 尚未落库也不滞后；新线字典序大即显外环无跳变）
+          spanScale: selfLoopSpanOf(this.engine, this.vmEngine, this.drawingId!, {
+            startNodeId: this.startAnchorState!.nodeId,
+            startJoin: this.startAnchorState!.join!,
+            endNodeId: hit.id,
+            endJoin: join!,
+          }),
         })
       : routeElbow({
           start: this.startAnchorState!.point,

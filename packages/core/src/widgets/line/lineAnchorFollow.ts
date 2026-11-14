@@ -16,6 +16,7 @@ import {
 } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { ILineAnchorData } from './lineQuickAdd';
+import { collectLineDatas, computePortSpread, type IPortSpread } from './linePortSpread';
 
 /** points 内容级同值判定（reattach 幂等守卫） */
 function samePoints(a: Array<[number, number]>, b: Array<[number, number]>): boolean {
@@ -195,78 +196,21 @@ export class LineAnchorFollow extends Disposable {
   }
 
   /**
-   * 同边多线错开分配（specs/flowchart-closeout §7.3，G-05）：纯派生不落库——
-   * 每轮按线 id 字典序重算一致（组内加/删线会让他位线让位，可接受），零写入
-   * 不产生幻影事务（samePoints 守卫继续有效）；显式 port 优先不参与分配，
-   * n=1 或未锚定恒 0.5（旧行为）。
-   * 分组键 = `(nodeId, join)`——同一锚边上的出发线与进入线共享同一排槽位
-   * （早期按端拆组会让「从 A 右边出发」与「进入 A 右边」各取 0.5 在同一
-   * 锚点重叠，spec §7.3 原文即两元组）。**同边自环两端豁免**：两端各占一槽
-   * 会被分到 0.4/0.6，锚点差 0.2×边长 ≥8px 反而绕过 routeSelfLoop 的重合
-   * 展开分支、把 U 压成 0.2×边宽（120 边 = 24px ≪ 设计跨度 max(80, 边长/2)，
-   * 二轮审查实测）——自环两端恒 0.5 交由 routeSelfLoop 按目标跨度展开，也
-   * 不挤占同边其他线的槽位。
-   * **同边多自环嵌套**（三轮审查）：n 条同边自环按 id 字典序赋 spanScale
-   * 1..n——跨度与车道深度同比放大（80/钳边长、走廊 30/60/…），内环嵌外环
-   * 不重叠；短边高倍钳顶后仍部分共线（挂账）。ports 键 = `${end}|${nodeId}|${join}|${lineId}`。
+   * 同边多线错开分配（specs/flowchart-closeout §7.3，G-05）——算法本体已拆至
+   * linePortSpread（§23 <400 铁律；纯函数域供绘制/端点预览共享同源分配，
+   * 四轮审查：预览不传自环档会出现「拖拽中内环、松手跳外环」）。规则全文见
+   * linePortSpread.computePortSpread 注释：`(nodeId, join)` 分组、显式 port
+   * 优先、n=1 恒 0.5、同边自环豁免错开 + 嵌套档 1..n。
    */
-  private spreadPorts(): { ports: Map<string, number>; selfLoopSpan: Map<string, number> } {
-    const groups = new Map<string, Array<{ end: 's' | 'e'; id: string }>>();
-    const loops = new Map<string, string[]>(); // key → 同边自环 lineId（嵌套分档）
-    for (const vm of this.vmEngine.getAllVms()) {
-      if (vm.type !== 'LINE') continue;
-      const data = this.engine.getModelById(vm.id)?.toJSON() as unknown as
-        (ILineAnchorData & { id: string }) | undefined;
-      if (!data) continue;
-      // 同边自环（两端同节点同 join）整条豁免错开槽位（见上注释），另收进
-      // loops 分档（n>1 时嵌套展开）
-      if (
-        data.startNodeId &&
-        data.startNodeId === data.endNodeId &&
-        data.startJoin &&
-        data.startJoin === data.endJoin
-      ) {
-        const key = `${data.startNodeId}|${data.startJoin}`;
-        const l = loops.get(key) ?? [];
-        l.push(data.id);
-        loops.set(key, l);
-        continue;
-      }
-      for (const end of ['s', 'e'] as const) {
-        const nodeId = end === 's' ? data.startNodeId : data.endNodeId;
-        const join = end === 's' ? data.startJoin : data.endJoin;
-        const port = end === 's' ? data.startPort : data.endPort;
-        if (!nodeId || !join || port !== undefined) continue;
-        const key = `${nodeId}|${join}`;
-        const g = groups.get(key) ?? [];
-        g.push({ end, id: data.id });
-        groups.set(key, g);
-      }
-    }
-    const out = new Map<string, number>();
-    for (const [key, entries] of groups) {
-      if (entries.length <= 1) continue; // n=1 → 0.5 缺省（旧行为）
-      // 字典序稳定：先线 id、再端符（同线两端相邻——自环对称展开）
-      entries.sort((p, q) => (p.id < q.id ? -1 : p.id > q.id ? 1 : p.end < q.end ? -1 : 1));
-      entries.forEach((ent, i) => {
-        const t = 0.2 + (0.6 * (i + 1)) / (entries.length + 1);
-        out.set(`${ent.end}|${key}|${ent.id}`, Math.min(0.9, Math.max(0.1, t)));
-      });
-    }
-    const selfLoopSpan = new Map<string, number>();
-    for (const ids of loops.values()) {
-      if (ids.length <= 1) continue; // 单自环缺省 scale 1
-      ids.sort();
-      ids.forEach((id, i) => selfLoopSpan.set(id, i + 1));
-    }
-    return { ports: out, selfLoopSpan };
+  private spreadPorts(): IPortSpread {
+    return computePortSpread(collectLineDatas(this.engine, this.vmEngine));
   }
 
   private routeLinePoints(
     data: ILineAnchorData & { id: string },
     startGeom: IHostGeom | null,
     endGeom: IHostGeom | null,
-    spread: { ports: Map<string, number>; selfLoopSpan: Map<string, number> },
+    spread: IPortSpread,
   ): Array<[number, number]> | null {
     if (!startGeom && !endGeom) return null;
     // 有效沿边参数：显式 port > 同边多线错开分配 > 0.5（§7.3）

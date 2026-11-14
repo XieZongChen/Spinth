@@ -217,11 +217,12 @@ describe('主题版本守卫（specs/flowchart-closeout §16 二轮：无填充�
       const doc1 = docOf(vm);
       expect(doc1).toBeDefined();
       expect(doc1).not.toBe(doc0); // 全量重建（守卫缺失则快速路径早退、引用不变）
+      // 同主题版本下重复 refresh：同 state 走快速路径（docDisplay 引用不变）。
+      // 须在 dark 版本内验证——复位 light 会使版本再 +1，重建是守卫的正确行为
+      vm.refresh();
+      expect(docOf(vm)).toBe(doc1); // 四轮返工：原先恒真断言 docOf(vm)===docOf(vm)
     } finally {
       setTextTheme('light'); // 复位保证测试隔离（theme.test 同款）
     }
-    // 同主题版本下重复 refresh：同 state 走快速路径（docDisplay 引用不变）
-    vm.refresh();
-    expect(docOf(vm)).toBe(docOf(vm));
   });
 });
