@@ -18,6 +18,7 @@ import type { IHostGeom, IRect } from '../../common/geometry';
 import type { Point } from 'pixi.js';
 import { LineHoverOverlay } from './lineHoverOverlay';
 import { LineQuickAdd, type ILineAnchorData } from './lineQuickAdd';
+import { createQuickAddHost } from './lineQuickAddHost';
 import { LineAnchorFollow } from './lineAnchorFollow';
 import { LineEndpointDrag } from './lineEndpointDrag';
 import { LineSegTextSlide } from './lineSegTextSlide';
@@ -170,28 +171,22 @@ export class LineService extends Disposable {
       },
     );
     this.addDisposable(this.drawSession);
+    // host 组装走 lineQuickAdd 侧工厂（2026-11 审查返工：400 行铁律）；会话
+    // 通道/会话默认值/点击落定重排（与拉线 settle 同源，docs/08 §5）显式注入
     this.quickAdd = new LineQuickAdd(
       this.viewport,
       this.engine,
       this.vmEngine,
       this.selector,
       this.history,
-      {
-        beginSession: (id, anchor) => this.drawSession.beginFromQuickAdd(id, anchor),
-        endSession: () => this.drawSession.endSession(),
-        throttledMove: (world) => this.drawSession.queueMove(world),
-        settle: (id) => this.drawSession.settle(id),
+      createQuickAddHost({
+        session: this.drawSession,
         hideOverlays: () => this.overlay?.hideAll(),
-        getStartAnchor: () =>
-          this.drawSession.startAnchor as { nodeId: string; join: JoinDir; point: IPt } | null,
-        // 双创建链同源：quick-add 建线吃本服务会话默认线型；落新形状吃 ShapeService 会话默认型
         getDefaultLineType: () => this.defaultType,
         getDefaultStrokeWidth: () => this.defaultWidth,
         getDefaultShapeType: () => this.quickAddShapeTypeProbe(),
-        // 点击落定重排（与拉线 settle/端点拖拽同源，docs/08 §5）：同边多线
-        // 槽位即时物化，删除目标形状时 respreadLines 对幸存线 samePoints 零写
         onSettled: () => this.anchorFollow?.reattachAll(),
-      },
+      }),
     );
     this.addDisposable(this.quickAdd);
     this.anchorFollow = new LineAnchorFollow(this.engine, this.vmEngine, this.selector);

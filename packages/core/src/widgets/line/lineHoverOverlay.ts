@@ -1,14 +1,15 @@
 import { Disposable } from '../../base/disposable';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { ISelectorService, IVmEngineService, IViewportService } from '../../types';
+import { capsuleAnchors, outlineAnchorsOf, type IPt, type JoinDir } from './lineMath';
 import {
-  capsuleAnchors,
-  effectivePath,
-  outlineAnchorsOf,
-  type IPt,
-  type JoinDir,
-} from './lineMath';
-import { JOINS, dotSnapshots, nearestDot, resolveLineHover } from './lineHoverMath';
+  dotSnapshots,
+  effectiveLinePts,
+  JOINS,
+  lineAnchorFlags,
+  nearestDot,
+  resolveLineHover,
+} from './lineHoverMath';
 import { LineAnchorIndicator } from './lineAnchorIndicator';
 import { LineEndpointHandles } from './lineEndpointHandles';
 import { LineSegmentHandles } from './lineSegmentHandles';
@@ -152,10 +153,7 @@ export class LineHoverOverlay extends Disposable {
       const lvm = first as LineVm;
       const update = (): void => {
         if (this.host.isEditing()) return; // 编辑期 targetSub 重入守卫（同上）
-        const pts = effectivePath(
-          lvm.state.points.map((p) => ({ x: p[0], y: p[1] })),
-          lvm.state.lineType ?? 'ELBOWED',
-        );
+        const pts = effectiveLinePts(lvm.state);
         if (pts.length < 2) return;
         const scale = this.viewport.vpScale$.value || 1;
         this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale);
@@ -249,10 +247,7 @@ export class LineHoverOverlay extends Disposable {
       const lvm = this.vmEngine.getVmById(sel[0]!);
       if (lvm?.type === 'LINE') {
         const line = lvm as LineVm;
-        const pts = effectivePath(
-          line.state.points.map((p) => ({ x: p[0], y: p[1] })),
-          line.state.lineType ?? 'ELBOWED',
-        );
+        const pts = effectiveLinePts(line.state);
         if (pts.length >= 2) {
           const world = this.viewport.clientToWorld(e.clientX, e.clientY);
           const scale = this.viewport.vpScale$.value || 1;
@@ -263,7 +258,7 @@ export class LineHoverOverlay extends Disposable {
             world,
             scale,
             // 近形禁拖（2026-11）：锚定端相邻段不高亮不出光标（与抓取同源）
-            { start: Boolean(line.state.startNodeId), end: Boolean(line.state.endNodeId) },
+            lineAnchorFlags(line.state),
           );
           this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale, hit.endpointActive);
           this.showSegmentHandles(pts, scale, hit.segmentActive, line);
@@ -363,9 +358,7 @@ export class LineHoverOverlay extends Disposable {
     corners?: readonly IPt[] | null,
   ): void {
     const knockout = vm ? vm.knockoutRectDebug : null;
-    const anchored = vm
-      ? { start: Boolean(vm.state.startNodeId), end: Boolean(vm.state.endNodeId) }
-      : undefined;
+    const anchored = vm ? lineAnchorFlags(vm.state) : undefined;
     this.segmentHandles.show(pts, scale, activeIndex, knockout, corners ?? null, anchored);
     this.segmentSnapshot = capsuleAnchors(pts, scale, knockout, anchored).map(({ geom }) => ({
       x: geom.mid.x,
