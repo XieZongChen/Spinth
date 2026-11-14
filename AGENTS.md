@@ -259,9 +259,16 @@ E2E flowchart 15 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三�
 误伤基线，specs/linux-visual §14.10）；同边多自环嵌套展开（spanScale 跨度/车道
 分层）；`lastRouteObstacles` 探针字面量生产零残留（check-debug-bundle 扩扫）。
 
-当前实测基线：`pnpm verify` 通过；1266 单测（core 1150 + react 78 + app 38）；
-E2E 50 spec / 272 例（270 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 265 = 263 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 262 +
+交互三修已落地（specs/actionbar-popover-mutex / quick-add-respread /
+line-body-drag-near-shape）：ActionBar popover 开合单源互斥（openPopoverId
+上提 ActionBar、PopoverControl 受控，bar 内 pointerdown 统一收起）；quick-add
+点击落定与拉线同源触发全量重排（同边槽位创建即物化——删除目标形状后幸存线
+samePoints 零写、悬空线原位不扭）；连线锚定端相邻段禁拖（segmentBodyGrabbable
+单源门控抓取/胶囊/hover 光标，docs/08 §10.3 首末两档反转、端点圆点拖拽保留）。
+
+当前实测基线：`pnpm verify` 通过；1276 单测（core 1156 + react 82 + app 38）；
+E2E 50 spec / 273 例（271 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 266 = 264 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 262 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
 2/2、视觉 rotate-45 注入版基线双平台；flowchart 15 例（F-1..F-8 + F-3b/c 轮廓
 锚点判别 + F-5b/c 同边自环跨度/双环嵌套 + F-6b/c/d 网格便签/自由端/缩放）；
