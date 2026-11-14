@@ -470,3 +470,75 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   expect(JSON.stringify(s3.points)).toBe(JSON.stringify(pts));
   expect(s3.pinned).toBe(false); // 同上：探针已归一化
 });
+
+test('纯线选区拖线身：零写入零会话，ActionBar 不停隐（2026-11 回归锁）', async ({ page }) => {
+  const docId = `e2e-line-drag-bar-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
+  // 两形状水平对齐 → 连线为唯一段直线（近形禁拖口径下线身不可抓，
+  // 手势落回 selector——回归前此处会建「空操作拖拽会话」：dragMove$ 触发
+  // 拖拽中隐藏 ActionBar，松手零写入 widgetsChanged$ 恢复链不跑 → 操作栏
+  // 永久消失且选区未变时点线无反应，用户感知「线选不中」）
+  await page.getByRole('button', { name: /矩形|形状/ }).click();
+  await page.mouse.move(200 + c.left, 300 + c.top);
+  await page.mouse.down();
+  await page.mouse.move(320 + c.left, 380 + c.top, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.getByRole('button', { name: /矩形|形状/ }).click();
+  await page.mouse.move(480 + c.left, 300 + c.top);
+  await page.mouse.down();
+  await page.mouse.move(600 + c.left, 380 + c.top, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(320 + c.left, 340 + c.top);
+  await page.mouse.down();
+  await page.mouse.move(480 + c.left, 340 + c.top, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  const ptsBefore = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
+    return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
+  });
+
+  // 选中线（唯一段中点）→ ActionBar 出现
+  await page.mouse.click(400 + c.left, 340 + c.top);
+  await page.waitForTimeout(400);
+  const bar = page.locator('[data-spinth-action-bar]');
+  await expect(bar).toBeVisible();
+
+  // 按住线身拖 30px 松手：无会话无写入（points 不变、选区保持）
+  await page.mouse.move(400 + c.left, 340 + c.top);
+  await page.mouse.down();
+  await page.mouse.move(430 + c.left, 340 + c.top, { steps: 4 });
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const after = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: { vmStates: Array<Record<string, unknown>>; selectedIds: string[] };
+        };
+      }
+    ).__spinthDebug.__debug;
+    return {
+      selected: d.selectedIds,
+      pts: (d.vmStates.find((s) => s.type === 'LINE') as { points: Array<[number, number]> })
+        .points,
+    };
+  });
+  expect(after.selected).toHaveLength(1); // 选区保持（端点圆在）
+  expect(JSON.stringify(after.pts)).toBe(JSON.stringify(ptsBefore)); // 线身拖拽零写入
+  // 操作栏不得停隐（回归点：拖拽中隐藏后无写入恢复）
+  await expect(bar).toBeVisible();
+});
