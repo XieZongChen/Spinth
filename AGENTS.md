@@ -265,10 +265,18 @@ line-body-drag-near-shape）：ActionBar popover 开合单源互斥（openPopove
 点击落定与拉线同源触发全量重排（同边槽位创建即物化——删除目标形状后幸存线
 samePoints 零写、悬空线原位不扭）；连线锚定端相邻段禁拖（segmentBodyGrabbable
 单源门控抓取/胶囊/hover 光标，docs/08 §10.3 首末两档反转、端点圆点拖拽保留）。
+审查返工收口同批落地：hover 胶囊高亮索引空间对齐过滤后锚点集（resolveLineHover
+带 anchored，lineHoverMath 单测补齐 5 例）；lineText 双胶囊用例同步近形口径
+（另一侧胶囊落锚定末段随门控消失）；lineService/lineHoverOverlay 拆回 400 行内
+（quick-add host 工厂迁 lineQuickAddHost + hover 几何纯函数迁 lineHoverMath）；
+popover 只读往返清开合 + 栏内收起回焦触发钮；quick-add 单撤销单元收口（LineVm
+初始 state 默认 ELBOWED 对齐「新线一律折线」+ quickAddConnectedShape 的
+stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广播的挂线 reattach
+滞后写并入同捕获窗，一次 quick-add 恒一步 undo、不暴露 [0,0] 草稿中间态）。
 
-当前实测基线：`pnpm verify` 通过；1276 单测（core 1156 + react 82 + app 38）；
-E2E 50 spec / 273 例（271 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 266 = 264 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 262 +
+当前实测基线：`pnpm verify` 通过；1282 单测（core 1161 + react 83 + app 38）；
+E2E 50 spec / 274 例（272 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 267（--list 实测）= 265 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 264 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
 2/2、视觉 rotate-45 注入版基线双平台；flowchart 15 例（F-1..F-8 + F-3b/c 轮廓
 锚点判别 + F-5b/c 同边自环跨度/双环嵌套 + F-6b/c/d 网格便签/自由端/缩放）；
