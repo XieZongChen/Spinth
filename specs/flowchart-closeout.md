@@ -311,6 +311,9 @@ t ∈ {0.25, 0.5, 0.75} 的锚点落在折线 0.5px 容差内」，防路径与�
    （n 使目标跨度 ≥ 边长即开始，如边长 80 时 n=2）跨度钳到边长、竖段共线。
    四轮补：绘制/端点预览同源——spanScale 查询带 live 覆写（预览帧的
    endNodeId 尚未落库，读 model 滞后一帧会出现「拖拽中内环、松手跳外环」）。
+   五轮补：端点重锚定路径的落定重排——`ILineEndpointDragHost.onSettled`
+   （onUp 在 update 后、stopCapturing 前调用 → reattachAll 并入同一步撤销），
+   拖成/改挂同边自环时其他自环让位外环不重叠（lineEndpoint.spec E2E）。
    单测锁双自环 80/120 + 车道 −30/−60 + live 覆写首帧档；E2E F-5c 端到端
    （含拖拽中/松手后同线跨度不变断言）。
 

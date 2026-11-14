@@ -88,13 +88,11 @@ export class LineService extends Disposable {
   private segTextSlide: LineSegTextSlide | null = null;
   /** 手势忙态探针（组合根注入：rectEditor 缩放中等——悬停指示器抑制） */
   busyProbe: (() => boolean) | null = null;
-
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
   gridSnapOn: () => boolean = () => false;
 
   /** 线上文字编辑协作者（A1 整理批刀 1：TipTap 生命周期/节流落库/镂空喂框） */
   private textEditor: LineTextEditor | null = null;
-  /** 编辑中的线 id（各处会话守卫读——协作者状态经此最小暴露） */
   private get editingLineId(): string | null {
     return this.textEditor?.editingWidgetId ?? null;
   }
@@ -144,9 +142,9 @@ export class LineService extends Disposable {
           this.endpointDragCtl?.active ||
           this.segTextSlide?.segSlideActive ||
           this.segTextSlide?.cornerDragActive ||
-          this.selector.isDragging,
-        ) ||
-        (this.busyProbe?.() ?? false),
+          this.selector.isDragging ||
+          (this.busyProbe?.() ?? false),
+        ),
       isEditing: () => this.editingLineId !== null,
       isDrawing: () => this.drawSession.isDrawing,
       quickAddPlanFor: (srcId, sb, anchor, join) =>
@@ -206,6 +204,8 @@ export class LineService extends Disposable {
           hitTest: (world) => hitWidget(this.vmEngine, this.viewport, world),
           // 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入，缺省关）
           gridSnapOn: () => this.gridSnapOn(),
+          // 端点重锚定落定重排（§7.3/§7.5 五轮：同边自环嵌套档全量重算）
+          onSettled: () => this.anchorFollow?.reattachAll(),
         },
       );
       this.addDisposable(this.endpointDragCtl);
@@ -281,8 +281,8 @@ export class LineService extends Disposable {
     return this.anchorFollow?.previewFollowDebug ?? null;
   }
 
-  /** dev 探针：最近一次 ELBOWED 重路由的第三方避障集合（null = 未触发）。getter
-   *  名走中性 routeObstaclesProbe——lastRouteObstacles 字面量只允许存在于 dev 入口 */
+  /** dev 探针：最近一次 ELBOWED 重路由的避障集合（getter 走中性
+   *  routeObstaclesProbe——lastRouteObstacles 字面量只允许存在于 dev 入口） */
   get routeObstaclesProbe(): IRect[] | null {
     return this.anchorFollow?.routeObstaclesProbe ?? null;
   }

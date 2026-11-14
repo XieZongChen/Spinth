@@ -139,3 +139,76 @@ test('批次2：解绑——删除锚定形状，连线保留且端点保持原�
 });
 
 /** 批次 3：线样式探针（vmStates 投影的 lineType/箭头字段） */
+
+test('五轮：端点拖成同边自环触发全量重排——已有自环让位外环不重叠', async ({ page }) => {
+  const docId = `e2e-endpoint-respread-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // A 世界 (440,316,120,80)
+  // 第一条：top→top 自环（拉线路径，F-5b 同款）
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(500, 362);
+  await page.mouse.down();
+  await page.mouse.move(510, 362, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  // 第二条：A 顶边 → 自由空间普通线
+  await page.mouse.move(500, 362);
+  await page.mouse.down();
+  await page.mouse.move(700, 500, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  // 回 cursor 选中普通线（按 endNodeId=null 区分）
+  await page.getByRole('button', { name: /选择/ }).click();
+  await page.waitForTimeout(150);
+  const cm = () => document.querySelector('canvas')!.getBoundingClientRect();
+  const lines = () =>
+    page.evaluate(() => {
+      const dd = (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+        }
+      ).__spinthDebug.__debug.vmStates;
+      return dd
+        .filter((s) => s.type === 'LINE')
+        .map(
+          (s) =>
+            s as unknown as {
+              endNodeId: string | null;
+              points: Array<[number, number]>;
+            },
+        );
+    });
+  const ls0 = await lines();
+  expect(ls0).toHaveLength(2);
+  const normalIdx = ls0.findIndex((l) => l.endNodeId === null);
+  expect(normalIdx).toBeGreaterThanOrEqual(0);
+  const normal = ls0[normalIdx]!;
+  // 点线身选中普通线
+  const c0 = await page.evaluate(cm);
+  const midI = Math.floor(normal.points.length / 2);
+  await page.mouse.click(
+    (normal.points[midI - 1]![0] + normal.points[midI]![0]) / 2 + c0.left,
+    (normal.points[midI - 1]![1] + normal.points[midI]![1]) / 2 + c0.top,
+  );
+  await page.waitForTimeout(250);
+  // 拖终点手柄回 A 顶边内侧（世界 (500,318)）→ 变第二条同边自环
+  const endPt = normal.points[normal.points.length - 1]!;
+  await page.mouse.move(endPt[0] + c0.left, endPt[1] + c0.top);
+  await page.mouse.down();
+  await page.mouse.move(500, 362, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  // 两线均为同边自环 + 嵌套展开 {80, 120}（onSettled → reattachAll 让位外环）
+  const ls1 = await lines();
+  expect(ls1).toHaveLength(2);
+  for (const l of ls1) expect(l.endNodeId).not.toBeNull();
+  const spans = ls1
+    .map((l) => {
+      const xs = l.points.map((p) => p[0]);
+      return Math.max(...xs) - Math.min(...xs);
+    })
+    .sort((a, b) => a - b);
+  expect(spans[0]).toBeCloseTo(80, 0);
+  expect(spans[1]).toBeCloseTo(120, 0);
+});

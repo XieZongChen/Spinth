@@ -37,6 +37,10 @@ export interface ILineEndpointDragHost {
   hitTest(world: { x: number; y: number }): { id: string; geom: IHostGeom } | null;
   /** 网格吸附开关（specs/flowchart-closeout §9.2：自由端点量化；组合根注入） */
   gridSnapOn(): boolean;
+  /** 落定重排回调（specs/flowchart-closeout §7.3/§7.5 五轮：端点重锚定改变
+   *  同边自环拓扑——其他自环的嵌套档/车道须全量重排；与 LineDrawSession.settle
+   *  同款，stopCapturing 前调用 = 并入本次拖拽一步撤销） */
+  onSettled?(): void;
 }
 
 export class LineEndpointDrag extends Disposable {
@@ -244,6 +248,10 @@ export class LineEndpointDrag extends Disposable {
       // 编组语义无意义；同事务清除，一步 undo
       if (d.pending.nodeId) patch.groupId = undefined;
       model.update(patch as never);
+      // 落定重排（§7.3/§7.5 五轮）：端点重锚定可能改变同边自环嵌套档（拖成
+      // 自环/改挂同边 → 其他自环让位外环），与其他线错开同源——不调会停在
+      // 旧几何与被拖线重叠；reattachAll 幂等（samePoints 零写）
+      this.host.onSettled?.();
       this.history.stopCapturing();
     }
     this.overlay.refreshHandles([d.id]);

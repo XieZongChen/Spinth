@@ -29,7 +29,7 @@ describe('computePortSpread', () => {
     expect(single.selfLoopSpan.size).toBe(0); // n=1 缺省
   });
 
-  it('两条同边普通线：0.35/0.65 均分；混合端同组', () => {
+  it('两条同边普通线：0.4/0.6 均分（n=2 公式）；混合端同组', () => {
     const a = line('LA', { startNodeId: 'N', startJoin: 'right' });
     const b = line('LB', { endNodeId: 'N', endJoin: 'right' });
     const spread = computePortSpread([a, b]);
