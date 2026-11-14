@@ -9,6 +9,8 @@ import { Tooltip } from './Tooltip';
  * ActionBar 多级控件（docs/12 §5，2026-10-03 参考视频规格）：一级只占
  * 「当前值图标/色点 + ▾」单按钮位；点击展开二级面板（横向一排图标/色块，
  * 选中项描边圈），点选即应用并收起；Esc / 点击外部收起。
+ * 开合受控（open/onOpenChange）：单源在 ActionBar 的 openPopoverId——
+ * 多个 popover 天然互斥（Toolbar cursorMode 同款单源模式），本组件不持状态。
  * 面板仅展开时渲染 DOM（零闲置成本）；x 跟随触发钮居中并视口钳制
  * （useLayoutEffect 实测校正，绘制前完成——与 ActionBar 宽度实测同款手法）。
  */
@@ -20,11 +22,15 @@ function iconNameOf(raw: string | undefined): IconName {
 export function PopoverControl({
   item,
   onPick,
+  open,
+  onOpenChange,
 }: {
   item: IActionBarItem;
   onPick: (id: string, value: string) => void;
+  /** 开合单源在 ActionBar（互斥）；false 时不渲染面板 */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [panelLeft, setPanelLeft] = useState<number | null>(null); // 相对 root 的中心 x（null = 未校正，用 CSS 居中）
   const rootRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -35,7 +41,7 @@ export function PopoverControl({
   // 关闭即回焦触发钮（specs/a11y-closeout §5.7：选项/外点/Esc 三路一致——
   // 面板收起即卸载，焦点不落地会掉到 body）
   const closeAndRefocus = (): void => {
-    setOpen(false);
+    onOpenChange(false);
     triggerRef.current?.focus();
   };
 
@@ -104,7 +110,7 @@ export function PopoverControl({
           aria-expanded={open}
           aria-disabled={item.disabled === true}
           disabled={item.disabled === true}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => onOpenChange(!open)}
           className={`flex h-7 items-center gap-0.5 rounded-md px-1 transition-colors duration-100 disabled:pointer-events-none disabled:opacity-40 ${
             open
               ? 'bg-surface-hover text-ink'

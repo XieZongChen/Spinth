@@ -91,14 +91,25 @@ function ActionControl({ item }: { item: IActionBarSchema['items'][number] }) {
   );
 }
 
-function renderSchema(schema: IActionBarSchema): React.ReactNode {
+function renderSchema(
+  schema: IActionBarSchema,
+  openPopoverId: string | null,
+  setOpenPopoverId: (id: string | null) => void,
+): React.ReactNode {
   const pick = (id: string, value: string): void =>
     spinthCommands.updateSelectedStyle({ [id]: value });
   const toggle = (id: string, value: boolean): void =>
     spinthCommands.updateSelectedStyle({ [id]: value });
   return schema.items.map((item) => (
     <div key={item.id} className="flex items-center gap-1">
-      {item.kind === 'popover' && <PopoverControl item={item} onPick={pick} />}
+      {item.kind === 'popover' && (
+        <PopoverControl
+          item={item}
+          onPick={pick}
+          open={openPopoverId === item.id}
+          onOpenChange={(next) => setOpenPopoverId(next ? item.id : null)}
+        />
+      )}
       {item.kind === 'toggle' && <ToggleControl item={item} onToggle={toggle} />}
       {item.kind === 'action' && <ActionControl item={item} />}
     </div>
@@ -109,6 +120,14 @@ export function ActionBar() {
   const actionBar = useSpinthStore((s) => s.actionBar);
   const editable = useSpinthStore((s) => s.editable); // 只读态整条不渲染（docs/21 §4）
   const { schema, bounds } = actionBar;
+
+  // popover 互斥单源：开合状态只在 ActionBar 层持有一份（Toolbar cursorMode 同款
+  // 单源模式）——任一触发钮展开即顶掉旧面板；schema 重建（换选区/样式回填）
+  // 即收起，面板语义属于旧 schema
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  useEffect(() => {
+    setOpenPopoverId(null);
+  }, [schema]);
 
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
   // 视觉不居中（2026-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
@@ -180,9 +199,20 @@ export function ActionBar() {
       data-spinth-action-bar=""
       className="pointer-events-auto absolute z-10 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-1 rounded-xl border border-edge bg-surface px-2 py-1 shadow-dock"
       style={{ left, top }}
-      onPointerDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        // 防画布 pointerdown 语义（原样）。bar 内点击被此遮蔽、到不了各控件
+        // 挂在 window 的 outside-click——点当前面板之外（其他触发钮/toggle/
+        // 动作钮/栏空白）时在此统一收起
+        e.stopPropagation();
+        if (
+          openPopoverId !== null &&
+          !(e.target as Element).closest?.(`[data-spinth-popover="${openPopoverId}"]`)
+        ) {
+          setOpenPopoverId(null);
+        }
+      }}
     >
-      {renderSchema(schema)}
+      {renderSchema(schema, openPopoverId, setOpenPopoverId)}
       {schema.items.length > 0 && <span className="mx-0.5 h-4 w-px bg-edge" aria-hidden />}
       <Tooltip label="导出 PNG">
         <button

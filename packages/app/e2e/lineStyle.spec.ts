@@ -255,3 +255,53 @@ test('ActionBar v2：多级 popover + 中文 tooltip + bar 收窄（参考视频
   expect(color).toBe('#2563eb');
   expect(await page.locator('[data-spinth-popover-panel]').count()).toBe(0);
 });
+
+test('ActionBar popover 互斥：连点两个触发钮同屏至多一面板（2026-11 用户实测）', async ({
+  page,
+}) => {
+  const docId = `e2e-bar-mutex-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  const { a, b } = await createTwoRects(page);
+
+  // 画线 → Esc 清选区 → 点线身选中（ActionBar 出现，LINE schema）
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  const c = await page.evaluate(() => document.querySelector('canvas')!.getBoundingClientRect());
+  const pts = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates;
+    return (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
+  });
+  const midI = Math.floor(pts.length / 2);
+  await page.mouse.click(
+    (pts[midI - 1]![0] + pts[midI]![0]) / 2 + c.left,
+    (pts[midI - 1]![1] + pts[midI]![1]) / 2 + c.top,
+  );
+  await page.waitForTimeout(250);
+
+  const bar = page.locator('[data-spinth-action-bar]');
+  // 连点第二个触发钮：旧面板收、新面板开（开合单源 openPopoverId 互斥）
+  await bar.locator('button[aria-label="线型"]').click();
+  await expect(page.locator('[data-spinth-popover-panel]')).toHaveCount(1);
+  await bar.locator('button[aria-label="线宽"]').click();
+  await expect(page.locator('[data-spinth-popover-panel]')).toHaveCount(1);
+  expect(await bar.locator('button[aria-label="线型"]').getAttribute('aria-expanded')).toBe(
+    'false',
+  );
+  expect(await bar.locator('button[aria-label="线宽"]').getAttribute('aria-expanded')).toBe('true');
+
+  // 点 bar 内 toggle（虚线）也收起面板（bar 内 pointerdown 被容器
+  // stopPropagation 遮蔽、到不了 window outside-click，由容器统一关闭）
+  await bar.locator('button[aria-label="虚线"]').click();
+  await expect(page.locator('[data-spinth-popover-panel]')).toHaveCount(0);
+});
