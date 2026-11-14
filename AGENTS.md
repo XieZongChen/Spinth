@@ -275,8 +275,8 @@ stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广�
 滞后写并入同捕获窗，一次 quick-add 恒一步 undo、不暴露 [0,0] 草稿中间态）。
 
 当前实测基线：`pnpm verify` 通过；1283 单测（core 1161 + react 84 + app 38）；
-E2E 50 spec / 274 例（272 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 267（--list 实测）= 265 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 264 +
+E2E 50 spec / 275 例（273 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 268（--list 实测）= 266 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 265 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
 2/2、视觉 rotate-45 注入版基线双平台；flowchart 15 例（F-1..F-8 + F-3b/c 轮廓
 锚点判别 + F-5b/c 同边自环跨度/双环嵌套 + F-6b/c/d 网格便签/自由端/缩放）；

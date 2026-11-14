@@ -14,12 +14,12 @@
 ## 2. 当前基线
 
 - 单测：1283 passed（core 1161 + react 84 + app 38）。
-- E2E：50 个 spec（主配置 49 + pwa 1）、274 例 = 主配置 267（265 通过 + 2 跳过
-  ——旋转手柄用例暂跳，specs/rotate-hide）+ pwa 7。计数口径：静态声明 264 +
-  a11y.spec 3 用例 × 浅/深两主题循环展开 = 主配置 267；分层对账 = 主配置 267 −
-  @visual 5 − @timing/@bench 5 = fast 257（255 通过 + 2 跳过）+ pwa 7 =
-  CI gate 264（262 通过 + 2 跳过，fast + pwa 两层）；四层全量 274
-  （gate 264 + nightly @visual 5 + @timing/@bench 5；272 通过 + 2 跳过）；
+- E2E：50 个 spec（主配置 49 + pwa 1）、275 例 = 主配置 268（266 通过 + 2 跳过
+  ——旋转手柄用例暂跳，specs/rotate-hide）+ pwa 7。计数口径：静态声明 265 +
+  a11y.spec 3 用例 × 浅/深两主题循环展开 = 主配置 268；分层对账 = 主配置 268 −
+  @visual 5 − @timing/@bench 5 = fast 258（256 通过 + 2 跳过）+ pwa 7 =
+  CI gate 265（263 通过 + 2 跳过，fast + pwa 两层）；四层全量 275
+  （gate 265 + nightly @visual 5 + @timing/@bench 5；273 通过 + 2 跳过）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：5/5（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 6 张齐全；
   flowchart-sample 为流程图收口样本，specs/flowchart-closeout）。
