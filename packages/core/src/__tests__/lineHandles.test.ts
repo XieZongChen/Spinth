@@ -5,6 +5,7 @@ import {
   capsuleAnchors,
   branchSlotOffset,
   mergeCollinear,
+  segmentBodyGrabbable,
   type IPt,
 } from '../widgets/line/lineMath';
 
@@ -285,5 +286,43 @@ describe('branchSlotOffset 交替落位槽位（docs/08 §10 批次 2，2026-10-
   it('n<1（方向空闲）无偏移，正对落位', () => {
     expect(branchSlotOffset(0, 200)).toBe(0);
     expect(branchSlotOffset(-1, 200)).toBe(0);
+  });
+});
+
+describe('segmentBodyGrabbable 近形禁拖（2026-11 用户拍板：锚定端相邻段不可拖）', () => {
+  // U 形三段折线：段 0（首/贴起点）、段 1（中）、段 2（末/贴终点）
+  const FREE = { start: false, end: false };
+  const ANCH_S = { start: true, end: false };
+  const ANCH_E = { start: false, end: true };
+  const ANCH_BOTH = { start: true, end: true };
+
+  it('真值表：锚定侧首/末段拒、中段恒可、自由端侧段放行', () => {
+    expect(segmentBodyGrabbable(FREE, 0, 3)).toBe(true); // 全自由线不受限
+    expect(segmentBodyGrabbable(ANCH_S, 0, 3)).toBe(false); // 贴起点段
+    expect(segmentBodyGrabbable(ANCH_S, 1, 3)).toBe(true); // 中段
+    expect(segmentBodyGrabbable(ANCH_S, 2, 3)).toBe(true); // 自由端侧末段
+    expect(segmentBodyGrabbable(ANCH_E, 2, 3)).toBe(false); // 贴终点段
+    expect(segmentBodyGrabbable(ANCH_E, 0, 3)).toBe(true);
+    expect(segmentBodyGrabbable(ANCH_BOTH, 1, 3)).toBe(true); // 两端锚定仍留中段
+  });
+
+  it('唯一段（两点线）：任一端锚定即整条不可拖，全自由可拖', () => {
+    expect(segmentBodyGrabbable(ANCH_S, 0, 1)).toBe(false);
+    expect(segmentBodyGrabbable(ANCH_E, 0, 1)).toBe(false);
+    expect(segmentBodyGrabbable(ANCH_BOTH, 0, 1)).toBe(false);
+    expect(segmentBodyGrabbable(FREE, 0, 1)).toBe(true);
+  });
+
+  it('capsuleAnchors 同源过滤：锚定端相邻段不出胶囊（缺省不过滤 = 纯数学兼容）', () => {
+    const pts: IPt[] = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+      { x: 200, y: 100 },
+    ];
+    expect(capsuleAnchors(pts, 1, null).map((c) => c.index)).toEqual([0, 1, 2]); // 缺省全出
+    expect(capsuleAnchors(pts, 1, null, ANCH_S).map((c) => c.index)).toEqual([1, 2]);
+    expect(capsuleAnchors(pts, 1, null, ANCH_E).map((c) => c.index)).toEqual([0, 1]);
+    expect(capsuleAnchors(pts, 1, null, ANCH_BOTH).map((c) => c.index)).toEqual([1]);
   });
 });

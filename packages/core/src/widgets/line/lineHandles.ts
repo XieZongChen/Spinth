@@ -80,47 +80,61 @@ export function branchSlotOffset(n: number, perp: number): number {
  *   弧长中点（贴文字两侧——取代原段中点，避免与文字锚点重叠）。index =
  *   中点所在的**真实段号**（slideSegment 口径，拖任一侧手柄即滑移所在段）；
  *   屏显弧长 < 24px 的侧不放（线太短胶囊无处安放）。
+ * - anchored（2026-11 近形禁拖）：锚定端相邻段不出胶囊（segmentBodyGrabbable
+ *   单源）；缺省不过滤 = 纯数学口径兼容既有单测。
  */
 export function capsuleAnchors(
   pts: readonly IPt[],
   scale: number,
   knockout: IRect | null,
+  anchored?: { start: boolean; end: boolean },
 ): Array<{ index: number; geom: ISegmentGeom }> {
-  if (!knockout) return majorSegments(pts, scale);
   const s = scale || 1;
-  const out: Array<{ index: number; geom: ISegmentGeom }> = [];
-  const pieces = slicePathExcludingRect([...pts], knockout);
-  for (const piece of pieces) {
-    // piece 弧长中点
-    let total = 0;
-    for (let i = 1; i < piece.length; i++) {
-      total += Math.hypot(piece[i]!.x - piece[i - 1]!.x, piece[i]!.y - piece[i - 1]!.y);
-    }
-    if (total < CAPSULE_MIN_PIECE_SCREEN / s) continue;
-    let half = total / 2;
-    let mid = piece[piece.length - 1]!;
-    for (let i = 1; i < piece.length && half > 0; i++) {
-      const a = piece[i - 1]!;
-      const b = piece[i]!;
-      const len = Math.hypot(b.x - a.x, b.y - a.y);
-      if (half <= len) {
-        mid = { x: a.x + ((b.x - a.x) * half) / len, y: a.y + ((b.y - a.y) * half) / len };
-        break;
+  let out: Array<{ index: number; geom: ISegmentGeom }>;
+  if (!knockout) {
+    out = majorSegments(pts, scale);
+  } else {
+    out = [];
+    const pieces = slicePathExcludingRect([...pts], knockout);
+    for (const piece of pieces) {
+      // piece 弧长中点
+      let total = 0;
+      for (let i = 1; i < piece.length; i++) {
+        total += Math.hypot(piece[i]!.x - piece[i - 1]!.x, piece[i]!.y - piece[i - 1]!.y);
       }
-      half -= len;
+      if (total < CAPSULE_MIN_PIECE_SCREEN / s) continue;
+      let half = total / 2;
+      let mid = piece[piece.length - 1]!;
+      for (let i = 1; i < piece.length && half > 0; i++) {
+        const a = piece[i - 1]!;
+        const b = piece[i]!;
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (half <= len) {
+          mid = { x: a.x + ((b.x - a.x) * half) / len, y: a.y + ((b.y - a.y) * half) / len };
+          break;
+        }
+        half -= len;
+      }
+      // 中点回定位到真实段号 + 沿所在段方向旋转（胶囊口径与主段一致）
+      const hit = nearestSegBody(pts, mid, 1e-3);
+      if (!hit) continue;
+      const a = pts[hit.index]!;
+      const b = pts[hit.index + 1]!;
+      out.push({
+        index: hit.index,
+        geom: {
+          mid,
+          angle: Math.atan2(b.y - a.y, b.x - a.x),
+          len: Math.hypot(b.x - a.x, b.y - a.y),
+        },
+      });
     }
-    // 中点回定位到真实段号 + 沿所在段方向旋转（胶囊口径与主段一致）
-    const hit = nearestSegBody(pts, mid, 1e-3);
-    if (!hit) continue;
-    const a = pts[hit.index]!;
-    const b = pts[hit.index + 1]!;
-    out.push({
-      index: hit.index,
-      geom: { mid, angle: Math.atan2(b.y - a.y, b.x - a.x), len: Math.hypot(b.x - a.x, b.y - a.y) },
-    });
+    // 文字矩形未实际切到路径（切分为空）→ 回退无字口径
+    if (out.length === 0) out = majorSegments(pts, scale);
   }
-  // 文字矩形未实际切到路径（切分为空）→ 回退无字口径
-  return out.length > 0 ? out : majorSegments(pts, scale);
+  if (!anchored) return out;
+  const segCount = pts.length - 1;
+  return out.filter((c) => segmentBodyGrabbable(anchored, c.index, segCount));
 }
 
 /** 连接点外移点中心：edge 锚点 + 法向偏移（选中态外移 24px——与指示器绘制
@@ -156,6 +170,26 @@ export function anchorDotCenter(a: IPt, j: JoinDir, rotation = 0, scale = 1): IP
  *  （与 polylineHit 命中同 8px 口径；A1 整理批收单源，overlay/滑移共用） */
 export const SEGMENT_BODY_TOLERANCE = 8;
 
+/**
+ * 段是否可抓取拖拽（线身段滑移/胶囊/hover 光标三处共用单源）：
+ * 锚定端相邻的首/末段不响应（2026-11 用户拍板「靠近图形不让拖拽」——贴图形
+ * 短段拖拽曾按旧「短段斜连」规则在锚点处产出斜段，docs/08 §10.3 两档已废）；
+ * 自由端（悬空端）相邻段照常可拖。唯一段（两点线）任一端锚定即整条不可拖
+ * ——两端都贴图形（或一端贴一端悬空仍属近形侧），中段不存在。
+ */
+export function segmentBodyGrabbable(
+  anchored: { start: boolean; end: boolean },
+  segIndex: number,
+  segCount: number,
+): boolean {
+  const first = segIndex === 0;
+  const last = segIndex === segCount - 1;
+  if (first && last) return !anchored.start && !anchored.end; // 唯一段
+  if (first) return !anchored.start;
+  if (last) return !anchored.end;
+  return true; // 中段
+}
+
 // ---------------------------------------------------------------------------
 // 段滑移（docs/08 §10 批次 3 waypoint，用户拍板参考图二 U 形）
 // ---------------------------------------------------------------------------
@@ -170,9 +204,10 @@ export const SEG_SLIDE_STUB = 30;
  *   平行退化取平移后端点；
  * - 唯一段（两点线，2026-09-30 视频实锤）：两端保持 + **拆五点**——锚点各伸
  *   stub 连接段、被拖段平移 offset，全程正交（参考拖水平直连线的「几」形）；
- * - 首/末段（2026-09-30 用户实测拍板两档）：**长段（≥ NODE_MARGIN=30，与
- *   自动路由走廊阈值同源）拆几字形保正交接入**——锚点端沿原方向伸 stub、
- *   垂直连接到被拖段、被拖段另一端与邻段求交（锚点始终正交进入元素，不斜）；
+ * - 首/末段（2026-09-30 拍板两档 → 2026-11 用户反转：**锚定端相邻段经
+ *   segmentBodyGrabbable 门控后手势不可达**，仅自由端侧仍走下方两档）：
+ *   **长段（≥ NODE_MARGIN=30，与自动路由走廊阈值同源）拆几字形保正交接入**
+ *   ——锚点端沿原方向伸 stub、垂直连接到被拖段、被拖段另一端与邻段求交；
  *   短段（< 30，走廊短段不够拆）退化为斜连（锚点保持 + 拐点平移求交）。
  *   offset=0 时拆点共线，由调用方 mergeCollinear 清回原形（幂等）。
  */

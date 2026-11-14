@@ -32,13 +32,15 @@ export class LineSegmentHandles extends Container {
   /** 显示段手柄（pts 视觉语义路径；scale 反补偿；activeIndex = 锚点数组
    *  序号，hover 放大；knockout = 文字镂空矩形（null = 无字走主段口径）；
    *  corners = 内部拐点手柄（specs/flowchart-closeout §6.4 G-11——6 屏幕 px
-   *  方块，仅 ELBOWED 传入；null = 不画） */
+   *  方块，仅 ELBOWED 传入；null = 不画）；anchored = 端点锚定标记
+   *  （2026-11 近形禁拖：锚定端相邻段不出胶囊——与抓取 segmentBodyGrabbable 同源） */
   show(
     pts: readonly IPt[],
     scale = 1,
     activeIndex: number | null = null,
     knockout: IRect | null = null,
     corners: readonly IPt[] | null = null,
+    anchored?: { start: boolean; end: boolean },
   ): void {
     const s = scale || 1;
     this.g.clear();
@@ -49,7 +51,7 @@ export class LineSegmentHandles extends Container {
         this.g.rect(c.x - half, c.y - half, half * 2, half * 2).fill({ color: SEG_COLOR });
       }
     }
-    capsuleAnchors(pts, s, knockout).forEach(({ geom }, i) => {
+    capsuleAnchors(pts, s, knockout, anchored).forEach(({ geom }, i) => {
       const len = (SEG_HANDLE_LEN / s) * (i === activeIndex ? HOVER_SCALE : 1);
       const thick = (SEG_HANDLE_THICK / s) * (i === activeIndex ? HOVER_SCALE : 1);
       const r = thick / 2;

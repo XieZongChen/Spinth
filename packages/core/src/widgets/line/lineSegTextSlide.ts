@@ -13,6 +13,7 @@ import {
   nearestSegBody,
   r2,
   ratioAtPoint,
+  segmentBodyGrabbable,
   slideSegment,
   SEGMENT_BODY_TOLERANCE,
 } from './lineMath';
@@ -233,8 +234,10 @@ export class LineSegTextSlide extends Disposable {
    * - capsuleOnly：距 majorSegments **段中点** ≤12/scale（胶囊手柄显式区域——
    *   handleGestureDown 里优先于文字 bbox，点手柄=拖段不进文字编辑）；
    * - 否则：距段身 ≤8/scale（参考视频对齐——线身任意点按住即拖）。
-   * 沿法向拖动平移该段；首末段两档（长段拆几字形保正交/短段斜连——
-   * slideSegment）；STRAIGHT/CURVE 无段语义不滑。
+   * 沿法向拖动平移该段；STRAIGHT/CURVE 无段语义不滑。
+   * 锚定端相邻的首/末段不可抓（2026-11 用户拍板「靠近图形不让拖拽」——
+   * 旧首末两档的短段斜连在锚点处产出斜段；segmentBodyGrabbable 单源，
+   * 胶囊与线身两路同口径；拒绝后手势交还 selector = 按下无响应）。
    */
   maybeSegmentSlideGrab(id: string, world: { x: number; y: number }, capsuleOnly = false): boolean {
     const vm = this.vmEngine.getVmById(id) as LineVm | undefined;
@@ -261,6 +264,19 @@ export class LineSegTextSlide extends Disposable {
       segIndex = seg?.index ?? -1;
     }
     if (segIndex < 0) return false;
+    // 近形禁拖门控：锚定端相邻段（唯一段任一端锚定同样不可抓）。
+    // toJSON?.()：桩/极端时序缺模型投影时按全自由处理（不拒中段）
+    const data = this.engine.getModelById(id)?.toJSON?.() as
+      { startNodeId: string | null; endNodeId: string | null } | undefined;
+    if (
+      !segmentBodyGrabbable(
+        { start: Boolean(data?.startNodeId), end: Boolean(data?.endNodeId) },
+        segIndex,
+        pts.length - 1,
+      )
+    ) {
+      return false;
+    }
     this.segSlide = {
       id,
       segIndex, // 真实段号（slideSegment 口径）

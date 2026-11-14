@@ -262,6 +262,8 @@ export class LineHoverOverlay extends Disposable {
             line.knockoutRectDebug,
             world,
             scale,
+            // 近形禁拖（2026-11）：锚定端相邻段不高亮不出光标（与抓取同源）
+            { start: Boolean(line.state.startNodeId), end: Boolean(line.state.endNodeId) },
           );
           this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale, hit.endpointActive);
           this.showSegmentHandles(pts, scale, hit.segmentActive, line);
@@ -351,7 +353,8 @@ export class LineHoverOverlay extends Disposable {
   }
 
   /** 段手柄显示 + 探针快照（锚点 = capsuleAnchors 单一事实源：无字主段
-   *  中点 / 有字文字两侧各一，vm 提供 knockout 单源（最近一次 drawLine）） */
+   *  中点 / 有字文字两侧各一，vm 提供 knockout 单源（最近一次 drawLine）；
+   *  anchored 同源于 vm.state——锚定端相邻段不出胶囊，2026-11 近形禁拖） */
   showSegmentHandles(
     pts: IPt[],
     scale: number,
@@ -360,8 +363,11 @@ export class LineHoverOverlay extends Disposable {
     corners?: readonly IPt[] | null,
   ): void {
     const knockout = vm ? vm.knockoutRectDebug : null;
-    this.segmentHandles.show(pts, scale, activeIndex, knockout, corners ?? null);
-    this.segmentSnapshot = capsuleAnchors(pts, scale, knockout).map(({ geom }) => ({
+    const anchored = vm
+      ? { start: Boolean(vm.state.startNodeId), end: Boolean(vm.state.endNodeId) }
+      : undefined;
+    this.segmentHandles.show(pts, scale, activeIndex, knockout, corners ?? null, anchored);
+    this.segmentSnapshot = capsuleAnchors(pts, scale, knockout, anchored).map(({ geom }) => ({
       x: geom.mid.x,
       y: geom.mid.y,
     }));

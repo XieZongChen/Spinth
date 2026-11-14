@@ -74,6 +74,7 @@ export {
   dotOffsetCenter,
   anchorDotCenter,
   SEGMENT_BODY_TOLERANCE,
+  segmentBodyGrabbable,
   SEG_SLIDE_STUB,
   slideSegment,
 } from './lineHandles';

@@ -137,13 +137,17 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
   await page.waitForTimeout(250);
 
   // 选中即显示段手柄：段数 = 主段数（屏显 ≥60px 的段——批次 3.6 走廊短段
-  // 的胶囊贴着端点手柄挤作一团，已过滤），无 hover 时双 active 为 null；
+  // 的胶囊贴着端点手柄挤作一团，已过滤）再剔除锚定端相邻的首/末段（2026-11
+  // 近形禁拖：首末段不出胶囊），无 hover 时双 active 为 null；
   // 单选连线不画 bbox 选区框（批次 3.6）
   const s0 = await lineSelectionState(page);
   expect(s0.segments).not.toBeNull();
-  const majorCount = pts
-    .slice(1)
-    .filter((p, i) => Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]) >= 60).length;
+  const majorCount = pts.slice(1).filter(
+    (p, i) =>
+      i > 0 &&
+      i < pts.length - 2 && // 非首末段（首末段锚定相邻，胶囊已过滤）
+      Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]) >= 60,
+  ).length;
   expect(s0.segments!.length).toBe(majorCount);
   expect(s0.segmentActive).toBeNull();
   expect(s0.endpointActive).toBeNull();
@@ -173,9 +177,11 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
         }
       ).__spinthDebug.__debug.vmStates;
       const p = (d.find((s) => s.type === 'LINE') as { points: Array<[number, number]> }).points;
-      // 与 core majorSegments 同款过滤找第 target 个主段的段号，再按段向取拖向光标
+      // 与 core majorSegments 同款过滤找第 target 个主段的段号，再按段向取拖向
+      // 光标；锚定端相邻的首/末段与胶囊过滤同口径剔除（2026-11 近形禁拖）
       const majors: number[] = [];
       for (let i = 0; i + 1 < p.length; i++) {
+        if (i === 0 || i === p.length - 2) continue;
         if (Math.hypot(p[i + 1]![0] - p[i]![0], p[i + 1]![1] - p[i]![1]) >= 60) majors.push(i);
       }
       const i = majors[target as number]!;
@@ -187,6 +193,19 @@ test('批次3：单选连线选中态——段中点蓝条 + hover 段/端点高
   );
   expect(await page.evaluate(() => document.querySelector('canvas')!.style.cursor)).toBe(
     expectCursor,
+  );
+
+  // hover 首段（锚定端相邻，2026-11 近形禁拖）→ 不高亮、不出拖向光标
+  //（与抓取 segmentBodyGrabbable 同源——防「光标说可拖但按下无反应」）
+  await page.mouse.move(
+    (pts[0]![0] + pts[1]![0]) / 2 + c.left,
+    (pts[0]![1] + pts[1]![1]) / 2 + c.top,
+  );
+  await page.waitForTimeout(120);
+  const sEdge = await lineSelectionState(page);
+  expect(sEdge.segmentActive).toBeNull();
+  expect(await page.evaluate(() => document.querySelector('canvas')!.style.cursor)).not.toMatch(
+    /^(ns|ew)-resize$/,
   );
 
   // hover 起点端点 → 端点高亮、段不高亮（端点判定优先）；cursor = grab
@@ -351,7 +370,7 @@ test('批次3：段滑移——拖中段落库 pinned、undo 回退、锚定移�
   expect(bodyAfter.segments).not.toBeNull();
 });
 
-test('批次3.7：首末段滑移——锚点端保持、被拖段跟随（参考拖段语义）', async ({ page }) => {
+test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段条、按下无响应', async ({ page }) => {
   const docId = `e2e-seg-edge-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -382,7 +401,8 @@ test('批次3.7：首末段滑移——锚点端保持、被拖段跟随（参�
   );
   await page.waitForTimeout(250);
 
-  // 中段上移 60：走廊首段从 30px 变 90px（≥60 主段阈值）→ 首段条出现
+  // 中段上移 60：走廊首段从 30px 变 90px（≥60 主段阈值）——但首段锚定相邻，
+  // 段条快照里仍不出现它（近形禁拖：胶囊与抓取同源过滤）
   const segLens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]));
   let segIdx = -1;
   let segLen = -1;
@@ -411,29 +431,39 @@ test('批次3.7：首末段滑移——锚点端保持、被拖段跟随（参�
   await page.mouse.up();
   await page.waitForTimeout(300);
   const s1 = await lineSegState(page);
-  expect(s1.pinned).toBe(true);
+  expect(s1.pinned).toBe(true); // 中段滑移照常（禁拖只针对锚定相邻段）
 
-  // 拖首段条（快照第一项 = 段号升序首个主段）右移 40：锚点端 p0 保持、
-  // 被拖段跟随、其余段求交顺连（slideSegment 首段分支）
+  // 段条快照不含首末段：全部段条距首/末段中点都超出胶囊半径（≈12px 量级）
+  const firstMid = {
+    x: (s1.points[0]![0] + s1.points[1]![0]) / 2,
+    y: (s1.points[0]![1] + s1.points[1]![1]) / 2,
+  };
+  const lastMid = {
+    x: (s1.points.at(-1)![0] + s1.points.at(-2)![0]) / 2,
+    y: (s1.points.at(-1)![1] + s1.points.at(-2)![1]) / 2,
+  };
   sel = await lineSelectionState(page);
-  expect(sel.segments!.length).toBeGreaterThan(1);
-  const firstSeg = sel.segments![0]!;
-  const p0Before = s1.points[0]!;
-  await page.mouse.move(firstSeg.x + c.left, firstSeg.y + c.top);
+  for (const seg of sel.segments!) {
+    expect(Math.hypot(seg.x - firstMid.x, seg.y - firstMid.y)).toBeGreaterThan(24);
+    expect(Math.hypot(seg.x - lastMid.x, seg.y - lastMid.y)).toBeGreaterThan(24);
+  }
+
+  // 按在首段中点拖 40：无响应——points 逐字节不变（连段滑移会话都不进入，
+  // pinned 维持中段滑移的落库值）、undo 深度不动
+  await page.mouse.move(firstMid.x + c.left, firstMid.y + c.top);
   await page.mouse.down();
-  await page.mouse.move(firstSeg.x + 40 + c.left, firstSeg.y + c.top, { steps: 4 });
+  await page.mouse.move(firstMid.x + 40 + c.left, firstMid.y + c.top, { steps: 4 });
   await page.waitForTimeout(120);
   await page.mouse.up();
   await page.waitForTimeout(300);
   const s2 = await lineSegState(page);
+  expect(JSON.stringify(s2.points)).toBe(JSON.stringify(s1.points)); // 零位移零写
   expect(s2.pinned).toBe(true);
-  expect(s2.points[0]).toEqual(p0Before); // 锚点端保持（参考：首尾仍在连接端点）
-  expect(JSON.stringify(s2.points)).not.toBe(JSON.stringify(s1.points)); // 被拖段跟随落库
 
-  // undo 一步只回退首段滑移（p0 全程未动）
+  // undo 一步直接回退中段滑移（首段拖拽未产生事务）
   await page.keyboard.press('ControlOrMeta+z');
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(300);
   const s3 = await lineSegState(page);
-  expect(JSON.stringify(s3.points)).toBe(JSON.stringify(s1.points));
-  expect(s3.pinned).toBe(true); // 前一步的 pinned 不被回退（单事务）
+  expect(JSON.stringify(s3.points)).toBe(JSON.stringify(pts));
+  expect(s3.pinned).toBe(false);
 });

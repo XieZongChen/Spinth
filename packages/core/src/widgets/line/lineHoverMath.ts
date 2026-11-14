@@ -2,6 +2,7 @@ import {
   anchorDotCenter,
   capsuleAnchors,
   nearestSegBody,
+  segmentBodyGrabbable,
   SEGMENT_BODY_TOLERANCE,
   type IPt,
   type JoinDir,
@@ -61,6 +62,8 @@ export interface ILineHoverHit {
  * - 否则 ELBOWED 线身任意点 ≤8/scale（SEGMENT_BODY_TOLERANCE）→ 段身命中，
  *   胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段；短段无手柄 →
  *   capsuleAnchors 找不到对应索引则不亮）；CURVE/STRAIGHT 无段语义不参与；
+ *   锚定端相邻段不可拖（2026-11 近形禁拖）→ 不高亮不出光标（与抓取
+ *   segmentBodyGrabbable 同源，防「光标说可拖但按下无反应」）；
  * - 光标 = 段身拖动方向（法向）的双向箭头——水平段上下拖 ↕ ns-resize /
  *   垂直段左右拖 ↔ ew-resize（与矩形缩放手柄同惯例：光标指拖向，
  *   2026-09-30 用户实测定向）；端点 = grab。
@@ -71,6 +74,7 @@ export function resolveLineHover(
   knockout: { x: number; y: number; width: number; height: number } | null,
   world: IPt,
   scale: number,
+  anchored?: { start: boolean; end: boolean },
 ): ILineHoverHit {
   const grab = 12 / scale;
   const dS = Math.hypot(world.x - pts[0]!.x, world.y - pts[0]!.y);
@@ -82,7 +86,10 @@ export function resolveLineHover(
   let hoverSegIndex = -1;
   if (endpointActive === null && lineType === 'ELBOWED') {
     const seg = nearestSegBody(pts, world, SEGMENT_BODY_TOLERANCE / scale);
-    if (seg) {
+    if (
+      seg &&
+      segmentBodyGrabbable(anchored ?? { start: false, end: false }, seg.index, pts.length - 1)
+    ) {
       hoverSegIndex = seg.index;
       // 胶囊高亮与所见同源（有字 = 文字两侧双胶囊，无字 = 主段）
       const k = capsuleAnchors(pts, scale, knockout).findIndex(({ index }) => index === seg.index);
