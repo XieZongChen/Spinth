@@ -205,22 +205,31 @@ export class LineAnchorFollow extends Disposable {
    * 会被分到 0.4/0.6，锚点差 0.2×边长 ≥8px 反而绕过 routeSelfLoop 的重合
    * 展开分支、把 U 压成 0.2×边宽（120 边 = 24px ≪ 设计跨度 max(80, 边长/2)，
    * 二轮审查实测）——自环两端恒 0.5 交由 routeSelfLoop 按目标跨度展开，也
-   * 不挤占同边其他线的槽位。输出键 = `${end}|${nodeId}|${join}|${lineId}`。
+   * 不挤占同边其他线的槽位。
+   * **同边多自环嵌套**（三轮审查）：n 条同边自环按 id 字典序赋 spanScale
+   * 1..n——跨度与车道深度同比放大（80/钳边长、走廊 30/60/…），内环嵌外环
+   * 不重叠；短边高倍钳顶后仍部分共线（挂账）。ports 键 = `${end}|${nodeId}|${join}|${lineId}`。
    */
-  private spreadPorts(): Map<string, number> {
+  private spreadPorts(): { ports: Map<string, number>; selfLoopSpan: Map<string, number> } {
     const groups = new Map<string, Array<{ end: 's' | 'e'; id: string }>>();
+    const loops = new Map<string, string[]>(); // key → 同边自环 lineId（嵌套分档）
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE') continue;
       const data = this.engine.getModelById(vm.id)?.toJSON() as unknown as
         (ILineAnchorData & { id: string }) | undefined;
       if (!data) continue;
-      // 同边自环（两端同节点同 join）整条豁免（见上注释）
+      // 同边自环（两端同节点同 join）整条豁免错开槽位（见上注释），另收进
+      // loops 分档（n>1 时嵌套展开）
       if (
         data.startNodeId &&
         data.startNodeId === data.endNodeId &&
         data.startJoin &&
         data.startJoin === data.endJoin
       ) {
+        const key = `${data.startNodeId}|${data.startJoin}`;
+        const l = loops.get(key) ?? [];
+        l.push(data.id);
+        loops.set(key, l);
         continue;
       }
       for (const end of ['s', 'e'] as const) {
@@ -244,21 +253,29 @@ export class LineAnchorFollow extends Disposable {
         out.set(`${ent.end}|${key}|${ent.id}`, Math.min(0.9, Math.max(0.1, t)));
       });
     }
-    return out;
+    const selfLoopSpan = new Map<string, number>();
+    for (const ids of loops.values()) {
+      if (ids.length <= 1) continue; // 单自环缺省 scale 1
+      ids.sort();
+      ids.forEach((id, i) => selfLoopSpan.set(id, i + 1));
+    }
+    return { ports: out, selfLoopSpan };
   }
 
   private routeLinePoints(
     data: ILineAnchorData & { id: string },
     startGeom: IHostGeom | null,
     endGeom: IHostGeom | null,
-    spread: Map<string, number>,
+    spread: { ports: Map<string, number>; selfLoopSpan: Map<string, number> },
   ): Array<[number, number]> | null {
     if (!startGeom && !endGeom) return null;
     // 有效沿边参数：显式 port > 同边多线错开分配 > 0.5（§7.3）
     const startT =
-      data.startPort ?? spread.get(`s|${data.startNodeId}|${data.startJoin}|${data.id}`) ?? 0.5;
+      data.startPort ??
+      spread.ports.get(`s|${data.startNodeId}|${data.startJoin}|${data.id}`) ??
+      0.5;
     const endT =
-      data.endPort ?? spread.get(`e|${data.endNodeId}|${data.endJoin}|${data.id}`) ?? 0.5;
+      data.endPort ?? spread.ports.get(`e|${data.endNodeId}|${data.endJoin}|${data.id}`) ?? 0.5;
     const pts = data.points.map((p) => ({ x: p[0], y: p[1] }));
 
     if (data.lineType !== 'ELBOWED') {
@@ -314,6 +331,8 @@ export class LineAnchorFollow extends Disposable {
           startJoin: startGeom ? quantizeJoin(data.startJoin, startGeom.rotation) : data.startJoin,
           endJoin: endGeom ? quantizeJoin(data.endJoin, endGeom.rotation) : data.endJoin,
           node: nodeAabb,
+          // 同边多自环嵌套倍率（§7.5 三轮：n 条按 id 序 1..n；缺省 1）
+          spanScale: spread.selfLoopSpan.get(data.id),
         });
         return loop.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
       }
@@ -378,8 +397,9 @@ export class LineAnchorFollow extends Disposable {
       : null;
     const spread = this.spreadPorts();
     const startT =
-      data.startPort ?? spread.get(`s|${data.startNodeId}|${data.startJoin}|${id}`) ?? 0.5;
-    const endT = data.endPort ?? spread.get(`e|${data.endNodeId}|${data.endJoin}|${id}`) ?? 0.5;
+      data.startPort ?? spread.ports.get(`s|${data.startNodeId}|${data.startJoin}|${id}`) ?? 0.5;
+    const endT =
+      data.endPort ?? spread.ports.get(`e|${data.endNodeId}|${data.endJoin}|${id}`) ?? 0.5;
     const start = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT) ?? {
       x: data.points[0]![0],
       y: data.points[0]![1],

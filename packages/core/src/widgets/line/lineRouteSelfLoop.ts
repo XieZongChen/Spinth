@@ -13,6 +13,9 @@ export interface IRouteSelfLoopOptions {
   endJoin: JoinDir;
   /** 宿主节点包围盒（车道/跨度参照；θ≠0 用世界 AABB 近似） */
   node: IRect;
+  /** 同边多自环嵌套倍率（specs/flowchart-closeout §7.5：第 n 条自环跨度与
+   *  车道深度 ×n——两条同边自环完全重叠的缺陷修复；缺省 1） */
+  spanScale?: number;
 }
 
 /**
@@ -23,7 +26,8 @@ export interface IRouteSelfLoopOptions {
  */
 export function routeSelfLoop(opts: IRouteSelfLoopOptions): IPt[] {
   const { start, end, startJoin, endJoin, node } = opts;
-  const M = NODE_MARGIN;
+  const k = opts.spanScale ?? 1; // 多自环嵌套：跨度与车道深度同比放大
+  const M = NODE_MARGIN * k;
   if (startJoin === endJoin) {
     const n = JOIN_DIRS[startJoin];
     const verticalExit = n.y !== 0; // 沿 y 出线 → 锚点沿 x 展开
@@ -35,7 +39,7 @@ export function routeSelfLoop(opts: IRouteSelfLoopOptions): IPt[] {
     let u2 = a2;
     if (Math.abs(a2 - a1) < 8) {
       // 锚点重合（同边拖回）：按跨度展开（钳在边内；退化边 fallback 到两端点）
-      const span = Math.min(Math.max(80, edgeLen * 0.5), edgeLen);
+      const span = Math.min(Math.max(80, edgeLen * 0.5) * k, edgeLen);
       const c = (a1 + a2) / 2;
       u1 = Math.max(edgeMin, c - span / 2);
       u2 = Math.min(edgeMin + edgeLen, c + span / 2);

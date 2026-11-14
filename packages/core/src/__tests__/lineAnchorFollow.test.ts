@@ -177,7 +177,9 @@ describe('LineAnchorFollow.unbindFrom 删除解绑', () => {
 describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3，G-05）', () => {
   const GEOM = { rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 };
 
-  function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>) {
+  function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>, geom = GEOM) {
+    const w = geom.rect.width;
+    const h = geom.rect.height;
     const models = new Map(
       lines.map((l) => [
         l.id,
@@ -196,15 +198,15 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
         getVmById: (id: string) =>
           id === 'N1'
             ? {
-                getHostGeom: () => GEOM,
+                getHostGeom: () => geom,
                 getAnchorPoint: (join: 'top' | 'right' | 'bottom' | 'left', t = 0.5) =>
                   join === 'right'
-                    ? { x: 10, y: t * 10 }
+                    ? { x: w, y: t * h }
                     : join === 'left'
-                      ? { x: 0, y: t * 10 }
+                      ? { x: 0, y: t * h }
                       : join === 'top'
-                        ? { x: t * 10, y: 0 }
-                        : { x: t * 10, y: 10 },
+                        ? { x: t * w, y: 0 }
+                        : { x: t * w, y: h },
               }
             : null,
       } as never,
@@ -358,6 +360,46 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     // 若自环占槽则 n=2，LA 会被挤到 0.4（写入 (10,4)）
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
     expect(models.get('LZ')!.model.update).not.toHaveBeenCalled();
+  });
+
+  it('同边双自环嵌套（§7.5 三轮）：id 序内环 80 / 外环 120 + 车道分层不重叠', () => {
+    const geom = { rect: { x: 0, y: 0, width: 120, height: 80 }, rotation: 0 };
+    const loop = (id: string) => ({
+      id,
+      data: {
+        startNodeId: 'N1',
+        endNodeId: 'N1',
+        startJoin: 'top',
+        endJoin: 'top',
+        lineType: 'ELBOWED',
+        points: [
+          [60, 0],
+          [60, 0],
+        ],
+      },
+    });
+    const { follow, models } = makeFollow([loop('LA'), loop('LB')], geom);
+    follow.reattach('N1', geom);
+    const spanOf = (pts: Array<[number, number]>) =>
+      Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
+    const pa = models.get('LA')!.calls.at(-1)!.points as Array<[number, number]>;
+    const pb = models.get('LB')!.calls.at(-1)!.points as Array<[number, number]>;
+    // LA（spanScale 1）：跨度 80（局部 20..100）、车道 y = -30
+    expect(spanOf(pa)).toBeCloseTo(80, 0);
+    expect(Math.min(...pa.map((p) => p[1]))).toBeCloseTo(-30, 0);
+    // LB（spanScale 2）：跨度 min(160, 120) = 120（钳边长）、车道 y = -60——
+    // 内环嵌外环，横段不同层不重叠（此前两条同边自环完全重叠除非用户手挪）
+    expect(spanOf(pb)).toBeCloseTo(120, 0);
+    expect(Math.min(...pb.map((p) => p[1]))).toBeCloseTo(-60, 0);
+    // 全段正交
+    for (const pts of [pa, pb]) {
+      for (let i = 0; i + 1 < pts.length; i++) {
+        expect(
+          Math.abs(pts[i]![0] - pts[i + 1]![0]) < 0.5 ||
+            Math.abs(pts[i]![1] - pts[i + 1]![1]) < 0.5,
+        ).toBe(true);
+      }
+    }
   });
 });
 

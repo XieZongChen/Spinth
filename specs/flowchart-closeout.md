@@ -305,6 +305,11 @@ t ∈ {0.25, 0.5, 0.75} 的锚点落在折线 0.5px 容差内」，防路径与�
    两端恒 0.5——否则 0.4/0.6 使锚点差 0.2×边长 ≥8px，绕过 routeSelfLoop 的
    重合展开分支、把 U 压成 0.2×边宽（120 边 = 24px ≪ 目标跨度
    `max(80, 边长×0.5)`，二轮审查实测）；自环也不挤占同边其他线的槽位。
+6. **同边多自环嵌套**（三轮审查补）：同边 n 条自环按线 id 字典序赋跨度倍率
+   `spanScale = 1..n`——routeSelfLoop 的目标跨度与车道深度同比放大（80/钳
+   边长 × n、走廊 30×n），内环嵌外环分层不重叠；**边界挂账**：短边高倍钳顶
+   后（跨度钳到边长）第 ≥3 条仍与外环竖段部分共线。单测锁双自环 80/120 +
+   车道 −30/−60；E2E F-5c 端到端。
 
 收益与约束：
 
@@ -638,7 +643,7 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
 - [x] `pnpm verify` 全绿（hygiene + lint + font-units + prettier + typecheck +
       license + notices + visual-baselines + 单测 + build）。
 - [x] `pnpm test:e2e` 全绿；新增 `flowchart.spec.ts` 用例 F-1…F-8（见 §18.3，
-      返工扩至 13 例含 F-3b/c、F-6b/c/d）。
+      返工扩至 15 例含 F-3b/c、F-5b/c、F-6b/c/d）。
 - [x] 视觉基线：新增 `flowchart-sample` 1 张 + darwin/linux 双平台；
       `pnpm visual:linux --stability` 双跑全等（specs/linux-visual §10.3）。
       一轮返工：flowchart-sample clip 改 page 级（locator 级 toHaveScreenshot
@@ -666,15 +671,16 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
 | F-6c | 网格吸附：拉线自由起点/终点量化（未命中控件时）                               |
 | F-6d | 网格吸附：缩放手柄落库量化（se 角固定 nw）                                    |
 | F-5b | 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 80（错开豁免）+ 撤销一步（二轮返工） |
+| F-5c | 同边双自环嵌套：两条 A 顶边拖回 → 内环 80 / 外环 120 + 车道分层（三轮返工）   |
 | F-7  | 清理断头线：删中间节点 → 清理 → 计数正确、撤销恢复                            |
 | F-8  | 拐点手柄：拖单拐点 → 相邻段正交、撤销一步                                     |
 
 ## 19. 手工验证步骤
 
-> 结果记录（2026-11-14 返工收口）：以下 12 步为**待人工执行**清单——自动化等价物
-> 已全部就位（F-1…F-8 + F-3b/c + F-6b/c/d + 视觉 S1 场景 + `pnpm verify`/
-> `pnpm test:e2e`/`visual:linux --stability` 全绿），人工面聚焦手感与屏幕-导出
-> 对照（§19.2 的 PNG 与屏幕逐像素对照无法自动化断言）。
+> 结果记录（2026-11-14 返工收口，三轮复核更新）：以下 12 步为**待人工执行**清单
+> ——自动化等价物已全部就位（F-1…F-8 + F-3b/c + F-5b/c 同边自环 + F-6b/c/d +
+> 视觉 S1 场景 + `pnpm verify`/`pnpm test:e2e`/`visual:linux --stability` 全绿），
+> 人工面聚焦手感与屏幕-导出对照（§19.2 的 PNG 与屏幕逐像素对照无法自动化断言）。
 
 1. `pnpm dev`，`r` 拖三个形状，分别设 stadium / rect / diamond。
 2. ActionBar：填充 → 白；边框色 → 黑；边框宽 → 2；确认屏幕与 `导出画布 PNG` 一致。
@@ -748,7 +754,7 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
 | 数据流：禁绕过 Yjs 改 VM / PIXI | §9.2 预览与落库同源、手势期零写；§7.3 自动错开纯派生不落库                          |
 | 显式依赖                        | 新纯函数模块（shapeStyle/shapeOutline/grid）无状态注入式                            |
 | 单文件单职责 < 400 行           | 新模块各 < 200 行；`lineAnchorFollow` 若超限拆 obstacle 收集器                      |
-| 测试护栏                        | §18.3 E2E 十四例（含二轮 F-5b 同边自环）+ §7.2 锚点单测 + 视觉基线 + verify         |
+| 测试护栏                        | §18.3 E2E 十五例（含 F-5b/c 自环）+ §7.2 锚点单测 + 视觉基线 + verify               |
 | 新增控件 = 三件套               | 本 spec 不新增控件类型（§4.1 决定），故不涉注册表                                   |
 | 单机优先                        | 零服务端、零网络；偏好走 localStorage                                               |
 | 渲染同步六条                    | 无增量累加（量化绝对几何）、预览后广播不变、会话状态经 Service 传参、几何读缩放感知 |

@@ -438,6 +438,45 @@ test('F-5b 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 目标跨度
   expect((await probe(page)).modelCount).toBe(1);
 });
 
+test('F-5c 同边双自环嵌套：两条 A 顶边拖回 → 内环 80 / 外环 120 + 车道分层', async ({ page }) => {
+  await page.goto(`/?doc=e2e-fc-selfloop-nest-${Date.now()}`);
+  await waitForSynced(page);
+  await createRect(page, 500, 400); // 世界 (440,316,120,80)：顶边 y=316
+  await page.getByRole('button', { name: /连线/ }).click();
+  // 两条同边（top→top）自环：内环跨度 80（460..540）、外环 min(160,120)=120
+  // （440..560 钳边长），车道 y = 316−30 / 316−60 分层——内嵌不重叠
+  // （§7.5 三轮：id 字典序定内外，断言不区分先后）
+  await page.mouse.move(500, 362);
+  await page.mouse.down();
+  await page.mouse.move(510, 362, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.mouse.move(520, 362);
+  await page.mouse.down();
+  await page.mouse.move(530, 362, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  const ls = await linesOf(page);
+  expect(ls).toHaveLength(2);
+  for (const l of ls) {
+    expect(l.startNodeId).toBe(l.endNodeId);
+    expect(l.startJoin).toBe('top');
+    expect(l.endJoin).toBe('top');
+  }
+  const spans = ls
+    .map((l) => {
+      const xs = l.points.map((p) => p[0]);
+      return Math.max(...xs) - Math.min(...xs);
+    })
+    .sort((a, b) => a - b);
+  expect(spans[0]).toBeCloseTo(80, 0); // 内环
+  expect(spans[1]).toBeCloseTo(120, 0); // 外环（钳边长）
+  const lanes = ls.map((l) => Math.min(...l.points.map((p) => p[1]))).sort((a, b) => a - b);
+  expect(lanes[0]).toBeCloseTo(256, 0); // 316 − 60（外环车道）
+  expect(lanes[1]).toBeCloseTo(286, 0); // 316 − 30（内环车道）
+});
+
 test('F-6 网格吸附：开后落库坐标 mod 16 = 0，关后自由落点', async ({ page }) => {
   await page.goto(`/?doc=e2e-fc-grid-${Date.now()}`);
   await waitForSynced(page);
