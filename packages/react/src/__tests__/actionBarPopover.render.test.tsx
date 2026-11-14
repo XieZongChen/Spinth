@@ -101,7 +101,7 @@ describe('ActionBar popover 互斥（开合单源 openPopoverId）', () => {
     restore();
   });
 
-  it('面板开着时点 bar 内非面板区域（栏空白）→ 收起（容器 pointerdown 统一关闭）', () => {
+  it('面板开着时点 bar 内非面板区域（栏空白）→ 收起并回焦触发钮（焦点不落地）', () => {
     mount();
     fire(trigger('填充'), 'pointerdown');
     fire(trigger('填充'), 'click');
@@ -110,6 +110,20 @@ describe('ActionBar popover 互斥（开合单源 openPopoverId）', () => {
     const bar = host.querySelector('[data-spinth-action-bar]');
     if (!bar) throw new Error('action bar not found');
     fire(bar, 'pointerdown'); // target = 栏自身（面板/触发钮之外）
+    expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(0);
+    expect(trigger('填充').getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger('填充')); // 面板卸载焦点回触发钮
+    restore();
+  });
+
+  it('只读往返（editable 翻 false 再回 true，schema 引用不变）→ 面板不自动重开', () => {
+    mount();
+    fire(trigger('填充'), 'pointerdown');
+    fire(trigger('填充'), 'click');
+    expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(1);
+
+    setState({ editable: false }); // bar 消失（schema 未变，[schema] effect 不触发）
+    setState({ editable: true });
     expect(host.querySelectorAll('[data-spinth-popover-panel]')).toHaveLength(0);
     expect(trigger('填充').getAttribute('aria-expanded')).toBe('false');
     restore();

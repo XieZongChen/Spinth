@@ -316,7 +316,7 @@ test('批次3：段滑移——拖中段落库 pinned、undo 回退、锚定移�
   await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(300);
   const s2 = await lineSegState(page);
-  expect(s2.pinned).toBe(false);
+  expect(s2.pinned ?? false).toBe(false); // 无键 = 未锁定（默认 ELBOWED 后不再有 reroute 兜底写）
   expect(s2.points).toEqual(pts);
 
   // 再滑移落库 → 拖锚定矩形 A → 首点跟随锚点、中间拐点保持（U 形不丢）。
@@ -467,5 +467,5 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   await page.waitForTimeout(300);
   const s3 = await lineSegState(page);
   expect(JSON.stringify(s3.points)).toBe(JSON.stringify(pts));
-  expect(s3.pinned).toBe(false);
+  expect(s3.pinned ?? false).toBe(false); // 同上：无键 = 未锁定
 });

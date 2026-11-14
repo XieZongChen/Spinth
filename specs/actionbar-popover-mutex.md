@@ -43,4 +43,10 @@ outside-click 监听——点另一个触发钮时旧面板不关、新面板又
 
 - 画布侧点击关闭仍走 PopoverControl 的 window outside-click（画布事件不经过
   bar 容器，不受 stopPropagation 影响）；
-- 多面板同开时「Esc 一次全关」的旧怪象随单源消失（同一时刻至多一个监听）。
+- 多面板同开时「Esc 一次全关」的旧怪象随单源消失（同一时刻至多一个监听）；
+- 只读/接管往返（editable 翻 false 再回 true，schema 引用未变）时清空
+  openPopoverId——否则旧面板在恢复可写时自动弹回（2026-11 审查返工；bounds
+  不进 effect 依赖，避免拖拽每帧关面板）；
+- bar 内 pointerdown 统一收起时回焦当前面板触发钮——面板卸载焦点不落地
+  （specs/a11y-closeout §5.7 同款意图；点其他按钮时浏览器随后的 mousedown
+  聚焦覆盖，不冲突）。

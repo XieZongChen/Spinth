@@ -123,11 +123,16 @@ export function ActionBar() {
 
   // popover 互斥单源：开合状态只在 ActionBar 层持有一份（Toolbar cursorMode 同款
   // 单源模式）——任一触发钮展开即顶掉旧面板；schema 重建（换选区/样式回填）
-  // 即收起，面板语义属于旧 schema
+  // 即收起，面板语义属于旧 schema。只读/接管往返（editable 翻 false）也收起：
+  // schema 引用未变、useEffect([schema]) 不触发，旧面板会在恢复可写时自动弹回
+  // （2026-11 审查返工；bounds 不进依赖——拖拽每帧变会把面板关掉）
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   useEffect(() => {
     setOpenPopoverId(null);
   }, [schema]);
+  useEffect(() => {
+    if (!editable) setOpenPopoverId(null);
+  }, [editable]);
 
   // 实测宽度参与居中/钳制计算：栏宽随 schema 内容变化，预估定值会导致
   // 视觉不居中（2026-09 用户实测反馈）。useLayoutEffect 在绘制前完成校正
@@ -202,12 +207,19 @@ export function ActionBar() {
       onPointerDown={(e) => {
         // 防画布 pointerdown 语义（原样）。bar 内点击被此遮蔽、到不了各控件
         // 挂在 window 的 outside-click——点当前面板之外（其他触发钮/toggle/
-        // 动作钮/栏空白）时在此统一收起
+        // 动作钮/栏空白）时在此统一收起；收起时回焦面板触发钮——面板卸载
+        // 焦点不落地（specs/a11y-closeout §5.7 同款意图；点其他按钮时浏览器
+        // 随后的 mousedown 聚焦会覆盖，不冲突）
         e.stopPropagation();
         if (
           openPopoverId !== null &&
           !(e.target as Element).closest?.(`[data-spinth-popover="${openPopoverId}"]`)
         ) {
+          barRef.current
+            ?.querySelector<HTMLButtonElement>(
+              `[data-spinth-popover="${openPopoverId}"] button[aria-haspopup="menu"]`,
+            )
+            ?.focus();
           setOpenPopoverId(null);
         }
       }}
