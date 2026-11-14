@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { waitForSynced } from './helpers/boardE2e';
 import { probe, createTwoRects, lineSelectionState } from './helpers/widgetProbeE2e';
 
+/** 段状态探针（pinned 归一化布尔：schema 默认 false，undo 后键可缺省） */
 async function lineSegState(
   page: Page,
 ): Promise<{ points: Array<[number, number]>; pinned: boolean }> {
@@ -14,9 +15,9 @@ async function lineSegState(
     ).__spinthDebug.__debug.vmStates;
     const l = d.find((s) => s.type === 'LINE') as unknown as {
       points: Array<[number, number]>;
-      pinned: boolean;
+      pinned?: boolean;
     };
-    return { points: l.points, pinned: l.pinned };
+    return { points: l.points, pinned: l.pinned === true };
   });
 }
 
@@ -316,7 +317,7 @@ test('批次3：段滑移——拖中段落库 pinned、undo 回退、锚定移�
   await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(300);
   const s2 = await lineSegState(page);
-  expect(s2.pinned ?? false).toBe(false); // 无键 = 未锁定（默认 ELBOWED 后不再有 reroute 兜底写）
+  expect(s2.pinned).toBe(false); // 无键 = 未锁定（默认 ELBOWED 后不再有 reroute 兜底写）
   expect(s2.points).toEqual(pts);
 
   // 再滑移落库 → 拖锚定矩形 A → 首点跟随锚点、中间拐点保持（U 形不丢）。
@@ -467,5 +468,5 @@ test('批次3.7：首末段禁拖（2026-11 反转）——锚定相邻段无段
   await page.waitForTimeout(300);
   const s3 = await lineSegState(page);
   expect(JSON.stringify(s3.points)).toBe(JSON.stringify(pts));
-  expect(s3.pinned ?? false).toBe(false); // 同上：无键 = 未锁定
+  expect(s3.pinned).toBe(false); // 同上：探针已归一化
 });
