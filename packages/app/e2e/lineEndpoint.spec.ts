@@ -140,7 +140,9 @@ test('批次2：解绑——删除锚定形状，连线保留且端点保持原�
 
 /** 批次 3：线样式探针（vmStates 投影的 lineType/箭头字段） */
 
-test('五轮：端点拖成同边自环触发全量重排——已有自环让位外环不重叠', async ({ page }) => {
+test('五轮/六轮：端点拖成同边自环触发全量重排——已有自环让位外环不重叠 + 撤销一步', async ({
+  page,
+}) => {
   const docId = `e2e-endpoint-respread-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -174,7 +176,11 @@ test('五轮：端点拖成同边自环触发全量重排——已有自环让�
         .map(
           (s) =>
             s as unknown as {
+              id: string;
+              startNodeId: string | null;
+              startJoin: string | null;
               endNodeId: string | null;
+              endJoin: string | null;
               points: Array<[number, number]>;
             },
         );
@@ -211,4 +217,23 @@ test('五轮：端点拖成同边自环触发全量重排——已有自环让�
     .sort((a, b) => a - b);
   expect(spans[0]).toBeCloseTo(80, 0);
   expect(spans[1]).toBeCloseTo(120, 0);
+
+  // 端点 patch + onSettled 全量重排同事务 → 一次 undo 同时回退被拖线与让位自环
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(300);
+  const ls2 = await lines();
+  const snap = (arr: typeof ls0) =>
+    Object.fromEntries(
+      arr.map((l) => [
+        l.id,
+        {
+          startNodeId: l.startNodeId,
+          startJoin: l.startJoin,
+          endNodeId: l.endNodeId,
+          endJoin: l.endJoin,
+          points: l.points,
+        },
+      ]),
+    );
+  expect(snap(ls2)).toEqual(snap(ls0));
 });

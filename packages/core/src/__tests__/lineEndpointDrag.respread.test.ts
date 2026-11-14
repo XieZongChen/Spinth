@@ -13,9 +13,10 @@ import type { LineVm } from '../widgets/line/lineVm';
  * 这里直接验证 LineEndpointDrag 的 onUp 调用 host.onSettled + 写库顺序。
  */
 
-function makeDrag() {
+function makeDrag(opts: { extraSelfLoop?: boolean } = {}) {
   const settledCalls: number[] = [];
   const updates: Array<Record<string, unknown>> = [];
+  const previewCalls: Array<Array<[number, number]>> = [];
   const state = {
     id: 'L1',
     type: 'LINE',
@@ -33,21 +34,64 @@ function makeDrag() {
     id: 'L1',
     type: 'LINE',
     state,
-    previewRoute: () => {},
+    previewRoute: (pts: Array<{ x: number; y: number }>) =>
+      previewCalls.push(pts.map((p) => [p.x, p.y] as [number, number])),
   } as unknown as LineVm;
+  // 六轮预览断言：已有同边自环 L0 时，目标 L1 应拿到 spanScale=2 的外环档；
+  // 预览走 selfLoopSpanOf（live 覆写），不读尚未落库的 endNodeId。
+  const existingState = opts.extraSelfLoop
+    ? {
+        id: 'L0',
+        type: 'LINE',
+        lineType: 'ELBOWED',
+        startNodeId: 'A',
+        startJoin: 'top' as const,
+        endNodeId: 'A',
+        endJoin: 'top' as const,
+        points: [
+          [500, 316],
+          [500, 286],
+          [460, 286],
+          [460, 316],
+        ] as Array<[number, number]>,
+      }
+    : null;
+  const existingVm = existingState
+    ? ({
+        id: 'L0',
+        type: 'LINE',
+        state: existingState,
+        previewRoute: () => {},
+      } as unknown as LineVm)
+    : null;
+  const modelById = new Map([
+    [
+      'L1',
+      {
+        toJSON: () => state,
+        update: (p: Record<string, unknown>) => updates.push(p),
+      },
+    ],
+    ...(existingState
+      ? [
+          [
+            'L0',
+            {
+              toJSON: () => existingState,
+              update: () => {},
+            },
+          ] as const,
+        ]
+      : []),
+  ]);
   const drag = new LineEndpointDrag(
     {
       clientToWorld: (x: number, y: number) => ({ x, y }),
       vpScale$: new BehaviorSubject(1),
     } as never,
+    { getModelById: (id: string) => modelById.get(id) } as never,
     {
-      getModelById: () => ({
-        toJSON: () => state,
-        update: (p: Record<string, unknown>) => updates.push(p),
-      }),
-    } as never,
-    {
-      getAllVms: () => [vm],
+      getAllVms: () => (existingVm ? [existingVm, vm] : [vm]),
       getVmsInRect: () => [],
       getVmById: (id: string) =>
         id === 'L1'
@@ -80,7 +124,7 @@ function makeDrag() {
       onSettled: () => settledCalls.push(updates.length), // 记录调用时已写入次数
     },
   );
-  return { drag, state, updates, settledCalls };
+  return { drag, state, updates, settledCalls, previewCalls };
 }
 
 const fire = (type: string, x: number, y: number): void => {
@@ -96,5 +140,15 @@ describe('端点重锚定 onUp 触发 host.onSettled（五轮返工）', () => {
     fire('pointerup', 510, 320);
     expect(updates).toHaveLength(1); // 被拖线落库（重锚定为自环端）
     expect(settledCalls).toEqual([1]); // onSettled 在 update 之后调用一次
+  });
+
+  it('端点自环预览 = 落库档：已有自环时目标预览为外环 120（live 覆写）', () => {
+    const { drag, previewCalls } = makeDrag({ extraSelfLoop: true });
+    expect(drag.begin('L1', 'end')).toBe(true);
+    fire('pointermove', 500, 320); // 命中 A 顶边中点（port=0.5）→ 目标变成同边自环
+    const preview = previewCalls.at(-1)!;
+    const xs = preview.map((p) => p[0]);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(120, 0); // L1 字典序 > L0 → spanScale 2
+    fire('pointerup', 500, 320); // 清理 window 监听
   });
 });
