@@ -259,7 +259,7 @@ E2E flowchart 15 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三�
 误伤基线，specs/linux-visual §14.10）；同边多自环嵌套展开（spanScale 跨度/车道
 分层）；`lastRouteObstacles` 探针字面量生产零残留（check-debug-bundle 扩扫）。
 
-当前实测基线：`pnpm verify` 通过；1265 单测（core 1149 + react 78 + app 38）；
+当前实测基线：`pnpm verify` 通过；1266 单测（core 1150 + react 78 + app 38）；
 E2E 50 spec / 272 例（270 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
 主配置 265 = 263 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 262 +
 a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
