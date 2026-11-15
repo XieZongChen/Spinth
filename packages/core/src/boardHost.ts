@@ -29,7 +29,7 @@ import type { LineService } from './widgets/line/lineService';
 import type { PenService } from './widgets/pen/penService';
 import type { EraserService } from './widgets/eraser/eraserService';
 import type { StickyService } from './widgets/sticky/stickyService';
-import type { MindService } from './widgets/mind/mindService';
+import type { TreeService } from './widgets/tree/service/treeService';
 import type { ContextMenuService } from './platform/contextMenu/contextMenuService';
 import type { ClipboardService } from './platform/clipboard/clipboardService';
 import type { CullingService } from './platform/spatial/cullingService';
@@ -68,7 +68,7 @@ export interface IBoardServices {
   penService: PenService | null;
   eraserService: EraserService | null;
   stickyService: StickyService | null;
-  mindService: MindService | null;
+  mindService: TreeService | null;
   contextMenu: ContextMenuService | null;
   keyboard: KeyboardService | null;
   clipboard: ClipboardService | null;

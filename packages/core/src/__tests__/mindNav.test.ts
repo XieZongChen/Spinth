@@ -10,7 +10,7 @@ import {
   rootInsertSide,
   type INavNode,
   type ISpan,
-} from '../widgets/mind/mindNav';
+} from '../widgets/tree/nav/mind';
 
 interface ISpec {
   id: string;

@@ -27,7 +27,7 @@ describe('mind 工具：按下才建图（既有设计 mindToolbar.handlePointer
   });
 });
 
-describe('MindService 幽灵抑制流（2026-09-22 幽灵 DOM 化：core 只发语义）', () => {
+describe('TreeService 幽灵抑制流（2026-09-22 幽灵 DOM 化：core 只发语义）', () => {
   it('mind 模式指针移动：悬停脑图 suppressed=true、离开复位；切走工具复位', () => {
     const { svc, handlers, viewport, vmEngine } = makeTreeService(spec('根', [spec('a')]));
     svc.initialize();

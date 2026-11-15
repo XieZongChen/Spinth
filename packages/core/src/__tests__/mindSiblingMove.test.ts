@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { MindTreeOps, defaultNodeText } from '../widgets/mind/mindTreeOps';
-import { MindMapModel } from '../widgets/mind/mindMapModel';
+import { TreeOps, defaultNodeText } from '../widgets/tree/ops/treeOps';
+import { MindMapModel } from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 import type { IDataEngineService, IHistoryService, ISelectorService } from '../types';
 
@@ -24,7 +24,7 @@ function harness() {
     }
     root.set('children', kids);
   });
-  // MindMapModel 的 yData 是 widget 级 Y.Map（root 是其字段——docs/11 §2）；
+  // TreeMapModel 的 yData 是 widget 级 Y.Map（root 是其字段——docs/11 §2）；
   // 脱离文档的 Y.Map 读取无效——经 doc 集成 map
   const yData = yDoc.getMap('w');
   yData.set('root', root);
@@ -35,7 +35,7 @@ function harness() {
     getModelById: (id: string) => models.get(id),
     transact: (fn: () => void) => fn(),
   } as unknown as IDataEngineService;
-  const ops = new MindTreeOps(
+  const ops = new TreeOps(
     engine,
     { stopCapturing: vi.fn() } as unknown as IHistoryService,
     {} as ISelectorService,

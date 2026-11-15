@@ -4,11 +4,11 @@ import { stubPixiCanvasDocument } from './helpers/pixiNodeEnv';
 stubPixiCanvasDocument();
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { MindMapModel, buildYTree, type IMindNodeSpec } from '../widgets/mind/mindMapModel';
-import { MindMapVm } from '../widgets/mind/mindMapVm';
+import { MindMapModel, buildYTree, type IMindNodeSpec } from '../widgets/tree/model/treeMapModel';
+import { MindMapVm } from '../widgets/tree/vm/treeMapVm';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 
-/** 纯数据层测试：MindMapModel 树构建 + MindMapVm 位置/包围盒（不依赖 BoardSDK） */
+/** 纯数据层测试：TreeMapModel 树构建 + TreeMapVm 位置/包围盒（不依赖 BoardSDK） */
 function makeMapModel(spec: IMindNodeSpec): {
   model: MindMapModel;
   doc: Y.Doc;
@@ -33,14 +33,14 @@ function spec(text: string, kids?: IMindNodeSpec[], direction?: 'left' | 'right'
   return { text, children: kids, direction };
 }
 
-describe('MindMapModel + MindMapVm（docs/11 §2/§4）', () => {
-  it('MindMapModel.root 递归构建；hasRoot 延迟判断', () => {
+describe('TreeMapModel + TreeMapVm（docs/11 §2/§4）', () => {
+  it('TreeMapModel.root 递归构建；hasRoot 延迟判断', () => {
     const { model } = makeMapModel(spec('中心主题'));
     expect(model.hasRoot()).toBe(true);
     expect(model.root.toJSON().text).toBe('中心主题');
   });
 
-  it('MindMapVm：attach 后节点渲染 + 布局收敛（根位置 (0,0)，右侧子偏移正值）', () => {
+  it('TreeMapVm：attach 后节点渲染 + 布局收敛（根位置 (0,0)，右侧子偏移正值）', () => {
     const { model } = makeMapModel(spec('根', [spec('右1'), spec('右2', [spec('孙1')])]));
     const vm = new MindMapVm();
     vm.setModel(model as never);

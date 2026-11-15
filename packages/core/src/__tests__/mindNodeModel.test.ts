@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { MindNodeModel } from '../widgets/mind/mindNodeModel';
+import { TreeNodeModel } from '../widgets/tree/model/treeNodeModel';
 
 /** 构造带 children 的 yNode 并把根挂入 doc 顶级（游离 Y.Map 事务后会被 yjs 丢弃；
  *  仅根挂载——子树重复挂载会触发二次 integrate 崩溃） */
@@ -26,11 +26,11 @@ function makeYTree(doc: Y.Doc, spec: ITreeSpec, isRoot = true): Y.Map<unknown> {
   return m;
 }
 
-describe('MindNodeModel 增量树同步（docs/11 §3）', () => {
+describe('TreeNodeModel 增量树同步（docs/11 §3）', () => {
   it('初始化递归建子 Model（双向引用）', () => {
     const doc = new Y.Doc();
     const rootY = makeYTree(doc, { id: 'root', kids: [{ id: 'a' }, { id: 'b' }] });
-    const root = new MindNodeModel(rootY);
+    const root = new TreeNodeModel(rootY);
     expect(root.children.map((c) => c.id)).toEqual(['a', 'b']);
     expect(root.children[0]!.getParent()).toBe(root);
     root.dispose();
@@ -39,7 +39,7 @@ describe('MindNodeModel 增量树同步（docs/11 §3）', () => {
   it('远端插入/删除 → delta → 内存数组 splice', () => {
     const doc = new Y.Doc();
     const rootY = makeYTree(doc, { id: 'root', kids: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
-    const root = new MindNodeModel(rootY);
+    const root = new TreeNodeModel(rootY);
     const events: unknown[] = [];
     root.childrenChange$.subscribe((d) => events.push(d));
 
@@ -65,7 +65,7 @@ describe('MindNodeModel 增量树同步（docs/11 §3）', () => {
   it('【硬规定】toJSON 剥离 children——state 不含子树', () => {
     const doc = new Y.Doc();
     const rootY = makeYTree(doc, { id: 'root', kids: [{ id: 'deep1', kids: [{ id: 'deep2' }] }] });
-    const root = new MindNodeModel(rootY);
+    const root = new TreeNodeModel(rootY);
     const json = root.toJSON();
     expect(json).toEqual({ id: 'root', text: 't-root' });
     expect(JSON.stringify(json)).not.toContain('deep1');
@@ -75,7 +75,7 @@ describe('MindNodeModel 增量树同步（docs/11 §3）', () => {
   it('分支色沿父链继承；自身值覆盖', () => {
     const doc = new Y.Doc();
     const rootY = makeYTree(doc, { id: 'root', kids: [{ id: 'a' }] });
-    const root = new MindNodeModel(rootY);
+    const root = new TreeNodeModel(rootY);
     doc.transact(() => rootY.set('lineColor', '#f00'));
     const a = root.children[0]!;
     expect(a.getLineColor('#000')).toBe('#f00'); // 继承根

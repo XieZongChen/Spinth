@@ -1,4 +1,4 @@
-import { Disposable } from '../../base/disposable';
+import { Disposable } from '../../../base/disposable';
 import type {
   IDataEngineService,
   IEditingService,
@@ -6,11 +6,11 @@ import type {
   IVmEngineService,
   IViewportService,
   IPlainEditorStyle,
-} from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindMapModel } from './mindMapModel';
-import { findMindNode } from './mindMapModel';
-import { MIND_NODE_STYLE, MIND_COLORS, MIND_ROOT_STYLE } from './mindNodeVm';
+} from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeMapModel } from './../model/treeMapModel';
+import { findMindNode } from './../model/treeMapModel';
+import { MIND_NODE_STYLE, MIND_COLORS, MIND_ROOT_STYLE } from './../vm/treeNodeVm';
 
 /**
  * 脑图节点文本编辑协作者（docs/11 §8，自 mindService 拆出的协作者；
@@ -21,8 +21,8 @@ import { MIND_NODE_STYLE, MIND_COLORS, MIND_ROOT_STYLE } from './mindNodeVm';
  * 缩放）与焦点归属（host 回调，编辑器不持有焦点状态、不改树结构）。
  */
 
-/** 编辑器 ↔ MindService 的边界：树结构变更与焦点归属留在服务侧 */
-export interface IMindEditorHost {
+/** 编辑器 ↔ TreeService 的边界：树结构变更与焦点归属留在服务侧 */
+export interface ITreeEditorHost {
   /** 编辑态 Tab：建子节点并聚焦，返回新子节点 id（无则 null） */
   addChildFocused(): string | null;
   /** 编辑器关闭后的焦点恢复（条件化：交互流已接管焦点则不覆写——blur 晚于
@@ -32,7 +32,7 @@ export interface IMindEditorHost {
   focusEditedNode(nodeId: string): void;
 }
 
-export class MindNodeEditor extends Disposable {
+export class TreeNodeEditor extends Disposable {
   /** 本协作者发起的会话（isEditing/editingWidgetId 语义；begin 后赋值） */
   private myEditing: { mapId: string; nodeId: string } | null = null;
 
@@ -41,7 +41,7 @@ export class MindNodeEditor extends Disposable {
     private readonly engine: IDataEngineService,
     private readonly vmEngine: IVmEngineService,
     private readonly history: IHistoryService,
-    private readonly host: IMindEditorHost,
+    private readonly host: ITreeEditorHost,
     private readonly editing: IEditingService,
   ) {
     super();
@@ -62,7 +62,7 @@ export class MindNodeEditor extends Disposable {
    * 对脑图节点同样生效（mindSelector 订阅 singleEdited$）。
    */
   enterNodeEditAt(mapId: string, world: { x: number; y: number }): boolean {
-    const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
     const hit = vm?.hitNode(world as never);
     if (!vm || !hit) return false;
     this.enterNodeEdit(mapId, hit.model.id);
@@ -74,8 +74,8 @@ export class MindNodeEditor extends Disposable {
     nodeId: string,
     opts: { replaceWith?: string; selectAll?: boolean } = {},
   ): void {
-    const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     const node = model?.hasRoot() ? findMindNode(model.root, nodeId) : null;
     const rect = vm?.getNodeRect(nodeId) ?? null;
     const nodeVm = vm?.getNodeVm(nodeId) ?? null;
@@ -115,7 +115,7 @@ export class MindNodeEditor extends Disposable {
       onCommit: (text) => {
         // 重取（undo 删除后闭包 node 失效）；setText → observeSelf → refresh +
         // relayout（既有链路，树自动重排——kernel 随后重取 getRect 跟随）
-        const m = this.engine.getModelById(mapId) as MindMapModel | undefined;
+        const m = this.engine.getModelById(mapId) as TreeMapModel | undefined;
         const n = m?.hasRoot() ? findMindNode(m.root, nodeId) : null;
         if (n && n.toJSON().text !== text) {
           n.setText(text);

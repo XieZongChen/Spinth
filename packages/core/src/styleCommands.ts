@@ -10,7 +10,7 @@ import type { IBoardCommandHost } from './boardHost';
 export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string, unknown>): void {
   const ids = ctx.selector?.selected$.value ?? [];
   if (ids.length === 0 || !ctx.viewport?.editable$.value) return;
-  // 4.9：脑图节点级选中的样式写入分流（分支色走 MindService 落节点，
+  // 4.9：脑图节点级选中的样式写入分流（分支色走 TreeService 落节点，
   // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
   if (ids.length === 1 && typeof patch.lineColor === 'string' && patch.lineColor.startsWith('#')) {
     const vm = ctx.vmEngine?.getVmById(ids[0]!);

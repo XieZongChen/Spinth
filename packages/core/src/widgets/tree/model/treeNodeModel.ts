@@ -20,17 +20,17 @@ export interface IMindNodeJson {
 }
 
 export type MindNodeDelta =
-  | { kind: 'insert'; index: number; nodes: MindNodeModel[] }
-  | { kind: 'delete'; index: number; nodes: MindNodeModel[] }
-  | { kind: 'reorder'; from: number; to: number; node: MindNodeModel };
+  | { kind: 'insert'; index: number; nodes: TreeNodeModel[] }
+  | { kind: 'delete'; index: number; nodes: TreeNodeModel[] }
+  | { kind: 'reorder'; from: number; to: number; node: TreeNodeModel };
 
-export class MindNodeModel {
+export class TreeNodeModel {
   readonly id: string;
-  readonly children: MindNodeModel[] = [];
+  readonly children: TreeNodeModel[] = [];
   readonly childrenChange$ = new Subject<MindNodeDelta[]>();
   private readonly yNode: Y.Map<unknown>;
   private readonly yChildren: Y.Array<Y.Map<unknown>>;
-  private parent: MindNodeModel | null = null;
+  private parent: TreeNodeModel | null = null;
   private disposed = false;
 
   /** 从 Y.Map 构建（根/子节点同构；不进 ServiceRegistry——树内生命周期自管理） */
@@ -45,7 +45,7 @@ export class MindNodeModel {
     this.yChildren.observe(this.onChildrenDelta);
   }
 
-  getParent(): MindNodeModel | null {
+  getParent(): TreeNodeModel | null {
     return this.parent;
   }
 
@@ -97,8 +97,8 @@ export class MindNodeModel {
     this.childrenChange$.complete();
   }
 
-  private build(childY: Y.Map<unknown>): MindNodeModel {
-    const model = new MindNodeModel(childY);
+  private build(childY: Y.Map<unknown>): TreeNodeModel {
+    const model = new TreeNodeModel(childY);
     model.parent = this;
     return model;
   }

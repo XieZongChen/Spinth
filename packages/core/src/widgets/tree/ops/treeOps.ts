@@ -1,12 +1,12 @@
 import * as Y from 'yjs';
-import { Disposable } from '../../base/disposable';
-import type { IDataEngineService, IHistoryService, ISelectorService } from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindNodeModel } from './mindNodeModel';
-import type { MindMapModel, IMindNodeSpec } from './mindMapModel';
-import { nextBranchColor, findMindNode, buildNavTree } from './mindMapModel';
-import { rootInsertSide, focusAfterDelete } from './mindNav';
-import type { IDropTarget } from './dropArea';
+import { Disposable } from '../../../base/disposable';
+import type { IDataEngineService, IHistoryService, ISelectorService } from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeNodeModel } from './../model/treeNodeModel';
+import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
+import { nextBranchColor, findMindNode, buildNavTree } from './../model/treeMapModel';
+import { rootInsertSide, focusAfterDelete } from './../nav/mind';
+import type { IDropTarget } from './../drop/dropArea';
 
 /**
  * 脑图树写 + 节点操作协作者（自 mindService 拆出，2026-10-06 批刀 1）：
@@ -15,14 +15,14 @@ import type { IDropTarget } from './dropArea';
  * 无自有状态（纯写编排，零订阅零监听）；焦点归属经 host 回调交还宿主。
  */
 
-/** MindService ↔ 树写域的边界：焦点态读取与写入（含广播/视窗跟随）留在服务侧 */
-export interface IMindTreeOpsHost {
-  getFocused(): { vm: MindMapVm; mapModel: MindMapModel; node: MindNodeModel } | null;
+/** TreeService ↔ 树写域的边界：焦点态读取与写入（含广播/视窗跟随）留在服务侧 */
+export interface ITreeOpsHost {
+  getFocused(): { vm: TreeMapVm; mapModel: TreeMapModel; node: TreeNodeModel } | null;
   setFocusedNode(id: string | null): void;
 }
 
 /** move 的入参结构子集（拖拽会话状态满足结构兼容，刀 2 拆出后同源） */
-export interface IMindMoveSource {
+export interface ITreeMoveSource {
   /** 拖起的源脑图 id */
   mapId: string;
   /** 拖起节点 id */
@@ -54,12 +54,12 @@ function buildYNode(direction?: 'left' | 'right', lineColor?: string, text = '')
   return m;
 }
 
-export class MindTreeOps extends Disposable {
+export class TreeOps extends Disposable {
   constructor(
     private readonly engine: IDataEngineService,
     private readonly history: IHistoryService,
     private readonly selector: ISelectorService,
-    private readonly host: IMindTreeOpsHost,
+    private readonly host: ITreeOpsHost,
   ) {
     super();
   }
@@ -142,10 +142,10 @@ export class MindTreeOps extends Disposable {
   /** 序列化→删除→反序列化插入（协同安全，docs/11 §6）。
    *  颜色规则：移入根节点分配未占用色、移入普通节点清空继承新父
    *  返回重建后的新节点 id（松手重选用——move 走序列化重建，id 全新生成） */
-  move(d: IMindMoveSource, target: IDropTarget): string | null {
+  move(d: ITreeMoveSource, target: IDropTarget): string | null {
     const destMapId = d.lastTargetMapId ?? d.mapId;
     const crossMap = destMapId !== d.mapId;
-    const model = this.engine.getModelById(destMapId) as MindMapModel | undefined;
+    const model = this.engine.getModelById(destMapId) as TreeMapModel | undefined;
     if (!model?.hasRoot()) return null;
     let newId: string | null = null;
     if (target.kind === 'asChild') {
@@ -196,7 +196,7 @@ export class MindTreeOps extends Disposable {
 
   /** 一级分支落位取色：自身带色且同图 → 保留；否则取未占用色（既有设计 move Rule 1.1/1.2） */
   private rootChildColor(
-    model: MindMapModel,
+    model: TreeMapModel,
     ownColor: string | undefined,
     crossMap: boolean,
     index: number,
@@ -207,9 +207,9 @@ export class MindTreeOps extends Disposable {
 
   /** Y.Map 删节点（找父 children 数组删） */
   removeNode(mapId: string, nodeId: string): void {
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     if (!model?.hasRoot()) return;
-    const walk = (node: MindNodeModel): boolean => {
+    const walk = (node: TreeNodeModel): boolean => {
       const yChildren = node.yChildList;
       for (let i = 0; i < node.children.length; i++) {
         const c = node.children[i]!;
@@ -246,7 +246,7 @@ export class MindTreeOps extends Disposable {
   }
 
   /** 根层现有一级分支已占用色集（撞色规避取色输入） */
-  private usedBranchColors(model: MindMapModel): Set<string> {
+  private usedBranchColors(model: TreeMapModel): Set<string> {
     const used = new Set<string>();
     for (const c of model.root.children) {
       const color = c.toJSON().lineColor;

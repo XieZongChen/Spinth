@@ -28,8 +28,8 @@ import { StickyModel } from './widgets/sticky/stickyModel';
 import { StickyVm } from './widgets/sticky/stickyVm';
 import { ImageModel } from './widgets/image/imageModel';
 import { ImageVm } from './widgets/image/imageVm';
-import { MindMapModel } from './widgets/mind/mindMapModel';
-import { MindMapVm } from './widgets/mind/mindMapVm';
+import { MindMapModel } from './widgets/tree/model/treeMapModel';
+import { MindMapVm } from './widgets/tree/vm/treeMapVm';
 
 export const WIDGET_RUNTIME = {
   SHAPE: {

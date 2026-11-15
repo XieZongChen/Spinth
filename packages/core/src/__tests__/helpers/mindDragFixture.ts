@@ -1,9 +1,13 @@
 import { BehaviorSubject } from 'rxjs';
 import { Texture } from 'pixi.js';
 import * as Y from 'yjs';
-import { MindService } from '../../widgets/mind/mindService';
+import { TreeService } from '../../widgets/tree/service/treeService';
 import { EditingService } from '../../platform/textEngine/editingService';
-import { MindMapModel, buildYTree, type IMindNodeSpec } from '../../widgets/mind/mindMapModel';
+import {
+  MindMapModel,
+  buildYTree,
+  type IMindNodeSpec,
+} from '../../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../../platform/dataEngine/dataProcessor';
 import { mindViewportStub } from './mindViewportStub';
 
@@ -92,7 +96,7 @@ export function makeService(
   };
   const selector = { selected$: new BehaviorSubject<string[]>(['mm-1']), setSelected: () => {} };
   const history = { stopCapturing: () => {} };
-  const svc = new MindService(
+  const svc = new TreeService(
     viewport as never,
     engine as never,
     vmEngine as never,

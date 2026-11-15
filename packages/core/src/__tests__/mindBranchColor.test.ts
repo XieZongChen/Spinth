@@ -6,7 +6,7 @@ stubPixiCanvasDocument();
 import { describe, expect, it } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import * as Y from 'yjs';
-import { MindService } from '../widgets/mind/mindService';
+import { TreeService } from '../widgets/tree/service/treeService';
 import { EditingService } from '../platform/textEngine/editingService';
 import {
   MindMapModel,
@@ -14,7 +14,7 @@ import {
   BRANCH_COLORS,
   nextBranchColor,
   type IMindNodeSpec,
-} from '../widgets/mind/mindMapModel';
+} from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 
 /**
@@ -74,7 +74,7 @@ function makeService(specTree: IMindNodeSpec) {
     getVmByPoint: () => [],
   };
   const selector = { selected$: new BehaviorSubject<string[]>(['mm-1']), setSelected: () => {} };
-  const svc = new MindService(
+  const svc = new TreeService(
     viewport as never,
     engine as never,
     vmEngine as never,

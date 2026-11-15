@@ -8,7 +8,7 @@ import {
   nodeConnectorPath,
   NODE_LINE_AGGREGATED,
   ROOT_CURVE_START_PADDING,
-} from '../widgets/mind/mindDrawerMath';
+} from '../widgets/tree/connector/mind';
 
 describe('脑图连线数学（docs/11 §5）', () => {
   it('f(x)：单调递增、边界 0/1、三段连续', () => {

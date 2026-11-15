@@ -4,7 +4,7 @@ import {
   DROP_AREA_HORIZONTAL_PADDING,
   DROP_AREA_VERTICAL_PADDING,
   type IDropTarget,
-} from '../widgets/mind/dropArea';
+} from '../widgets/tree/drop/dropArea';
 
 const R = (x: number, y: number, w: number, h: number) => ({ x, y, width: w, height: h });
 

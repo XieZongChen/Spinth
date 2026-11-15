@@ -1,9 +1,9 @@
 import { DropArea, type IDropHit, type IDropTarget } from './dropArea';
-import type { MindMapVm } from './mindMapVm';
-import type { MindNodeModel } from './mindNodeModel';
-import type { MindMapModel } from './mindMapModel';
-import { findMindNode } from './mindMapModel';
-import type { IRect } from '../../common/geometry';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeNodeModel } from './../model/treeNodeModel';
+import type { TreeMapModel } from './../model/treeMapModel';
+import { findMindNode } from './../model/treeMapModel';
+import type { IRect } from '../../../common/geometry';
 
 /**
  * 脑图拖拽落点命中（docs/11 §6，自 mindService 拆出的纯函数模块）：
@@ -21,7 +21,7 @@ import type { IRect } from '../../common/geometry';
  * 扩区把「兄弟之间的缝隙」也纳入命中——这是既有设计不会「拖到缝隙就拆成新图」的原因。
  */
 
-export type NodeDirectionOf = (node: MindNodeModel) => 'left' | 'right';
+export type NodeDirectionOf = (node: TreeNodeModel) => 'left' | 'right';
 
 /** 单图预建热区集：root 区命中即返回；node 区全图取距离最小 */
 export interface IMindTreeDropAreas {
@@ -31,13 +31,13 @@ export interface IMindTreeDropAreas {
 
 /** 一次装配整棵树的热区（拖拽会话内树结构/节点 rect 静态，可安全缓存复用） */
 export function buildTreeDropAreas(
-  model: MindMapModel,
-  vm: MindMapVm,
+  model: TreeMapModel,
+  vm: TreeMapVm,
   excludeId: string,
   nodeDirection: NodeDirectionOf,
 ): IMindTreeDropAreas {
   const excluded = new Set<string>();
-  const collect = (n: MindNodeModel): void => {
+  const collect = (n: TreeNodeModel): void => {
     excluded.add(n.id);
     for (const c of n.children) collect(c);
   };
@@ -84,7 +84,7 @@ export function buildTreeDropAreas(
   }
 
   const nodeAreas: DropArea[] = [];
-  const walk = (node: MindNodeModel): void => {
+  const walk = (node: TreeNodeModel): void => {
     if (excluded.has(node.id)) return;
     if (node !== model.root) {
       const area = buildNodeArea(vm, node, nodeDirection, excluded);
@@ -99,7 +99,7 @@ export function buildTreeDropAreas(
 
 /** 世界坐标命中：root 区即返，否则 node 区取距离最小（局部坐标换算在此收口） */
 export function hitTreeDropAreas(
-  vm: MindMapVm,
+  vm: TreeMapVm,
   areas: IMindTreeDropAreas,
   world: { x: number; y: number },
 ): IDropTarget | null {
@@ -118,8 +118,8 @@ export function hitTreeDropAreas(
 
 /** 普通节点热区（既有设计 baseNodeVm.buildDropArea + mindNodeVm.hitTestDrop） */
 function buildNodeArea(
-  vm: MindMapVm,
-  node: MindNodeModel,
+  vm: TreeMapVm,
+  node: TreeNodeModel,
   nodeDirection: NodeDirectionOf,
   excluded: Set<string>,
 ): DropArea | null {
@@ -154,12 +154,12 @@ function buildNodeArea(
 
 /** 该节点某一侧的子节点（含其在 children 中的绝对下标），排除被拖子树 */
 function sideChildren(
-  node: MindNodeModel,
+  node: TreeNodeModel,
   direction: 'left' | 'right',
   excluded: Set<string>,
   nodeDirection: NodeDirectionOf,
-): Array<{ node: MindNodeModel; index: number }> {
-  const out: Array<{ node: MindNodeModel; index: number }> = [];
+): Array<{ node: TreeNodeModel; index: number }> {
+  const out: Array<{ node: TreeNodeModel; index: number }> = [];
   node.children.forEach((c, index) => {
     if (excluded.has(c.id)) return;
     if (nodeDirection(c) !== direction) return;

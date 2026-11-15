@@ -1,30 +1,32 @@
 import { Graphics, Point } from 'pixi.js';
-import { BaseWidgetVm } from '../../base/baseWidgetVm';
-import { markRender } from '../../common/render';
-import { rectContainsPoint, rectsIntersect, type IRect } from '../../common/geometry';
-import type { MindMapData } from '../../types';
-import { MIND_COLORS } from './mindNodeVm';
-import { MindNodeModel } from './mindNodeModel';
-import { MindNodeVm } from './mindNodeVm';
-import { layoutMindTree, type ILayoutNode, type ILayoutResult } from './mindLayout';
-import { rootT, rootStartX, rootEnd, nodeConnectorPath, ROOT_CP_RATIO } from './mindDrawerMath';
-import type { MindMapModel } from './mindMapModel';
-
-/** 连线宽度（既有设计 constants.LINE_WIDTH = 4；根连线同宽） */
-const MIND_LINE_WIDTH = 4;
+import { BaseWidgetVm } from '../../../base/baseWidgetVm';
+import { markRender } from '../../../common/render';
+import { rectContainsPoint, rectsIntersect, type IRect } from '../../../common/geometry';
+import type { IWidgetData, MindMapData } from '../../../types';
+import type { TreeOrientation } from '../../../types/tree';
+import { TreeNodeModel } from '../model/treeNodeModel';
+import { TreeNodeVm } from './treeNodeVm';
+import { drawTreeConnectors } from './treeDrawer';
+import type { ILayoutNode, ILayoutResult } from '../layout/types';
+import type { TreeMapModel } from '../model/treeMapModel';
+import type { ITreeKind } from '../registry';
+import { mindKind } from '../kinds/mind';
 
 /**
- * 脑图整图视图（docs/11 §4，2026-09 编排决策）：
+ * 树形图整图视图基类（docs/11 §4，2026-09 编排决策；specs/tree-diagrams §3.2）：
  * - 树内节点 Vm 由本类统一 build/destroy（childrenChange$ 增量）；
- * - **布局合批**：任何树变化（结构/文本）→ 微任务一次全量 layoutMindTree +
+ * - **布局合批**：任何树变化（结构/文本）→ 微任务一次全量布局 +
  *   位置差异应用（纯函数布局 O(树) 代价可忽略；「每节点 render 排自己 children
  *   + 逐级冒泡」的既有设计形态在 spinth 简化为全量计算 + 差异应用——满足规格的
  *   「同帧多变化只收敛一次」，增量逐节点重排留给性能专项评估）；
  * - 根锚定：容器原点 = 根节点左上角（布局负坐标自然向左上展开）；
  *   整图 rect 只在拖拽时变（防 layout→写 rect→再 layout 循环）。
+ * 布局/连线经 kind 策略分派（骨架无种类分支）。
  */
-export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
-  private readonly nodeVms = new Map<string, MindNodeVm>();
+export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm<D> {
+  readonly kind: ITreeKind;
+
+  private readonly nodeVms = new Map<string, TreeNodeVm>();
   private readonly nodeUnbinds = new Map<string, Array<() => void>>();
   private readonly drawer = new Graphics();
   private relayoutScheduled = false;
@@ -32,25 +34,31 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
   /** 上次广播时的布局 bbox——树生长/收缩检测（变化才进 diff 键集） */
   private lastBbox: IRect | null = null;
 
-  constructor() {
+  constructor(kind: ITreeKind) {
     super({
       id: '',
-      type: 'MIND_MAP',
+      type: kind.type,
       zOrder: '',
       x: 0,
       y: 0,
       width: 0,
       height: 0,
-    });
+    } as D);
+    this.kind = kind;
     this.root.eventMode = 'none';
     this.root.addChild(this.drawer);
   }
 
-  private get mapModel(): MindMapModel | null {
-    return this.model as MindMapModel | null;
+  /** 物理轴（Phase 0 恒 kind 默认；Phase 2 起读图字段 orientation，缺省回默认） */
+  protected get orientation(): TreeOrientation {
+    return this.kind.defaultOrientation;
   }
 
-  override render(_prev: MindMapData & IRect, next: MindMapData & IRect): void {
+  private get mapModel(): TreeMapModel | null {
+    return this.model as unknown as TreeMapModel | null;
+  }
+
+  override render(_prev: D, next: D): void {
     this.root.position.set(next.x, next.y);
     this.root.scale.set(1);
     const model = this.mapModel;
@@ -64,7 +72,7 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
 
   /** 订阅树模型（首次 render / 数据就绪后）。结构订阅在 syncTree 内逐节点挂——
    *  只订根曾漏掉深层子树：Tab 建链 ≥2 层后 Y 树对、Vm 树缺节点（2026-09 实测） */
-  private attachTree(rootModel: MindNodeModel): void {
+  private attachTree(rootModel: TreeNodeModel): void {
     if (this.treeAttached) return;
     this.treeAttached = true;
     this.syncTree(rootModel);
@@ -72,12 +80,12 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
 
   /** Vm 树与 Model 树对齐：建缺失 + 销毁多余（先应用更新再销毁——docs/11 §3），
    *  新建节点挂 observeSelf（文本变化 → refresh + 重排） */
-  private syncTree(rootModel: MindNodeModel): void {
+  private syncTree(rootModel: TreeNodeModel): void {
     const alive = new Set<string>();
-    const walk = (node: MindNodeModel, depth: number): void => {
+    const walk = (node: TreeNodeModel, depth: number): void => {
       alive.add(node.id);
       if (!this.nodeVms.has(node.id)) {
-        const vm = new MindNodeVm(node, depth);
+        const vm = new TreeNodeVm(node, depth, this.kind.style);
         this.nodeVms.set(node.id, vm);
         this.root.addChild(vm as never);
         // 逐节点订阅：结构变化（childrenChange$）驱动 syncTree + 重排；
@@ -124,13 +132,13 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
     const model = this.mapModel;
     if (!model?.hasRoot()) return;
     const spec = this.toLayoutSpec(model.root);
-    const layout = layoutMindTree(spec);
+    const layout = this.kind.layout(this.orientation).layout(spec);
     this.lastLayout = layout;
     for (const [id, vm] of this.nodeVms) {
       const p = layout.positions.get(id);
       if (p) vm.position.set(p.x, p.y);
     }
-    this.drawConnectors(model.root, layout);
+    drawTreeConnectors(this.drawer, this.kind, this.orientation, model.root, layout, this.nodeVms);
     markRender();
     // 布局是派生视觉、不产生 Yjs 状态变更——但选区框/ActionBar/AddButtons 都按
     // 「渲染完成后广播」契约重读几何（docs/11 §0）。不广播则它们永远停在布局
@@ -157,8 +165,8 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
     this.onStateChanged$.next({ diff, local: true });
   }
 
-  /** MindNodeModel 树 → 布局输入（含各节点测量尺寸——纯函数层零 PIXI 依赖） */
-  private toLayoutSpec(node: MindNodeModel): ILayoutNode {
+  /** TreeNodeModel 树 → 布局输入（含各节点测量尺寸——纯函数层零 PIXI 依赖） */
+  private toLayoutSpec(node: TreeNodeModel): ILayoutNode {
     const vm = this.nodeVms.get(node.id);
     const json = node.toJSON();
     return {
@@ -168,67 +176,6 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
       direction: json.direction,
       children: node.children.map((c) => this.toLayoutSpec(c)),
     };
-  }
-
-  /**
-   * 连线（docs/11 §5 完整版）：
-   * - 根→一级：二次贝塞尔（t 参数曲线起点 + cpX = startX+(endX-startX)·0.2）
-   * - 普通：折线 + R8 圆弧拐角（兄弟共享垂直段 midX——鱼骨视觉）
-   */
-  private drawConnectors(node: MindNodeModel, layout: ILayoutResult): void {
-    const g = this.drawer;
-    g.clear();
-    const rootModel = this.mapModel!.root;
-    const rootVm = this.nodeVms.get(rootModel.id);
-    if (!rootVm) return;
-
-    const draw = (n: MindNodeModel, isRootChild: boolean): void => {
-      const p = layout.positions.get(n.id);
-      const vm = this.nodeVms.get(n.id);
-      if (!p || !vm) return;
-
-      for (const c of n.children) {
-        const cp = layout.positions.get(c.id);
-        const cvm = this.nodeVms.get(c.id);
-        if (!cp || !cvm) continue;
-        const childIsLeft = cp.x < p.x;
-        const color = hexToInt(c.getLineColor(MIND_COLORS.lineFallback));
-
-        if (isRootChild) {
-          // 根→一级：t 参数起点 + 二次贝塞尔
-          const rootRect = { x: p.x, y: p.y, width: vm.nodeWidth, height: vm.nodeHeight };
-          const childRect = { x: cp.x, y: cp.y, width: cvm.nodeWidth, height: cvm.nodeHeight };
-          const vertDist = Math.abs(
-            childRect.y + childRect.height / 2 - (rootRect.y + rootRect.height / 2),
-          );
-          const t = rootT(vertDist, childIsLeft);
-          const sX = rootStartX(rootRect.x + rootRect.width / 2, rootRect.width, t);
-          const sY = rootRect.y + rootRect.height / 2;
-          const e = rootEnd(childRect, childIsLeft);
-          const cpX = sX + (e.x - sX) * ROOT_CP_RATIO;
-          const cpY = e.y;
-          g.moveTo(sX, sY)
-            .quadraticCurveTo(cpX, cpY, e.x, e.y)
-            .stroke({ width: MIND_LINE_WIDTH, color, cap: 'round' });
-        } else {
-          // 普通：鱼骨折线 + 真圆弧拐角（既有设计 drawer.drawNodeLine 四象限分情况）
-          const cmds = nodeConnectorPath(
-            { x: p.x, y: p.y, width: vm.nodeWidth, height: vm.nodeHeight },
-            { x: cp.x, y: cp.y, width: cvm.nodeWidth, height: cvm.nodeHeight },
-          );
-          for (const cmd of cmds) {
-            if (cmd.op === 'moveTo') g.moveTo(cmd.x, cmd.y);
-            else if (cmd.op === 'lineTo') g.lineTo(cmd.x, cmd.y);
-            else if (cmd.op === 'cubicTo')
-              g.bezierCurveTo(cmd.c1x, cmd.c1y, cmd.c2x, cmd.c2y, cmd.x, cmd.y);
-            else g.arc(cmd.cx, cmd.cy, cmd.r, cmd.start, cmd.end, cmd.ccw);
-          }
-          g.stroke({ width: MIND_LINE_WIDTH, color, cap: 'round', join: 'round' });
-        }
-        draw(c, false);
-      }
-    };
-    draw(rootModel, true);
   }
 
   override hitTestPoint(p: Point): boolean {
@@ -276,14 +223,14 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
     this.model?.updateRect({ x: initBounds.x - bx + dx, y: initBounds.y - by + dy });
   }
 
-  /** 节点 rect（root 相对坐标；MindService DropArea 消费） */
+  /** 节点 rect（root 相对坐标；TreeService DropArea 消费） */
   getNodeRect(id: string): { x: number; y: number; width: number; height: number } | null {
     const vm = this.nodeVms.get(id);
     return vm ? vm.rect : null;
   }
 
   /** 节点 Vm 访问（节点编辑器取字号/深度用） */
-  getNodeVm(id: string): MindNodeVm | null {
+  getNodeVm(id: string): TreeNodeVm | null {
     return this.nodeVms.get(id) ?? null;
   }
 
@@ -297,7 +244,7 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
   }
 
   /** 节点命中（节点级选中/导航用；返回节点 Vm 或 null） */
-  hitNode(p: Point): MindNodeVm | null {
+  hitNode(p: Point): TreeNodeVm | null {
     const lx = p.x - this.root.x;
     const ly = p.y - this.root.y;
     for (const vm of this.nodeVms.values()) {
@@ -321,6 +268,9 @@ export class MindMapVm extends BaseWidgetVm<MindMapData & IRect> {
   }
 }
 
-function hexToInt(hex: string): number {
-  return parseInt(hex.replace('#', ''), 16);
+/** MIND_MAP 薄子类：注入 mind kind（specs §3.3——两个类型是同骨架的策略实例） */
+export class MindMapVm extends TreeMapVm<MindMapData & IRect> {
+  constructor() {
+    super(mindKind);
+  }
 }

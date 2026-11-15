@@ -1,6 +1,6 @@
 import { BehaviorSubject } from 'rxjs';
-import { Disposable } from '../../base/disposable';
-import { genId } from '../../utils/id';
+import { Disposable } from '../../../base/disposable';
+import { genId } from '../../../utils/id';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -8,10 +8,10 @@ import type {
   ISelectorService,
   IViewportService,
   IVmEngineService,
-} from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindMapModel, IMindNodeSpec } from './mindMapModel';
-import { MIND_ROOT_LABEL } from './mindNodeVm';
+} from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
+import { MIND_ROOT_LABEL } from './../vm/treeNodeVm';
 
 /**
  * 脑图工具域协作者（自 mindService 拆出，2026-10-06 批刀 4）：docs/11 §8——
@@ -21,12 +21,12 @@ import { MIND_ROOT_LABEL } from './mindNodeVm';
  * 焦点写入经 host 回调交还宿主。
  */
 
-/** MindService ↔ 工具域的边界：焦点写入留在服务侧 */
-export interface IMindToolHost {
+/** TreeService ↔ 工具域的边界：焦点写入留在服务侧 */
+export interface ITreeToolHost {
   setFocusedNode(id: string | null): void;
 }
 
-export class MindToolController extends Disposable {
+export class TreeToolController extends Disposable {
   /** mind 幽灵抑制（指针悬停已有脑图——此处点击=选中已有图，幽灵示意隐藏；
    *  视觉由 react 层 ToolGhost 消费，core 只发布语义，2026-09-22 架构调整） */
   readonly ghostSuppressed$ = new BehaviorSubject<boolean>(false);
@@ -37,7 +37,7 @@ export class MindToolController extends Disposable {
     private readonly vmEngine: IVmEngineService,
     private readonly selector: ISelectorService,
     private readonly history: IHistoryService,
-    private readonly host: IMindToolHost,
+    private readonly host: ITreeToolHost,
   ) {
     super();
   }
@@ -53,8 +53,8 @@ export class MindToolController extends Disposable {
     const hits = this.vmEngine.getVmByPoint({ x: e.world.x, y: e.world.y } as never);
     const hitMind = hits.find((vm) => vm.type === 'MIND_MAP');
     if (hitMind) {
-      const hitNode = (hitMind as MindMapVm).hitNode(e.world);
-      const model = this.engine.getModelById(hitMind.id) as MindMapModel | undefined;
+      const hitNode = (hitMind as TreeMapVm).hitNode(e.world);
+      const model = this.engine.getModelById(hitMind.id) as TreeMapModel | undefined;
       this.host.setFocusedNode(hitNode?.model.id ?? model?.root.id ?? null);
       this.selector.setSelected([hitMind.id]);
       this.viewport.setCursorMode('cursor');
@@ -89,8 +89,8 @@ export class MindToolController extends Disposable {
     this.selector.setSelected([id]);
     this.viewport.setCursorMode('cursor');
     // 聚焦根节点
-    const vm = this.vmEngine.getVmById(id) as MindMapVm | undefined;
-    const model = this.engine.getModelById(id) as MindMapModel | undefined;
+    const vm = this.vmEngine.getVmById(id) as TreeMapVm | undefined;
+    const model = this.engine.getModelById(id) as TreeMapModel | undefined;
     if (vm && model?.hasRoot()) {
       this.host.setFocusedNode(model.root.id);
     }

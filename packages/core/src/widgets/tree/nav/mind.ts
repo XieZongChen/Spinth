@@ -9,36 +9,11 @@
  * 与既有设计的对应关系逐函数标注，参数语义一一对齐（不是近似实现）。
  */
 
-/** 轻量导航树节点（MindService 从 MindNodeModel 构建；parent 反向引用建树时填） */
-export interface INavNode {
-  id: string;
-  /** 自身 direction（仅根的直接子节点落盘，深层缺省——有效值沿父链回溯） */
-  direction?: 'left' | 'right';
-  parent: INavNode | null;
-  children: INavNode[];
-}
+import type { INavNode, IRootSideInput, IScreenRect, ISpan } from './types';
 
-/** 一维区间（节点在屏幕上的 y 跨度 / 可视区跨度） */
-export interface ISpan {
-  top: number;
-  bottom: number;
-}
+export type { INavNode, IRootSideInput, IScreenRect, ISpan };
 
-/** rootInsertSide 的结构子集入参（INavNode 天然满足） */
-export interface IRootSideInput {
-  direction?: 'left' | 'right';
-  children: ReadonlyArray<{ direction?: 'left' | 'right' }>;
-}
-
-/** 屏幕像素矩形（焦点跟随用；left/right/top/bottom 四边） */
-export interface IScreenRect {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/** 有效侧向：自身有值取自身，否则沿父链继承（既有设计 MindNodeModel.getDirection） */
+/** 有效侧向：自身有值取自身，否则沿父链继承（既有设计 TreeNodeModel.getDirection） */
 export function effectiveDirection(node: INavNode): 'left' | 'right' {
   let n: INavNode | null = node;
   while (n) {
@@ -225,4 +200,52 @@ export function focusFollowDelta(node: IScreenRect, win: IScreenRect): { x: numb
   if (ix < width) move.x = alignLine(node.left, node.right, win.left, win.right);
   if (iy < height) move.y = alignLine(node.top, node.bottom, win.top, win.bottom);
   return move;
+}
+
+/**
+ * mind 横向方向键导航策略（specs/tree-diagrams §8.1，自 focusController.navigate
+ * 逐字迁移——行为冻结）：左树的 ← 是子节点、→ 是父节点（右树相反）；↑↓ 走同侧
+ * 兄弟（到边界上溯叔节点）；根节点 ←/→ 分别取左/右子树里视图最近的子节点。
+ * 竖向键位映射在 Phase 2 落位（物理轴换、逻辑侧语义不变）。
+ */
+export function mindNavigate(
+  currentId: string,
+  key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
+  ctx: {
+    root: INavNode;
+    byId: Map<string, INavNode>;
+    spanOf: (id: string) => { start: number; end: number } | null;
+  },
+): string | null {
+  const current = ctx.byId.get(currentId) ?? ctx.root;
+  const isRoot = current.parent === null;
+  const isLeft = effectiveDirection(current) === 'left';
+  // ctx.spanOf 是中性区间 {start,end}；nearestChild 消费 ISpan {top,bottom}（主轴区间）
+  const spanOf = (n: INavNode): ISpan | null => {
+    const s = ctx.spanOf(n.id);
+    return s ? { top: s.start, bottom: s.end } : null;
+  };
+
+  switch (key) {
+    case 'ArrowLeft': {
+      const next = isRoot
+        ? nearestChild(current, spanOf, 'left')
+        : isLeft
+          ? nearestChild(current, spanOf)
+          : (current.parent ?? undefined);
+      return next?.id ?? null;
+    }
+    case 'ArrowRight': {
+      const next = isRoot
+        ? nearestChild(current, spanOf, 'right')
+        : isLeft
+          ? (current.parent ?? undefined)
+          : nearestChild(current, spanOf);
+      return next?.id ?? null;
+    }
+    case 'ArrowUp':
+      return nearestSibling(current, 'before')?.id ?? null;
+    case 'ArrowDown':
+      return nearestSibling(current, 'after')?.id ?? null;
+  }
 }

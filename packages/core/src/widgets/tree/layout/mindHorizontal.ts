@@ -1,4 +1,6 @@
-import type { IRect } from '../../common/geometry';
+import type { ILayoutNode, ILayoutResult } from './types';
+
+export type { ILayoutNode, ILayoutResult };
 
 /**
  * 脑图递归自排版纯函数（docs/11 §4，2026-09 实施批第一步：数学核心独立可测；
@@ -6,6 +8,9 @@ import type { IRect } from '../../common/geometry';
  *
  * 规则：根锚定不动；每侧子树堆叠后整体垂直居中于父中心（子树矮 → 子组对齐父，
  * 子树高 → 父天然居中于子树）；childX 左侧父左偏移、右侧父右偏移。
+ *
+ * 树形图族抽取（specs/tree-diagrams §5.2）：本文件是 mind 横向**行为冻结**实现，
+ * 逐值冻结由 treeLayoutFreeze.test 的 golden 夹具锁死；竖向转置在 mindVertical.ts。
  */
 
 export const HORIZONTAL_OFFSET_ROOT = 100;
@@ -14,20 +19,6 @@ export const VERTICAL_NODE_MARGIN = 4;
 export const VERTICAL_MARGIN_SECOND = 50;
 /** 跨侧（左右树）间距下限：上一子树自身已拉开距离时根层间距收紧到此值（既有设计 VERTICAL_MARGIN_CROSS） */
 export const VERTICAL_MARGIN_CROSS = 38;
-
-export interface ILayoutNode {
-  id: string;
-  width: number;
-  height: number;
-  direction?: 'left' | 'right';
-  children?: ILayoutNode[];
-}
-
-export interface ILayoutResult {
-  /** 相对根左上角的位置 */
-  positions: Map<string, { x: number; y: number }>;
-  bbox: IRect;
-}
 
 /**
  * 布局：返回每节点相对位置与整树包围盒（含根）。

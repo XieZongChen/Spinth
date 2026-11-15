@@ -4,7 +4,7 @@ import {
   FAKE_NODE_WIDTH,
   FAKE_VERTICAL_MARGIN,
   fakeBlockRect,
-} from '../widgets/mind/mindDropPreview';
+} from '../widgets/tree/drop/preview';
 
 const R = (x: number, y: number, w: number, h: number) => ({ x, y, width: w, height: h });
 

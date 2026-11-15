@@ -26,7 +26,7 @@ import { AssetStore } from './platform/dataEngine/assetStore';
 import { ImageTextureCache } from './widgets/image/imageTextureCache';
 import { ProjectFileService } from './platform/projectFile/projectFileService';
 import { StorageStatusService } from './platform/storage/storageStatusService';
-import { MindService } from './widgets/mind/mindService';
+import { TreeService } from './widgets/tree/service/treeService';
 import { ContextMenuService } from './platform/contextMenu/contextMenuService';
 import { AwarenessService } from './platform/awareness/awarenessService';
 import { AwarenessVm } from './platform/awareness/awarenessVm';
@@ -106,7 +106,7 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   penService: PenService | null = null;
   eraserService: EraserService | null = null;
   stickyService: StickyService | null = null;
-  mindService: MindService | null = null;
+  mindService: TreeService | null = null;
   contextMenu: ContextMenuService | null = null;
   keyboard: KeyboardService | null = null;
   clipboard: ClipboardService | null = null;

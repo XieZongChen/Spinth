@@ -1,6 +1,6 @@
 import { type BehaviorSubject, type Subject } from 'rxjs';
-import { Disposable } from '../../base/disposable';
-import { isEditableTarget } from '../../platform/keyboard/shortcuts';
+import { Disposable } from '../../../base/disposable';
+import { isEditableTarget } from '../../../platform/keyboard/shortcuts';
 import type {
   IDataEngineService,
   IEditingService,
@@ -8,26 +8,26 @@ import type {
   ISelectorService,
   IViewportService,
   IVmEngineService,
-} from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindNodeModel } from './mindNodeModel';
-import type { MindMapModel, IMindNodeSpec } from './mindMapModel';
-import { MindNodeEditor } from './mindNodeEditor';
-import { MindTreeOps } from './mindTreeOps';
-import { MindDragController } from './mindDragController';
-import { MindFocusController } from './mindFocusController';
-import { MindToolController } from './mindToolController';
-import type { IRect } from '../../common/geometry';
+} from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeNodeModel } from './../model/treeNodeModel';
+import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
+import { TreeNodeEditor } from './../edit/treeNodeEditor';
+import { TreeOps } from './../ops/treeOps';
+import { TreeDragController } from './../drag/treeDragController';
+import { TreeFocusController } from './../focus/treeFocusController';
+import { TreeToolController } from './../tool/treeToolController';
+import type { IRect } from '../../../common/geometry';
 
 /**
  * 脑图交互层（docs/11 §7-8）：mind 工具建图 + Tab/Enter/Delete 节点操作 +
  * 方向键焦点导航 + 节点拖拽重排 + 双击节点文本编辑。
- * MindFocusController 焦点 ID 不存 Yjs（瞬态本地状态）。
+ * TreeFocusController 焦点 ID 不存 Yjs（瞬态本地状态）。
  */
 
-export class MindService extends Disposable {
+export class TreeService extends Disposable {
   /** 焦点节点 ID（app.ts awareness 读、测试直接读写——getter/setter 转发保契约，
-   *  状态归属 MindFocusController，批刀 3 拆出；setter 纯赋值不广播，同原字段语义） */
+   *  状态归属 TreeFocusController，批刀 3 拆出；setter 纯赋值不广播，同原字段语义） */
   get focusedNodeId(): string | null {
     return this.focusCtl.focusedNodeId;
   }
@@ -38,7 +38,7 @@ export class MindService extends Disposable {
   get focusChanged$(): Subject<void> {
     return this.focusCtl.focusChanged$;
   }
-  /** mind 幽灵抑制（react ToolGhost 消费；工具域在 MindToolController，批刀 4 拆出） */
+  /** mind 幽灵抑制（react ToolGhost 消费；工具域在 TreeToolController，批刀 4 拆出） */
   get ghostSuppressed$(): BehaviorSubject<boolean> {
     return this.toolCtl.ghostSuppressed$;
   }
@@ -48,7 +48,7 @@ export class MindService extends Disposable {
     const f = this.getFocused();
     if (!f) return [];
     const out: Array<{ id: string; text: string; worldRect: IRect }> = [];
-    const walk = (n: MindNodeModel): void => {
+    const walk = (n: TreeNodeModel): void => {
       const r = f.vm.getNodeRect(n.id);
       if (r) {
         out.push({
@@ -76,15 +76,15 @@ export class MindService extends Disposable {
   /** 节点文本编辑 descriptor 工厂（2026-09-26 自本服务拆出、2026-10-06 批 3 收编
    *  统一会话——深度样式/树落库/键位/焦点回调在此声明，textarea 生命周期在
    *  PlainTextKernel，docs/17 §3） */
-  private readonly editor: MindNodeEditor;
+  private readonly editor: TreeNodeEditor;
   /** 树写 + 节点操作协作者（2026-10-06 批刀 1 自本服务拆出） */
-  private readonly treeOps: MindTreeOps;
+  private readonly treeOps: TreeOps;
   /** 拖拽重排协作者（2026-10-06 批刀 2 自本服务拆出，会话状态归属协作者） */
-  private readonly dragCtl: MindDragController;
+  private readonly dragCtl: TreeDragController;
   /** 焦点域协作者（2026-10-06 批刀 3 自本服务拆出，焦点状态归属协作者） */
-  private readonly focusCtl: MindFocusController;
+  private readonly focusCtl: TreeFocusController;
   /** mind 工具域协作者（2026-10-06 批刀 4 自本服务拆出，建图与幽灵抑制归属协作者） */
-  private readonly toolCtl: MindToolController;
+  private readonly toolCtl: TreeToolController;
 
   constructor(
     private viewport: IViewportService,
@@ -95,7 +95,7 @@ export class MindService extends Disposable {
     editing: IEditingService,
   ) {
     super();
-    this.editor = new MindNodeEditor(
+    this.editor = new TreeNodeEditor(
       viewport,
       engine,
       vmEngine,
@@ -121,21 +121,21 @@ export class MindService extends Disposable {
       },
       editing,
     );
-    this.treeOps = new MindTreeOps(engine, history, selector, {
+    this.treeOps = new TreeOps(engine, history, selector, {
       getFocused: () => this.getFocused(),
       setFocusedNode: (id) => this.writeFocus(id),
     });
     this.addDisposable(this.treeOps);
-    this.dragCtl = new MindDragController(viewport, engine, vmEngine, selector, this.treeOps, {
+    this.dragCtl = new TreeDragController(viewport, engine, vmEngine, selector, this.treeOps, {
       setFocusedNode: (id) => this.writeFocus(id),
       createMindMap: (x, y, spec) => this.createMindMap(x, y, spec),
     });
     this.addDisposable(this.dragCtl);
-    this.focusCtl = new MindFocusController(viewport, engine, vmEngine, selector, history, {
+    this.focusCtl = new TreeFocusController(viewport, engine, vmEngine, selector, history, {
       isDragging: () => this.dragCtl.active,
     });
     this.addDisposable(this.focusCtl);
-    this.toolCtl = new MindToolController(viewport, engine, vmEngine, selector, history, {
+    this.toolCtl = new TreeToolController(viewport, engine, vmEngine, selector, history, {
       setFocusedNode: (id) => this.writeFocus(id),
     });
     this.addDisposable(this.toolCtl);
@@ -170,12 +170,12 @@ export class MindService extends Disposable {
       this.viewport.cursorMode$.subscribe((mode) => {
         if (mode !== 'mind') this.ghostSuppressed$.next(false);
       }),
-      // 选区变化 → 焦点重置（4.9 节点级选中；逻辑在 MindFocusController.applySelection）
+      // 选区变化 → 焦点重置（4.9 节点级选中；逻辑在 TreeFocusController.applySelection）
       this.selector.selected$.subscribe((ids) => this.focusCtl.applySelection(ids)),
     );
   }
 
-  // ---- mind 工具：建图与幽灵抑制（docs/11 §8；工具域在 MindToolController，批刀 4 拆出） ----
+  // ---- mind 工具：建图与幽灵抑制（docs/11 §8；工具域在 TreeToolController，批刀 4 拆出） ----
 
   /** 建图入口（dragCtl 拖出成图 host 回调 & E2E 用；聚焦新图根在协作者内） */
   createMindMap(x: number, y: number, rootSpec?: IMindNodeSpec): string {
@@ -184,8 +184,8 @@ export class MindService extends Disposable {
 
   // ---- 节点操作（Tab/Enter/Delete） ----
 
-  /** 获取当前焦点脑图 Vm + 节点 Model（焦点域在 MindFocusController，批刀 3 拆出） */
-  private getFocused(): { vm: MindMapVm; mapModel: MindMapModel; node: MindNodeModel } | null {
+  /** 获取当前焦点脑图 Vm + 节点 Model（焦点域在 TreeFocusController，批刀 3 拆出） */
+  private getFocused(): { vm: TreeMapVm; mapModel: TreeMapModel; node: TreeNodeModel } | null {
     return this.focusCtl.getFocused();
   }
 
@@ -205,11 +205,11 @@ export class MindService extends Disposable {
   }
 
   /** 焦点节点快照（MindAddButtons 定位源） */
-  getFocusedState(): ReturnType<MindFocusController['getFocusedState']> {
+  getFocusedState(): ReturnType<TreeFocusController['getFocusedState']> {
     return this.focusCtl.getFocusedState();
   }
 
-  /** Tab / AddButtons：建子节点并聚焦（树写域在 MindTreeOps，批刀 1 拆出）。
+  /** Tab / AddButtons：建子节点并聚焦（树写域在 TreeOps，批刀 1 拆出）。
    *  返回 false = 无脑图可建（键盘层不吞 Tab——原生焦点序列放行，
    *  specs/a11y-closeout §5.9 键盘陷阱修复）。谓词与 treeOps 同源
    *  getFocused()（focusedNodeId 空时回退根——有图即建根子），不用
@@ -235,14 +235,14 @@ export class MindService extends Disposable {
   // ---- 方向键导航（docs/11 §7，规则来自 mindNav 纯函数） ----
 
   /**
-   * 智能方向导航（规则在 mindNav 纯函数 + MindFocusController，批刀 3 拆出）：
+   * 智能方向导航（规则在 mindNav 纯函数 + TreeFocusController，批刀 3 拆出）：
    * 返回 true = 本次按键已由脑图消费（键盘层据此跳过 1px 微移）。
    */
   navigate(key: string): boolean {
     return this.focusCtl.navigate(key);
   }
 
-  // ---- 拖拽重排（docs/11 §6；会话状态与落库在 MindDragController，批刀 2 拆出） ----
+  // ---- 拖拽重排（docs/11 §6；会话状态与落库在 TreeDragController，批刀 2 拆出） ----
 
   /** cursor 模式按下在脑图节点上（非根）：启动拖拽 */
   startDrag(mapId: string, nodeId: string, world: { x: number; y: number }): boolean {
@@ -354,7 +354,7 @@ export class MindService extends Disposable {
     this.editor.exitNodeEdit(commit);
   }
 
-  /** 焦点变化统一出口：广播 + 视窗跟随（逻辑在 MindFocusController，批刀 3 拆出） */
+  /** 焦点变化统一出口：广播 + 视窗跟随（逻辑在 TreeFocusController，批刀 3 拆出） */
   private emitFocus(): void {
     this.focusCtl.emitFocus();
   }

@@ -7,7 +7,7 @@ import type { RefLineService } from '../platform/refLine/refLineService';
 /**
  * 回归（2026-09 Phase 4 审查）：4.4 拖拽重排的 startDrag/dragMove/dragEnd 曾是
  * 全仓零调用的死代码——roadmap 标 ✅ 但用户拖不动节点。守卫：cursor 指针序列
- * 按下在脑图非根节点上时，selector 委托 MindService 接管（docs/11 §6 接线）。
+ * 按下在脑图非根节点上时，selector 委托 TreeService 接管（docs/11 §6 接线）。
  */
 
 function makeHarness(opts: { startDragOk: boolean } = { startDragOk: true }) {

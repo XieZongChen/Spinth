@@ -40,7 +40,7 @@ describe('框选节点级命中（4.9 focusFromMarquee，2026-09-26）', () => {
   });
 });
 
-describe('MindService 节点级选中（4.9，docs/11 §0 规格修订）', () => {
+describe('TreeService 节点级选中（4.9，docs/11 §0 规格修订）', () => {
   it('选中脑图（初始/框选/切图）→ 焦点落根；重复选中幂等', () => {
     const { svc, model } = makeTreeService(spec('根', [spec('a')]));
     svc.initialize(); // BehaviorSubject 初始发射（已选中 mm-1）→ 焦点落根

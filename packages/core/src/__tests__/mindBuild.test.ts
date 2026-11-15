@@ -4,13 +4,18 @@ stubPixiCanvasDocument();
 import { describe, expect, it } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import * as Y from 'yjs';
-import { MindService } from '../widgets/mind/mindService';
+import { TreeService } from '../widgets/tree/service/treeService';
 import { EditingService } from '../platform/textEngine/editingService';
-import { MindMapModel, branchColorAt, buildYTree, yTreeToSpec } from '../widgets/mind/mindMapModel';
+import {
+  MindMapModel,
+  branchColorAt,
+  buildYTree,
+  yTreeToSpec,
+} from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 import { makeService, makeTreeService, spec } from './helpers/mindServiceFixture';
 
-describe('MindService 方向键导航逻辑（docs/11 §7）', () => {
+describe('TreeService 方向键导航逻辑（docs/11 §7）', () => {
   it('navigate：无焦点时返回 false（不拦截）', () => {
     const svc = makeService();
     expect(svc.navigate('ArrowLeft')).toBe(false);
@@ -29,7 +34,7 @@ describe('MindService 方向键导航逻辑（docs/11 §7）', () => {
   });
 });
 
-describe('MindService 建节点 + 焦点流（docs/11 §8，4.6 AddButtons 支撑）', () => {
+describe('TreeService 建节点 + 焦点流（docs/11 §8，4.6 AddButtons 支撑）', () => {
   it('addChild(direction)：根下按入参分配侧向；不传默认右侧', () => {
     const { svc, model } = makeTreeService(spec('根'));
     svc.addChild('left');
@@ -328,7 +333,7 @@ describe('AddButtons 槽位避让（2026-09 样式审查：左右按钮曾压住
       selected$: new BehaviorSubject<string[]>(['mm-1']),
       setSelected: () => {},
     };
-    const svc = new MindService(
+    const svc = new TreeService(
       viewport as never,
       engine as never,
       vmEngine as never,

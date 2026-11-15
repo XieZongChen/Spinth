@@ -1,8 +1,12 @@
 import { BehaviorSubject } from 'rxjs';
 import * as Y from 'yjs';
-import { MindService } from '../../widgets/mind/mindService';
+import { TreeService } from '../../widgets/tree/service/treeService';
 import { EditingService } from '../../platform/textEngine/editingService';
-import { MindMapModel, buildYTree, type IMindNodeSpec } from '../../widgets/mind/mindMapModel';
+import {
+  MindMapModel,
+  buildYTree,
+  type IMindNodeSpec,
+} from '../../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../../platform/dataEngine/dataProcessor';
 
 /** mindService 系单测共享 fixture（specs/split-large-files §5.3）：
@@ -32,7 +36,7 @@ export function makeService() {
   const vmEngine = { getVmById: () => null, getVmByPoint: () => [] };
   const selector = { selected$: { value: [] }, setSelected: () => {} };
   const history = { stopCapturing: () => {}, undo: () => {}, redo: () => {} };
-  return new MindService(
+  return new TreeService(
     viewport as never,
     engine as never,
     vmEngine as never,
@@ -47,7 +51,7 @@ export function makeService() {
   );
 }
 
-/** 真树服务：真 Yjs 文档 + MindMapModel + vm 桩（getNodeRect 恒定 rect、root 于 (100,50)） */
+/** 真树服务：真 Yjs 文档 + TreeMapModel + vm 桩（getNodeRect 恒定 rect、root 于 (100,50)） */
 export function makeTreeService(specTree: IMindNodeSpec) {
   const doc = new Y.Doc();
   const processor = new DataProcessor(doc);
@@ -107,7 +111,7 @@ export function makeTreeService(specTree: IMindNodeSpec) {
   };
   const selector = { selected$: new BehaviorSubject<string[]>(['mm-1']), setSelected: () => {} };
   const history = { stopCapturing: () => {} };
-  const svc = new MindService(
+  const svc = new TreeService(
     viewport as never,
     engine as never,
     vmEngine as never,

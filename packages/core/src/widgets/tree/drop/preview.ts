@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
-import type { IRect } from '../../common/geometry';
-import { markRender } from '../../common/render';
-import { rootStartX, rootT } from './mindDrawerMath';
+import type { IRect } from '../../../common/geometry';
+import { markRender } from '../../../common/render';
+import { rootStartX, rootT } from './../connector/mind';
 
 /**
  * 脑图拖拽落点预览（docs/11 §6，对齐既有设计 mindDraggerVm.renderFakeNode）：
@@ -57,7 +57,7 @@ export function fakeBlockRect(input: IFakeBlockInput): IRect {
   return { x, y, width: FAKE_NODE_WIDTH, height: FAKE_NODE_HEIGHT };
 }
 
-export class MindDropPreview {
+export class TreeDropPreview {
   private readonly g = new Graphics();
   /** 最近一次绘制的预置块（世界坐标；dev 探针/E2E 断言用） */
   lastBlock: IRect | null = null;

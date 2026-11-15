@@ -1,26 +1,19 @@
 import { Subject } from 'rxjs';
-import { Disposable } from '../../base/disposable';
-import type { IRect } from '../../common/geometry';
+import { Disposable } from '../../../base/disposable';
+import type { IRect } from '../../../common/geometry';
 import type {
   IDataEngineService,
   IHistoryService,
   ISelectorService,
   IViewportService,
   IVmEngineService,
-} from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindNodeModel } from './mindNodeModel';
-import type { MindMapModel } from './mindMapModel';
-import { findMindNode, buildNavTree, nodeDirection } from './mindMapModel';
-import { MIND_COLORS } from './mindNodeVm';
-import {
-  effectiveDirection,
-  focusFollowDelta,
-  nearestChild,
-  nearestSibling,
-  type INavNode,
-  type ISpan,
-} from './mindNav';
+} from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeNodeModel } from './../model/treeNodeModel';
+import type { TreeMapModel } from './../model/treeMapModel';
+import { findMindNode, buildNavTree, nodeDirection } from './../model/treeMapModel';
+import { MIND_COLORS } from './../vm/treeNodeVm';
+import { focusFollowDelta } from './../nav/mind';
 
 /**
  * 脑图焦点域协作者（自 mindService 拆出，2026-10-06 批刀 3）：docs/11 §7——
@@ -38,12 +31,12 @@ import {
  */
 const FOCUS_PADDING = { left: 10, right: 10, top: 10, bottom: 96 } as const;
 
-/** MindService ↔ 焦点域的边界：拖拽会话态留在服务侧（「拖拽中不跟随」守卫） */
-export interface IMindFocusHost {
+/** TreeService ↔ 焦点域的边界：拖拽会话态留在服务侧（「拖拽中不跟随」守卫） */
+export interface ITreeFocusHost {
   isDragging(): boolean;
 }
 
-export class MindFocusController extends Disposable {
+export class TreeFocusController extends Disposable {
   /** 焦点节点 ID（选中态导航的目标；null = 无焦点） */
   focusedNodeId: string | null = null;
   /** 焦点节点变化（移动/建删/点击落点）——AddButtons 等跟随 UI 的重算触发器 */
@@ -57,20 +50,20 @@ export class MindFocusController extends Disposable {
     private readonly vmEngine: IVmEngineService,
     private readonly selector: ISelectorService,
     private readonly history: IHistoryService,
-    private readonly host: IMindFocusHost,
+    private readonly host: ITreeFocusHost,
   ) {
     super();
   }
 
   /** 获取当前焦点脑图 Vm + 节点 Model */
-  getFocused(): { vm: MindMapVm; mapModel: MindMapModel; node: MindNodeModel } | null {
+  getFocused(): { vm: TreeMapVm; mapModel: TreeMapModel; node: TreeNodeModel } | null {
     const mapId = this.selector.selected$.value.find((id) => {
       const vm = this.vmEngine.getVmById(id);
       return vm?.type === 'MIND_MAP';
     });
     if (!mapId) return null;
-    const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     if (!vm || !model?.hasRoot()) return null;
     const node = findMindNode(model.root, this.focusedNodeId ?? model.root.id);
     if (!node) {
@@ -144,55 +137,31 @@ export class MindFocusController extends Disposable {
   }
 
   /**
-   * 智能方向：左树的 ← 是子节点、→ 是父节点（右树相反）；↑↓ 走同侧兄弟（到边界上溯叔节点）；
-   * 根节点 ←/→ 分别取左/右子树里视图最近的子节点。
-   * 返回 true = 本次按键已由脑图消费（键盘层据此跳过 1px 微移——既有设计方向键在脑图
-   * 选中态下同样不会平移整图）。
+   * 方向键导航（策略经 kind 分派，specs/tree-diagrams §8.1）：横向语义见
+   * nav/mind.ts mindNavigate；返回 true = 本次按键已由树消费（键盘层据此跳过
+   * 1px 微移——既有设计方向键在树选中态下同样不会平移整图）。
    */
   navigate(key: string): boolean {
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return false;
+    }
     const f = this.getFocused();
     if (!f) return false;
     const { vm, mapModel, node } = f;
     const { root, byId } = buildNavTree(mapModel.root);
-    const current = byId.get(node.id) ?? root;
-    const isRoot = current.parent === null;
-    const isLeft = effectiveDirection(current) === 'left';
-    const spanOf = this.navSpanOf(vm);
-
-    const focusTo = (next: INavNode | undefined): void => {
-      if (!next) return;
-      this.focusedNodeId = next.id;
+    const next = mapModel.kind.nav(mapModel.kind.defaultOrientation).navigate(node.id, key, {
+      root,
+      byId,
+      spanOf: (id) => {
+        const r = vm.getNodeRect(id);
+        return r ? { start: r.y, end: r.y + r.height } : null;
+      },
+    });
+    if (next) {
+      this.focusedNodeId = next;
       this.emitFocus();
-    };
-
-    switch (key) {
-      case 'ArrowLeft':
-        if (isRoot) focusTo(nearestChild(current, spanOf, 'left'));
-        else if (isLeft) focusTo(nearestChild(current, spanOf));
-        else focusTo(current.parent ?? undefined);
-        return true;
-      case 'ArrowRight':
-        if (isRoot) focusTo(nearestChild(current, spanOf, 'right'));
-        else if (isLeft) focusTo(current.parent ?? undefined);
-        else focusTo(nearestChild(current, spanOf));
-        return true;
-      case 'ArrowUp':
-        focusTo(nearestSibling(current, 'before'));
-        return true;
-      case 'ArrowDown':
-        focusTo(nearestSibling(current, 'after'));
-        return true;
-      default:
-        return false;
     }
-  }
-
-  /** 节点在脑图局部坐标下的 y 区间（nearestChild 的"视图最近"判据；同坐标系内相对比较即可） */
-  private navSpanOf(vm: MindMapVm): (n: INavNode) => ISpan | null {
-    return (n) => {
-      const r = vm.getNodeRect(n.id);
-      return r ? { top: r.y, bottom: r.y + r.height } : null;
-    };
+    return true;
   }
 
   /** 按下子节点即建立节点级选中态（selector 委托，先于 setSelected——
@@ -229,7 +198,7 @@ export class MindFocusController extends Disposable {
   /** 按下根节点（selector 委托，4.9）：焦点重置根——同图旧焦点在子节点时
    *  selected$ 订阅不会重置，此处精确覆盖 */
   focusRoot(mapId: string): void {
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     if (!model?.hasRoot()) return;
     this.focusedNodeId = model.root.id;
     this.emitFocus();
@@ -239,8 +208,8 @@ export class MindFocusController extends Disposable {
    *  否则框中首个子节点 bbox（相交判定，既有设计 MIND_NODE 参与 hitTestRect）=
    *  节点级选中。选中集（widget id）由 selector 管理，此处只细化焦点 */
   focusFromMarquee(rect: IRect, mapId: string): void {
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
-    const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
     if (!model?.hasRoot() || !vm) return;
     // getNodeRect 是节点局部 rect，换算到世界坐标再与框选矩形求交（getFocusFrame 同款）
     const worldRect = (
@@ -261,7 +230,7 @@ export class MindFocusController extends Disposable {
       this.focusRoot(mapId);
       return;
     }
-    const firstHit = (n: MindNodeModel): string | null => {
+    const firstHit = (n: TreeNodeModel): string | null => {
       for (const c of n.children) {
         const r = worldRect(c.id);
         if (r && intersects(r)) return c.id;
@@ -284,7 +253,7 @@ export class MindFocusController extends Disposable {
       return;
     }
     if (!this.getFocused() || this.focusMapId !== mindId) {
-      const model = this.engine.getModelById(mindId) as MindMapModel | undefined;
+      const model = this.engine.getModelById(mindId) as TreeMapModel | undefined;
       if (model?.hasRoot()) {
         this.focusedNodeId = model.root.id;
         this.emitFocus();
@@ -312,7 +281,7 @@ export class MindFocusController extends Disposable {
    * 与延迟一拍无关的纯读取：节点世界 rect → toScreen；拖拽进行中不跟随（手势优先，
    * 否则拖到边缘时视口会自己跑）。
    */
-  private followFocus(vm: MindMapVm, node: MindNodeModel): void {
+  private followFocus(vm: TreeMapVm, node: TreeNodeModel): void {
     if (this.host.isDragging()) return;
     const rect = vm.getNodeRect(node.id);
     if (!rect) return;

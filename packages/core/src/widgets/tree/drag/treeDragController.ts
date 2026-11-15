@@ -1,28 +1,28 @@
 import { Sprite } from 'pixi.js';
-import { Disposable } from '../../base/disposable';
-import { markRender } from '../../common/render';
-import type { IRect } from '../../common/geometry';
+import { Disposable } from '../../../base/disposable';
+import { markRender } from '../../../common/render';
+import type { IRect } from '../../../common/geometry';
 import type {
   IDataEngineService,
   ISelectorService,
   IViewportService,
   IVmEngineService,
-} from '../../types';
-import type { MindMapVm } from './mindMapVm';
-import type { MindMapModel, IMindNodeSpec } from './mindMapModel';
-import { findMindNode, nodeDirection, yTreeToSpec } from './mindMapModel';
-import { buildTreeDropAreas, hitTreeDropAreas, type IMindTreeDropAreas } from './mindDropHit';
-import type { IDropTarget } from './dropArea';
-import { fakeBlockRect, MindDropPreview } from './mindDropPreview';
-import { HORIZONTAL_OFFSET_NODE, HORIZONTAL_OFFSET_ROOT } from './mindLayout';
-import type { MindTreeOps } from './mindTreeOps';
+} from '../../../types';
+import type { TreeMapVm } from './../vm/treeMapVm';
+import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
+import { findMindNode, nodeDirection, yTreeToSpec } from './../model/treeMapModel';
+import { buildTreeDropAreas, hitTreeDropAreas, type IMindTreeDropAreas } from './../drop/mind';
+import type { IDropTarget } from './../drop/dropArea';
+import { fakeBlockRect, TreeDropPreview } from './../drop/preview';
+import { HORIZONTAL_OFFSET_NODE, HORIZONTAL_OFFSET_ROOT } from './../layout/mindHorizontal';
+import type { TreeOps } from './../ops/treeOps';
 
 /**
  * 脑图拖拽重排协作者（自 mindService 拆出，2026-10-06 批刀 2）：docs/11 §6——
  * 节点拖起判定（单轴阈值）+ 拖影快照跟随（generateTexture）+ 全脑图 DropArea
  * 命中（会话级缓存）+ 落点预置块预览 + 松手三分支（moved/new-map/click）。
  * 拖拽会话状态（drag/dropAreaCache/dropPreview）归属本类；树写落库经兄弟直引
- * MindTreeOps；焦点写入与拖出成图经 host 回调交还宿主。
+ * TreeOps；焦点写入与拖出成图经 host 回调交还宿主。
  */
 
 /**
@@ -32,13 +32,13 @@ import type { MindTreeOps } from './mindTreeOps';
  */
 const DRAG_THRESHOLD_SCREEN = 10;
 
-/** MindService ↔ 拖拽域的边界：焦点写入与拖出成图留在服务侧 */
-export interface IMindDragHost {
+/** TreeService ↔ 拖拽域的边界：焦点写入与拖出成图留在服务侧 */
+export interface ITreeDragHost {
   setFocusedNode(id: string | null): void;
   createMindMap(x: number, y: number, rootSpec?: IMindNodeSpec): string;
 }
 
-interface IMindDragState {
+interface ITreeDragState {
   /** 拖起的源脑图 id */
   mapId: string;
   /** 拖起节点 id */
@@ -60,28 +60,28 @@ interface IMindDragState {
   startRect: { x: number; y: number; width: number; height: number };
 }
 
-export class MindDragController extends Disposable {
-  private drag: IMindDragState | null = null;
+export class TreeDragController extends Disposable {
+  private drag: ITreeDragState | null = null;
   /** 拖拽会话级 DropArea 缓存：dragMove 每 move 重建曾是最热路径（全树 walk ×2 +
    *  O(n) DropArea 分配）。拖拽期间树结构/节点 rect 静态（模型零写入、预览纯视觉），
    *  建一次整会话复用，dragEnd 释放；远端并发改树的边界由 move 落库侧的 insertAt
    *  越界钳制兜底（docs/11 §6） */
   private dropAreaCache: Array<{
     mapId: string;
-    model: MindMapModel;
-    vm: MindMapVm;
+    model: TreeMapModel;
+    vm: TreeMapVm;
     areas: IMindTreeDropAreas;
   }> | null = null;
   /** 拖拽落点预览（docs/11 §6 蓝色落点矩形 + 预连线；惰性创建随 dispose 销毁） */
-  private dropPreview: MindDropPreview | null = null;
+  private dropPreview: TreeDropPreview | null = null;
 
   constructor(
     private readonly viewport: IViewportService,
     private readonly engine: IDataEngineService,
     private readonly vmEngine: IVmEngineService,
     private readonly selector: ISelectorService,
-    private readonly treeOps: MindTreeOps,
-    private readonly host: IMindDragHost,
+    private readonly treeOps: TreeOps,
+    private readonly host: ITreeDragHost,
   ) {
     super();
   }
@@ -105,11 +105,11 @@ export class MindDragController extends Disposable {
   /** cursor 模式按下在脑图节点上（非根）：启动拖拽（含拖影，docs/11 §6：
    *  本体半透明留原地 + generateTexture 快照跟随光标——无 renderer 时降级无拖影） */
   startDrag(mapId: string, nodeId: string, world: { x: number; y: number }): boolean {
-    const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     if (!model?.hasRoot()) return false;
     const node = findMindNode(model.root, nodeId);
     if (!node || node === model.root) return false; // 根不可拖
-    const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
     const rect = vm?.getNodeRect(nodeId) ?? null;
     const worldRect = rect
       ? { x: vm!.root.x + rect.x, y: vm!.root.y + rect.y, width: rect.width, height: rect.height }
@@ -135,7 +135,7 @@ export class MindDragController extends Disposable {
   private startGhost(): void {
     const d = this.drag;
     if (!d || d.ghost || d.startRect.width === 0) return;
-    const vm = this.vmEngine.getVmById(d.mapId) as MindMapVm | undefined;
+    const vm = this.vmEngine.getVmById(d.mapId) as TreeMapVm | undefined;
     if (!vm) return;
     vm.setNodeAlpha(d.nodeId, 0.8); // 本体半透明留原地（既有设计 alpha 档位）
     const nodeVm = vm.getNodeVm(d.nodeId);
@@ -173,7 +173,7 @@ export class MindDragController extends Disposable {
       d.ghost = null;
       markRender();
     }
-    (this.vmEngine.getVmById(d.mapId) as MindMapVm | undefined)?.setNodeAlpha(d.nodeId, 1);
+    (this.vmEngine.getVmById(d.mapId) as TreeMapVm | undefined)?.setNodeAlpha(d.nodeId, 1);
   }
 
   /** 拖拽中：对全脑图节点做 DropArea hitTest；返回落点或 null（空白=成新图） */
@@ -204,15 +204,15 @@ export class MindDragController extends Disposable {
    * calculateFakeBounds 的规则摆 40×16 蓝色预置块 + 预连线。
    * asChild 与 asSibling 在这里统一成同一件事——预置块都挂在某个父节点的子位。
    */
-  private updateDropPreview(hit: IMindDragState['lastTarget']): void {
+  private updateDropPreview(hit: ITreeDragState['lastTarget']): void {
     if (!hit) {
       this.dropPreview?.hide();
       return;
     }
     const vm = this.vmEngine.getVmById(this.drag?.lastTargetMapId ?? this.drag?.mapId ?? '') as
-      MindMapVm | undefined;
+      TreeMapVm | undefined;
     const model = this.engine.getModelById(this.drag?.lastTargetMapId ?? this.drag?.mapId ?? '') as
-      MindMapModel | undefined;
+      TreeMapModel | undefined;
     if (!vm || !model?.hasRoot()) {
       this.dropPreview?.hide();
       return;
@@ -266,7 +266,7 @@ export class MindDragController extends Disposable {
       offset: isRoot ? HORIZONTAL_OFFSET_ROOT : HORIZONTAL_OFFSET_NODE,
     });
 
-    if (!this.dropPreview) this.dropPreview = new MindDropPreview(this.viewport.optionLayer);
+    if (!this.dropPreview) this.dropPreview = new TreeDropPreview(this.viewport.optionLayer);
     this.dropPreview.show({ block, dest: worldDest, isRoot, direction });
   }
 
@@ -342,8 +342,8 @@ export class MindDragController extends Disposable {
         .map((vm) => vm.id);
       const ordered = [sourceMapId, ...mapIds.filter((id) => id !== sourceMapId)];
       this.dropAreaCache = ordered.flatMap((mapId) => {
-        const model = this.engine.getModelById(mapId) as MindMapModel | undefined;
-        const vm = this.vmEngine.getVmById(mapId) as MindMapVm | undefined;
+        const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
+        const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
         if (!model?.hasRoot() || !vm) return [];
         return [
           {

@@ -101,16 +101,16 @@ export { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 export { FONT_SIZE_OPTIONS } from './widgets/text/textVm';
 export { ERASER_SIZE_OPTIONS } from './widgets/eraser/eraserService';
 
-export { BRANCH_COLORS, branchColorAt } from './widgets/mind/mindMapModel';
-export type { IMindNodeSpec } from './widgets/mind/mindMapModel';
-export { layoutMindTree } from './widgets/mind/mindLayout';
-export type { ILayoutNode, ILayoutResult } from './widgets/mind/mindLayout';
+export { BRANCH_COLORS, branchColorAt } from './widgets/tree/model/treeMapModel';
+export type { IMindNodeSpec } from './widgets/tree/model/treeMapModel';
+export { layoutMindTree } from './widgets/tree/layout/mindHorizontal';
+export type { ILayoutNode, ILayoutResult } from './widgets/tree/layout/mindHorizontal';
 export {
   MIND_ROOT_STYLE,
   MIND_NODE_STYLE,
   MIND_COLORS,
   NODE_MAX_WIDTH,
-} from './widgets/mind/mindNodeVm';
+} from './widgets/tree/vm/treeNodeVm';
 
 // 宿主铬件标记（specs/a11y-closeout §13.5-10）：快捷键闸门按焦点作用域静默；
 // 打标方（@spinth/react 消费者）与 isInteractiveUiTarget 选择器共用单源

@@ -9,7 +9,7 @@ import { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
-import { BRANCH_COLORS } from './widgets/mind/mindMapModel';
+import { BRANCH_COLORS } from './widgets/tree/model/treeMapModel';
 import {
   ARROW_BAR_OPTIONS,
   LINE_PALETTE,

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { ShapeModel } from '../widgets/shape/shapeModel';
 import { PenModel } from '../widgets/pen/penModel';
-import { MindMapModel, buildYTree } from '../widgets/mind/mindMapModel';
+import { MindMapModel, buildYTree } from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 import { projectIncremental } from '../base/projection';
 

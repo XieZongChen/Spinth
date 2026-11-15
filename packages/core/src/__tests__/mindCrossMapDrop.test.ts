@@ -5,9 +5,9 @@ stubPixiCanvasDocument();
 import { describe, expect, it } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import * as Y from 'yjs';
-import { MindService } from '../widgets/mind/mindService';
+import { TreeService } from '../widgets/tree/service/treeService';
 import { EditingService } from '../platform/textEngine/editingService';
-import { MindMapModel, buildYTree, type IMindNodeSpec } from '../widgets/mind/mindMapModel';
+import { MindMapModel, buildYTree, type IMindNodeSpec } from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 
 const spec = (
@@ -98,7 +98,7 @@ function makeTwoMaps() {
     selected$: new BehaviorSubject<string[]>(['map-s']),
     setSelected: (ids: string[]) => selector.selected$.next(ids),
   };
-  const svc = new MindService(
+  const svc = new TreeService(
     viewport as never,
     engine as never,
     vmEngine as never,

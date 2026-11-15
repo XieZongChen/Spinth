@@ -3,7 +3,7 @@ import {
   layoutMindTree,
   VERTICAL_MARGIN_CROSS,
   type ILayoutNode,
-} from '../widgets/mind/mindLayout';
+} from '../widgets/tree/layout/mindHorizontal';
 
 const n = (
   id: string,

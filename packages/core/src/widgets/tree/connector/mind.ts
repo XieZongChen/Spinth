@@ -96,12 +96,9 @@ export const NODE_LINE_ARC_RADIUS = 8;
 /** 普通节点连线：聚合线长度（既有设计 NODE_LINE_AGGREGATED，兄弟共享垂直段） */
 export const NODE_LINE_AGGREGATED = 24;
 
-/** 连线画笔指令（VM 层逐条落到 PIXI Graphics，纯逻辑可单测） */
-export type IConnectorCmd =
-  | { op: 'moveTo'; x: number; y: number }
-  | { op: 'lineTo'; x: number; y: number }
-  | { op: 'arc'; cx: number; cy: number; r: number; start: number; end: number; ccw: boolean }
-  | { op: 'cubicTo'; c1x: number; c1y: number; c2x: number; c2y: number; x: number; y: number };
+import type { IConnectorCmd } from './types';
+
+export type { IConnectorCmd };
 
 const PI_90 = Math.PI / 2;
 const PI_270 = (Math.PI * 3) / 2;
