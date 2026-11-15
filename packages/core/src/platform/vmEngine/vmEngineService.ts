@@ -12,6 +12,7 @@ import type {
   IVmEngineService,
   IWidgetData,
 } from '../../types';
+import { isTreeWidgetType } from '../../types';
 
 /** onStateChanged$ diff 中标志几何变化的键（rect 四键 + points 型几何）。
  *  rotation 在列：世界 AABB 随 θ 变化（docs/05 §8）——索引须重算 */
@@ -24,9 +25,10 @@ const GEOMETRY_KEYS = ['x', 'y', 'width', 'height', 'points', 'rotation'];
  */
 export class VmEngineService extends Disposable implements IVmEngineService {
   private vmMapping = new Map<string, IBaseWidgetVm>();
-  /** 脑图 vm 集：查询豁免索引用（树增长不走 widget 几何 diff，索引恒过期——
-   *  与 culling 的 MIND_MAP 豁免同因，docs/13 决策记录；数量级小，粗筛并入代价可忽略） */
-  private readonly mindVmIds = new Set<string>();
+  /** 树形图 vm 集：查询豁免索引用（树增长不走 widget 几何 diff，索引恒过期——
+   *  与 culling 的树豁免同因，docs/13 决策记录；数量级小，粗筛并入代价可忽略）。
+   *  判定走 family（isTreeWidgetType）——新增树种类自动覆盖，引擎零改动 */
+  private readonly treeVmIds = new Set<string>();
   /** VM 创建完成（含恢复）事件流——连线跟随等横切订阅入口 */
   readonly onVmCreated$ = new Subject<IBaseWidgetVm>();
 
@@ -59,7 +61,7 @@ export class VmEngineService extends Disposable implements IVmEngineService {
       const vm = this.registry.resolve(t);
       vm.setModel(model);
       this.vmMapping.set(data.id, vm);
-      if (vm.type === 'MIND_MAP') this.mindVmIds.add(data.id);
+      if (isTreeWidgetType(vm.type)) this.treeVmIds.add(data.id);
       this.viewport.addWidget(vm.root, data.zOrder);
       this.spatial.update(vm.id, vm.getBounds());
       // zOrder 数据变化（图层操作/远端）→ 重排序；几何变化 → 索引更新
@@ -87,7 +89,7 @@ export class VmEngineService extends Disposable implements IVmEngineService {
       const vm = this.vmMapping.get(id);
       if (vm) {
         this.vmMapping.delete(id);
-        this.mindVmIds.delete(id);
+        this.treeVmIds.delete(id);
         this.viewport.removeWidget(vm.root);
         this.spatial.remove(id);
         vm.dispose();
@@ -104,7 +106,7 @@ export class VmEngineService extends Disposable implements IVmEngineService {
   override dispose(): void {
     const vms = Array.from(this.vmMapping.values());
     this.vmMapping.clear();
-    this.mindVmIds.clear();
+    this.treeVmIds.clear();
     for (const vm of vms) {
       try {
         vm.dispose();
@@ -135,7 +137,7 @@ export class VmEngineService extends Disposable implements IVmEngineService {
     }
   }
 
-  /** 候选 = 索引格内 + 全部脑图（脑图对索引豁免，见 mindVmIds 注释） */
+  /** 候选 = 索引格内 + 全部树形图（树对索引豁免，见 treeVmIds 注释） */
   private queryCandidates(r: {
     x: number;
     y: number;
@@ -143,7 +145,7 @@ export class VmEngineService extends Disposable implements IVmEngineService {
     height: number;
   }): Iterable<string> {
     const ids = this.spatial.queryIds(r);
-    for (const id of this.mindVmIds) ids.add(id);
+    for (const id of this.treeVmIds) ids.add(id);
     return ids;
   }
 

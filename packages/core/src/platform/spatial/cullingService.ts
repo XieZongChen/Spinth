@@ -1,5 +1,6 @@
 import { Disposable } from '../../base/disposable';
 import { rectsIntersect } from '../../common/geometry';
+import { isTreeWidgetType } from '../../types';
 import type { IViewportService, IVmEngineService } from '../../types';
 import { SpatialIndex } from './spatialIndex';
 
@@ -13,8 +14,9 @@ import { SpatialIndex } from './spatialIndex';
  * （松手落库才恢复）。因此对预览中的 id 用实时 getBounds（视觉几何）复核，
  * 索引仍只反映数据几何。
  *
- * MIND_MAP 不裁：树内增长不触发 widget 级几何 diff（rect 锚定根不动），
- * 索引会过期；且整图一个渲染单元没有渐进裁剪语义（决策记录 docs/13）。
+ * 树形图（family 'tree'，现 MIND_MAP）不裁：树内增长不触发 widget 级几何
+ * diff（rect 锚定根不动），索引会过期；且整图一个渲染单元没有渐进裁剪语义
+ * （决策记录 docs/13）。判定走 isTreeWidgetType——新增树种类自动覆盖。
  */
 
 /** 可视区外扩（世界坐标；≥ 半格防 pan 抖动翻转） */
@@ -73,7 +75,7 @@ export class CullingService extends Disposable {
     const visibleIds = this.index.queryIds(expanded);
     const previewIds = new Set(this.getPreviewIds());
     for (const vm of this.vmEngine.getAllVms()) {
-      if (vm.type === 'MIND_MAP') continue;
+      if (isTreeWidgetType(vm.type)) continue;
       let shouldHide = !visibleIds.has(vm.id);
       // 预览中的 root 位置才是用户看到的几何（getBounds 读 root，含拖拽位移）；
       // 只复核「索引判不可见」的预览项，命中扩展视口则保留

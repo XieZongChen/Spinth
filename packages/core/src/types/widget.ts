@@ -190,6 +190,12 @@ export const ImageSchema = z.object({
 });
 export type ImageData = z.infer<typeof ImageSchema>;
 
+/** 控件实现族（specs/tree-diagrams D1）：family 是引擎层的唯一判据——
+ *  `family: 'tree'` 的唯一含义是「节点不是 widget、几何由树布局派生、
+ *  空间索引与 culling 豁免」。vmEngine/culling/selector 只认 family，
+ *  不出现具体类型硬编码；种类差异在 widgets/tree 的 TREE_KINDS 注册表 */
+export type WidgetFamily = 'widget' | 'tree';
+
 /**
  * 控件判别联合 + 摊平几何（Batch 2 第三刀，2026-10-18 全量替换手写联合）：
  * 直接从 WIDGET_REGISTRY 派生——schema 即类型唯一来源（ADR-2）兑现，加类型
@@ -200,8 +206,8 @@ export type ImageData = z.infer<typeof ImageSchema>;
 export type IWidgetData = z.infer<typeof WidgetDataUnion> & IRect;
 
 // ---------------------------------------------------------------------------
-// 类型注册表（Batch 2 · 类型注册表第一刀，2026-10-18）：type → { schema,
-// capabilities } 单源——schema 域先收口（Model/Vm/Service 创建注册化与
+// 类型注册表（Batch 2 · 类型注册表第一刀，2026-10-18）：type → { family,
+// schema, capabilities } 单源——schema 域先收口（Model/Vm/Service 创建注册化与
 // ActionBar/编辑/命中 per-type 注册化是后续刀，见 docs/16 §8 Batch 2 节）。
 // IWidgetData 手写联合暂保留，由 widgetRegistry.test 的**编译期等价锁**防漂移
 // （注册表派生联合 ≠ 手写联合即测红）；全量替换手写联合是第二刀。
@@ -223,6 +229,7 @@ export type IWidgetData = z.infer<typeof WidgetDataUnion> & IRect;
  *  - erasable（第五刀）：分段橡皮仅对 PEN 笔迹 */
 export const WIDGET_REGISTRY = {
   SHAPE: {
+    family: 'widget',
     schema: ShapeSchema,
     capabilities: {
       rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
@@ -237,6 +244,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   TEXT: {
+    family: 'widget',
     schema: TextSchema,
     capabilities: {
       rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
@@ -251,6 +259,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   LINE: {
+    family: 'widget',
     schema: LineSchema,
     // 类型级可组；锚定态由 groupOps 运行时判定（docs/18 §3.1 建组校验）
     capabilities: {
@@ -266,6 +275,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   PEN: {
+    family: 'widget',
     schema: PenSchema,
     capabilities: {
       rotatable: false,
@@ -280,6 +290,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   STICKY: {
+    family: 'widget',
     schema: StickySchema,
     capabilities: {
       rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
@@ -294,6 +305,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   MIND_MAP: {
+    family: 'tree',
     schema: MindMapSchema,
     // 节点级选中走焦点体系，编组语义未定义（docs/18 §3.1）
     capabilities: {
@@ -309,6 +321,7 @@ export const WIDGET_REGISTRY = {
     },
   },
   IMAGE: {
+    family: 'widget',
     schema: ImageSchema,
     capabilities: {
       rotatable: false, // 入口暂隐藏（见上方 rotatable 注释）
@@ -322,7 +335,24 @@ export const WIDGET_REGISTRY = {
       erasable: false,
     },
   },
-} as const satisfies Record<string, { schema: z.ZodType; capabilities: IWidgetCapabilities }>;
+} as const satisfies Record<
+  string,
+  { family: WidgetFamily; schema: z.ZodType; capabilities: IWidgetCapabilities }
+>;
+
+/** family === 'tree' 的类型集（编译期从注册表派生，specs/tree-diagrams D1）：
+ *  引擎判定单源——注册表加树类型而此处不覆盖会在 TREE_KINDS 编译锁处红 */
+export type TreeWidgetType = {
+  [K in keyof typeof WIDGET_REGISTRY]: (typeof WIDGET_REGISTRY)[K]['family'] extends 'tree'
+    ? K
+    : never;
+}[keyof typeof WIDGET_REGISTRY];
+
+/** 运行时树判定（vmEngine 查询豁免 / culling 豁免 / selector 节点拖拽分流共用） */
+export function isTreeWidgetType(type: string): type is TreeWidgetType {
+  const entry = (WIDGET_REGISTRY as Record<string, { family?: WidgetFamily }>)[type];
+  return entry?.family === 'tree';
+}
 
 /** 能力位派生类型集（第五刀）：`TYPES_WHERE('editable')` 等——消费方
  *  （编辑会话/参考线/橡皮）从注册表派生，散落硬编码 Set 全部收口单源 */

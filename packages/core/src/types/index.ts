@@ -29,6 +29,7 @@ export {
   WIDGET_REGISTRY,
   WidgetDataUnion,
   TYPES_WHERE,
+  isTreeWidgetType,
 } from './widget';
 export type {
   ShapeType,
@@ -46,6 +47,8 @@ export type {
   IActionBarOption,
   ActionBarItemKind,
   IMindAddButtonsState,
+  WidgetFamily,
+  TreeWidgetType,
 } from './widget';
 export {
   PROJECT_FORMAT,
