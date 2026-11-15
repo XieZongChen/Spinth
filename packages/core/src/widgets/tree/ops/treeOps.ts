@@ -7,6 +7,7 @@ import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
 import { nextBranchColor, findMindNode, buildNavTree } from './../model/treeMapModel';
 import { rootInsertSide, focusAfterDelete } from './../nav/mind';
 import type { IDropTarget } from './../drop/dropArea';
+import type { TreeOrientation } from '../../../types/tree';
 
 /**
  * 脑图树写 + 节点操作协作者（自 treeService 拆出，2026-10-06 批刀 1）：
@@ -201,11 +202,11 @@ export class TreeOps extends Disposable {
   }
 
   /** 切换排列物理轴（specs §4.4）：只写图字段 orientation，一个事务一步撤销，
-   *  不重写任何节点（direction 恒逻辑侧）；非法值与同值 no-op */
-  setOrientation(mapId: string, orientation: 'horizontal' | 'vertical'): void {
-    if (orientation !== 'horizontal' && orientation !== 'vertical') return;
+   *  不重写任何节点（direction 恒逻辑侧）；kind 不支持的档位与同值 no-op */
+  setOrientation(mapId: string, orientation: TreeOrientation): void {
     const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     if (!model) return;
+    if (!model.kind.orientations.includes(orientation)) return;
     if (model.yData.get('orientation') === orientation) return;
     model.yData.doc!.transact(() => model.yData.set('orientation', orientation));
     this.history.stopCapturing();

@@ -16,6 +16,14 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
     ctx.treeService?.setCollapsedFocused(patch.treeCollapsed);
     return;
   }
+  // 排列方向（specs §10.2 图属性）：写图字段 orientation，一步撤销零节点写
+  if (
+    (patch.treeOrientation === 'horizontal' || patch.treeOrientation === 'vertical') &&
+    ids.length === 1
+  ) {
+    ctx.treeService?.setOrientation(ids[0]!, patch.treeOrientation);
+    return;
+  }
   // 4.9：脑图节点级选中的样式写入分流（分支色走 TreeService 落节点，
   // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
   if (ids.length === 1 && typeof patch.lineColor === 'string' && patch.lineColor.startsWith('#')) {

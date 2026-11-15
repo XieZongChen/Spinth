@@ -44,6 +44,7 @@ export const BOARD_PUBLIC_MEMBERS = [
   'defaultShapeType',
   'toScreenPoint',
   'getMindAddButtons',
+  'getTreeAddButtons',
   'getActionBarSchema',
   // 命令（39）
   'setTheme',
@@ -62,6 +63,8 @@ export const BOARD_PUBLIC_MEMBERS = [
   'mindAddChild',
   'mindAddSibling',
   'mindDeleteFocused',
+  'toggleTreeCollapse',
+  'setTreeOrientation',
   'bringToFront',
   'sendToBack',
   'bringForward',

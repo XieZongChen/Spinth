@@ -45,7 +45,7 @@ export { ToolFlyout } from './components/ToolFlyout';
 export { ZoomControl } from './components/ZoomControl';
 export { ContextMenu } from './components/ContextMenu';
 export { ActionBar } from './components/ActionBar';
-export { MindAddButtons } from './components/MindAddButtons';
+export { TreeAddButtons } from './components/TreeAddButtons';
 export { ToolGhost } from './components/ToolGhost';
 export { OfflineBar } from './components/OfflineBar';
 export { ErrorBoundary } from './components/ErrorBoundary';

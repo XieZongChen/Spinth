@@ -47,6 +47,7 @@ import { updateSelectedStyle as updateSelectedStyleImpl } from './styleCommands'
 import {
   getSelectionBounds as getSelectionBoundsImpl,
   getMindAddButtons as getMindAddButtonsImpl,
+  getTreeAddButtons as getTreeAddButtonsImpl,
   toScreenPoint as toScreenPointImpl,
 } from './boardQueries';
 import { disposeBoard } from './boardTeardown';
@@ -58,11 +59,13 @@ import type {
   IActionBarSchema,
   IHistoryService,
   IMindAddButtonsState,
+  ITreeAddButtonsState,
   ISelectorService,
   ShapeType,
   IViewportService,
   IVmEngineService,
 } from './types';
+import type { TreeOrientation } from './types/tree';
 
 /**
  * BoardSDK — 内部组合根门面（docs/04 §3）：显式装配全部服务，不导出到包
@@ -216,6 +219,18 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
 
   getMindAddButtons(): IMindAddButtonsState | null {
     return getMindAddButtonsImpl(this);
+  }
+
+  getTreeAddButtons(): ITreeAddButtonsState | null {
+    return getTreeAddButtonsImpl(this);
+  }
+
+  override toggleTreeCollapse(): void {
+    this.commands.toggleTreeCollapse();
+  }
+
+  override setTreeOrientation(o: TreeOrientation): void {
+    this.commands.setTreeOrientation(o);
   }
 
   /** ActionBar schema v2（docs/12 §4/§5）——构建器在 boardActionBar.ts

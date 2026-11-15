@@ -137,3 +137,9 @@ export const mindKind: ITreeKind = {
     return o === 'vertical' ? new MindVerticalNav() : new MindHorizontalNav();
   },
 };
+
+/** 排列方向选项（specs §10.2：只给 ActionBar——排列是图属性不进工具菜单） */
+export const TREE_ORIENTATION_OPTIONS = [
+  { id: 'horizontal', label: '左右', icon: 'mindmap' },
+  { id: 'vertical', label: '上下', icon: 'orgchart' },
+] as const;

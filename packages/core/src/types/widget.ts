@@ -420,4 +420,5 @@ export type {
   IActionBarItem,
   IActionBarSchema,
   IMindAddButtonsState,
+  ITreeAddButtonsState,
 } from './actionBar';

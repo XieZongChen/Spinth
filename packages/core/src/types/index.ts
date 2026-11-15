@@ -48,6 +48,7 @@ export type {
   IActionBarOption,
   ActionBarItemKind,
   IMindAddButtonsState,
+  ITreeAddButtonsState,
   WidgetFamily,
   TreeWidgetType,
 } from './widget';

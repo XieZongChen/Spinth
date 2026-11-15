@@ -6,7 +6,7 @@ import {
   ZoomControl,
   ContextMenu,
   ActionBar,
-  MindAddButtons,
+  TreeAddButtons,
   ToolGhost,
   OfflineBar,
   ErrorState,
@@ -205,7 +205,7 @@ export function App() {
         <ZoomControl />
         <ContextMenu />
         <ActionBar />
-        <MindAddButtons />
+        <TreeAddButtons />
         <ToolGhost />
         <OfflineBar />
         <PwaUpdateBanner />

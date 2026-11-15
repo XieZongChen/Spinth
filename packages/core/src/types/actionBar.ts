@@ -4,6 +4,8 @@
 // 选项收进二级面板；文字提示收进 tooltip。segmented/color kind 退役）
 // ----------------------------------------------------------------------------
 
+import type { TreeOrientation } from './tree';
+
 export type ActionBarItemKind = 'toggle' | 'popover' | 'action';
 
 export interface IActionBarOption {
@@ -54,4 +56,21 @@ export interface IMindAddButtonsState {
    *  最远端取外——按钮不再压住子节点（2026-09 样式审查实测） */
   slotLeft: number;
   slotRight: number;
+}
+
+/** 树形图族 + 按钮槽位（specs/tree-diagrams §8.5/§11.3，Phase 2）：槽位由 core
+ *  按 kind/orientation 计算（屏幕坐标、未钳制——钳制是 react 层职责）；
+ *  child 槽带逻辑侧（mind vertical 时 left=上、right=下；org 无侧） */
+export interface ITreeAddButtonsState {
+  kind: 'MIND_MAP' | 'ORG_CHART';
+  orientation: TreeOrientation;
+  isRoot: boolean;
+  /** 焦点节点屏幕 bounds（canvas 局部，同 ActionBar 语义） */
+  bounds: { x: number; y: number; width: number; height: number };
+  slots: Array<{
+    key: 'child' | 'sibling';
+    side?: 'left' | 'right';
+    left: number;
+    top: number;
+  }>;
 }

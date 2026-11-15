@@ -5,7 +5,7 @@ import type {
   DocState,
   WsState,
   IActionBarSchema,
-  IMindAddButtonsState,
+  ITreeAddButtonsState,
   IStorageStatus,
 } from '@spinth/core';
 
@@ -52,7 +52,7 @@ export interface SpinthUiState {
     bounds: { x: number; y: number; width: number; height: number } | null;
   };
   /** 脑图焦点节点 +/- 按钮（docs/12 §4）：null = 无焦点/拖拽中隐藏 */
-  mindAddButtons: IMindAddButtonsState | null;
+  treeAddButtons: ITreeAddButtonsState | null;
   /** mind 幽灵抑制（指针悬停已有脑图——ToolGhost 消费，core 语义镜像） */
   mindGhostSuppressed: boolean;
   /** 工具默认参数聚合（docs/04 §2 工具默认参数节——key = CursorMode；Toolbar 常驻二级菜单/ToolGhost 消费） */
@@ -81,7 +81,7 @@ export const useSpinthStore = create<SpinthUiState>(() => ({
   canRedo: false,
   contextMenu: { show: false, x: 0, y: 0, onWidget: false, canPaste: false, canPrune: false },
   actionBar: { schema: null, bounds: null },
-  mindAddButtons: null,
+  treeAddButtons: null,
   gridSnap: false,
   mindGhostSuppressed: false,
   defaultToolOptions: {},

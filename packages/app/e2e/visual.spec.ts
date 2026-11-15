@@ -447,3 +447,60 @@ test('视觉快照 @visual：流程图样本（S1 白底黑框 + 回边 + 线上
     clip: { x: 380, y: 224, width: 700, height: 380 }, // 世界 380..1080 / 180..560
   });
 });
+
+/** 脑图基线样本（specs/tree-diagrams §14.3，Phase 2）：根 + 右 2 层 + 左 1 层。
+ *  建图锚点 (500,300)；清选区后截画布区（DOM chrome 不入镜）。 */
+async function buildMindSample(page: Page, vertical: boolean): Promise<void> {
+  await page.getByRole('button', { name: /脑图/ }).click();
+  await page.mouse.click(500, 300);
+  await page.waitForTimeout(250); // 根编辑器自动打开
+  // 编辑器内连 Tab：根→A→A1（右侧/下侧链 3 层）
+  for (let i = 0; i < 2; i++) {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  if (vertical) {
+    // 选中根（建图锚点固定）→ 排列方向 → 上下
+    await page.mouse.click(560, 320);
+    await page.waitForTimeout(250);
+    await page.getByRole('button', { name: '排列方向' }).click();
+    await page.getByRole('menuitemradio', { name: '上下' }).click();
+    await page.waitForTimeout(300);
+  }
+  // 左侧（上侧）分支：焦点根 → Tab with 'left' 不可行（快捷键无侧向）——
+  // 经 AddButtons 左钮：点根 → data-spinth-mind-add=left
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(120);
+  await page.mouse.click(560, 320);
+  await page.waitForTimeout(250);
+  await page.click('[data-spinth-mind-add="left"]');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+}
+
+test('视觉快照 @visual：脑图横向样本（根 + 右链 3 层 + 左分支，specs/tree-diagrams §14.3）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-mind-h-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+  await buildMindSample(page, false);
+  await expect(page).toHaveScreenshot('mind-horizontal.png', {
+    clip: { x: 120, y: 150, width: 1100, height: 480 },
+  });
+});
+
+test('视觉快照 @visual：脑图竖向样本（同树切上下——转置镜像，specs/tree-diagrams §14.3）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-mind-v-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+  await buildMindSample(page, true);
+  await expect(page).toHaveScreenshot('mind-vertical.png', {
+    clip: { x: 300, y: 80, width: 860, height: 660 },
+  });
+});

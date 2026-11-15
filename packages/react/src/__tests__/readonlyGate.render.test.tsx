@@ -2,7 +2,7 @@
 /**
  * 只读呈现门禁（docs/21 §4 只读可交互面矩阵）：core 修语义（选区/工具/手势），
  * react 修呈现——持久铬件禁用（工具坞三键），浮动件隐藏（ActionBar/
- * MindAddButtons，附着对象在只读态本就不存在）。手法同 components.render：
+ * TreeAddButtons，附着对象在只读态本就不存在）。手法同 components.render：
  * createRoot + act + store 直写，零新依赖。
  */
 import { act } from 'react';
@@ -11,7 +11,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Toolbar } from '../components/Toolbar';
 import { ActionBar } from '../components/ActionBar';
-import { MindAddButtons } from '../components/MindAddButtons';
+import { TreeAddButtons } from '../components/TreeAddButtons';
 import { useSpinthStore, type SpinthUiState } from '../store/spinthStore';
 import type { IActionBarSchema } from '@spinth/core';
 
@@ -125,28 +125,31 @@ describe('ActionBar 只读不渲染 + disabled 契约', () => {
   });
 });
 
-describe('MindAddButtons 只读不渲染', () => {
+describe('TreeAddButtons 只读不渲染', () => {
   const state = {
-    bounds: { x: 0, y: 0, width: 100, height: 40 },
+    kind: 'MIND_MAP' as const,
+    orientation: 'horizontal' as const,
     isRoot: true,
-    direction: 'right' as const,
-    slotLeft: -10,
-    slotRight: 110,
+    bounds: { x: 0, y: 0, width: 100, height: 40 },
+    slots: [
+      { key: 'child' as const, side: 'left' as const, left: -20, top: 8 },
+      { key: 'child' as const, side: 'right' as const, left: 110, top: 8 },
+    ],
   };
 
   it('editable=false：焦点残留也不渲染', () => {
     const base = useSpinthStore.getState();
-    setState({ editable: false, mindAddButtons: state });
-    render(<MindAddButtons />);
+    setState({ editable: false, treeAddButtons: state });
+    render(<TreeAddButtons />);
     expect(host.querySelectorAll('button')).toHaveLength(0);
-    setState({ editable: base.editable, mindAddButtons: base.mindAddButtons });
+    setState({ editable: base.editable, treeAddButtons: base.treeAddButtons });
   });
 
   it('editable=true：根节点渲染左右两键（区分验证）', () => {
     const base = useSpinthStore.getState();
-    setState({ editable: true, mindAddButtons: state });
-    render(<MindAddButtons />);
+    setState({ editable: true, treeAddButtons: state });
+    render(<TreeAddButtons />);
     expect(host.querySelectorAll('button')).toHaveLength(2);
-    setState({ editable: base.editable, mindAddButtons: base.mindAddButtons });
+    setState({ editable: base.editable, treeAddButtons: base.treeAddButtons });
   });
 });

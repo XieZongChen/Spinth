@@ -1,4 +1,5 @@
 import type { ShapeType, LineType, CursorMode } from './types';
+import type { TreeOrientation } from './types/tree';
 import { setTextTheme } from './platform/textEngine/theme';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
 import type { ICollapsedPart } from './platform/selector/groupOps';
@@ -194,6 +195,18 @@ export class BoardCommands {
   }
 
   /** 删焦点节点（根 = 删整图） */
+  toggleTreeCollapse(): void {
+    this.assertEditable();
+    this.ctx.treeService?.toggleCollapseFocused();
+  }
+
+  setTreeOrientation(o: TreeOrientation): void {
+    this.assertEditable();
+    const ids = this.ctx.selector?.selected$.value ?? [];
+    if (ids.length !== 1) return;
+    this.ctx.treeService?.setOrientation(ids[0]!, o);
+  }
+
   mindDeleteFocused(): void {
     if (!this.assertEditable()) return;
     this.ctx.treeService?.deleteFocused();

@@ -12,6 +12,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import type { IRect } from './common/geometry';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
 import type { CursorMode, ShapeType } from './types';
+import type { TreeOrientation } from './types/tree';
 import type { IContextMenuState } from './platform/contextMenu/contextMenuService';
 import type { BoardCommands } from './boardCommands';
 import type { BoardOutputs } from './boardStreams';
@@ -174,6 +175,14 @@ export abstract class BoardFacade {
 
   mindDeleteFocused(): void {
     return this.commands.mindDeleteFocused();
+  }
+
+  toggleTreeCollapse(): void {
+    return this.commands.toggleTreeCollapse();
+  }
+
+  setTreeOrientation(o: TreeOrientation): void {
+    return this.commands.setTreeOrientation(o);
   }
 
   bringToFront(): void {

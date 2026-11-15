@@ -18,6 +18,7 @@ import { TreeDragController } from './../drag/treeDragController';
 import { TreeFocusController } from './../focus/treeFocusController';
 import { TreeToolController } from './../tool/treeToolController';
 import type { IRect } from '../../../common/geometry';
+import type { TreeOrientation } from '../../../types/tree';
 
 /**
  * 脑图交互层（docs/11 §7-8）：mind 工具建图 + Tab/Enter/Delete 节点操作 +
@@ -269,8 +270,16 @@ export class TreeService extends Disposable {
     return true;
   }
 
+  /** 焦点图当前排列（ActionBar treeOrientation 当前值；无焦点 null） */
+  getFocusedOrientation(): 'horizontal' | 'vertical' | null {
+    const f = this.getFocused();
+    if (!f) return null;
+    const o = (f.vm.state as { orientation?: 'horizontal' | 'vertical' }).orientation;
+    return o ?? 'horizontal';
+  }
+
   /** 切换选中树图排列（ActionBar treeOrientation 写入口；一步撤销零节点写） */
-  setOrientation(mapId: string, orientation: 'horizontal' | 'vertical'): void {
+  setOrientation(mapId: string, orientation: TreeOrientation): void {
     this.treeOps.setOrientation(mapId, orientation);
   }
 

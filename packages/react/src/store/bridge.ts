@@ -41,8 +41,8 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
   };
   // 视口流轻路径：schema 命中缓存（引用不变）→ zustand 浅比较跳过 ActionBar 重渲
   // 脑图 +/- 按钮（拉取式同 ActionBar 模式）：焦点/树/视口/选中变化时重算
-  const syncMindButtons = (): void => {
-    store.setState({ mindAddButtons: sdk.getMindAddButtons() });
+  const syncTreeButtons = (): void => {
+    store.setState({ treeAddButtons: sdk.getTreeAddButtons() });
   };
   const subs = [
     sdk.docState$.subscribe((v) => store.setState({ docState: v })),
@@ -53,7 +53,7 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     sdk.storageStatus$.subscribe((v) => store.setState({ storageStatus: { ...v } })),
     sdk.cursorMode$.subscribe((v) => {
       store.setState({ cursorMode: v });
-      syncMindButtons();
+      syncTreeButtons();
     }),
     // 工具默认参数聚合（会话级，docs/04 §2——Toolbar 常驻二级菜单/ToolGhost 消费）
     sdk.defaultToolOptions$.subscribe((v) =>
@@ -68,7 +68,7 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
       store.setState({ selectedCount: v.length });
       invalidateSchema();
       syncSchema();
-      syncMindButtons();
+      syncTreeButtons();
     }),
     sdk.canUndo$.subscribe((v) => store.setState({ canUndo: v })),
     sdk.canRedo$.subscribe((v) => store.setState({ canRedo: v })),
@@ -81,7 +81,7 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     sdk.widgetsChanged$.subscribe(() => {
       invalidateSchema();
       syncSchema();
-      syncMindButtons(); // 树结构/文本变化 → 节点几何重算（布局微任务先于此广播）
+      syncTreeButtons(); // 树结构/文本变化 → 节点几何重算（布局微任务先于此广播）
       // 空态引导（Batch 1 · 1.23）：画布件数镜像——0→显示引导，首件即隐
       store.setState({ modelCount: sdk.modelCount });
     }),
@@ -92,14 +92,14 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     sdk.mindFocusChanged$.subscribe(() => {
       invalidateSchema();
       syncSchema();
-      syncMindButtons();
+      syncTreeButtons();
     }),
-    sdk.vpScale$.subscribe(() => syncMindButtons()),
-    sdk.vpBounds$.subscribe(() => syncMindButtons()),
+    sdk.vpScale$.subscribe(() => syncTreeButtons()),
+    sdk.vpBounds$.subscribe(() => syncTreeButtons()),
     // 拖拽中隐藏（docs/12 §3：拖拽中置 null），松手落库后 widgetsChanged$ 恢复
     sdk.dragMove$.subscribe(() => {
       store.setState({ actionBar: { schema: null, bounds: null } });
-      store.setState({ mindAddButtons: null });
+      store.setState({ treeAddButtons: null });
     }),
   ];
   return () => subs.forEach((s) => s.unsubscribe());

@@ -10,6 +10,7 @@ import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineServic
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { BRANCH_COLORS } from './widgets/tree/model/treeMapModel';
+import { TREE_ORIENTATION_OPTIONS } from './widgets/tree/kinds/mind';
 import {
   ARROW_BAR_OPTIONS,
   LINE_PALETTE,
@@ -295,6 +296,16 @@ export function buildActionBarSchema(
       // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）。
       // 折叠 toggle（specs/tree-diagrams §8.4）：根/节点焦点统一，有子才出现
       const f = host.treeService?.getFocusedState();
+      // 排列方向（specs §10.2）：图属性、根/节点焦点统一出现（仅 mind 多档）
+      const orientationItem: IActionBarItem[] = [
+        {
+          id: 'treeOrientation',
+          kind: 'popover',
+          label: '排列方向',
+          value: host.treeService?.getFocusedOrientation() ?? 'horizontal',
+          options: TREE_ORIENTATION_OPTIONS as unknown as IActionBarOption[],
+        },
+      ];
       const collapseItem: IActionBarItem[] = f?.hasChildren
         ? [
             {
@@ -318,10 +329,11 @@ export function buildActionBarSchema(
               options: swatches(BRANCH_COLORS),
             },
             ...collapseItem,
+            ...orientationItem,
           ],
         };
       }
-      return { type: vm.type, items: collapseItem };
+      return { type: vm.type, items: [...collapseItem, ...orientationItem] };
     }
     default:
       return { type: vm.type, items: [] };

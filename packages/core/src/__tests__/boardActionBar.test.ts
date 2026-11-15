@@ -17,6 +17,7 @@ function makeHost(opts: {
   focusedLineColor?: string;
   /** 折叠 toggle 消费面（specs/tree-diagrams §8.4） */
   focusedState?: { hasChildren: boolean; collapsed: boolean };
+  focusedOrientation?: 'horizontal' | 'vertical';
 }) {
   const vm = opts.vm ?? null;
   return {
@@ -32,6 +33,7 @@ function makeHost(opts: {
       getFocusedLineColor: () => opts.focusedLineColor ?? null,
       // 折叠 toggle 消费面（specs/tree-diagrams §8.4）：hasChildren 缺省 false = 不出项
       getFocusedState: () => opts.focusedState ?? { hasChildren: false, collapsed: false },
+      getFocusedOrientation: () => opts.focusedOrientation ?? 'horizontal',
     },
   } as unknown as IActionBarHost;
 }
@@ -264,13 +266,14 @@ describe('buildActionBarSchema 单选分支', () => {
       }),
       () => 0,
     );
-    expect(node?.items).toHaveLength(1);
     expect(node?.items[0]).toMatchObject({ id: 'lineColor', value: '#8b5cf6' });
+    // 排列方向（specs §10.2 图属性）：根/节点焦点统一出现
+    expect(node?.items.some((i) => i.id === 'treeOrientation')).toBe(true);
     const root = buildActionBarSchema(
       makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'MIND_MAP' } }),
       () => 0,
     );
-    expect(root?.items).toEqual([]);
+    expect(root?.items.map((i) => i.id)).toEqual(['treeOrientation']);
   });
 
   it('MIND_MAP：焦点有子时出折叠 toggle（值=collapsed，图标随态翻转）', () => {
