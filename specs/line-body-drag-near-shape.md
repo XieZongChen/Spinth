@@ -97,7 +97,11 @@ SCREEN`，与 NODE_MARGIN 同量级取整）+ **锚定侧**段长 < 30 世界像
 
 实现：`segmentBodyGrabbable(anchored, pts, segIndex, grab, scale)` 以抓取点
 （胶囊路径用胶囊中点）距锚定端距离判定；胶囊/hover/抓取三处同源不变。
-测试：单测真值表改距离×段长矩阵（近形带内外/唯一段中点/短段缩放兜底/60
-边际胶囊）；E2E 批次 3.7 改「长首段带外几字形滑移 + 正交锁」、新用例
-「唯一段近形带分界——中点拆五点可拖、带内（距端 20px，避开 12px 端点热区）
-无响应、ActionBar 不停隐」；lineText 双胶囊用例恢复 toBe(2)（远端胶囊照常）。
+测试：
+
+- 单测 `lineHandles.test.ts`：距离×段长矩阵（近形带内外/唯一段中点/锚定侧
+  短段缩放兜底/60 边际胶囊；自由短段两例：全自由 20、锚定+自由尾 20）；
+- 单测 `selectorDrag.test.ts`：纯线单/多选不建会话、含形状混合选区照常；
+- E2E `lineSelect.spec.ts`：批次 3.7 长首段带外几字形 + 正交锁；唯一段近形带
+  分界（中点拆五点可拖、带内 20px 无响应、ActionBar 不停隐）；
+- E2E `lineText.spec.ts`：双胶囊恢复 `toBe(2)`（远端胶囊照常）。
