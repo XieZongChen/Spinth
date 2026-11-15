@@ -16,7 +16,7 @@ import {
 } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { ILineAnchorData } from './lineQuickAdd';
-import { collectLineDatas, computePortSpread, type IPortSpread } from './linePortSpread';
+import { collectLineDatas, computeSelfLoopSpans, type ISelfLoopSpans } from './lineSelfLoopSpan';
 
 /** points 内容级同值判定（reattach 幂等守卫） */
 function samePoints(a: Array<[number, number]>, b: Array<[number, number]>): boolean {
@@ -57,7 +57,7 @@ export class LineAnchorFollow extends Disposable {
   }
 
   /** 解绑：线的 startNodeId/endNodeId 指向被删形状 → 置 null（points 不动）。
-   *  删线（非删形状）时同边余线让位重排（§7.3「加删线后仍均分」）——刚解绑的
+   *  删线（非删形状）时全量重排（B 后无端口让位；samePoints 零写）——刚解绑的
    *  悬空线跳过（「解绑保持原位」契约，lineEndpoint E2E 锁 points 逐字节不变） */
   unbindFrom(ids: string[]): void {
     const removed = new Set(ids);
@@ -87,8 +87,8 @@ export class LineAnchorFollow extends Disposable {
   /** 节点移动时重算关联线（由组合根在 vm onStateChanged$ 上调用）。
    *  宿主几何 = IHostGeom（局部矩形 + θ，docs/05 §8——旋转宿主锚点随边中点转） */
   reattach(nodeId: string, geom: IHostGeom): void {
-    // 同边多线错开分配每轮重算（纯派生，specs/flowchart-closeout §7.3）
-    const spread = this.spreadPorts();
+    // 同边多线已改单点引出（2026-11-15 B）；这里只算自环嵌套档
+    const loops = this.selfLoopSpans();
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE') continue;
       const model = this.engine.getModelById(vm.id);
@@ -98,7 +98,7 @@ export class LineAnchorFollow extends Disposable {
         data,
         data.startNodeId === nodeId ? geom : null,
         data.endNodeId === nodeId ? geom : null,
-        spread,
+        loops,
       );
       // points 同值跳过（内容级——数组引用永不相等，Object.is 跳过失效）：
       // 几何命令（对齐/分布）在事务后急切 reattach，onStateChanged$ 微任务相
@@ -108,15 +108,13 @@ export class LineAnchorFollow extends Disposable {
   }
 
   /**
-   * 线集合拓扑变化后的全量重排（specs/flowchart-closeout §7.3「加删线后仍
-   * 均分」）：新建落定（settle → onSettled）与删线（unbindFrom 尾）时
-   * spreadPorts 分配已变，对所有仍在锚定的线按当前分配 + 单源路由（避障/
-   * 自环/pinned）重算。samePoints 守卫保证无位移的线零写入（无幻影事务）；
-   * 未共享边的线输入不变 → 输出不变 → 恒跳过。skip = 不参与者（刚解绑的
-   * 悬空线等）。
+   * 线集合拓扑变化后的全量重排：新建落定（settle → onSettled）与删线
+   * （unbindFrom 尾）时对所有仍在锚定的线按单源路由（避障/自环/pinned）重算。
+   * 同边多线已改默认 0.5 单点（2026-11-15 B），这里不再有端口让位；samePoints
+   * 守卫保证无位移的线零写入（无幻影事务）。skip = 不参与者（刚解绑的悬空线等）。
    */
   private respreadLines(skip: (id: string) => boolean): void {
-    const spread = this.spreadPorts();
+    const loops = this.selfLoopSpans();
     for (const vm of this.vmEngine.getAllVms()) {
       if (vm.type !== 'LINE' || skip(vm.id)) continue;
       const model = this.engine.getModelById(vm.id);
@@ -129,7 +127,7 @@ export class LineAnchorFollow extends Disposable {
       const endGeom = data.endNodeId
         ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
         : null;
-      const pts = this.routeLinePoints(data, startGeom, endGeom, spread);
+      const pts = this.routeLinePoints(data, startGeom, endGeom, loops);
       if (pts && !samePoints(data.points, pts)) model.update({ points: pts } as never);
     }
   }
@@ -151,7 +149,7 @@ export class LineAnchorFollow extends Disposable {
     const moving = new Set(this.selector.selected$.value);
     if (moving.size === 0) return;
     this.previewFollowLast = null;
-    const spread = this.spreadPorts();
+    const loops = this.selfLoopSpans();
     for (const lvm of this.vmEngine.getAllVms()) {
       if (lvm.type !== 'LINE') continue;
       const model = this.engine.getModelById(lvm.id);
@@ -166,7 +164,7 @@ export class LineAnchorFollow extends Disposable {
       const endGeom = endMoving
         ? (this.vmEngine.getVmById(data.endNodeId!)?.getHostGeom() ?? null)
         : null;
-      const pts = this.routeLinePoints(data, startGeom, endGeom, spread);
+      const pts = this.routeLinePoints(data, startGeom, endGeom, loops);
       if (pts) {
         (lvm as LineVm).previewRoute(pts.map((p) => ({ x: p[0], y: p[1] })));
         this.previewFollowLast = pts; // 探针：最后一帧预览路由（E2E 断言拖动中跟随）
@@ -196,30 +194,25 @@ export class LineAnchorFollow extends Disposable {
   }
 
   /**
-   * 同边多线错开分配（specs/flowchart-closeout §7.3，G-05）——算法本体已拆至
-   * linePortSpread（§23 <400 铁律；纯函数域供绘制/端点预览共享同源分配，
-   * 四轮审查：预览不传自环档会出现「拖拽中内环、松手跳外环」）。规则全文见
-   * linePortSpread.computePortSpread 注释：`(nodeId, join)` 分组、显式 port
-   * 优先、n=1 恒 0.5、同边自环豁免错开 + 嵌套档 1..n。
+   * 同边自环嵌套档（specs/flowchart-closeout §7.5）——算法本体在
+   * lineSelfLoopSpan（§23 <400 铁律；纯函数域供绘制/端点预览共享同源分配，
+   * 四轮审查：预览不传自环档会出现「拖拽中内环、松手跳外环」）。同边多线
+   * 自动错开已取消（2026-11-15 B：默认 0.5 单点，显式 port 手动分开）。
    */
-  private spreadPorts(): IPortSpread {
-    return computePortSpread(collectLineDatas(this.engine, this.vmEngine));
+  private selfLoopSpans(): ISelfLoopSpans {
+    return computeSelfLoopSpans(collectLineDatas(this.engine, this.vmEngine));
   }
 
   private routeLinePoints(
     data: ILineAnchorData & { id: string },
     startGeom: IHostGeom | null,
     endGeom: IHostGeom | null,
-    spread: IPortSpread,
+    loops: ISelfLoopSpans,
   ): Array<[number, number]> | null {
     if (!startGeom && !endGeom) return null;
-    // 有效沿边参数：显式 port > 同边多线错开分配 > 0.5（§7.3）
-    const startT =
-      data.startPort ??
-      spread.ports.get(`s|${data.startNodeId}|${data.startJoin}|${data.id}`) ??
-      0.5;
-    const endT =
-      data.endPort ?? spread.ports.get(`e|${data.endNodeId}|${data.endJoin}|${data.id}`) ?? 0.5;
+    // 有效沿边参数：显式 port 优先；缺省 0.5（单点引出，2026-11-15 B）
+    const startT = data.startPort ?? 0.5;
+    const endT = data.endPort ?? 0.5;
     const pts = data.points.map((p) => ({ x: p[0], y: p[1] }));
 
     if (data.lineType !== 'ELBOWED') {
@@ -276,7 +269,7 @@ export class LineAnchorFollow extends Disposable {
           endJoin: endGeom ? quantizeJoin(data.endJoin, endGeom.rotation) : data.endJoin,
           node: nodeAabb,
           // 同边多自环嵌套倍率（§7.5 三轮：n 条按 id 序 1..n；缺省 1）
-          spanScale: spread.selfLoopSpan.get(data.id),
+          spanScale: loops.selfLoopSpan.get(data.id),
         });
         return loop.map((p) => [r2(p.x), r2(p.y)] as [number, number]);
       }
@@ -339,11 +332,8 @@ export class LineAnchorFollow extends Disposable {
     const endGeom = data.endNodeId
       ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
       : null;
-    const spread = this.spreadPorts();
-    const startT =
-      data.startPort ?? spread.ports.get(`s|${data.startNodeId}|${data.startJoin}|${id}`) ?? 0.5;
-    const endT =
-      data.endPort ?? spread.ports.get(`e|${data.endNodeId}|${data.endJoin}|${id}`) ?? 0.5;
+    const startT = data.startPort ?? 0.5;
+    const endT = data.endPort ?? 0.5;
     const start = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT) ?? {
       x: data.points[0]![0],
       y: data.points[0]![1],

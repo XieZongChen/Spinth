@@ -21,7 +21,7 @@ import {
   type IPt,
   type JoinDir,
 } from './lineMath';
-import { selfLoopSpanOf } from './linePortSpread';
+import { selfLoopSpanOf } from './lineSelfLoopSpan';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import { quantizeGrid } from '../../common/grid';
 import type { IHostGeom, IRect } from '../../common/geometry';

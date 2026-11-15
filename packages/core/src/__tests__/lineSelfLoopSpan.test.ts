@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { computePortSpread, selfLoopSpanOf } from '../widgets/line/linePortSpread';
+import { computeSelfLoopSpans, selfLoopSpanOf } from '../widgets/line/lineSelfLoopSpan';
 import type { ILineAnchorData } from '../widgets/line/lineQuickAdd';
 
-/** 同边错开/自环嵌套分档纯函数（specs/flowchart-closeout §7.3/§7.5，四轮拆分） */
+/** 自环嵌套分档纯函数（specs/flowchart-closeout §7.5；同边多线自动错开已于 2026-11-15 B 取消） */
 
 const line = (id: string, extra: Partial<ILineAnchorData>): ILineAnchorData & { id: string } =>
   ({
@@ -17,24 +17,21 @@ const line = (id: string, extra: Partial<ILineAnchorData>): ILineAnchorData & { 
     ...extra,
   }) as ILineAnchorData & { id: string };
 
-describe('computePortSpread', () => {
+describe('computeSelfLoopSpans', () => {
   it('双自环同边：id 字典序赋档 1/2；单自环不进表', () => {
     const a = line('958d', { startNodeId: 'N', endNodeId: 'N', startJoin: 'top', endJoin: 'top' });
     const b = line('f00a', { startNodeId: 'N', endNodeId: 'N', startJoin: 'top', endJoin: 'top' });
-    const spread = computePortSpread([a, b]);
+    const spread = computeSelfLoopSpans([a, b]);
     expect(spread.selfLoopSpan.get('958d')).toBe(1);
     expect(spread.selfLoopSpan.get('f00a')).toBe(2);
-    expect(spread.ports.size).toBe(0); // 自环豁免错开槽位
-    const single = computePortSpread([a]);
+    const single = computeSelfLoopSpans([a]);
     expect(single.selfLoopSpan.size).toBe(0); // n=1 缺省
   });
 
-  it('两条同边普通线：0.4/0.6 均分（n=2 公式）；混合端同组', () => {
+  it('普通同边线不产生任何自环档（单点引出由 routeLinePoints 的 0.5 缺省保证）', () => {
     const a = line('LA', { startNodeId: 'N', startJoin: 'right' });
     const b = line('LB', { endNodeId: 'N', endJoin: 'right' });
-    const spread = computePortSpread([a, b]);
-    expect(spread.ports.get(`s|N|right|LA`)).toBeCloseTo(0.4, 5);
-    expect(spread.ports.get(`e|N|right|LB`)).toBeCloseTo(0.6, 5);
+    expect(computeSelfLoopSpans([a, b]).selfLoopSpan.size).toBe(0);
   });
 });
 

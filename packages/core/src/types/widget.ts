@@ -131,9 +131,9 @@ export const LineSchema = z.object({
   text: z.string().default(''),
   /** 文字在路径上的位置比例 0~1（docs/08 §6） */
   textRatio: z.number().min(0).max(1).default(0.5),
-  /** 锚点沿边参数（specs/flowchart-closeout §7.1/§7.3）：optional 无 default——
-   *  缺失 = 边中点且参与同边多线自动错开（派生不落库）；显式写入 = 用户
-   *  手工固定该端，不参与错开分配。端点重锚定时由投影计算写入 */
+  /** 锚点沿边参数（docs/08 §3）：optional 无 default——缺失 = 边中点
+   *  （同边多线默认同点引出，允许重叠）；显式写入 = 用户手工固定该端，
+   *  用于把同边多条线分开。端点重锚定时由投影计算写入 */
   startPort: z.number().min(0).max(1).optional(),
   endPort: z.number().min(0).max(1).optional(),
   /** 线上文字排版 override（align 恒 center 与锚点语义绑定，不加字段） */

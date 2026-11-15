@@ -19,7 +19,7 @@ import {
   routeElbow,
   type JoinDir,
 } from './lineMath';
-import { selfLoopSpanOf } from './linePortSpread';
+import { selfLoopSpanOf } from './lineSelfLoopSpan';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { LineVm } from './lineVm';
 import type { LineHoverOverlay } from './lineHoverOverlay';

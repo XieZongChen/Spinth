@@ -588,7 +588,7 @@ describe('routeSelfLoop 同 join 跨度（错开豁免联动）', () => {
     expect(Math.max(...xs)).toBeLessThanOrEqual(NODE.x + NODE.width);
   });
 
-  it('反例锁（二轮审查实测）：锚点差 0.2×边长 = 24px 时不展开、U 宽仅 24——spreadPorts 豁免同边自环的动因', () => {
+  it('反例锁（二轮审查实测）：锚点差 0.2×边长 = 24px 时不展开、U 宽仅 24——自环两端单点 0.5 的动因', () => {
     const pts = routeSelfLoop({
       start: { x: 48, y: 0 },
       end: { x: 72, y: 0 },

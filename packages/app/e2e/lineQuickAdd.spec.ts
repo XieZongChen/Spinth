@@ -327,17 +327,17 @@ test('批次2：quick-add 方向已有带连线元素 → 新形状一上一下�
   expect(Number(down.y) + Number(down.height) / 2).toBeCloseTo(bCy + 150, 0); // 下 1 槽
   expect(s.lines.find((l) => l.endNodeId === down.id)).toBeDefined();
 
-  // 三次后 A 右边 3 条线：点击落定重排已物化分槽（起点 y 互异——未物化则
-  // 全停在连接点 t=0.5 同一 y，2026-11 quick-add 落定重排修复的创建侧锁）
+  // 三次后 A 右边 3 条线：2026-11-15 B 单点口径——全部从中点 0.5 引出，
+  // 不再自动分槽（允许重叠；需要分开时手动拖端点写显式 port）
   const aRight = s.lines.filter((l) => l.startJoin === 'right' && l.points.length >= 2);
   expect(aRight.length).toBe(3);
-  const startYs = aRight.map((l) => Number(l.points[0]![1]));
-  expect(new Set(startYs).size).toBe(3);
+  for (const l of aRight) {
+    expect(Number(l.points[0]![1])).toBeCloseTo(aCy, 0);
+  }
 
   // 删除 B（第一次接入的目标）：A→B 线解绑悬空原位（解绑保持原位契约）；
-  // 组内悬空端仍计数 → 幸存线槽位不变 → 起点不跳槽（2026-11 用户实测
-  // 「同方向 quick-add 两节点删其一、两条连线扭曲」的回归锁——扭曲根因
-  // 是创建时未物化槽位、删除时首次物化跳槽重路由）
+  // 单点口径无槽位，幸存线起点保持 A 中点（2026-11 用户实测「同方向
+  // quick-add 两节点删其一、两条连线扭曲」的回归锁）
   const beforeDel = await snapshot();
   const lineB = beforeDel.lines.find((l) => l.endNodeId === bId)!;
   const survivorsBefore = beforeDel.lines
@@ -374,7 +374,7 @@ test('批次2：quick-add 方向已有带连线元素 → 新形状一上一下�
   expect(JSON.stringify(dangling.points)).toBe(JSON.stringify(lineB.points)); // 原位不动
   for (const [id, start] of survivorsBefore) {
     const l = afterDel.lines.find((x) => x.id === id)!;
-    expect(JSON.stringify(l.points[0])).toBe(JSON.stringify(start)); // 起点槽位不跳
+    expect(JSON.stringify(l.points[0])).toBe(JSON.stringify(start)); // 起点保持（0.5 单点）
   }
 });
 
@@ -532,9 +532,7 @@ test('批次2：quick-add 手势被打断（pointercancel）→ 零长草稿线�
   await page.mouse.up(); // 会话监听已移除，补 up 仅复位 Playwright 鼠标态
 });
 
-test('quick-add 单撤销单元：第二次 quick-add（建线+建形+让位重排）Ctrl+Z 一步回退', async ({
-  page,
-}) => {
+test('quick-add 单撤销单元：第二次 quick-add（建线+建形）Ctrl+Z 一步回退', async ({ page }) => {
   const docId = `e2e-quickadd-undo-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await waitForSynced(page);
@@ -591,7 +589,7 @@ test('quick-add 单撤销单元：第二次 quick-add（建线+建形+让位重�
   expect(s1.lines).toHaveLength(1);
   const l1Pts = JSON.stringify(s1.lines[0]);
 
-  // 第二次：同边分支 → 建 B2 + L2 + L1 让位槽位物化（onSettled 并入同捕获窗）
+  // 第二次：同边分支 → 建 B2 + L2（单点口径 L1 不跳槽；onSettled 并入同捕获窗）
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   await hoverRightDot();
@@ -600,7 +598,7 @@ test('quick-add 单撤销单元：第二次 quick-add（建线+建形+让位重�
   expect(s2.shapes).toBe(3);
   expect(s2.lines).toHaveLength(2);
 
-  // 单撤销单元：Ctrl+Z 一步回退「建线 + 建形 + 既有线让位」（三写同窗）
+  // 单撤销单元：Ctrl+Z 一步回退「建线 + 建形」（同捕获窗）
   await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(300);
   const s3 = await snap();

@@ -60,7 +60,7 @@ export interface ILineAnchorData {
   points: Array<[number, number]>;
   lineType: 'STRAIGHT' | 'ELBOWED' | 'CURVE';
   pinned: boolean;
-  /** 沿边参数（specs/flowchart-closeout §7.1）：缺失 = 中点 + 参与自动错开 */
+  /** 沿边参数（docs/08 §3）：缺失 = 中点（同边线共享，允许重叠；显式 port 分开） */
   startPort?: number;
   endPort?: number;
 }
@@ -204,7 +204,7 @@ export class LineQuickAdd extends Disposable {
         endNodeId: plan.targetId,
         endJoin: plan.endJoin,
       } as never);
-      this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
+      this.host.onSettled(); // 落定全量重排（捕获窗内 = 单撤销单元；单点口径零写）
       // stopCapturing 延后一拍（微任务相）：新建/新锚形状的首帧几何广播会触发
       // 挂线 reattach 的滞后写（vm root 未应用新帧——docs/02 幻影撤销项家族），
       // 并入同一捕获窗 → quick-add 一次操作恒一步 undo、不暴露草稿中间态
@@ -230,7 +230,7 @@ export class LineQuickAdd extends Disposable {
       endNodeId: shape.id,
       endJoin: plan.endJoin,
     } as never);
-    this.host.onSettled(); // 同边槽位即时物化（捕获窗内 = 单撤销单元）
+    this.host.onSettled(); // 落定全量重排（捕获窗内 = 单撤销单元；单点口径零写）
     queueMicrotask(() => this.history.stopCapturing()); // 延后一拍——见 connect 分支注释
     this.selector.setSelected([shape.id]);
   }

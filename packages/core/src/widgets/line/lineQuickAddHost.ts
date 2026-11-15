@@ -30,8 +30,8 @@ export interface ILineQuickAddHost {
   /** quick-add 落新形状的默认型（组合根注入 ShapeService 会话态） */
   getDefaultShapeType(): ShapeType;
   /** 点击落定重排（与拉线 settle 同源，docs/08 §5 重排触发清单）：建线/连线
-   *  落定后全量重排，同边槽位即时物化——否则两条同边 quick-add 线都停在
-   *  t=0.5，删除目标形状时才第一次物化 0.4/0.6 分配，幸存线跳槽重路由扭结 */
+   *  落定后全量重排（避障/自环）；同边多线已按 2026-11-15 B 默认 0.5 单点，
+   *  不再有 0.4/0.6 槽位，samePoints 守卫保证无位移线零写 */
   onSettled(): void;
 }
 

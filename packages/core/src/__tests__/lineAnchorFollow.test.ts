@@ -174,7 +174,7 @@ describe('LineAnchorFollow.unbindFrom 删除解绑', () => {
   });
 });
 
-describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3，G-05）', () => {
+describe('LineAnchorFollow 同边多线单点（2026-11-15 B；原 §7.3/G-05 自动错开已取消）', () => {
   const GEOM = { rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 };
 
   function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>, geom = GEOM) {
@@ -229,27 +229,16 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     },
   });
 
-  it('三条同边线（port 未写）：按 id 字典序分到 0.35/0.5/0.65，等距不重叠', () => {
+  it('三条同边线（port 未写）：全部 0.5 单点引出，全部零写', () => {
     const { follow, models } = makeFollow([baseLine('LA'), baseLine('LB'), baseLine('LC')]);
     follow.reattach('N1', GEOM);
-    // STRAIGHT 只替换锚定端点：startAnchor y = t×10（id 字典序 LA<LB<LC）
-    expect(models.get('LA')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 3.5],
-        [100, 5],
-      ],
-    });
-    // LB 分到中点 0.5 = 已在 (10,5) → samePoints 跳过零写入（幂等守卫）
-    expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
-    expect(models.get('LC')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 6.5],
-        [100, 5],
-      ],
-    });
+    // 2026-11-15 B：自动错开取消，三条线都留在 (10,5) 中点 → samePoints 全跳过
+    for (const id of ['LA', 'LB', 'LC']) {
+      expect(models.get(id)!.model.update).not.toHaveBeenCalled();
+    }
   });
 
-  it('显式 port 优先：固定端不参与分配，其余两线重均分为 0.4/0.6', () => {
+  it('显式 port 优先：固定端 0.9 照写，其余两线仍 0.5 零写', () => {
     const { follow, models } = makeFollow([
       baseLine('LA', { startPort: 0.9 }),
       baseLine('LB'),
@@ -262,28 +251,18 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
         [100, 5],
       ],
     });
-    expect(models.get('LB')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 4],
-        [100, 5],
-      ],
-    });
-    expect(models.get('LC')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 6],
-        [100, 5],
-      ],
-    });
+    expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LC')!.model.update).not.toHaveBeenCalled();
   });
 
-  it('n=1 恒中点（旧行为）：单线不写 port、不参与错开', () => {
+  it('n=1 恒中点：单线不写 port，0.5 零写', () => {
     const { follow, models } = makeFollow([baseLine('LA')]);
     follow.reattach('N1', GEOM);
     // 已在 (10,5) 中点 → samePoints 跳过，零写入（幂等守卫继续有效）
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
   });
 
-  it('混合端组：一线从 N1 right 出发、另一线进入 N1 right → 同组错开 0.4/0.6（分组键 = (nodeId, join) 两元组）', () => {
+  it('混合端：出发线与进入线同锚 N1 right → 都 0.5（不再自动错开）', () => {
     const { follow, models } = makeFollow([
       baseLine('LA'), // start 端锚 N1 right
       {
@@ -301,19 +280,9 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
       },
     ]);
     follow.reattach('N1', GEOM);
-    // 同组两条 → id 字典序 LA(start)=0.4、LB(end)=0.6，不再各 0.5 同点
-    expect(models.get('LA')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 4],
-        [100, 5],
-      ],
-    });
-    expect(models.get('LB')!.calls.at(-1)).toEqual({
-      points: [
-        [100, 5],
-        [10, 6],
-      ],
-    });
+    // 两条都在中点 (10,5) → samePoints 全跳过（B：单点引出）
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
   });
 
   it('同边自环整条豁免错开（specs/flowchart-closeout §7.5 二轮返工）：两端恒 0.5', () => {
@@ -334,12 +303,11 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
     follow.reattach('N1', GEOM);
     // 两端恒 0.5 → 锚点重合 (10,5) → STRAIGHT 替换后与原 points 同值 →
     // samePoints 跳过零写入（ELBOWED 下 |Δ|<8 → routeSelfLoop 按目标跨度
-    // max(80, 边长/2) 展开——跨度断言见 lineRoute.test；若参与错开会分到
-    // 0.4/0.6，锚点差 0.2×边长 ≥8 反而压成 0.2×边宽的窄 U）
+    // max(80, 边长/2) 展开——跨度断言见 lineRoute.test）
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
   });
 
-  it('自环 + 普通线同边：自环不占槽，普通线 n=1 恒 0.5 不被挤位', () => {
+  it('自环 + 普通线同边：两者都 0.5，互不挤位（B 单点）', () => {
     const { follow, models } = makeFollow([
       baseLine('LA'), // 普通线 start 端锚 N1 right
       {
@@ -356,8 +324,7 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
       },
     ]);
     follow.reattach('N1', GEOM);
-    // 自环豁免后组内只剩 LA 的 start 端（n=1）→ 恒 0.5 → 已在中点零写；
-    // 若自环占槽则 n=2，LA 会被挤到 0.4（写入 (10,4)）
+    // 普通线固定 0.5、自环两端 0.5，均在中点 → 零写
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
     expect(models.get('LZ')!.model.update).not.toHaveBeenCalled();
   });
@@ -403,7 +370,7 @@ describe('LineAnchorFollow 同边多线错开（specs/flowchart-closeout §7.3�
   });
 });
 
-describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3——settle/unbind 触发）', () => {
+describe('LineAnchorFollow 加删线全量重排（settle/unbind 触发）', () => {
   const GEOM = { rect: { x: 0, y: 0, width: 10, height: 10 }, rotation: 0 };
 
   function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>) {
@@ -445,46 +412,26 @@ describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3—�
     },
   });
 
-  it('reattachAll（拉线落定）：三条同边线全部重排 0.35/0.5/0.65——中位线同值跳过', () => {
+  it('reattachAll（拉线落定）：三条同边线都在 0.5 中点 → 全部 samePoints 零写', () => {
     const { follow, models } = makeFollow([anchored('LA'), anchored('LB'), anchored('LC')]);
     follow.reattachAll();
-    expect(models.get('LA')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 3.5],
-        [100, 5],
-      ],
-    });
-    expect(models.get('LB')!.model.update).not.toHaveBeenCalled(); // 0.5 = 原位
-    expect(models.get('LC')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 6.5],
-        [100, 5],
-      ],
-    });
+    for (const id of ['LA', 'LB', 'LC']) {
+      expect(models.get(id)!.model.update).not.toHaveBeenCalled();
+    }
   });
 
-  it('删线（unbindFrom）：余线按 n=2 重均分 0.4/0.6（加删线后仍均分）', () => {
+  it('删线（unbindFrom）：余线仍 0.5 中点 → 零写（不再重均分）', () => {
     const built = makeFollow([anchored('LA'), anchored('LB'), anchored('LC')]);
     // LC 已删：vm 枚举不再含它（unbindFrom 收到的 ids 里有它）
     built.lineVms.splice(2, 1);
     built.follow.unbindFrom(['LC']);
-    expect(built.models.get('LA')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 4],
-        [100, 5],
-      ],
-    });
-    expect(built.models.get('LB')!.calls.at(-1)).toEqual({
-      points: [
-        [10, 6],
-        [100, 5],
-      ],
-    });
+    expect(built.models.get('LA')!.model.update).not.toHaveBeenCalled();
+    expect(built.models.get('LB')!.model.update).not.toHaveBeenCalled();
   });
 
   it('删形状（解绑线）：patched 线零 points 写（保持原位），组未变的同边线零写', () => {
     const { follow, models } = makeFollow([
-      // LA/LB 预置在 n=2 均分位（真实链路里创建落定已重排）——组未变 → 零写
+      // LA/LB 预置在中点（B 单点口径）——组未变 → 零写
       {
         id: 'LA',
         data: {
@@ -492,7 +439,7 @@ describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3—�
           endNodeId: null,
           endJoin: null,
           points: [
-            [10, 4],
+            [10, 5],
             [100, 5],
           ],
         },
@@ -504,7 +451,7 @@ describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3—�
           endNodeId: null,
           endJoin: null,
           points: [
-            [10, 6],
+            [10, 5],
             [100, 5],
           ],
         },
@@ -527,7 +474,7 @@ describe('LineAnchorFollow 加删线重排（specs/flowchart-closeout §7.3—�
     const ld = models.get('LD')!;
     expect(ld.model.update).toHaveBeenCalledTimes(1);
     expect(ld.calls[0]).toEqual({ startNodeId: null, startJoin: null }); // 无 points
-    // LA/LB 组未变（n=2 → t 同值）→ samePoints 跳过零写入
+    // LA/LB 都在 0.5 中点 → samePoints 跳过零写入
     expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
     expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
   });

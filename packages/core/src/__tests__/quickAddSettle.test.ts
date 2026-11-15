@@ -4,13 +4,12 @@ import { LineAnchorFollow } from '../widgets/line/lineAnchorFollow';
 import type { IRect } from '../common/geometry';
 
 /**
- * quick-add 点击落定重排（2026-11 用户实测「同方向两节点删其一连线扭曲」）：
- * quickAddConnectedShape 此前不触发 reattachAll——同边两线停在 t=0.5，删除
- * 目标形状时 respreadLines 才第一次物化 0.4/0.6 分配，幸存线跳槽重路由扭结。
- * 这里锁定：① onSettled 在 line.update 之后、stopCapturing 之前调用（重排
- * 并入创建捕获窗 = 单撤销单元，connect/create 两分支）；② 真实 LineAnchorFollow
- * 集成下两次同边 quick-add 即物化 0.4/0.6，随后删除目标形状幸存线 samePoints
- * 零写、悬空线按「解绑保持原位」契约不动。
+ * quick-add 点击落定重排：同边多线已按 2026-11-15 B 改为默认 0.5 单点（不再
+ * 自动错开 0.4/0.6）；onSettled 仍保留全量重排/单撤销事务语义。这里锁定：
+ * ① onSettled 在 line.update 之后、stopCapturing 之前调用（重排并入创建捕获窗
+ * = 单撤销单元，connect/create 两分支）；② 真实 LineAnchorFollow 集成下两次
+ * 同边 quick-add 都在 0.5，随后删除目标形状幸存线 samePoints 零写、悬空线按
+ * 「解绑保持原位」契约不动。
  */
 
 const A_RECT: IRect = { x: 100, y: 100, width: 120, height: 80 };
@@ -252,7 +251,7 @@ describe('quick-add 点击落定 onSettled（顺序：update → 重排 → 单�
 });
 
 describe('quick-add 同边两线 + 删除目标形状（用户场景单测化）', () => {
-  it('第二次 quick-add 即物化 0.4/0.6；删除后幸存线 samePoints 零写、悬空线原位', () => {
+  it('第二次 quick-add 仍 0.5 单点；删除后幸存线 samePoints 零写、悬空线原位', () => {
     const bench = makeBench();
     const ptsOf = (m: ReturnType<typeof statefulLineModel>) =>
       m.store.data.points as Array<[number, number]>;
@@ -264,20 +263,20 @@ describe('quick-add 同边两线 + 删除目标形状（用户场景单测化）
     const l1 = bench.lines.get('L1')!;
     expect(ptsOf(l1)[0]).toEqual([220, 140]); // t=0.5（A 右边中点）
 
-    // 第二次：同边分支 → 交替错开；onSettled → reattachAll 物化 0.4/0.6
+    // 第二次：同边分支 → B 单点；onSettled → reattachAll 对两条同值零写
     addDraft(bench, 'L2');
     bench.qa.quickAddConnectedShape('L2');
     const l2 = bench.lines.get('L2')!;
-    // L1 < L2 字典序 → L1 拿 0.4（y=100+0.4×80=132）、L2 拿 0.6（y=148）
-    expect(ptsOf(l1)[0]).toEqual([220, 132]);
-    expect(ptsOf(l2)[0]).toEqual([220, 148]);
+    // 两条都停在中点 0.5（y=100+0.5×80=140），不再分槽
+    expect(ptsOf(l1)[0]).toEqual([220, 140]);
+    expect(ptsOf(l2)[0]).toEqual([220, 140]);
     const l1Calls = l1.model.update.mock.calls.length;
     const l2Calls = l2.model.update.mock.calls.length;
-    expect(l1Calls).toBe(2); // quickAdd 写 + 重排让位写
-    expect(l2Calls).toBe(2);
+    expect(l1Calls).toBe(1); // 仅 quickAdd 自身写；重排 samePoints 零写
+    expect(l2Calls).toBe(1);
 
-    // 删除 S1（L1 的终点）→ L1 解绑悬空（跳过重写、points 原位）；L2 组内
-    // 悬空端仍计数 → 槽位不变 → samePoints 零写——不再跳槽重路由扭结
+    // 删除 S1（L1 的终点）→ L1 解绑悬空（跳过重写、points 原位）；L2 固定
+    // 0.5 中点 → samePoints 零写——不再跳槽重路由扭结
     const l1PointsBefore = (l1.store.data.points as number[][]).map((p) => [...p]);
     const l2PointsBefore = (l2.store.data.points as number[][]).map((p) => [...p]);
     bench.follow.unbindFrom([s1]);

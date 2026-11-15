@@ -121,7 +121,7 @@ test('F-1 白底黑框：填充/边框色/边框宽落库 + 无填充两态 + �
   expect((await dl).suggestedFilename()).toBe('spinth-selection.png');
 });
 
-test('F-2 同边多线：三条线锚 A 右缘/B 左缘 → 端点互异且按 0.35/0.5/0.65 等距', async ({ page }) => {
+test('F-2 同边多线：三条线锚 A 右缘/B 左缘 → 全部 0.5 单点引出（不自动错开）', async ({ page }) => {
   await page.goto(`/?doc=e2e-fc-spread-${Date.now()}`);
   await waitForSynced(page);
   await createRect(page, 450, 350); // A 世界 (390,266,120,80)
@@ -139,16 +139,13 @@ test('F-2 同边多线：三条线锚 A 右缘/B 左缘 → 端点互异且按 0
     expect(l.startNodeId).not.toBeNull();
     expect(l.endNodeId).not.toBeNull();
   }
-  // A 右缘 x=510、y = 266 + 80t（t=0.35/0.5/0.65 → 294/306/318，等距 12）
-  const startYs = ls.map((l) => l.points[0]![1]).sort((a, b) => a - b);
-  expect(new Set(startYs).size).toBe(3); // 端点互异
-  expect(startYs[0]!).toBeCloseTo(294, 0);
-  expect(startYs[1]!).toBeCloseTo(306, 0);
-  expect(startYs[2]!).toBeCloseTo(318, 0);
-  expect(startYs[1]! - startYs[0]!).toBeCloseTo(startYs[2]! - startYs[1]!, 1);
+  // 2026-11-15 B：自动错开取消——A 右缘 x=510、y = 266 + 80×0.5 = 306
+  // 三条线共享同一起笔/落点（允许重叠；需要分开时手动拖端点写显式 port）
   for (const l of ls) {
     expect(l.points[0]![0]).toBeCloseTo(510, 0);
+    expect(l.points[0]![1]).toBeCloseTo(306, 0);
     expect(l.points[l.points.length - 1]![0]).toBeCloseTo(790, 0); // B 左缘
+    expect(l.points[l.points.length - 1]![1]).toBeCloseTo(306, 0);
   }
 });
 
@@ -399,7 +396,7 @@ test('F-5 自环：同节点拖回生成非零面积正交环 + 选中/拖段/�
   expect((await probe(page)).modelCount).toBe(1); // 自环创建一步撤销 → 只剩形状
 });
 
-test('F-5b 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 目标跨度 80（错开豁免）+ 撤销一步', async ({
+test('F-5b 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 目标跨度 80（单点 0.5）+ 撤销一步', async ({
   page,
 }) => {
   await page.goto(`/?doc=e2e-fc-selfloop-same-${Date.now()}`);
@@ -407,9 +404,8 @@ test('F-5b 同边自环：A 顶边拖回 A 顶边 → U 形跨度 = 目标跨度
   await createRect(page, 500, 400); // 世界 (440,316,120,80)：顶边 y=316
   await page.getByRole('button', { name: /连线/ }).click();
   // 顶边内侧按下 → 顶边内侧偏移 10px 松手（同 join top、同节点）。
-  // 两端恒 0.5（spreadPorts 豁免自环）→ 锚点重合 → routeSelfLoop 按跨度
-  // min(max(80, 120×0.5), 120) = 80 展开；若参与错开会分到 0.4/0.6、
-  // 锚点差 24px 绕过展开分支压成 24px 窄 U（二轮审查实测）
+  // 同边多线 B 单点口径：两端恒 0.5 → 锚点重合 → routeSelfLoop 按跨度
+  // min(max(80, 120×0.5), 120) = 80 展开
   await page.mouse.move(500, 362); // 世界 (500,318)：顶边内侧 2px
   await page.mouse.down();
   await page.mouse.move(510, 362, { steps: 3 }); // 世界 (510,318)：仍顶边内侧
