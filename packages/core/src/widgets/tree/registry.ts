@@ -101,3 +101,10 @@ export type _TreeKindsMatchRegistry = AssertNever<
 export function treeKindOf(type: string): ITreeKind | null {
   return (TREE_KINDS as Record<string, ITreeKind | undefined>)[type] ?? null;
 }
+
+/** 树形图种类选项（specs §10.1：只给工具坞类型菜单——脑图/组织架构；
+ *  id 即 CursorMode（'mind'/'org'，D9：不引入 'tree' 模式） */
+export const TREE_KIND_OPTIONS = [
+  { id: 'mind', label: '脑图', icon: 'mindmap' },
+  { id: 'org', label: '组织架构', icon: 'orgchart' },
+] as const;

@@ -29,6 +29,9 @@ export interface SpinthUiState {
   /** 浏览器持久化授权 + 站点配额（docs/02 §6.1——与 persistState 不混同） */
   storageStatus: IStorageStatus;
   cursorMode: CursorMode;
+  /** 树形图入口的 kind 记忆（specs §10.1：初始 mind，随 M/O 直达更新；
+   *  点树形图按钮 = setCursorMode(treeKind)，无 core 公共命令） */
+  treeKind: 'mind' | 'org';
   pageScale: number;
   /** 可视世界坐标矩形（vpBounds$ 镜像；DotGrid 定位用） */
   vpBounds: { x: number; y: number; width: number; height: number } | null;
@@ -72,6 +75,7 @@ export const useSpinthStore = create<SpinthUiState>(() => ({
   storageStatus: INITIAL_STORAGE_STATUS,
   initError: null,
   cursorMode: 'cursor',
+  treeKind: 'mind',
   pageScale: 1,
   vpBounds: null,
   isOnline: true,

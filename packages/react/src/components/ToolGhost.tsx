@@ -38,6 +38,8 @@ const GHOST_TOOLS: Partial<Record<string, GhostToolDef>> = {
   pen: { icon: 'pen', tone: 'text-tool-pen' },
   sticky: { icon: 'sticky', tone: 'text-tool-sticky' },
   mind: { icon: 'mindmap', tone: 'text-tool-mind' },
+  // org 幽灵（specs §10.1 Phase 3c：树形图入口按 kind 出示意）
+  org: { icon: 'orgchart', tone: 'text-tool-mind' },
 };
 
 export function ToolGhost() {
@@ -53,7 +55,8 @@ export function ToolGhost() {
   const shapeIcon = (SHAPE_TYPE_OPTIONS.find((o) => o.id === (toolOptions['shape']?.type ?? 'rect'))
     ?.icon ?? 'shape') as IconName;
   const icon = cursorMode === 'shape' ? shapeIcon : def?.icon;
-  const hidden = cursorMode === 'mind' && suppressed;
+  // 抑制语义归树族（specs §10.1：mind/org 悬停已有树图都隐藏幽灵示意）
+  const hidden = (cursorMode === 'mind' || cursorMode === 'org') && suppressed;
 
   useEffect(() => {
     const track = (e: PointerEvent): void => {

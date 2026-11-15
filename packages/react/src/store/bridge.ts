@@ -52,7 +52,10 @@ export function connectBoard(sdk: BoardPublicApi): () => void {
     sdk.persistState$.subscribe((v) => store.setState({ persistState: v })),
     sdk.storageStatus$.subscribe((v) => store.setState({ storageStatus: { ...v } })),
     sdk.cursorMode$.subscribe((v) => {
-      store.setState({ cursorMode: v });
+      // 树形图 kind 记忆（specs §10.1）：M/O 直达与类型菜单都经 setCursorMode，
+      // 这里统一镜像——点树形图按钮回到上次 kind
+      const treeKind = v === 'mind' || v === 'org' ? v : undefined;
+      store.setState(treeKind ? { cursorMode: v, treeKind } : { cursorMode: v });
       syncTreeButtons();
     }),
     // 工具默认参数聚合（会话级，docs/04 §2——Toolbar 常驻二级菜单/ToolGhost 消费）

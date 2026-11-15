@@ -103,6 +103,7 @@ export { ERASER_SIZE_OPTIONS } from './widgets/eraser/eraserService';
 
 export { BRANCH_COLORS, branchColorAt } from './widgets/tree/model/treeMapModel';
 export { TREE_ORIENTATION_OPTIONS } from './widgets/tree/kinds/mind';
+export { TREE_KIND_OPTIONS } from './widgets/tree/registry';
 export type { ITreeAddButtonsState } from './types';
 export type { IMindNodeSpec } from './widgets/tree/model/treeMapModel';
 export { layoutMindTree } from './widgets/tree/layout/mindHorizontal';

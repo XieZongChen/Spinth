@@ -13,6 +13,7 @@ import {
   STICKY_COLOR_OPTIONS,
   FONT_SIZE_OPTIONS,
   ERASER_SIZE_OPTIONS,
+  TREE_KIND_OPTIONS,
   type CursorMode,
   type IActionBarOption,
 } from '@spinth/core';
@@ -26,6 +27,14 @@ interface ToolSubMenuGroup {
   options: IActionBarOption[];
 }
 
+/** ToolFlyout 的组数据形状（静态组映射与动态组（树形图类型菜单）同构） */
+interface ToolFlyoutGroupInput {
+  options: IActionBarOption[];
+  current: string;
+  activeClass: string;
+  onPick: (id: string) => void;
+}
+
 interface ToolDef {
   mode: CursorMode;
   icon: IconName;
@@ -34,6 +43,10 @@ interface ToolDef {
   /** 常驻二级菜单（可选，docs/12 §4）：分组变体选项（线宽笔宽批起一工具可多组，
    *  current = 聚合表 [mode][key] 查表，onPick = setDefaultToolOption(mode, key, id)） */
   subMenuGroups?: ToolSubMenuGroup[];
+  /** 动态组（specs/tree-diagrams §10.1：树形图类型菜单不走工具默认参数聚合） */
+  buildSubMenuGroups?: () => ToolFlyoutGroupInput[];
+  /** 自定义激活（树形图入口 = setCursorMode(记忆 kind)；缺省 setCursorMode(mode)） */
+  activate?: () => void;
 }
 
 /** 静态八件（shape 槽位由默认型动态生成，见下方 SHAPE_SLOT） */
@@ -81,7 +94,6 @@ const BASE_TOOLS: ToolDef[] = [
     tone: 'sticky',
     subMenuGroups: [{ key: 'color', options: STICKY_COLOR_OPTIONS }],
   },
-  { mode: 'mind', icon: 'mindmap', title: '脑图 (M)', tone: 'mind' },
 ];
 
 /** shape 在工具序中的槽位（cursor/hand 之后——图标与 title 随默认型动态变化） */
@@ -143,7 +155,33 @@ export function Toolbar() {
     tone: 'shape',
     subMenuGroups: [{ key: 'type', options: SHAPE_TYPE_OPTIONS }],
   };
-  const tools = [...BASE_TOOLS.slice(0, SHAPE_SLOT), shapeDef, ...BASE_TOOLS.slice(SHAPE_SLOT)];
+  // 树形图单入口（specs/tree-diagrams §10.1，Phase 3c）：不再有独立 org 按钮——
+  // 图标/标题/aria 随当前 kind；二级菜单 = 类型组（切换保持激活）；kind 记忆
+  // 随 M/O 直达更新（bridge 镜像）。标题含当前 kind 名，脑图态保留「脑图」字样
+  // （既有 E2E 的 /脑图/ 选择器零迁移）
+  const treeKind = useSpinthStore((tk) => tk.treeKind);
+  const treeLabel = treeKind === 'org' ? '树形图 · 组织架构 (O)' : '树形图 · 脑图 (M)';
+  const treeDef: ToolDef = {
+    mode: treeKind,
+    icon: 'tree',
+    title: treeLabel,
+    tone: 'mind',
+    activate: () => spinthCommands.setCursorMode(treeKind),
+    buildSubMenuGroups: () => [
+      {
+        options: TREE_KIND_OPTIONS as unknown as IActionBarOption[],
+        current: treeKind,
+        activeClass: TONE_ACTIVE.mind,
+        onPick: (id) => spinthCommands.setCursorMode(id as 'mind' | 'org'),
+      },
+    ],
+  };
+  const tools = [
+    ...BASE_TOOLS.slice(0, SHAPE_SLOT),
+    shapeDef,
+    ...BASE_TOOLS.slice(SHAPE_SLOT),
+    treeDef,
+  ];
 
   return (
     <div
@@ -160,7 +198,7 @@ export function Toolbar() {
         // aria-label 逐字保留 title（specs/a11y-closeout §8.4——可访问名不依赖
         // title 回退，toolbar.spec 的名称断言不变）；带二级菜单的工具声明
         // haspopup/expanded/controls（flyout 容器固定 id，同一时刻仅一工具激活）
-        const hasFlyout = !!t.subMenuGroups;
+        const hasFlyout = !!(t.subMenuGroups || t.buildSubMenuGroups);
         return (
           <div key={t.mode} className="relative shrink-0" ref={active ? activeBtnRef : undefined}>
             <button
@@ -174,7 +212,7 @@ export function Toolbar() {
               data-roving-item=""
               tabIndex={-1}
               disabled={!editable && t.mode !== 'cursor' && t.mode !== 'hand'}
-              onClick={() => spinthCommands.setCursorMode(t.mode)}
+              onClick={() => t.activate?.() ?? spinthCommands.setCursorMode(t.mode)}
               style={{ '--i': i } as React.CSSProperties}
               className={`dock-in flex h-10 w-10 items-center justify-center rounded-[14px] transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 ${
                 active ? TONE_ACTIVE[t.tone] : 'text-ink-2 hover:bg-surface-hover hover:text-ink'
@@ -185,15 +223,18 @@ export function Toolbar() {
             {/* 常驻二级菜单：激活即显示（纯派生，切走自动卸载）；分组经聚合嵌套表
                 mode→key 查 current，onPick 带 key 分发（线宽笔宽批结构）。
                 anchorRect 传按钮矩形——portal/fixed 定位（第三轮审查 390px 修复） */}
-            {active && t.subMenuGroups && (
+            {active && (t.subMenuGroups || t.buildSubMenuGroups) && (
               <ToolFlyout
                 anchorRect={() => anchorEl?.getBoundingClientRect() ?? null}
-                groups={t.subMenuGroups.map((g) => ({
-                  options: g.options,
-                  current: toolOptions[t.mode]?.[g.key] ?? '',
-                  activeClass: TONE_ACTIVE[t.tone],
-                  onPick: (id: string) => spinthCommands.setDefaultToolOption(t.mode, g.key, id),
-                }))}
+                groups={
+                  t.buildSubMenuGroups?.() ??
+                  (t.subMenuGroups ?? []).map((g) => ({
+                    options: g.options,
+                    current: toolOptions[t.mode]?.[g.key] ?? '',
+                    activeClass: TONE_ACTIVE[t.tone],
+                    onPick: (id: string) => spinthCommands.setDefaultToolOption(t.mode, g.key, id),
+                  }))
+                }
               />
             )}
           </div>

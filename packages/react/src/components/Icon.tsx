@@ -50,6 +50,8 @@ import {
   Undo2,
   ChevronsDownUp,
   ChevronsUpDown,
+  ListTree,
+  Network,
   Waypoints,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -75,7 +77,9 @@ export type IconName =
   | 'sticky' // 便签
   | 'mindmap'
   | 'collapse'
-  | 'expand' // 脑图
+  | 'expand'
+  | 'tree'
+  | 'orgchart' // 脑图
   | 'undo'
   | 'redo'
   | 'trash'
@@ -204,6 +208,8 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   mindmap: Waypoints,
   collapse: ChevronsDownUp,
   expand: ChevronsUpDown,
+  tree: ListTree,
+  orgchart: Network,
   undo: Undo2,
   redo: Redo2,
   trash: Trash2,
