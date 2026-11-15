@@ -12,18 +12,27 @@ import { TREE_ADD_BTN, clampTreeAddSlots } from '../treeAddLayout';
  * bounds/slots 是 canvas 局部坐标（挂 <main> 内直接用，禁止 +TOPBAR_HEIGHT）。
  */
 
-/** 槽位动作：child 槽带逻辑侧（vertical 时 left=上、right=下——命令名恒 mind*） */
-function slotAction(slot: { key: 'child' | 'sibling'; side?: 'left' | 'right' }): {
+/** 槽位动作：child 槽带逻辑侧，文案随物理轴（horizontal 左/右——沿用
+ *  MindAddButtons 旧文案，mindSelect.spec 等选择器零迁移；vertical 上/下） */
+function slotAction(
+  slot: { key: 'child' | 'sibling'; side?: 'left' | 'right' },
+  orientation: 'horizontal' | 'vertical',
+): {
   title: string;
   onClick: () => void;
 } {
   if (slot.key === 'sibling') {
     return { title: '添加同级主题', onClick: () => spinthCommands.mindAddSibling() };
   }
-  return {
-    title: slot.side === 'left' ? '添加子主题（左/上）' : '添加子主题（右/下）',
-    onClick: () => spinthCommands.mindAddChild(slot.side),
-  };
+  const title =
+    orientation === 'vertical'
+      ? slot.side === 'left'
+        ? '添加上方子主题'
+        : '添加下方子主题'
+      : slot.side === 'left'
+        ? '添加左侧子主题'
+        : '添加右侧子主题';
+  return { title, onClick: () => spinthCommands.mindAddChild(slot.side) };
 }
 
 export function TreeAddButtons() {
@@ -47,6 +56,7 @@ export function TreeAddButtons() {
   }, []);
   if (!editable || !state) return null;
   const slots = clampTreeAddSlots(state.slots, area);
+  const vertical = state.orientation === 'vertical';
   return (
     <>
       {slots.map((s) => {
@@ -57,10 +67,10 @@ export function TreeAddButtons() {
           <button
             key={s.key === 'child' ? `child-${s.side ?? 'x'}` : 'sibling'}
             type="button"
-            title={slotAction(s).title}
-            aria-label={slotAction(s).title}
+            title={slotAction(s, vertical ? 'vertical' : 'horizontal').title}
+            aria-label={slotAction(s, vertical ? 'vertical' : 'horizontal').title}
             data-spinth-mind-add={dataKey}
-            onClick={() => slotAction(s).onClick()}
+            onClick={() => slotAction(s, vertical ? 'vertical' : 'horizontal').onClick()}
             onPointerDown={(e) => e.stopPropagation()}
             style={{ left: s.left, top: s.top, width: TREE_ADD_BTN, height: TREE_ADD_BTN }}
             className="pointer-events-auto absolute z-10 flex items-center justify-center rounded-full border border-edge bg-surface text-tool-mind shadow-dock transition-transform duration-100 hover:scale-110 hover:border-tool-mind"

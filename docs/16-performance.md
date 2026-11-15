@@ -22,7 +22,7 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - 消费点：`getVmByPoint`、`getVmByRect`、RefLine 参照物收集。
 - culling：`vpBounds$` 变化 → 索引查可视格集合 → diff 翻转 widget
   `renderable`（不动 `visible`，保留事件语义）。
-- 256px margin 防抖；MIND_MAP 豁免（树增长会使索引过期，整图一个渲染单元）。
+- 256px margin 防抖；树形图（family 'tree'：MIND_MAP/ORG_CHART）豁免（树增长会使索引过期，整图一个渲染单元）。
 - 拖拽预览例外：预览只改 root、不改数据，索引仍是拖拽前旧几何——对预览中的
   id（selector `previewIds`）用实时 `getBounds()` 复核，边缘滚屏推远视口
   不误剔指针下的被拖元素。
@@ -73,7 +73,7 @@ P3  TextVm.render 全量重建（平移复用已落地）
 有意保留：
 
 - culling 后场景树仍 O(N) 遍历（renderable=false 只省提交）；上万控件才需 PIXI cull 区。
-- MIND_MAP 豁免 culling。
+- 树形图（family 'tree'）豁免 culling；折叠隐藏子树不渲染（Vm 保留 visible=false，O(n) 后序统计隐藏数）。
 - 选中框/参考线/落点预览每 move 重建 Graphics（圆角矩形级 tessellation，便宜且正确）。
 - 事件小对象分配抖动（现代 GC 无感）。
 - `getFocused/findNode` O(树)（数百节点大树才显现，届时可挂 id 索引）。

@@ -109,6 +109,7 @@ Node >= 24，pnpm 11.28.5。
 | 19-assets                 | 本地资产、GC、失败回退               |
 | 20-project-file           | 项目文件格式、导出/导入              |
 | 21-multi-tab              | 多标签单写者、只读跟随、接管         |
+| 22-tree-diagrams          | 树形图族架构、kind 注册、扩展指南    |
 
 ## AI 工作流
 
@@ -278,27 +279,37 @@ popover 只读往返清开合 + 栏内收起回焦触发钮；quick-add 单撤�
 stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广播的挂线 reattach
 滞后写并入同捕获窗，一次 quick-add 恒一步 undo、不暴露 [0,0] 草稿中间态）。
 
-当前实测基线：`pnpm verify` 通过；1288 单测（core 1166 + react 84 + app 38）；
-E2E 50 spec / 275 例（273 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 268（--list 实测）= 266 通过 + 2 跳过，pwa 7 独立配置——计数口径：静态声明 265 +
-a11y.spec 3 用例 × 双主题展开；rotate 3 通过 + 2 跳过含入口隐藏锁、rotateAnchor
-2/2、视觉 rotate-45 注入版基线双平台；flowchart 15 例（F-1..F-8 + F-3b/c 轮廓
-锚点判别 + F-5b/c 同边自环跨度/双环嵌套 + F-6b/c/d 网格便签/自由端/缩放）；
-edgeAutoScroll 11/11 含
-E-6 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E 端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；
-clickCreateSlip 2/2（形状 + 便签）；视觉 5/5 双平台（6 张基线含 flowchart-sample
-S1 场景，`--stability` 双跑全等）；图片/资产专项 12/12；a11y 6/6；
-mobile 9/9；a11yKeyboard 12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；
-debugSurface 3/3；pwa 7/7 含 P7 零探针 + dev 不注册 1）。
+树形图族（specs/tree-diagrams，docs/22）已落地：mind 目录迁移
+`widgets/tree`（family 'tree' 三注册表/TREE_KINDS 编译锁/公开导出冻结 +
+golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标点击、
+命中/导航/框选/落点排隐藏、自动展开、序列化透传）；脑图竖向（orientation
+图字段、布局严格转置、连线镜像、导航键位映射、落点轴参数化、ActionBar
+排列切换）；ORG_CHART（层对齐布局 + 正交总线 + 卡片样式 + 父/子/兄弟导航 +
+三带落点 + 跨种类拖拽字段投影）；工具坞收编单一「树形图」入口（类型二级
+菜单/kind 记忆/M/O 直达）；公开面新增 getTreeAddButtons/toggleTreeCollapse/
+setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
+
+当前实测基线：`pnpm verify` 通过；1327 单测（core 1210 + react 79 + app 38）；
+E2E 54 spec / 293 例（291 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
+主配置 286 = 284 通过 + 2 跳过，pwa 7 独立配置；树形图族 +18 例
+treeCollapse 6/mindVertical 3/treeTool 5/orgChart 4；rotate 3 通过 + 2 跳过含
+入口隐藏锁、rotateAnchor 2/2；flowchart 15 例；edgeAutoScroll 11/11 含 E-6
+culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E
+端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；clickCreateSlip
+2/2；视觉 6/6 双平台（9 张基线含 flowchart-sample S1、mind 横/竖、org-sample
+含折叠分支）；图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard
+12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；debugSurface 3/3；
+pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
 check 为 `gate`。
 
-下一阶段：常见图能力续批（docs/13 阶段 4，按 组织架构 / 树 → 网络拓扑 /
-架构图 → 跨职能 / 泳道 → UML 时序 → UML 类图 / ER → BPMN 顺序；标准流程图
-已完成）→ 协同最后（docs/10，不进入默认启动路径）；1.0 后可访问性与平台遗留
-按资源并行（docs/13 §3）。
+下一阶段：常见图能力续批（docs/13 阶段 4，按 网络拓扑 / 架构图 → 跨职能 /
+泳道 → UML 时序 → UML 类图 / ER → BPMN 顺序；标准流程图与树形图族
+——脑图竖向 + 折叠 + 组织架构——已完成，Phase 4 可选增强见
+specs/tree-diagrams §13）→ 协同最后（docs/10，不进入默认启动路径）；
+1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
 
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 安装与移动端真机待人工项见 specs/pwa.md §14

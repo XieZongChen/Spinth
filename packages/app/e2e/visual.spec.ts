@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { barPick, createRect } from './helpers/widgetProbeE2e';
+import type { Probe } from './helpers/mindProbeE2e';
 
 /**
  * 视觉快照回归（docs/15 §4，盘点 P3——此前像素级视觉验证为零）：
@@ -502,5 +503,78 @@ test('视觉快照 @visual：脑图竖向样本（同树切上下——转置镜
   await buildMindSample(page, true);
   await expect(page).toHaveScreenshot('mind-vertical.png', {
     clip: { x: 300, y: 80, width: 860, height: 660 },
+  });
+});
+
+/** 组织架构基线样本（specs/tree-diagrams §14.3，Phase 3）：
+ *  CEO → 3 部门 → 2 组（一分支折叠）。建图 (500,300)；清选区截画布区。 */
+test('视觉快照 @visual：组织架构样本（层级对齐 + 正交总线 + 折叠徽标，specs/tree-diagrams §14.3）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-org-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+  await page.keyboard.press('o');
+  await page.mouse.click(500, 300);
+  await page.waitForTimeout(300); // 根编辑器自动打开
+
+  // 三部门：编辑器内 Escape → 根焦点下 AddButtons child 槽连点（跟焦点，
+  // 每次点「当前焦点」的下槽 = 逐层下钻会成链——改为点 sibling 槽成兄弟）
+  await page.keyboard.press('Tab'); // 部门 A（焦点 A）
+  await page.waitForTimeout(150);
+  await page.click('[data-spinth-mind-add="sibling"]'); // 部门 B（焦点 B）
+  await page.waitForTimeout(200);
+  await page.click('[data-spinth-mind-add="sibling"]'); // 部门 C（焦点 C）
+  await page.waitForTimeout(200);
+  // 部门 A 下两组：↑ 回根 ← 到 A（前兄弟）→ child 槽 ×2（跟焦点成 A1、A1 的 sibling A2）
+  await page.keyboard.press('ArrowUp'); // 根
+  await page.waitForTimeout(120);
+  await page.keyboard.press('ArrowLeft'); // C→B→A？——不跨叔语义：根的前兄弟无 → 直接经探针更稳
+  await page.waitForTimeout(120);
+  // 用探针定位 A（x 最小的部门）点击选中后建组
+  const geo = await page.evaluate(() => {
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
+    const c = document.querySelector('canvas')!.getBoundingClientRect();
+    const kids = d.mindNodes.slice(1).filter((n) => n.worldRect.y === d.mindNodes[1]!.worldRect.y);
+    const a = kids.reduce((m, n) => (n.worldRect.x < m.worldRect.x ? n : m));
+    return {
+      x: c.left + a.worldRect.x + a.worldRect.width / 2,
+      y: c.top + a.worldRect.y + a.worldRect.height / 2,
+      id: a.id,
+    };
+  });
+  await page.keyboard.press('Escape'); // 清选区（防再点已选中进编辑）
+  await page.waitForTimeout(150);
+  await page.mouse.click(geo.x, geo.y); // 选中 A
+  await page.waitForTimeout(250);
+  await page.click('[data-spinth-mind-add="right"]'); // 组 1（焦点组 1）
+  await page.waitForTimeout(200);
+  await page.click('[data-spinth-mind-add="sibling"]'); // 组 2
+  await page.waitForTimeout(200);
+  // 折叠 A（徽标 +N）：Escape 清选区 → 探针定位 A 点击选中 → Cmd+.（直接
+  // ArrowUp 依赖焦点链路，组 2 建立后焦点在组 2，↑=父 A 理论可达但时序敏感）
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  await page.mouse.click(geo.x, geo.y); // A 中心（geo 已算）
+  await page.waitForTimeout(250);
+  await page.keyboard.press('ControlOrMeta+.');
+  await page.waitForTimeout(300);
+  // 折叠态数据断言（徽标渲染由 treeCollapse T-3 锁定；此处锁「样本含折叠分支」）。
+  // 必须在 Escape 清选区前读（nodesDebug 依赖焦点图）
+  const folded = await page.evaluate(() => {
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
+    const a = d.mindNodes.find((n) => n.collapsed);
+    return a
+      ? { id: a.id, hidden: a.hiddenCount, visible: d.mindNodes.filter((n) => n.visible).length }
+      : null;
+  });
+  expect(folded).not.toBeNull();
+  expect(folded!.hidden).toBe(2); // 两组被折叠
+  expect(folded!.visible).toBe(4); // 根 + 三部门
+  await page.keyboard.press('Escape'); // 清选区/收 ActionBar
+  await page.waitForTimeout(200);
+
+  await expect(page).toHaveScreenshot('org-sample.png', {
+    clip: { x: 200, y: 150, width: 1000, height: 520 },
   });
 });

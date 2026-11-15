@@ -98,16 +98,21 @@
 
 #### 4.2 组织架构 / 树
 
-**现状（审计起点）**：MIND_MAP 是单 widget + 递归节点树；左右布局、文本节点、
-拖拽重排 / 跨图、Tab/Enter、方向键、删除、整图移动；无折叠、无上→下布局、
-无组织卡字段（姓名 / 职务 / 部门）；模板系统已移除（docs/11 §0）。
+**现状**：已完成（specs/tree-diagrams）。树形图族 = `family: 'tree'` 两个
+widget type（MIND_MAP/ORG_CHART）共享骨架（树数据/增量同步/编辑/撤销/
+持久化/焦点宿主），差异经 `TREE_KINDS` 策略注入（布局/连线/导航/落点/样式，
+docs/22）。已落地：脑图**竖向排列**（orientation 图字段、严格转置）、
+**折叠**（collapsed 入文档、ActionBar/Cmd+. /徽标点击、两种树共享）、
+**ORG_CHART**（层对齐布局 + 正交总线 + 卡片样式 + 三带落点 + 跨种类拖拽
+字段投影）；工具坞收编单一「树形图」入口（类型二级菜单、kind 记忆、M/O
+直达）；公开面新增 `getTreeAddButtons/toggleTreeCollapse/setTreeOrientation`
+（旧 mind 名称全保留）。Phase 4 可选增强（副标题渲染+编辑、org 左右排列、
+折叠全部/展开全部、部门容器、文件树/放射脑图新 kind）不阻塞本阶段。
 
-**检查范围（审计）**
+**完成标志**：3 层样本同层 y 严格相等、父在子跨度中心；Tab/Enter/拖拽/
+折叠/只读/项目文件往返 E2E 全绿；390px 仍 8 按钮；`mind-horizontal/
+mind-vertical/org-sample` 视觉基线双平台。
 
-- MIND_MAP 的布局 / 节点样式 / 折叠 / 排序 / 增删 / 撤销 / 导出；组织架构真实
-  样本（CEO → 部门 → 组）。
-- 方案：MIND_MAP 布局 profile（`layout: 'mind' | 'org'`）vs 新 ORG_CHART 控件
-  vs 形状 + 正交线模板；节点字段是否必须结构化。
 - 上→下 tidy tree、同级间距、节点尺寸随文本、折叠 / 展开、跨部门排序。
 
 **补足 / 开发（审计后拍板；MVP 优先 A）**

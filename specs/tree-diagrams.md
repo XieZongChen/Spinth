@@ -1,6 +1,13 @@
 # 树形图族（Tree Diagram Family）技术方案
 
-> 状态：**设计稿（未实施）**。实施按 §13 阶段推进；复审按 §16 清单逐条核对。
+> 状态：**已实施（Phase 0-3 全量，2026-11-15）**。Phase 4 可选增强未做；
+> 手工验收六项（§14.5）待人工。复审按 §16 清单逐条核对。
+>
+> 基线备注：mind-horizontal/mind-vertical/org-sample 三张基线 darwin 本地
+> 生成 + linux 容器生成各一轮成功（update 复验轮全绿）；`--stability` 双跑
+> 仪式在本机高负载时段反复触发 delay 首用例 ready 超时（环境性能非像素
+> diff），留待低负载本地或 CI nightly 补跑（specs/linux-visual §10.3 脚本
+> 不强制）。Phase 2b 批次的 stability 曾全等通过（8 张 SHA-256 逐字节）。
 > 范围：`packages/core` 树形控件族、`@spinth/react` 工具入口/浮层、docs 与测试。
 > 本文是过程文档（specs/），记录设计结论、实施顺序与验收口径；当前事实以 docs/ 为准。
 
@@ -1251,7 +1258,11 @@ E2E 坐标从探针 worldRect 反推，禁手写屏幕数字；探针字段 `min
 - **移动端**：390 树形图入口 + 二级菜单切 org 建图、AddButtons 钳制、8 键横滚现状不变。
 - **无调试残留**：新探针字段只经 dev 入口；生产构建零标记。
 
-### 14.5 手工验收（写入 specs，不进 docs）
+### 14.5 手工验收（写入 specs，不进 docs）——待人工执行
+
+> 自动化已覆盖：T-1..T-6（treeCollapse）、V-1..V-3（mindVertical）、
+> TT-1..TT-5（treeTool）、OC-1..OC-4（orgChart）；org-sample 基线含折叠分支。
+> 以下六项需人工目视/真机确认：
 
 1. 脑图左右 → 上下切换：分支上下分布、方向键符合表、撤销一步回左右。
 2. 折叠 3 层子树：布局收缩、导出无隐藏节点、刷新保持、撤销恢复。

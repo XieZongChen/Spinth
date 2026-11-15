@@ -43,7 +43,7 @@ pointerup
 - `setSelected(ids)` diff 出 inserted/removed，逐个派发 `vm.onSelected$`，保持选中顺序。
 - 编组扩展（docs/18 §4）：点击组员 = 选中整组存活成员；Alt+点击 = 直选单体；
   shift 以组为单位切换；框选整组全入框才选整组。
-- 脑图节点级选中：选中集仍是 widget id（MIND_MAP 不拆），节点语义由 MindService
+- 脑图节点级选中：选中集仍是 widget id（树图不拆——MIND_MAP/ORG_CHART），节点语义由 TreeService
   焦点承载；框选时对命中的 MIND_MAP 委托 `focusFromMarquee`。
 - RectEditor 手柄/旋转手势在 down 时置单击激活抑制，并捕获手势指针
   （`setPointerCapture`——支持 capture 的环境下移出视口/窗口松开 up 仍送达；
@@ -87,7 +87,7 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
 - **必须用拖拽状态里最后一帧吸附修正后的位移**（`lastDx/lastDy`），
   禁止从指针原始差值重算，否则「拖拽中对齐、松手跳回」（docs/14 规则 5）。
 - 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。
-- 脑图节点拖拽走独立通道（DropArea + 落点预览，docs/11）。
+- 树节点拖拽走独立通道（kind 落点策略 + 落点预览，docs/11/22）。
 
 ### 4.4 交互几何 per-type 契约
 

@@ -57,7 +57,7 @@ interface IShortcutDef {
 | 键                 | 动作                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------ |
 | v / h              | 选择 / 抓手                                                                          |
-| r / t / l / p / s  | 形状 / 文本 / 连线 / 画笔 / 便签（脑图 m；橡皮 e）                                   |
+| r / t / l / p / s  | 形状 / 文本 / 连线 / 画笔 / 便签（脑图 m、组织架构 o；橡皮 e）                       |
 | ] / [              | 橡皮增大 / 减小（步进 4 屏幕 px，4~40 钳制；仅 eraser 模式）                         |
 | space（按住）      | 临时抓手                                                                             |
 | cmd/ctrl+z         | 撤销；shift+cmd/ctrl+z 重做                                                          |
@@ -68,7 +68,9 @@ interface IShortcutDef {
 | f                  | 适应屏幕                                                                             |
 | cmd/ctrl+] / [     | 上移 / 下移一层（alt = 置顶 / 置底）                                                 |
 | cmd/ctrl+g         | 编组；shift+cmd/ctrl+g 解组                                                          |
-| tab / enter        | 脑图子节点 / 同级节点（无脑图时不吞键，Tab 走原生焦点序列）                          |
+| tab / enter        | 树子节点 / 同级节点（无树焦点时不吞键，Tab 走原生焦点序列）                          |
+| cmd/ctrl + .       | 折叠/展开焦点子树（specs/tree-diagrams §8.2；无子 no-op）                            |
+| 方向键             | 树焦点下为节点导航（mind 横竖向/org 语义见 docs/22 §7），不落回 1px 微移             |
 | shift+f10 / menu   | 打开右键菜单（只读可用，画布菜单；锚点 = 选中外接矩形中心/页面中心）                 |
 | esc                | 退出编辑 / 清选 / 取消工具（橡皮拖动中 = undo 本手势且不切模式）；菜单开着时只关菜单 |
 
@@ -84,7 +86,7 @@ interface IShortcutDef {
 - 焦点在宿主铬件（`data-spinth-ui` 子树，如 PWA 更新横幅）内时全静默——铬件内
   的按键是控件语义，不得落到画布（横幅常驻故不走 modal 闸门，按焦点作用域判定，
   判定函数 `isHostChromeTarget` 与模态源同在 shortcuts.ts）。
-- 脑图 Tab/Enter 无图可建时放行原生键序（handler 返回 false = 未消费）。
+- 树 Tab/Enter 无图可建时放行原生键序（handler 返回 false = 未消费）。
 - 断网态可用：视图类缩放键 + f + esc；工具键被拦；space 临时抓手指在 hotkeys 体系外。
 - 只读态：视图四键 + esc 可用；工具/删除/undo 被拦。
 - 只读态右键：菜单降级为画布菜单（不建选区、粘贴与元素项不可达，docs/21 §4）。

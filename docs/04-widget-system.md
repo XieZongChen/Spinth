@@ -83,7 +83,8 @@ export const WIDGET_REGISTRY = {
   LINE:  { schema: LineSchema,  capabilities: { ... } },
   PEN:   { schema: PenSchema,   capabilities: { ... } },
   STICKY:{ schema: StickySchema,capabilities: { ... } },
-  MIND_MAP: { schema: MindMapSchema, capabilities: { ... } },
+  MIND_MAP: { family: 'tree', schema: MindMapSchema, capabilities: { ... } },
+  ORG_CHART: { family: 'tree', schema: OrgChartSchema, capabilities: { ... } },
   IMAGE: { schema: ImageSchema, capabilities: { ... } },
 } as const;
 ```
@@ -102,15 +103,21 @@ export const WIDGET_REGISTRY = {
 `rotatable / groupable / resizable / movable / selectable / keepRatio / editable /
 referenceable / erasable`
 
-| 类型     | 旋转 | 编组 | 缩放 | 可编辑 | 参考线 | 橡皮 |
-| -------- | ---- | ---- | ---- | ------ | ------ | ---- |
-| SHAPE    | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| TEXT     | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| STICKY   | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| IMAGE    | —†   | ✓    | ✓    | —      | ✓      | —    |
-| LINE     | —    | ✓*   | —    | —      | —      | —    |
-| PEN      | —    | ✓    | ✓    | —      | —      | ✓    |
-| MIND_MAP | —    | —    | —    | —      | —      | —    |
+注册表每项含 `family: 'widget' | 'tree'`（docs/22 §1）：family 是引擎层
+唯一判据（vmEngine 查询豁免 / culling 豁免 / selector 节点拖拽分流走
+`isTreeWidgetType()`）；树种类差异在 `widgets/tree/registry.ts` 的
+`TREE_KINDS`（编译锁：键集 ≡ family 'tree' 类型集）。
+
+| 类型      | 旋转 | 编组 | 缩放 | 可编辑 | 参考线 | 橡皮 |
+| --------- | ---- | ---- | ---- | ------ | ------ | ---- |
+| SHAPE     | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| TEXT      | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| STICKY    | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| IMAGE     | —†   | ✓    | ✓    | —      | ✓      | —    |
+| LINE      | —    | ✓*   | —    | —      | —      | —    |
+| PEN       | —    | ✓    | ✓    | —      | —      | ✓    |
+| MIND_MAP  | —    | —    | —    | —      | —      | —    |
+| ORG_CHART | —    | —    | —    | —      | —      | —    |
 
 - LINE 类型级可组，锚定态由 `groupOps` 运行时判定。
 - † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。rect 四类支持
@@ -148,16 +155,17 @@ VmEngine.initialize():
 
 ## 8. 控件清单
 
-| 控件     | 说明                                                       |
-| -------- | ---------------------------------------------------------- |
-| SHAPE    | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect       |
-| STICKY   | 便签，共享文本测量/渲染管线                                |
-| TEXT     | 富文本，三态模型（docs/07）                                |
-| LINE     | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08） |
-| PEN      | 画笔，60ms 采样，points 增量写                             |
-| IMAGE    | 图片，本地资产引用 + 失败回退 data URL（docs/19）          |
-| MIND_MAP | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                |
-| ERASER   | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）          |
+| 控件      | 说明                                                       |
+| --------- | ---------------------------------------------------------- |
+| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect       |
+| STICKY    | 便签，共享文本测量/渲染管线                                |
+| TEXT      | 富文本，三态模型（docs/07）                                |
+| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08） |
+| PEN       | 画笔，60ms 采样，points 增量写                             |
+| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）          |
+| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                |
+| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）          |
+| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）          |
 
 ### 8.1 橡皮
 

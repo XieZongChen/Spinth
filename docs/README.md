@@ -25,6 +25,7 @@
 | 连线                    | [08-line](08-line.md)                                                                                 |
 | 剪贴板/快捷键           | [09-clipboard-shortcuts](09-clipboard-shortcuts.md)                                                   |
 | 脑图                    | [11-mindmap](11-mindmap.md)                                                                           |
+| 树形图 / 组织架构       | [22-tree-diagrams](22-tree-diagrams.md)                                                               |
 | UI/zustand/主题/移动端  | [12-ui-layer](12-ui-layer.md)                                                                         |
 | 测试/E2E/视觉基线       | [15-testing](15-testing.md)                                                                           |
 | 性能/索引/culling       | [16-performance](16-performance.md)                                                                   |
@@ -58,6 +59,7 @@
 | 19   | [19-assets](19-assets.md)                                 | 本地资产、GC、失败回退、导出边界    |
 | 20   | [20-project-file](20-project-file.md)                     | 项目文件格式、导出/导入             |
 | 21   | [21-multi-tab](21-multi-tab.md)                           | 多标签单写者、只读跟随、接管        |
+| 22   | [22-tree-diagrams](22-tree-diagrams.md)                   | 树形图族架构、kind 注册、扩展指南   |
 
 ## 3. 文档纪律
 

@@ -13,15 +13,18 @@
 
 ## 2. 当前基线
 
-- 单测：1288 passed（core 1166 + react 84 + app 38）。
-- E2E：50 个 spec（主配置 49 + pwa 1）、275 例 = 主配置 268（266 通过 + 2 跳过
-  ——旋转手柄用例暂跳，specs/rotate-hide）+ pwa 7。计数口径：静态声明 265 +
-  a11y.spec 3 用例 × 浅/深两主题循环展开 = 主配置 268；分层对账 = 主配置 268 −
-  @visual 5 − @timing/@bench 5 = fast 258（256 通过 + 2 跳过）+ pwa 7 =
-  CI gate 265（263 通过 + 2 跳过，fast + pwa 两层）；四层全量 275
-  （gate 265 + nightly @visual 5 + @timing/@bench 5；273 通过 + 2 跳过）；
+- 单测：1327 passed（core 1210 + react 79 + app 38）。
+- E2E：54 个 spec（主配置 53 + pwa 1）、293 例 = 主配置 286（284 通过 + 2 跳过
+  ——旋转手柄用例暂跳，specs/rotate-hide）+ pwa 7。树形图族 +18 例
+  （treeCollapse 6 / mindVertical 3 / treeTool 5 / orgChart 4，
+  specs/tree-diagrams §14.2）。计数口径：静态声明 +
+  a11y.spec 3 用例 × 浅/深两主题循环展开；分层对账 = 主配置 286 −
+  @visual 6 − @timing/@bench 5 = fast 275（273 通过 + 2 跳过）+ pwa 7 =
+  CI gate 282（280 通过 + 2 跳过，fast + pwa 两层）；四层全量 293
+  （gate 282 + nightly @visual 6 + @timing/@bench 5；291 通过 + 2 跳过）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
-- 视觉：5/5（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 6 张齐全；
+- 视觉：6/6（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 9 张齐全
+  （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3）；
   flowchart-sample 为流程图收口样本，specs/flowchart-closeout）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里

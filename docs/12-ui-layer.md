@@ -27,7 +27,7 @@ interface SpinthUiState {
   canRedo;
   contextMenu: { show; x; y; onWidget; canPaste } | null;
   actionBar: { schema; bounds } | null;
-  mindAddButtons: IMindAddButtonsState | null;
+  treeAddButtons: ITreeAddButtonsState | null;
   mindGhostSuppressed: boolean;
   defaultToolOptions: Record<string, Record<string, string>>;
 }
@@ -40,7 +40,8 @@ interface SpinthUiState {
    mindGhostSuppressed$ / defaultToolOptions$。
 2. **拉取式聚合**：`syncActionBar()` 调 `getActionBarSchema()` +
    `getSelectionBounds()`，世界包络 → 屏幕矩形一次写入；`syncMindButtons()`
-   调 `getMindAddButtons()`。重算触发：selected$/widgetsChanged$/mindFocusChanged$/
+   调 `getTreeAddButtons()`（树形图族槽位——mind 横竖向/org 按 kind 出；
+   旧 `getMindAddButtons` 保留为兼容壳）。重算触发：selected$/widgetsChanged$/mindFocusChanged$/
    vpScale$/vpBounds$；拖拽中（dragMove$）置 null 隐藏。
 
 命令模块全部是 `sdk.xxx()` 薄转发：setCursorMode、setPageScale、zoomIn/Out/ToFit、
@@ -57,7 +58,7 @@ allowlist 漏成员时这两个模块先编译红——它们是公开面的真�
 SDK：getSelectionBounds() = 选中 vm 世界包络
   → bridge toScreenPoint → 屏幕矩形（canvas/main 局部坐标）
 
-ActionBar / MindAddButtons：纯算术定位
+ActionBar / TreeAddButtons：纯算术定位
   选区上方居中 + 视口钳制 + 下方翻转
 ```
 
@@ -108,7 +109,7 @@ ActionBar / MindAddButtons：纯算术定位
 | `Tooltip`        | 通用悬停提示（400ms、focus 可达、disabled 抑制；`w-max` + 视口上限，超宽折行不撑出横滚）                                                                                                                                                                                                                 |
 | `ErrorState`     | 共享错误态（role=alert + 标题聚焦 + 详情可滚）；ErrorBoundary 与初始化失败共用                                                                                                                                                                                                                           |
 | `OfflineBar`     | 离线提示条（协同宿主用；单机 `editBlocked` 恒 false 不可达）                                                                                                                                                                                                                                             |
-| `MindAddButtons` | 脑图节点 +/− 按钮（定位数学在 `mindAddLayout.ts` 纯函数，视口钳制）                                                                                                                                                                                                                                      |
+| `TreeAddButtons` | 树形图节点 + 按钮（槽位由 core `getTreeAddButtons` 按 kind/orientation 计算，钳制在 `treeAddLayout.ts`）                                                                                                                                                                                                 |     |
 | `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                                                                                                                                                                                                            |
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                                                                                                                                                                                                              |
 
@@ -136,7 +137,7 @@ follower 角色渲染，说明本页只读与接管行为，提供「刷新」�
 项目菜单 / 右键菜单 fixed + 视口 clamp（项目菜单与存储面板先定位后挂载——
 首帧 static 会挤歪锚点按钮的测量，另有 maxHeight 纵向兜底；二级菜单 portal
 挂 body、-9999 隐藏至首测落位，滚动/resize 失效重算）；选中操作栏
-`max-w` 钳制、Popover 面板 `w-max + flex-wrap` 换行收纳；脑图 +/- 按钮经
+`max-w` 钳制、Popover 面板 `w-max + flex-wrap` 换行收纳；树形图 +/- 按钮经
 `mindAddLayout.ts` 纯函数钳进容器；触控目标 ≥24（WCAG 2.2 AA 2.5.8）。九个面的
 390 布局矩阵回归在 `e2e/mobile.spec.ts`（M1–M9，helpers/layoutE2e.ts）；只读态
 保留缩放/平移，选择与复制受写门禁限制。
