@@ -81,10 +81,14 @@ export function makeTreeService(specTree: IMindNodeSpec) {
     setFocusedNode: () => {},
   };
   const handlers: Record<string, (e: unknown) => void> = {};
+  // 分 mode 存储（真实 viewport 按 cursorMode 分发——扁平合并会让后注册的
+  // 'org' listener 覆盖 'mind' 的 onPointerDown；handlers 暴露 mind 模式视图）
+  const handlersByMode = new Map<string, Record<string, (e: unknown) => void>>();
   const adds: Array<Record<string, unknown>> = [];
   const viewport = {
-    registerGlobalEventListener: (_mode: string, h: Record<string, (e: unknown) => void>) => {
-      Object.assign(handlers, h);
+    registerGlobalEventListener: (mode: string, h: Record<string, (e: unknown) => void>) => {
+      handlersByMode.set(mode, h);
+      Object.assign(handlers, handlersByMode.get('mind') ?? {});
     },
     setCursorMode: () => {},
     cursorMode$: new BehaviorSubject('cursor'),

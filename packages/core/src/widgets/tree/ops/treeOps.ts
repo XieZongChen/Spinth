@@ -5,6 +5,7 @@ import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeNodeModel } from './../model/treeNodeModel';
 import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
 import { nextBranchColor, findMindNode, buildNavTree } from './../model/treeMapModel';
+import { projectSpecFor } from './../model/treeSpec';
 import { rootInsertSide, focusAfterDelete } from './../nav/mind';
 import type { IDropTarget } from './../drop/dropArea';
 import type { TreeOrientation } from '../../../types/tree';
@@ -152,6 +153,11 @@ export class TreeOps extends Disposable {
     const crossMap = destMapId !== d.mapId;
     const model = this.engine.getModelById(destMapId) as TreeMapModel | undefined;
     if (!model?.hasRoot()) return null;
+    // 跨种类投影（specs §4.3）：mind→org 剥 direction/lineColor；org→mind
+    // 落根层按落点侧/分配色写入。同 kind 时透传（org→org 也剥侧向冗余）
+    const destKind = model.kind.type;
+    const project = (direction?: 'left' | 'right', lineColor?: string): IMindNodeSpec =>
+      projectSpecFor(destKind, d.spec, { direction, lineColor });
     let newId: string | null = null;
     if (target.kind === 'asChild') {
       const dest = findMindNode(model.root, target.nodeId);
@@ -174,7 +180,7 @@ export class TreeOps extends Disposable {
         : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
-        const yNew = this.buildFromSpec(d.spec, target.direction, color);
+        const yNew = this.buildFromSpec(project(target.direction, color), target.direction, color);
         destChildren.insert(insertAt, [yNew]);
         // 折叠节点作为 asChild 目标：同事务展开（specs §8.3），仍一步撤销
         if (dest.isCollapsed()) dest.yMap.set('collapsed', false);
@@ -191,7 +197,7 @@ export class TreeOps extends Disposable {
         : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
-        const yNew = this.buildFromSpec(d.spec, undefined, color);
+        const yNew = this.buildFromSpec(project(undefined, color), undefined, color);
         // 删除自身后同父长度变短（同父搬移）——insertAt 在删前算的，删后再兜底
         parentChildren.insert(Math.min(insertAt, parentChildren.length), [yNew]);
         newId = String(yNew.get('id'));

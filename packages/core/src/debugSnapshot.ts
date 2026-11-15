@@ -41,7 +41,13 @@ export interface IDebugSnapshotDeps {
       hiddenCount: number;
     }>;
     dropPreviewDebug: IRect | null;
-    getFocusedState(): { nodeId: string; isRoot: boolean; worldRect: IRect } | null;
+    getFocusedState(): {
+      nodeId: string;
+      isRoot: boolean;
+      worldRect: IRect;
+      kind: 'MIND_MAP' | 'ORG_CHART';
+      orientation: string;
+    } | null;
   } | null;
   awareness: {
     peers$: {
@@ -116,7 +122,13 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
     mindFocus: d.treeService?.getFocusedState()
       ? (() => {
           const st = d.treeService!.getFocusedState()!;
-          return { nodeId: st.nodeId, isRoot: st.isRoot, worldRect: st.worldRect };
+          return {
+            nodeId: st.nodeId,
+            isRoot: st.isRoot,
+            worldRect: st.worldRect,
+            kind: st.kind,
+            orientation: st.orientation,
+          };
         })()
       : null,
     peers: d.awareness

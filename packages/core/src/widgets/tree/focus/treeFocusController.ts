@@ -112,6 +112,10 @@ export class TreeFocusController extends Disposable {
   getFocusedState(): {
     mapId: string;
     nodeId: string;
+    /** 焦点图 kind（debugSnapshot/探针用，specs §10.2） */
+    kind: 'MIND_MAP' | 'ORG_CHART';
+    /** 焦点图排列（探针用） */
+    orientation: string;
     isRoot: boolean;
     direction: 'left' | 'right';
     worldRect: IRect;
@@ -142,6 +146,8 @@ export class TreeFocusController extends Disposable {
     return {
       mapId: mapModel.id,
       nodeId: node.id,
+      kind: mapModel.kind.type,
+      orientation: vm.orientation,
       isRoot: node === mapModel.root,
       direction: nodeDirection(node),
       worldRect,

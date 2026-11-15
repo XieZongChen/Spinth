@@ -2,6 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { IRect } from '../../../common/geometry';
 import { markRender } from '../../../common/render';
 import { rootStartX, rootT } from './../connector/mind';
+import { orthogonalPath } from './../connector/orthogonal';
 
 /**
  * 脑图拖拽落点预览（docs/11 §6，对齐既有设计 mindDraggerVm.renderFakeNode）：
@@ -85,13 +86,15 @@ export class TreeDropPreview {
     optionLayer.addChild(this.g);
   }
 
-  /** 画预置块 + 预连线（dest/block 均为世界坐标；竖向预连线与实物同向） */
+  /** 画预置块 + 预连线（dest/block 均为世界坐标；竖向/正交与实物同向） */
   show(opts: {
     block: IRect;
     dest: IRect;
     isRoot: boolean;
     direction: 'left' | 'right';
     vertical?: boolean;
+    /** org 正交总线预连线（specs §6.5：与实物同参数） */
+    org?: boolean;
   }): void {
     const { block, dest, isRoot, direction } = opts;
     this.lastBlock = { ...block };
@@ -103,6 +106,10 @@ export class TreeDropPreview {
       alpha: 0.9,
     });
 
+    if (opts.org) {
+      this.drawLinkOrg(block, dest);
+      return;
+    }
     if (opts.vertical) {
       this.drawLinkVertical(block, dest, isRoot, left);
       return;
@@ -135,6 +142,31 @@ export class TreeDropPreview {
       .lineTo(midX, midY)
       .lineTo(endX, midY)
       .stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
+    markRender();
+  }
+
+  /** org 正交预连线（specs §6.5 与实物同参数：父底中心 → midY → 子 x → 块顶） */
+  private drawLinkOrg(block: IRect, dest: IRect): void {
+    const g = this.g;
+    const px = dest.x + dest.width / 2;
+    const pb = dest.y + dest.height;
+    const cx = block.x + block.width / 2;
+    const ct = block.y;
+    const midY = pb + (ct - pb) / 2;
+    const cmds = orthogonalPath([
+      { x: px, y: pb },
+      { x: px, y: midY },
+      { x: cx, y: midY },
+      { x: cx, y: ct },
+    ]);
+    let started = false;
+    for (const cmd of cmds) {
+      if (cmd.op === 'moveTo') {
+        g.moveTo(cmd.x, cmd.y);
+        started = true;
+      } else if (cmd.op === 'lineTo' && started) g.lineTo(cmd.x, cmd.y);
+    }
+    g.stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
     markRender();
   }
 
@@ -178,4 +210,26 @@ export class TreeDropPreview {
   destroy(): void {
     this.g.destroy();
   }
+}
+
+/** org 预置块（specs §6.5：尺寸 = 被拖卡片测量尺寸，预览与实物同向）：
+ *  before/after 缝隙居中；单侧 +24；无兄弟与父中线水平居中；y = 父底 + LEVEL_GAP */
+export function orgFakeBlockRect(input: {
+  dest: IRect;
+  before: IRect | null;
+  after: IRect | null;
+  width: number;
+  height: number;
+}): IRect {
+  const { dest, before, after, width, height } = input;
+  let x = dest.x + (dest.width - width) / 2;
+  if (before && after) {
+    const beforeRight = before.x + before.width;
+    x = beforeRight + (after.x - beforeRight - width) / 2;
+  } else if (before) {
+    x = before.x + before.width + 24;
+  } else if (after) {
+    x = after.x - width - 24;
+  }
+  return { x, y: dest.y + dest.height + 56, width, height }; // ORG_LEVEL_GAP
 }

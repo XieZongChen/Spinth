@@ -2,6 +2,7 @@ import { Sprite } from 'pixi.js';
 import { Disposable } from '../../../base/disposable';
 import { markRender } from '../../../common/render';
 import type { IRect } from '../../../common/geometry';
+import { isTreeWidgetType } from '../../../types';
 import type {
   IDataEngineService,
   ISelectorService,
@@ -11,9 +12,9 @@ import type {
 import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
 import { findMindNode, nodeDirection, yTreeToSpec } from './../model/treeMapModel';
-import { buildTreeDropAreas, hitTreeDropAreas, type IMindTreeDropAreas } from './../drop/mind';
+import type { ITreeDrop } from '../registry';
 import type { IDropTarget } from './../drop/dropArea';
-import { fakeBlockRect, TreeDropPreview } from './../drop/preview';
+import { fakeBlockRect, orgFakeBlockRect, TreeDropPreview } from './../drop/preview';
 import { HORIZONTAL_OFFSET_NODE, HORIZONTAL_OFFSET_ROOT } from './../layout/mindHorizontal';
 import type { TreeOps } from './../ops/treeOps';
 
@@ -36,6 +37,13 @@ const DRAG_THRESHOLD_SCREEN = 10;
 export interface ITreeDragHost {
   setFocusedNode(id: string | null): void;
   createMindMap(x: number, y: number, rootSpec?: IMindNodeSpec): string;
+  /** 拖出成新图按源 kind（specs §8.3） */
+  createTreeMap(
+    x: number,
+    y: number,
+    type: 'MIND_MAP' | 'ORG_CHART',
+    rootSpec?: IMindNodeSpec,
+  ): string;
 }
 
 interface ITreeDragState {
@@ -70,7 +78,8 @@ export class TreeDragController extends Disposable {
     mapId: string;
     model: TreeMapModel;
     vm: TreeMapVm;
-    areas: IMindTreeDropAreas;
+    areas: unknown;
+    drop: ITreeDrop;
   }> | null = null;
   /** 拖拽落点预览（docs/11 §6 蓝色落点矩形 + 预连线；惰性创建随 dispose 销毁） */
   private dropPreview: TreeDropPreview | null = null;
@@ -228,6 +237,9 @@ export class TreeDragController extends Disposable {
       return;
     }
     const isRoot = dest === model.root;
+    // 被拖节点测量尺寸（org 预置块同尺寸，specs §6.5）
+    const srcVm = this.vmEngine.getVmById(this.drag?.mapId ?? '') as TreeMapVm | undefined;
+    const dragNodeRect = srcVm?.getNodeRect(this.drag?.nodeId ?? '') ?? null;
     // 落点侧向：根层左右分支混排，而根自身没有侧向（nodeDirection 缺省给 right），
     // 所以必须按「插入位相邻兄弟」判侧——asSibling 目标不带 direction 字段，
     // 曾对根层一律按 right 处理：拖左侧节点时预置块被画到根节点**右侧**（用户实测：
@@ -258,19 +270,29 @@ export class TreeDragController extends Disposable {
     });
     const worldDest = toWorld(destRect);
     // 预置块挂在被拖子树之外：invalidate 由调用方保证（此处直接算）。
-    // 竖向预览与实物同向（specs §6.5）：axis 换 x、预连线走竖向分支
+    // 竖向预览与实物同向（specs §6.5）：axis 换 x、预连线走竖向分支；
+    // org 预置块 = 被拖卡片测量尺寸 + 正交预连线（specs §6.5）
     const vertical = vm.orientation === 'vertical';
-    const block = fakeBlockRect({
-      dest: worldDest,
-      before: beforeNode ? toWorld(vm.getNodeRect(beforeNode.id) ?? destRect) : null,
-      after: afterNode ? toWorld(vm.getNodeRect(afterNode.id) ?? destRect) : null,
-      direction,
-      offset: isRoot ? HORIZONTAL_OFFSET_ROOT : HORIZONTAL_OFFSET_NODE,
-      axis: vertical ? 'x' : 'y',
-    });
+    const isOrg = model.kind.type === 'ORG_CHART';
+    const block = isOrg
+      ? orgFakeBlockRect({
+          dest: worldDest,
+          before: beforeNode ? toWorld(vm.getNodeRect(beforeNode.id) ?? destRect) : null,
+          after: afterNode ? toWorld(vm.getNodeRect(afterNode.id) ?? destRect) : null,
+          width: dragNodeRect?.width ?? 120,
+          height: dragNodeRect?.height ?? 36,
+        })
+      : fakeBlockRect({
+          dest: worldDest,
+          before: beforeNode ? toWorld(vm.getNodeRect(beforeNode.id) ?? destRect) : null,
+          after: afterNode ? toWorld(vm.getNodeRect(afterNode.id) ?? destRect) : null,
+          direction,
+          offset: isRoot ? HORIZONTAL_OFFSET_ROOT : HORIZONTAL_OFFSET_NODE,
+          axis: vertical ? 'x' : 'y',
+        });
 
     if (!this.dropPreview) this.dropPreview = new TreeDropPreview(this.viewport.optionLayer);
-    this.dropPreview.show({ block, dest: worldDest, isRoot, direction, vertical });
+    this.dropPreview.show({ block, dest: worldDest, isRoot, direction, vertical, org: isOrg });
   }
 
   /** 松手：拖动且命中 → move；拖动未命中 → 拖出成新图；**未拖动（单击）= 焦点
@@ -315,15 +337,19 @@ export class TreeDragController extends Disposable {
       this.host.setFocusedNode(newId);
       return 'moved';
     }
-    // 空白 → 成新图（world 位置；createMindMap 内部设新图根焦点）。
-    // 剥拖起节点的分支色（跨脑图强制重分配，docs/11 §6）：原节点成为新图根
-    // （根不落色），其后代升为一级分支由 buildYTree 按位重新分配
+    // 空白 → 成新图（world 位置；createTreeMap 内部设新图根焦点）。
+    // 新图取**源 kind**（specs §8.3）；剥拖起节点的分支色（跨脑图强制重分配，
+    // docs/11 §6）：原节点成为新图根（根不落色），其后代升为一级分支由
+    // buildYTree 按位重新分配
     this.engine.transact(() => {
       this.treeOps.removeNode(d.mapId, d.nodeId);
     });
     const spec = { ...d.spec };
     delete spec.lineColor;
-    this.host.createMindMap(world.x, world.y, spec);
+    const srcModel = this.engine.getModelById(d.mapId) as TreeMapModel | undefined;
+    const srcType: 'MIND_MAP' | 'ORG_CHART' =
+      srcModel?.kind.type === 'ORG_CHART' ? 'ORG_CHART' : 'MIND_MAP';
+    this.host.createTreeMap(world.x, world.y, srcType, spec);
     return 'new-map';
   }
 
@@ -339,29 +365,31 @@ export class TreeDragController extends Disposable {
     excludeId: string,
   ): { target: IDropTarget; mapId: string } | null {
     if (!this.dropAreaCache) {
+      // 全部树图（任意 kind——跨种类拖拽 specs §8.3）；源图最前（同图重排高频）
       const mapIds = this.vmEngine
         .getAllVms()
-        .filter((vm) => vm.type === 'MIND_MAP')
+        .filter((vm) => isTreeWidgetType(vm.type))
         .map((vm) => vm.id);
       const ordered = [sourceMapId, ...mapIds.filter((id) => id !== sourceMapId)];
       this.dropAreaCache = ordered.flatMap((mapId) => {
         const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
         const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
         if (!model?.hasRoot() || !vm) return [];
+        // 落点策略经 kind 分派（mind = DropArea 热区 / org = 三带，specs §8.3）
+        const drop = model.kind.drop(vm.orientation);
         return [
           {
             mapId,
             model,
             vm,
-            areas: buildTreeDropAreas(model, vm, mapId === sourceMapId ? excludeId : '', (n) =>
-              nodeDirection(n),
-            ),
+            areas: drop.buildAreas(model, vm, mapId === sourceMapId ? excludeId : ''),
+            drop,
           },
         ];
       });
     }
     for (const entry of this.dropAreaCache) {
-      const target = hitTreeDropAreas(entry.vm, entry.areas, world);
+      const target = entry.drop.hitTest(entry.vm, entry.areas, world);
       if (target) return { target, mapId: entry.mapId };
     }
     return null;

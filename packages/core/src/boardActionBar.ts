@@ -291,21 +291,26 @@ export function buildActionBarSchema(
       };
     case 'IMAGE':
       return { type: vm.type, items: [] };
-    case 'MIND_MAP': {
-      // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色——自身落盘
-      // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）。
+    case 'MIND_MAP':
+    case 'ORG_CHART': {
+      // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色仅 mind——自身
+      // 落盘整棵子树继承）；根/无焦点走通用（删除 = 删整图）。
       // 折叠 toggle（specs/tree-diagrams §8.4）：根/节点焦点统一，有子才出现
       const f = host.treeService?.getFocusedState();
-      // 排列方向（specs §10.2）：图属性、根/节点焦点统一出现（仅 mind 多档）
-      const orientationItem: IActionBarItem[] = [
-        {
-          id: 'treeOrientation',
-          kind: 'popover',
-          label: '排列方向',
-          value: host.treeService?.getFocusedOrientation() ?? 'horizontal',
-          options: TREE_ORIENTATION_OPTIONS as unknown as IActionBarOption[],
-        },
-      ];
+      // 排列方向（specs §10.2）：图属性、根/节点焦点统一出现——仅 mind 多档
+      // （org MVP 单档 top-down 不出，Phase 4 扩宽后自动出现）
+      const orientationItem: IActionBarItem[] =
+        vm.type === 'MIND_MAP'
+          ? [
+              {
+                id: 'treeOrientation',
+                kind: 'popover',
+                label: '排列方向',
+                value: host.treeService?.getFocusedOrientation() ?? 'horizontal',
+                options: TREE_ORIENTATION_OPTIONS as unknown as IActionBarOption[],
+              },
+            ]
+          : [];
       const collapseItem: IActionBarItem[] = f?.hasChildren
         ? [
             {
@@ -318,19 +323,22 @@ export function buildActionBarSchema(
           ]
         : [];
       if (host.treeService?.isNodeFocused()) {
+        // 分支色仅 mind（specs §4.3 org 忽略 lineColor——不渲染项即不可写）
+        const lineColorItem: IActionBarItem[] =
+          vm.type === 'MIND_MAP'
+            ? [
+                {
+                  id: 'lineColor',
+                  kind: 'popover',
+                  label: '分支色',
+                  value: host.treeService.getFocusedLineColor() ?? '',
+                  options: swatches(BRANCH_COLORS),
+                },
+              ]
+            : [];
         return {
           type: vm.type,
-          items: [
-            {
-              id: 'lineColor',
-              kind: 'popover',
-              label: '分支色',
-              value: host.treeService.getFocusedLineColor() ?? '',
-              options: swatches(BRANCH_COLORS),
-            },
-            ...collapseItem,
-            ...orientationItem,
-          ],
+          items: [...lineColorItem, ...collapseItem, ...orientationItem],
         };
       }
       return { type: vm.type, items: [...collapseItem, ...orientationItem] };

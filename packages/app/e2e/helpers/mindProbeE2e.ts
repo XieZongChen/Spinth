@@ -11,6 +11,9 @@ export interface Probe {
     nodeId: string;
     isRoot: boolean;
     worldRect: { x: number; y: number; width: number; height: number };
+    /** 焦点图 kind/排列（specs/tree-diagrams §14.2；字段只增不改） */
+    kind: 'MIND_MAP' | 'ORG_CHART';
+    orientation: string;
   } | null;
   mindNodes: Array<{
     id: string;

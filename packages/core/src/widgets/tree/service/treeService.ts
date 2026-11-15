@@ -154,6 +154,7 @@ export class TreeService extends Disposable {
     this.dragCtl = new TreeDragController(viewport, engine, vmEngine, selector, this.treeOps, {
       setFocusedNode: (id) => this.writeFocus(id),
       createMindMap: (x, y, spec) => this.createMindMap(x, y, spec),
+      createTreeMap: (x, y, type, spec) => this.createTreeMap(x, y, type, spec),
     });
     this.addDisposable(this.dragCtl);
     this.focusCtl = new TreeFocusController(viewport, engine, vmEngine, selector, history, {
@@ -175,6 +176,11 @@ export class TreeService extends Disposable {
   initialize(): void {
     this.viewport.registerGlobalEventListener('mind', {
       onPointerDown: (e) => this.toolCtl.onMindDown(e),
+      onPointerMove: (e) => this.toolCtl.onMindMove(e),
+    });
+    // org 工具（specs §9.1 mode→kind；O 直达/工具坞类型菜单进此模式）
+    this.viewport.registerGlobalEventListener('org', {
+      onPointerDown: (e) => this.toolCtl.onTreeDown(e, 'ORG_CHART'),
       onPointerMove: (e) => this.toolCtl.onMindMove(e),
     });
     // 选中态键入 → 进编辑并全量替换（既有设计 baseNodeVm.handleTextKeyDown）：
@@ -205,6 +211,16 @@ export class TreeService extends Disposable {
   /** 建图入口（dragCtl 拖出成图 host 回调 & E2E 用；聚焦新图根在协作者内） */
   createMindMap(x: number, y: number, rootSpec?: IMindNodeSpec): string {
     return this.toolCtl.createMindMap(x, y, rootSpec);
+  }
+
+  /** 按 kind 建树图（org 工具/E2E 用；dragCtl 拖出成新图走源 kind） */
+  createTreeMap(
+    x: number,
+    y: number,
+    type: 'MIND_MAP' | 'ORG_CHART',
+    rootSpec?: IMindNodeSpec,
+  ): string {
+    return this.toolCtl.createTreeMap(x, y, type, rootSpec);
   }
 
   // ---- 节点操作（Tab/Enter/Delete） ----

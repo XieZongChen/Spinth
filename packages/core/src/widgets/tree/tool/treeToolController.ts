@@ -11,7 +11,10 @@ import type {
 } from '../../../types';
 import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
-import { MIND_ROOT_LABEL } from './../vm/treeNodeVm';
+import type { ITreeKind } from '../registry';
+import { mindKind } from '../kinds/mind';
+import { orgKind } from '../kinds/org';
+import { isTreeWidgetType } from '../../../types';
 
 /**
  * 脑图工具域协作者（自 treeService 拆出，2026-10-06 批刀 4）：docs/11 §8——
@@ -50,8 +53,14 @@ export class TreeToolController extends Disposable {
    * （点工具坞时曾出现"鼠标处多出一个根节点"的观感问题）。
    */
   onMindDown(e: IPointerEventInfo): void {
+    this.onTreeDown(e, 'MIND_MAP');
+  }
+
+  /** 树工具按下（specs §9.1 mode→kind）：命中已有树图（任意 kind）→ 选中 +
+   *  焦点落命中节点；空白 → 按下点建该 kind 的图 */
+  onTreeDown(e: IPointerEventInfo, type: 'MIND_MAP' | 'ORG_CHART'): void {
     const hits = this.vmEngine.getVmByPoint({ x: e.world.x, y: e.world.y } as never);
-    const hitMind = hits.find((vm) => vm.type === 'MIND_MAP');
+    const hitMind = hits.find((vm) => isTreeWidgetType(vm.type));
     if (hitMind) {
       const hitNode = (hitMind as TreeMapVm).hitNode(e.world);
       const model = this.engine.getModelById(hitMind.id) as TreeMapModel | undefined;
@@ -60,7 +69,7 @@ export class TreeToolController extends Disposable {
       this.viewport.setCursorMode('cursor');
       return;
     }
-    this.createMindMap(e.world.x, e.world.y);
+    this.createTreeMap(e.world.x, e.world.y, type);
   }
 
   /** mind 模式指针移动：只做「悬停已有脑图」抑制判定（幽灵视觉/位置由 react 层
@@ -69,17 +78,28 @@ export class TreeToolController extends Disposable {
   onMindMove(e: IPointerEventInfo): void {
     const overMind = this.vmEngine
       .getVmByPoint({ x: e.world.x, y: e.world.y } as never)
-      .some((vm) => vm.type === 'MIND_MAP');
+      .some((vm) => isTreeWidgetType(vm.type));
     if (this.ghostSuppressed$.value !== overMind) this.ghostSuppressed$.next(overMind);
   }
 
   createMindMap(x: number, y: number, rootSpec?: IMindNodeSpec): string {
+    return this.createTreeMap(x, y, 'MIND_MAP', rootSpec);
+  }
+
+  /** 建树图（kind 决定 type/根文案；新图 orientation 取 kind 默认——specs §8.3） */
+  createTreeMap(
+    x: number,
+    y: number,
+    type: 'MIND_MAP' | 'ORG_CHART',
+    rootSpec?: IMindNodeSpec,
+  ): string {
+    const kind: ITreeKind = type === 'ORG_CHART' ? orgKind : mindKind;
     const id = genId();
     this.engine.add({
       id,
-      type: 'MIND_MAP',
+      type,
       zOrder: this.engine.genInitialOrder(),
-      root: rootSpec ?? { text: MIND_ROOT_LABEL },
+      root: rootSpec ?? { text: kind.defaultRootText },
       x: Math.round(x),
       y: Math.round(y),
       width: 0,

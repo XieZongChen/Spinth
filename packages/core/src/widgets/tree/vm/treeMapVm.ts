@@ -204,7 +204,8 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
    *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n)。竖向时 left=上侧、
    *  right=下侧（物理轴映射在 TreeNodeVm.badgeCenter 内按 vertical 翻转） */
   private syncBadges(spec: ILayoutNode & { hiddenCount: number }): void {
-    const vertical = this.orientation === 'vertical';
+    // 竖向锚 = 非 horizontal（mind vertical 上下边中点 / org 卡片底边中点）
+    const vertical = this.orientation !== 'horizontal';
     const info = new Map<string, { side: 'left' | 'right'; hiddenCount: number }>();
     const walk = (n: ILayoutNode & { hiddenCount: number }, side: 'left' | 'right'): void => {
       const s = n.direction ?? side;

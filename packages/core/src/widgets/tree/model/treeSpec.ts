@@ -98,3 +98,32 @@ export function buildNavTree(root: TreeNodeModel): { root: INavNode; byId: Map<s
   };
   return { root: build(root, null), byId };
 }
+
+/** 跨种类写边界（specs/tree-diagrams §4.3，Phase 3）：搬移/粘贴进目标 kind
+ *  时按目标 kind 投影——不做「保留但隐藏」的脏数据：
+ *  - mind → org：递归剥离 direction/lineColor（org 不消费）；
+ *  - org → mind：保留 text/collapsed；direction/lineColor 由落点决定
+ *    （destIsRoot 时 direction = 落点侧，lineColor 由调用方按插入位分配） */
+export function projectSpecFor(
+  kind: 'MIND_MAP' | 'ORG_CHART',
+  spec: ITreeNodeSpec,
+  opts: { direction?: 'left' | 'right'; lineColor?: string } = {},
+): ITreeNodeSpec {
+  if (kind === 'ORG_CHART') {
+    const strip = (s: ITreeNodeSpec): ITreeNodeSpec => ({
+      text: s.text,
+      ...(s.collapsed ? { collapsed: true } : {}),
+      children: s.children?.map(strip),
+    });
+    return strip(spec);
+  }
+  const stripMind = (s: ITreeNodeSpec, depth: number): ITreeNodeSpec => ({
+    text: s.text,
+    ...(s.collapsed ? { collapsed: true } : {}),
+    // 落根层：direction = 落点侧、lineColor = 调用方分配（其余层清空继承新父）
+    ...(depth === 1 && opts.direction ? { direction: opts.direction } : {}),
+    ...(depth === 1 && opts.lineColor ? { lineColor: opts.lineColor } : {}),
+    children: s.children?.map((c) => stripMind(c, depth + 1)),
+  });
+  return stripMind(spec, 0);
+}

@@ -1,6 +1,7 @@
 import { Point } from 'pixi.js';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
+import { isTreeWidgetType } from '../../types';
 import { markRender } from '../../common/render';
 import type { IPoint, IRect } from '../../common/geometry';
 import type {
@@ -198,7 +199,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     const top = hits[0];
     // 脑图节点级拖拽优先于整图拖拽（docs/11 §6）：按下在非根节点 → MindService
     // 接管本次指针序列；根节点/未命中节点落回下方通用路径（整图拖拽/框选）
-    if (top && top.type === 'MIND_MAP' && this.treeDragDelegate) {
+    if (top && isTreeWidgetType(top.type) && this.treeDragDelegate) {
       // 折叠徽标优先于节点拖拽（specs/tree-diagrams §8.4）：命中 → 建选区/节点
       // 焦点、执行展开、消费本次按下（不建拖拽会话）；未命中才走 startDrag。
       // 只读态指针分发整条丢弃（不会到达此处），徽标不可操作由该闸门保证
