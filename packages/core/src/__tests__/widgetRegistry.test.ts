@@ -17,11 +17,12 @@ import type { IRect } from '../common/geometry';
  * 任一侧加字段/加类型未同步即此处编译红/测红（防两套真相漂移）。
  */
 describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
-  it('注册表覆盖全部七类型', () => {
+  it('注册表覆盖全部八类型', () => {
     expect(Object.keys(WIDGET_REGISTRY).sort()).toEqual([
       'IMAGE',
       'LINE',
       'MIND_MAP',
+      'ORG_CHART',
       'PEN',
       'SHAPE',
       'STICKY',
@@ -50,17 +51,18 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     expect(TYPES_WHERE('erasable')).toEqual(['PEN']);
   });
 
-  it('family 字段单源（specs/tree-diagrams D1）：仅 MIND_MAP 属 tree', () => {
+  it('family 字段单源（specs/tree-diagrams D1）：仅树类型（MIND_MAP/ORG_CHART）属 tree', () => {
     for (const [type, entry] of Object.entries(WIDGET_REGISTRY)) {
       expect(['widget', 'tree']).toContain(entry.family);
-      expect(entry.family).toBe(type === 'MIND_MAP' ? 'tree' : 'widget');
+      expect(entry.family).toBe(['MIND_MAP', 'ORG_CHART'].includes(type) ? 'tree' : 'widget');
     }
     // 运行时判定与注册表一致
     expect(isTreeWidgetType('MIND_MAP')).toBe(true);
+    expect(isTreeWidgetType('ORG_CHART')).toBe(true);
     expect(isTreeWidgetType('SHAPE')).toBe(false);
     expect(isTreeWidgetType('UNKNOWN')).toBe(false);
     // 编译期派生：TreeWidgetType 当前就是 'MIND_MAP'
-    expectTypeOf<TreeWidgetType>().toEqualTypeOf<'MIND_MAP'>();
+    expectTypeOf<TreeWidgetType>().toEqualTypeOf<'MIND_MAP' | 'ORG_CHART'>();
   });
 
   it('能力位单源断言：IMAGE keepRatio / MIND_MAP 全 false（除 movable/selectable）', () => {

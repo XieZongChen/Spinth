@@ -2,7 +2,7 @@ import { Graphics, Point } from 'pixi.js';
 import { BaseWidgetVm } from '../../../base/baseWidgetVm';
 import { markRender } from '../../../common/render';
 import { rectContainsPoint, rectsIntersect, type IRect } from '../../../common/geometry';
-import type { IWidgetData, MindMapData } from '../../../types';
+import type { IWidgetData, MindMapData, OrgChartData } from '../../../types';
 import type { TreeOrientation } from '../../../types/tree';
 import { TreeNodeModel } from '../model/treeNodeModel';
 import { TreeNodeVm } from './treeNodeVm';
@@ -11,6 +11,7 @@ import type { ILayoutNode, ILayoutResult } from '../layout/types';
 import type { TreeMapModel } from '../model/treeMapModel';
 import type { ITreeKind } from '../registry';
 import { mindKind } from '../kinds/mind';
+import { orgKind } from '../kinds/org';
 
 /**
  * 树形图整图视图基类（docs/11 §4，2026-09 编排决策；specs/tree-diagrams §3.2）：
@@ -330,5 +331,12 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
 export class MindMapVm extends TreeMapVm<MindMapData & IRect> {
   constructor() {
     super(mindKind);
+  }
+}
+
+/** ORG_CHART 薄子类：注入 org kind */
+export class OrgChartVm extends TreeMapVm<OrgChartData & IRect> {
+  constructor() {
+    super(orgKind);
   }
 }

@@ -10,7 +10,11 @@
 
 import type { TreeWidgetType } from '../../types';
 import type { TreeOrientation } from '../../types/tree';
+import type { TreeMapModel } from './model/treeMapModel';
+import type { TreeMapVm } from './vm/treeMapVm';
+import type { IDropTarget } from './drop/types';
 import { mindKind } from './kinds/mind';
+import { orgKind } from './kinds/org';
 import type { ILayoutNode, ILayoutResult } from './layout/types';
 import type { ConnectorCmd, ITreeEdge } from './connector/types';
 import type { INavNode } from './nav/types';
@@ -53,6 +57,13 @@ export interface ITreeStyle {
   presentation(node: { text: string; lineColor?: string }, depth: number): ITreeNodePresentation;
 }
 
+/** 落点策略（specs §8.3）：areas 是策略私有形状（mind = DropArea 集、
+ *  org = 可见节点集），buildAreas/hitTest 成对使用——骨架只透传 */
+export interface ITreeDrop {
+  buildAreas(model: TreeMapModel, vm: TreeMapVm, excludeId: string): unknown;
+  hitTest(vm: TreeMapVm, areas: unknown, world: { x: number; y: number }): IDropTarget | null;
+}
+
 /** 种类配置：语义差异的全部来源（布局/连线/导航/落点/样式/文案） */
 export interface ITreeKind {
   readonly type: TreeWidgetType;
@@ -70,11 +81,13 @@ export interface ITreeKind {
   layout(o: TreeOrientation): ITreeLayout;
   connector(o: TreeOrientation): ITreeConnector;
   nav(o: TreeOrientation): ITreeNav;
+  drop(o: TreeOrientation): ITreeDrop;
 }
 
 /** type → kind 单源（family 'tree' 的类型集由 WIDGET_REGISTRY 派生锁定） */
 export const TREE_KINDS = {
   MIND_MAP: mindKind,
+  ORG_CHART: orgKind,
 } as const satisfies Record<TreeWidgetType, ITreeKind>;
 
 type AssertNever<T extends never> = T;

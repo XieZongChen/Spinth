@@ -26,6 +26,9 @@ import {
   ROOT_CP_RATIO,
 } from '../connector/mind';
 import { mindNavigate, mindNavigateVertical } from '../nav/mind';
+import { buildTreeDropAreas, hitTreeDropAreas } from '../drop/mind';
+import type { TreeMapModel } from '../model/treeMapModel';
+import type { TreeMapVm } from '../vm/treeMapVm';
 import { MIND_ROOT_LABEL, mindPresentation, type ITreeNodePresentation } from './mind/style';
 
 export {
@@ -117,6 +120,27 @@ const mindStyle: ITreeStyle = {
   },
 };
 
+/** mind 落点策略：DropArea 三层热区（横/竖轴经 vm.orientation 自动分派） */
+class MindDrop {
+  buildAreas = (model: TreeMapModel, vm: TreeMapVm, excludeId: string) =>
+    buildTreeDropAreas(model, vm, excludeId, (n) => nodeDirectionOf(vm, n));
+  hitTest = (vm: TreeMapVm, areas: unknown, world: { x: number; y: number }) =>
+    hitTreeDropAreas(vm, areas as Parameters<typeof hitTreeDropAreas>[1], world);
+}
+
+/** 节点侧向判定（nodeDirection 需要 Model 树回溯——经 vm 取同树模型） */
+function nodeDirectionOf(vm: TreeMapVm, node: unknown): 'left' | 'right' {
+  const m = node as { getParent(): unknown; toJSON(): { direction?: 'left' | 'right' } };
+  let n: unknown = m;
+  while (n) {
+    const cur = n as { getParent(): unknown; toJSON(): { direction?: 'left' | 'right' } };
+    const d = cur.toJSON().direction;
+    if (d === 'left' || d === 'right') return d;
+    n = cur.getParent();
+  }
+  return 'right';
+}
+
 export const mindKind: ITreeKind = {
   type: 'MIND_MAP',
   defaultOrientation: 'horizontal',
@@ -136,6 +160,7 @@ export const mindKind: ITreeKind = {
   nav(o: TreeOrientation): ITreeNav {
     return o === 'vertical' ? new MindVerticalNav() : new MindHorizontalNav();
   },
+  drop: () => new MindDrop(),
 };
 
 /** 排列方向选项（specs §10.2：只给 ActionBar——排列是图属性不进工具菜单） */

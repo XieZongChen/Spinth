@@ -28,8 +28,8 @@ import { StickyModel } from './widgets/sticky/stickyModel';
 import { StickyVm } from './widgets/sticky/stickyVm';
 import { ImageModel } from './widgets/image/imageModel';
 import { ImageVm } from './widgets/image/imageVm';
-import { MindMapModel } from './widgets/tree/model/treeMapModel';
-import { MindMapVm } from './widgets/tree/vm/treeMapVm';
+import { MindMapModel, OrgChartModel } from './widgets/tree/model/treeMapModel';
+import { MindMapVm, OrgChartVm } from './widgets/tree/vm/treeMapVm';
 
 export const WIDGET_RUNTIME = {
   SHAPE: {
@@ -73,6 +73,12 @@ export const WIDGET_RUNTIME = {
     vmToken: token<IBaseWidgetVm>('MindMapVm'),
     createModel: (r: ServiceRegistry) => new MindMapModel(r.resolve(Tokens.DataProcessor)),
     createVm: () => new MindMapVm(),
+  },
+  ORG_CHART: {
+    modelToken: token<IBaseModel>('OrgChartModel'),
+    vmToken: token<IBaseWidgetVm>('OrgChartVm'),
+    createModel: (r: ServiceRegistry) => new OrgChartModel(r.resolve(Tokens.DataProcessor)),
+    createVm: () => new OrgChartVm(),
   },
 } as const satisfies Record<
   keyof typeof WIDGET_REGISTRY,

@@ -169,6 +169,19 @@ export const StickySchema = z.object({
 });
 export type StickyData = z.infer<typeof StickySchema>;
 
+/** 组织架构图（specs/tree-diagrams §5.4/§7.3，Phase 3）：与 MIND_MAP 同骨架
+ *  的 kind 实例——树数据/编辑/撤销/持久化复用，布局/连线/导航/落点/样式按
+ *  org 策略。orientation MVP 只写 top-down（left-right 为 Phase 4 扩宽） */
+export const OrgChartSchema = z.object({
+  id: z.string(),
+  type: z.literal('ORG_CHART'),
+  zOrder: z.string(),
+  /** 根节点 JSON 树（创建时输入；树结构由 TreeNodeModel 构建期校验，schema 放行） */
+  root: z.unknown().optional(),
+  orientation: z.enum(['top-down']).optional(),
+});
+export type OrgChartData = z.infer<typeof OrgChartSchema>;
+
 export const MindMapSchema = z.object({
   id: z.string(),
   type: z.literal('MIND_MAP'),
@@ -313,6 +326,22 @@ export const WIDGET_REGISTRY = {
     family: 'tree',
     schema: MindMapSchema,
     // 节点级选中走焦点体系，编组语义未定义（docs/18 §3.1）
+    capabilities: {
+      rotatable: false,
+      groupable: false,
+      resizable: false,
+      movable: true,
+      selectable: true,
+      keepRatio: false,
+      editable: false,
+      referenceable: false,
+      erasable: false,
+    },
+  },
+  ORG_CHART: {
+    family: 'tree',
+    schema: OrgChartSchema,
+    // 与 MIND_MAP 同（specs §9.1）：节点级选中走焦点体系
     capabilities: {
       rotatable: false,
       groupable: false,

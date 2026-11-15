@@ -2,13 +2,14 @@ import * as Y from 'yjs';
 import { z } from 'zod';
 import { BaseModel } from '../../../base/baseModel';
 import { WIDGET_REGISTRY, type IWidgetCapabilities, type IWidgetData } from '../../../types';
-import type { MindMapData } from '../../../types';
+import type { MindMapData, OrgChartData } from '../../../types';
 import type { IRect } from '../../../common/geometry';
 import type { DataProcessor } from '../../../platform/dataEngine/dataProcessor';
 import { TreeNodeModel } from './treeNodeModel';
 import { buildYTree, type ITreeNodeSpec } from './treeSpec';
 import type { ITreeKind } from '../registry';
 import { mindKind } from '../kinds/mind';
+import { orgKind } from '../kinds/org';
 
 export {
   buildYTree,
@@ -74,5 +75,12 @@ export class TreeMapModel<D extends IWidgetData = IWidgetData> extends BaseModel
 export class MindMapModel extends TreeMapModel<MindMapData & IRect> {
   constructor(processor: DataProcessor) {
     super(processor, mindKind);
+  }
+}
+
+/** ORG_CHART 薄子类：注入 org kind */
+export class OrgChartModel extends TreeMapModel<OrgChartData & IRect> {
+  constructor(processor: DataProcessor) {
+    super(processor, orgKind);
   }
 }

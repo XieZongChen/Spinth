@@ -60,6 +60,7 @@ export const DEFAULT_SHORTCUTS: IShortcutDef[] = [
   { id: 'tool.eraser.narrow', keys: '[', description: '橡皮减小' },
   { id: 'tool.sticky', keys: 's', description: '便签工具' },
   { id: 'tool.mind', keys: 'm', description: '脑图工具' },
+  { id: 'tool.org', keys: 'o', description: '组织架构图工具' },
   // 视图
   { id: 'view.zoomIn', keys: 'cmd+=', description: '放大', allowInReadonly: true },
   {
