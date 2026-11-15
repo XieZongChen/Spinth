@@ -93,7 +93,7 @@ SCREEN`，与 NODE_MARGIN 同量级取整）+ **锚定侧**段长 < 30 世界像
 （缩放兜底：放大后屏显超 30 仍拒，杜绝 <30 短段走 slideSegment 斜连分支
 ——原始「近形斜线」诉求不回归；自由端短段不受限）。锚定侧带外可拖路径均
 为正交拆段（长首/末段几字形、唯一段拆五点，锚点保持，E2E 正交锁断言）；
-自由端侧短段仍走斜连退化（slideSegment 两档）。
+自由端侧首/末段（非唯一段）短段仍走斜连退化；自由唯一段仍拆五点正交（slideSegment 两档）。
 
 实现：`segmentBodyGrabbable(anchored, pts, segIndex, grab, scale)` 以抓取点
 （胶囊路径用胶囊中点）距锚定端距离判定；胶囊/hover/抓取三处同源不变。

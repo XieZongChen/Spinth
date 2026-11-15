@@ -187,8 +187,8 @@ export const NEAR_SHAPE_GRAB_SCREEN = 30;
  *   杜绝 <30 短段走 slideSegment 斜连分支（用户最初抱怨的锚点斜线）。
  *   短段兜底只作用于锚定侧（自由端短段不受限——2026-11 三轮审查 P1 修正：
  *   首版无条件短段拒绝曾把自由悬空尾段一并禁掉）。
- * 锚定侧带外可拖路径均为正交拆段（长段几字形/唯一段拆五点）；自由端
- * 侧短段仍走斜连退化（slideSegment 两档）。
+ * 锚定侧带外可拖路径均为正交拆段（长段几字形/唯一段拆五点）；自由端侧
+ * 首/末段（非唯一段）短段仍走斜连退化，自由唯一段仍拆五点正交。
  */
 export function segmentBodyGrabbable(
   anchored: { start: boolean; end: boolean },
