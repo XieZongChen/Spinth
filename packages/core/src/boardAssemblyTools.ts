@@ -111,6 +111,7 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     mindAddChild: () => sdk.treeService?.addChild() ?? false,
     mindAddSibling: () => sdk.treeService?.addSibling() ?? false,
     mindNavigate: (key) => sdk.treeService?.navigate(key) ?? false,
+    treeToggleCollapse: () => sdk.treeService?.toggleCollapseFocused(),
   });
   sdk.keyboard.isBlocked = () => sdk.network?.editBlocked$.value ?? false;
   // UI 模态浮层快捷键闸门（specs/a11y-closeout §5.5/§13.5-1）：右键菜单或

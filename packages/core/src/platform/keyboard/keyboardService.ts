@@ -196,6 +196,10 @@ export class KeyboardService extends Disposable {
         case 'mind.addSibling':
           bind(def.keys, () => this.handlers.mindAddSibling());
           break;
+        case 'tree.toggleCollapse':
+        case 'tree.toggleCollapse2':
+          bind(def.keys, () => this.handlers.treeToggleCollapse());
+          break;
         case 'move.up':
         case 'move.down':
         case 'move.left':

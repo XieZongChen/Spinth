@@ -32,7 +32,14 @@ export interface IDebugSnapshotDeps {
   } | null;
   shapeTypeOptionIds: string[];
   treeService: {
-    nodesDebug: Array<{ id: string; text: string; worldRect: IRect }>;
+    nodesDebug: Array<{
+      id: string;
+      text: string;
+      worldRect: IRect;
+      collapsed: boolean;
+      visible: boolean;
+      hiddenCount: number;
+    }>;
     dropPreviewDebug: IRect | null;
     getFocusedState(): { nodeId: string; isRoot: boolean; worldRect: IRect } | null;
   } | null;

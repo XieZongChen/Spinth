@@ -28,9 +28,10 @@ describe('DEFAULT_SHORTCUTS cmd/ctrl 双注册结构', () => {
     const keys = new Set(DEFAULT_SHORTCUTS.map((d) => d.keys));
     const cmdEntries = DEFAULT_SHORTCUTS.filter((d) => d.keys.startsWith('cmd+'));
     const ctrlEntries = DEFAULT_SHORTCUTS.filter((d) => d.keys.startsWith('ctrl+'));
-    // 11 对 = 缩放 3 + 撤销重做 2 + 层级 4 + 编组解组 2（docs/18，2026-10-17）
-    expect(cmdEntries).toHaveLength(11);
-    expect(ctrlEntries).toHaveLength(11);
+    // 12 对 = 缩放 3 + 撤销重做 2 + 层级 4 + 编组解组 2 + 树折叠 1
+    // （specs/tree-diagrams §8.2；docs/18，2026-10-17）
+    expect(cmdEntries).toHaveLength(12);
+    expect(ctrlEntries).toHaveLength(12);
     for (const d of cmdEntries) {
       expect(keys.has(d.keys.replace('cmd+', 'ctrl+'))).toBe(true);
     }

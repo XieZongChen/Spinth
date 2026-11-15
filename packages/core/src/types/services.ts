@@ -196,6 +196,11 @@ export interface ITreeDragDelegate {
    *  按下即滚屏会把世界坐标推过阈值造成「没动鼠标却开始拖拽」） */
   readonly isDragMoved?: boolean;
   readonly isDragging: boolean;
+  /** 折叠徽标命中（specs/tree-diagrams §8.4）：selector 按下树节点、启动拖拽
+   *  会话**之前**先问——命中返回徽标节点 id，selector 走展开分支不建拖拽会话 */
+  hitToggle?(mapId: string, world: IPoint): string | null;
+  /** 点击徽标 = 展开该节点（selector 展开分支调用；先退出编辑会话再写） */
+  toggleCollapseAt?(mapId: string, nodeId: string): void;
 }
 
 export interface ISelectorService {

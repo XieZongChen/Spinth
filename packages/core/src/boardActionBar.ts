@@ -3,7 +3,7 @@
  * 逐字迁入（仅多选参与数改为回调注入）。不 import app.ts / boardCommands.ts：
  * 多选参与数 `() => number` 回调传入，避免为一行计数引入值环。
  */
-import type { IActionBarOption, IActionBarSchema } from './types';
+import type { IActionBarItem, IActionBarOption, IActionBarSchema } from './types';
 import type { IActionBarHost } from './boardHost';
 import { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
@@ -292,7 +292,20 @@ export function buildActionBarSchema(
       return { type: vm.type, items: [] };
     case 'MIND_MAP': {
       // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色——自身落盘
-      // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）
+      // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）。
+      // 折叠 toggle（specs/tree-diagrams §8.4）：根/节点焦点统一，有子才出现
+      const f = host.treeService?.getFocusedState();
+      const collapseItem: IActionBarItem[] = f?.hasChildren
+        ? [
+            {
+              id: 'treeCollapsed',
+              kind: 'toggle',
+              label: f.collapsed ? '展开子树' : '折叠子树',
+              icon: f.collapsed ? 'expand' : 'collapse',
+              value: f.collapsed,
+            },
+          ]
+        : [];
       if (host.treeService?.isNodeFocused()) {
         return {
           type: vm.type,
@@ -304,10 +317,11 @@ export function buildActionBarSchema(
               value: host.treeService.getFocusedLineColor() ?? '',
               options: swatches(BRANCH_COLORS),
             },
+            ...collapseItem,
           ],
         };
       }
-      return { type: vm.type, items: [] };
+      return { type: vm.type, items: collapseItem };
     }
     default:
       return { type: vm.type, items: [] };

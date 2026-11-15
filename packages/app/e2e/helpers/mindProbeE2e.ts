@@ -16,6 +16,10 @@ export interface Probe {
     id: string;
     text: string;
     worldRect: { x: number; y: number; width: number; height: number };
+    /** 折叠/可见态（specs/tree-diagrams §14.2；探针字段名保留只加字段） */
+    collapsed: boolean;
+    visible: boolean;
+    hiddenCount: number;
   }>;
   dropPreview: { x: number; y: number; width: number; height: number } | null;
   selectionFrame: { x: number; y: number; width: number; height: number } | null;

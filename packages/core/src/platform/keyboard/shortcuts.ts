@@ -39,6 +39,8 @@ export interface IShortcutHandlers {
   mindAddSibling(): boolean;
   /** 脑图方向键焦点导航；返回 true = 已被脑图消费（跳过 1px 微移） */
   mindNavigate(key: string): boolean;
+  /** 折叠/展开焦点子树（specs/tree-diagrams §8.2 Cmd/Ctrl+.；无焦点 no-op） */
+  treeToggleCollapse(): void;
   /** 编组（docs/18 §3.1）：≥2 全可组才建 */
   groupSelection(): void;
   /** 解组（docs/18 §3.2）：涉及组整组解 */
@@ -109,6 +111,12 @@ export const DEFAULT_SHORTCUTS: IShortcutDef[] = [
   // 脑图节点（docs/11 §8，选中 MIND_MAP 时生效）
   { id: 'mind.addChild', keys: 'tab', description: '建子节点' },
   { id: 'mind.addSibling', keys: 'enter', description: '建同级节点' },
+  { id: 'tree.toggleCollapse', keys: 'cmd+.', description: '折叠/展开焦点子树' },
+  {
+    id: 'tree.toggleCollapse2',
+    keys: 'ctrl+.',
+    description: '折叠/展开焦点子树（Ctrl，Linux/Windows）',
+  },
   // 微移（八向组合由 hotkeys-js 逗号分隔逐个绑定）
   // 脑图焦点存在时方向键先走 mind.navigate（键盘层在 handler 内分流，docs/11 §7）
   { id: 'move.up', keys: 'up', description: '上移 1px' },

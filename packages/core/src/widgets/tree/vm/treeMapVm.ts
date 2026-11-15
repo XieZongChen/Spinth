@@ -293,14 +293,16 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     return null;
   }
 
-  /** 节点徽标命中（局部坐标；点击折叠徽标 = 展开——selector 经 hitToggle 消费） */
+  /** 节点徽标命中（点击折叠徽标 = 展开——selector 经 hitToggle 消费）。
+   *  badgeRect 是节点容器局部坐标，需叠加节点 position（图容器局部）后比对 */
   hitBadge(p: Point): TreeNodeVm | null {
     const lx = p.x - this.root.x;
     const ly = p.y - this.root.y;
     for (const vm of this.nodeVms.values()) {
       if (vm.visible === false) continue;
       const b = vm.badgeRect;
-      if (b && rectContainsPoint(b, { x: lx, y: ly })) return vm;
+      if (b && rectContainsPoint({ ...b, x: b.x + vm.x, y: b.y + vm.y }, { x: lx, y: ly }))
+        return vm;
     }
     return null;
   }

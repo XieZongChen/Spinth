@@ -48,6 +48,8 @@ import {
   Type,
   Ungroup,
   Undo2,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Waypoints,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -71,7 +73,9 @@ export type IconName =
   | 'connector' // 连接线
   | 'pen' // 画笔
   | 'sticky' // 便签
-  | 'mindmap' // 脑图
+  | 'mindmap'
+  | 'collapse'
+  | 'expand' // 脑图
   | 'undo'
   | 'redo'
   | 'trash'
@@ -198,6 +202,8 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   eraser: Eraser,
   sticky: StickyNote,
   mindmap: Waypoints,
+  collapse: ChevronsDownUp,
+  expand: ChevronsUpDown,
   undo: Undo2,
   redo: Redo2,
   trash: Trash2,

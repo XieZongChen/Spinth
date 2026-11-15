@@ -10,6 +10,12 @@ import type { IBoardCommandHost } from './boardHost';
 export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string, unknown>): void {
   const ids = ctx.selector?.selected$.value ?? [];
   if (ids.length === 0 || !ctx.viewport?.editable$.value) return;
+  // 折叠 toggle（specs/tree-diagrams §8.4）：文档写走 TreeService，不进通用
+  // widget update（collapsed 是树内字段非 schema 字段；只读闸门沿用上方 editable）
+  if (typeof patch.treeCollapsed === 'boolean') {
+    ctx.treeService?.setCollapsedFocused(patch.treeCollapsed);
+    return;
+  }
   // 4.9：脑图节点级选中的样式写入分流（分支色走 TreeService 落节点，
   // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
   if (ids.length === 1 && typeof patch.lineColor === 'string' && patch.lineColor.startsWith('#')) {

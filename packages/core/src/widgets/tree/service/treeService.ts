@@ -43,13 +43,33 @@ export class TreeService extends Disposable {
     return this.toolCtl.ghostSuppressed$;
   }
 
-  /** dev 调试探针：焦点脑图的节点几何（世界 rect + 文案；E2E 断言节点/浮层相对位置用） */
-  get nodesDebug(): Array<{ id: string; text: string; worldRect: IRect }> {
+  /** dev 调试探针：焦点树的节点几何（世界 rect + 文案 + 折叠/可见态；
+   *  E2E 断言节点/浮层相对位置与折叠可见性用——specs/tree-diagrams §14.2） */
+  get nodesDebug(): Array<{
+    id: string;
+    text: string;
+    worldRect: IRect;
+    collapsed: boolean;
+    visible: boolean;
+    hiddenCount: number;
+  }> {
     const f = this.getFocused();
     if (!f) return [];
-    const out: Array<{ id: string; text: string; worldRect: IRect }> = [];
-    const walk = (n: TreeNodeModel): void => {
+    type Row = {
+      id: string;
+      text: string;
+      worldRect: IRect;
+      collapsed: boolean;
+      visible: boolean;
+      hiddenCount: number;
+    };
+    const out: Row[] = [];
+    // 后序统计隐藏后代数（与 TreeMapVm.toLayoutSpec 同式——O(n) 一次）
+    const size = (n: TreeNodeModel): number => 1 + n.children.reduce((a, c) => a + size(c), 0);
+    const walk = (n: TreeNodeModel, underCollapsed: boolean): void => {
       const r = f.vm.getNodeRect(n.id);
+      const collapsed = n.isCollapsed();
+      const hidden = collapsed ? n.children.reduce((a, c) => a + size(c), 0) : 0;
       if (r) {
         out.push({
           id: n.id,
@@ -60,11 +80,15 @@ export class TreeService extends Disposable {
             width: r.width,
             height: r.height,
           },
+          collapsed,
+          // Vm 对全部节点持位；探针的 visible = 布局可见（不在折叠子树内）
+          visible: !underCollapsed,
+          hiddenCount: hidden,
         });
       }
-      for (const c of n.children) walk(c);
+      for (const c of n.children) walk(c, underCollapsed || collapsed);
     };
-    walk(f.mapModel.root);
+    walk(f.mapModel.root, false);
     return out;
   }
 
@@ -253,12 +277,19 @@ export class TreeService extends Disposable {
   }
 
   /** 折叠徽标命中（selector 按下树节点时先于此询问，specs §8.4：命中则建
-   *  选中/焦点并展开，不建拖拽会话）。返回徽标节点 id 或 null；只读态不消费 */
+   *  选中/焦点并展开，不建拖拽会话）。返回徽标节点 id 或 null；只读态不消费
+   *  （只读下指针分发整条丢弃，不会到达此处） */
   hitToggle(mapId: string, world: { x: number; y: number }): string | null {
     const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
     if (!vm) return null;
     const hit = vm.hitBadge({ x: world.x, y: world.y } as never);
     return hit ? hit.model.id : null;
+  }
+
+  /** 点击徽标 = 展开该节点（ITreeDragDelegate 契约；编辑中的文本先落库） */
+  toggleCollapseAt(mapId: string, nodeId: string): void {
+    this.exitNodeEdit(true);
+    this.treeOps.setCollapsed(mapId, nodeId, false);
   }
 
   // ---- 方向键导航（docs/11 §7，规则来自 mindNav 纯函数） ----

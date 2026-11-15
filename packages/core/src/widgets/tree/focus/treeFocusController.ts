@@ -117,6 +117,9 @@ export class TreeFocusController extends Disposable {
     worldRect: IRect;
     slotLeft: number;
     slotRight: number;
+    /** 折叠态与子数（ActionBar treeCollapsed 的出现条件与当前值，specs §8.4） */
+    collapsed: boolean;
+    hasChildren: boolean;
   } | null {
     const f = this.getFocused();
     if (!f) return null;
@@ -144,6 +147,8 @@ export class TreeFocusController extends Disposable {
       worldRect,
       slotLeft,
       slotRight,
+      collapsed: node.isCollapsed(),
+      hasChildren: node.children.length > 0,
     };
   }
 
