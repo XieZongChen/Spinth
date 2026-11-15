@@ -245,9 +245,10 @@ F 中置中心正中。
 返工全量收口）：形状样式三字段（fill/borderColor/borderWidth——白底黑框一次配出、
 无填充两态、无填充态 ActionBar 如实显示）；20 型轮廓锚点单源
 （`getAnchorPoint` → `outlineAnchor`，反馈层指示器/外移快照/抓取热区/quick-add
-ghost 起点与落线起点同源，非矩形形状锚点贴轮廓）；同边多线错开
-（`(nodeId, join)` 两元组分組纯派生不落库，**同边自环整条豁免**——两端恒 0.5，
-U 形跨度由 routeSelfLoop 按目标展开不被错开压窄）；ELBOWED 全局避障 + 紧凑自环 +
+ghost 起点与落线起点同源，非矩形形状锚点贴轮廓）；同边多线默认单点
+（2026-11-15 B：自动错开取消，同边线共享 0.5 中点引出、允许重叠；需要分开时
+手动拖端点写显式 port；同边自环两端恒 0.5，U 形跨度由 routeSelfLoop 按目标
+展开，多自环嵌套跨度保留）；ELBOWED 全局避障 + 紧凑自环 +
 拐点手柄（微移 <4px 线身/文字回提交态，三类手势同款）+ 悬空线一键清理；网格吸附
 开关（四处落库量化：拖拽/缩放/创建含便签/自由线端点，参考线含等间距先于网格；
 视图偏好 localStorage、销毁入 disposeBoard 序列）；ActionBar 窄屏 flex-wrap
@@ -262,8 +263,8 @@ E2E flowchart 15 例 + 视觉 S1 场景（stadium/菱形/矩形 + 回边 + 三�
 交互三修已落地（specs/actionbar-popover-mutex / quick-add-respread /
 line-body-drag-near-shape）：ActionBar popover 开合单源互斥（openPopoverId
 上提 ActionBar、PopoverControl 受控，bar 内 pointerdown 统一收起）；quick-add
-点击落定与拉线同源触发全量重排（同边槽位创建即物化——删除目标形状后幸存线
-samePoints 零写、悬空线原位不扭）；连线近形禁拖（segmentBodyGrabbable
+点击落定与拉线同源触发全量重排（同边默认 0.5 单点，落定重排 samePoints
+零写；删除目标形状后悬空线原位不扭）；连线近形禁拖（segmentBodyGrabbable
 单源门控抓取/胶囊/hover 光标：近形带 = 距锚定端 30 屏显 px + 锚定侧段长
 <30 世界整段，锚定侧带外可拖均为正交拆段（自由端侧首/末段——非唯一段——
 短段走斜连退化，自由唯一段仍拆五点正交）、端点

@@ -1,5 +1,10 @@
 # quick-add 点击落定补全量重排（同边槽位即时物化）
 
+> **2026-11-15 口径变更（B）**：同边多线自动错开（0.4/0.6）已取消——所有
+> 同边线默认 0.5 中点引出（允许重叠；需要分开时手动拖端点写显式 port）。
+> 本文 §0-§2 的槽位物化叙事是首版历史；onSettled/单撤销/删除不扭仍有效。
+> 当前事实见 docs/08 §3 与 §4。
+
 ## 0. 结论摘要
 
 从同一图形沿同一方向 quick-add 两个流程节点后，删掉其中一个图形，原图形到被删
@@ -31,21 +36,21 @@
   与 create 两分支在 `line.update(...)` 之后、`history.stopCapturing()` 之前调
   `this.host.onSettled()`——同一捕获窗，仍是单撤销单元；
 - `lineService.ts` quick-add host 接线 `onSettled: () => anchorFollow.reattachAll()`；
-- 修复后链路：第二条同边 quick-add 线创建时即物化 0.4/0.6（samePoints 守卫下
-  单线场景零写）；删除目标形状时幸存线 samePoints 零写、悬空线按「解绑保持
-  原位」契约不动——两条线都不再扭曲。ghost 预览与落定结果的细微差（分槽后
-  起点挪动）与拉线工具行为一致，属设计语义。
+- B 后链路（当前事实）：同边两条 quick-add 线都在 0.5 中点，onSettled 的
+  reattachAll 对无位移线 samePoints 零写；删除目标形状时幸存线零写、悬空线
+  按「解绑保持原位」契约不动。`onSettled` 保留用于避障/自环全量重排与单撤销
+  捕获窗，不再承担槽位物化。
 - docs/08 §3 重排触发清单补「quick-add 点击落定」。
 
 ## 3. 测试
 
 - 单测 `quickAddSettle.test.ts`（3 例）：create 分支 onSettled 顺序
   （update → onSettled → stopCapturing，n=1 零重排写）；connect 分支同序且
-  重排时锚定已写入；真实 LineAnchorFollow 集成——两次同边 quick-add 后起点
-  分居 0.4/0.6（132/148），删除目标后幸存线零重排写、悬空线原位；
-- E2E `lineQuickAdd.spec.ts` 扇出用例追加：三线起点 y 互异（物化锁）+ 删除
-  第一目标后悬空线 points 原位、幸存线起点槽位不跳（B 中心可能被折线穿过，
-  选中 B 需扫内部点位）。
+  重排时锚定已写入；真实 LineAnchorFollow 集成——两次同边 quick-add 后两条
+  都在 0.5（140/140），删除目标后幸存线零重排写、悬空线原位；
+- E2E `lineQuickAdd.spec.ts` 扇出用例追加：三线起点 y 同为 A 中点（0.5 单点
+  口径）+ 删除第一目标后悬空线 points 原位、幸存线起点不跳（B 中心可能被折线
+  穿过，选中 B 需扫内部点位）。
 
 ## 4. 单撤销单元收口（2026-11 审查返工补）
 
@@ -63,12 +68,12 @@ rerouteLine 多写一次「spread 起点的怪路由」。修复：
 
 测试：`quickAddSettle.test.ts` 顺序断言改为「onSettled 同步、stopCapturing
 微任务收尾」；E2E 新用例「quick-add 单撤销单元」——第二次 quick-add（建线+
-建形+让位）Ctrl+Z 一步全等第一次后快照、redo 完整恢复。
+建形）Ctrl+Z 一步全等第一次后快照、redo 完整恢复。
 
 ## 5. 边界与挂账
 
-- 悬空线仍占槽（删除 vs 删线的不对称是既有设计：悬空线待一键清理）；清理
-  悬空线后组缩小、余线重均分，语义不变；
-- 槽位按线 id 字典序分配，quick-add 上下分支与槽位上下可能不一致导致两线
-  出边即交叉——与拉线工具同口径（E2E F-2 锁定 id 序），如需按落位方向定向
-  分槽属后续独立批次。
+- 同边多线默认共享 0.5 中点，允许重叠；需要分开时手动拖端点写显式 port
+  （B 后唯一分开方式）；
+- 悬空线待一键清理（删除 vs 删线的不对称是既有设计）；清理不改变其余线的
+  中点/显式 port 语义；
+- 首版按线 id 字典序分槽、上下分支可能交叉的挂账随 B 失效，保留在 git 历史。

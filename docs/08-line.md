@@ -21,7 +21,8 @@ const LineSchema = z.object({
   endNodeId: z.string().nullable().default(null),
   startJoin: z.enum(['top', 'right', 'bottom', 'left']).nullable().default(null),
   endJoin: z.enum(['top', 'right', 'bottom', 'left']).nullable().default(null),
-  // 沿边锚点参数（0~1，optional 零迁移）：显式 port 优先，缺省走同边错开分配
+  // 沿边锚点参数（0~1，optional 零迁移）：显式 port 优先；缺省 0.5 边中点
+  // （同边多线共享同点，需要分开时手动拖端点写显式 port）
   startPort: z.number().min(0).max(1).optional(),
   endPort: z.number().min(0).max(1).optional(),
   color: z.string().default('#4b5563'),
@@ -47,14 +48,12 @@ const LineSchema = z.object({
   于 bbox 边上）。`geom` 可显式传入权威几何：几何命令事务后急切 reattach 时
   vm root 尚未应用新帧，读 vm 会滞后一拍产生幻影撤销项。
 - 沿边参数 t 的取值序：显式 `startPort/endPort`（端点拖拽落定投影落库）>
-  同边多线错开分配 > 0.5。错开分配为纯派生不落库：同节点、同 join（同一
-  锚边，含出发与进入两向）的 n 条线端按 id 字典序分 `0.2 + 0.6×(i+1)/(n+1)`；
-  **同边自环整条豁免**（两端恒 0.5、不占槽——U 形跨度由 routeSelfLoop 的
-  `max(80, 边长×0.5)` 展开，不被 0.4/0.6 压窄）；**同边多自环嵌套**：n 条按
-  id 字典序赋跨度倍率 1..n，跨度与车道深度同比放大（内环嵌外环分层不重叠；
-  短边高倍钳顶后仍部分共线——挂账）；拉线落定 / quick-add 点击落定 / 端点
-  重锚定 / 删线 / 删节点余线均触发全量重排（加删线后仍均分），samePoints
-  守卫保证零位移线零写入。
+  0.5 边中点。**2026-11-15 产品拍板 B：同边多线不再自动错开**——同一锚边
+  （含出发与进入两向）的所有线默认从中点同点引出（允许重叠；需要分开时
+  手动拖端点写显式 port）。**同边多自环嵌套**：n 条按 id 字典序赋跨度倍率
+  1..n，跨度与车道深度同比放大（内环嵌外环分层不重叠；短边高倍钳顶后仍
+  部分共线——挂账）；拉线落定 / quick-add 点击落定 / 端点重锚定 / 删线 /
+  删节点余线均触发全量重排，samePoints 守卫保证零位移线零写入。
 - 悬停 widget：连接点判定取四向外移点最近侧（外移 24px 屏幕恒定）；锚点
   指示器圆点、外移点快照、抓取热区与 quick-add ghost 起点共用同一轮廓锚点
   集合（`lineGeometry.outlineAnchorsOf` → `getAnchorPoint`，与真实锚定同
