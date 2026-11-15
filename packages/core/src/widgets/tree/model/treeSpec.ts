@@ -32,6 +32,8 @@ function buildYNodeY(
     // 分支色：根的直接子节点按位分配；spec 自带（拖拽搬移）优先；深层不落盘走继承
     const lineColor = spec.lineColor ?? (depth === 1 ? branchColorAt(index) : undefined);
     if (lineColor) m.set('lineColor', lineColor);
+    // 折叠透传（搬移/复制保持折叠态；展开态缺省不落盘——老文档零迁移）
+    if (spec.collapsed) m.set('collapsed', true);
     for (const [i, c] of (spec.children ?? []).entries()) {
       children.push([buildYNodeY(processor, c, depth + 1, i)]);
     }
@@ -40,13 +42,14 @@ function buildYNodeY(
   return m;
 }
 
-/** Y 树 → JSON（复制/模板用；拖拽 move 的序列化搬移同源）。lineColor 透传——搬移子树不丢色 */
+/** Y 树 → JSON（复制/模板用；拖拽 move 的序列化搬移同源）。lineColor/collapsed 透传——搬移子树不丢态 */
 export function yTreeToSpec(yNode: Y.Map<unknown>): ITreeNodeSpec {
   const out: ITreeNodeSpec = { text: String(yNode.get('text') ?? '') };
   const dir = yNode.get('direction');
   if (dir === 'left' || dir === 'right') out.direction = dir;
   const lc = yNode.get('lineColor');
   if (typeof lc === 'string') out.lineColor = lc;
+  if (yNode.get('collapsed') === true) out.collapsed = true;
   const kids = (yNode.get('children') as Y.Array<Y.Map<unknown>> | undefined)?.toArray() ?? [];
   if (kids.length > 0) out.children = kids.map(yTreeToSpec);
   return out;
@@ -80,14 +83,17 @@ export function findTreeNode(root: TreeNodeModel, id: string | null): TreeNodeMo
 export const findMindNode = findTreeNode;
 
 /** 从 Model 树构建轻量导航树（parent 反向引用 + id 索引一次建好；TreeService
- *  私有辅助自 2026-10-06 批刀 1 收单源至此——节点操作与导航共用同一棵树） */
+ *  私有辅助自 2026-10-06 批刀 1 收单源至此——节点操作与导航共用同一棵树）。
+ *  折叠节点保留为叶子（specs/tree-diagrams §8.4：导航/删除落点不进隐藏子树）；
+ *  深度遍历在折叠处剪枝——隐藏后代不进 byId，天然不成为任何落点 */
 export function buildNavTree(root: TreeNodeModel): { root: INavNode; byId: Map<string, INavNode> } {
   const byId = new Map<string, INavNode>();
   const build = (n: TreeNodeModel, parent: INavNode | null): INavNode => {
     const dir = n.toJSON().direction;
     const node: INavNode = { id: n.id, direction: dir, parent, children: [] };
     byId.set(n.id, node);
-    node.children = n.children.map((c) => build(c, node));
+    const kids = n.isCollapsed() ? [] : n.children;
+    node.children = kids.map((c) => build(c, node));
     return node;
   };
   return { root: build(root, null), byId };

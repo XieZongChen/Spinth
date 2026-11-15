@@ -17,6 +17,8 @@ export interface IMindNodeJson {
   direction?: 'left' | 'right';
   /** 缺省沿父链继承（getLineColor） */
   lineColor?: string;
+  /** 折叠（specs/tree-diagrams §4.5）：缺省 = 展开 */
+  collapsed?: boolean;
 }
 
 export type MindNodeDelta =
@@ -67,7 +69,13 @@ export class TreeNodeModel {
     if (dir === 'left' || dir === 'right') out.direction = dir;
     const color = this.yNode.get('lineColor');
     if (typeof color === 'string') out.lineColor = color;
+    if (this.yNode.get('collapsed') === true) out.collapsed = true;
     return out;
+  }
+
+  /** 折叠态（缺省 = 展开；写经 TreeOps.setCollapsed 统一事务） */
+  isCollapsed(): boolean {
+    return this.yNode.get('collapsed') === true;
   }
 
   setText(text: string): void {

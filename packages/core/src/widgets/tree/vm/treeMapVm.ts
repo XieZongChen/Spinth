@@ -136,8 +136,15 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     this.lastLayout = layout;
     for (const [id, vm] of this.nodeVms) {
       const p = layout.positions.get(id);
-      if (p) vm.position.set(p.x, p.y);
+      if (p) {
+        vm.visible = true;
+        vm.position.set(p.x, p.y);
+      } else {
+        // 折叠隐藏后代：Vm 保留（增量同步简单）但不渲染不命中（specs §8.4）
+        vm.visible = false;
+      }
     }
+    this.syncBadges(spec);
     drawTreeConnectors(this.drawer, this.kind, this.orientation, model.root, layout, this.nodeVms);
     markRender();
     // 布局是派生视觉、不产生 Yjs 状态变更——但选区框/ActionBar/AddButtons 都按
@@ -165,23 +172,55 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     this.onStateChanged$.next({ diff, local: true });
   }
 
-  /** TreeNodeModel 树 → 布局输入（含各节点测量尺寸——纯函数层零 PIXI 依赖） */
-  private toLayoutSpec(node: TreeNodeModel): ILayoutNode {
+  /** TreeNodeModel 树 → 可见布局输入（含各节点测量尺寸——纯函数层零 PIXI 依赖）。
+   *  折叠节点的 children 剔除（specs §5.1 输入可见树）；hiddenCount 后序统计
+   *  一次完成（禁止每节点 O(子树) 重算）——徽标显示隐藏后代数 */
+  private toLayoutSpec(node: TreeNodeModel): ILayoutNode & { hiddenCount: number } {
     const vm = this.nodeVms.get(node.id);
     const json = node.toJSON();
+    const collapsed = json.collapsed === true;
+    const childSpecs = collapsed ? [] : node.children.map((c) => this.toLayoutSpec(c));
+    const hiddenCount = collapsed
+      ? node.children.reduce((acc, c) => acc + 1 + this.subtreeSize(c), 0)
+      : childSpecs.reduce((acc, c) => acc + c.hiddenCount, 0);
     return {
       id: node.id,
       width: vm?.nodeWidth ?? 60,
       height: vm?.nodeHeight ?? 24,
       direction: json.direction,
-      children: node.children.map((c) => this.toLayoutSpec(c)),
+      children: childSpecs,
+      hiddenCount,
     };
+  }
+
+  private subtreeSize(node: TreeNodeModel): number {
+    return 1 + node.children.reduce((acc, c) => acc + this.subtreeSize(c), 0);
+  }
+
+  /** 徽标同步：折叠节点（hiddenCount>0）显示 +N，锚在朝子侧边中点（根恒右下角）。
+   *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n) */
+  private syncBadges(spec: ILayoutNode & { hiddenCount: number }): void {
+    const info = new Map<string, { side: 'left' | 'right'; hiddenCount: number }>();
+    const walk = (n: ILayoutNode & { hiddenCount: number }, side: 'left' | 'right'): void => {
+      const s = n.direction ?? side;
+      info.set(n.id, { side: s, hiddenCount: n.hiddenCount });
+      for (const c of (n.children ?? []) as Array<ILayoutNode & { hiddenCount: number }>) {
+        walk(c, s);
+      }
+    };
+    walk(spec, 'right');
+    for (const [id, vm] of this.nodeVms) {
+      const st = info.get(id);
+      if (!st || st.hiddenCount <= 0 || id === spec.id) vm.setBadge(null, 'right');
+      else vm.setBadge(st.hiddenCount, st.side);
+    }
   }
 
   override hitTestPoint(p: Point): boolean {
     const lx = p.x - this.root.x;
     const ly = p.y - this.root.y;
     for (const vm of this.nodeVms.values()) {
+      if (vm.visible === false) continue; // 折叠隐藏后代不参与命中（specs §8.4）
       if (rectContainsPoint(vm.rect, { x: lx, y: ly })) return true;
     }
     return false;
@@ -248,7 +287,20 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     const lx = p.x - this.root.x;
     const ly = p.y - this.root.y;
     for (const vm of this.nodeVms.values()) {
+      if (vm.visible === false) continue; // 折叠隐藏后代不参与命中（specs §8.4）
       if (rectContainsPoint(vm.rect, { x: lx, y: ly })) return vm;
+    }
+    return null;
+  }
+
+  /** 节点徽标命中（局部坐标；点击折叠徽标 = 展开——selector 经 hitToggle 消费） */
+  hitBadge(p: Point): TreeNodeVm | null {
+    const lx = p.x - this.root.x;
+    const ly = p.y - this.root.y;
+    for (const vm of this.nodeVms.values()) {
+      if (vm.visible === false) continue;
+      const b = vm.badgeRect;
+      if (b && rectContainsPoint(b, { x: lx, y: ly })) return vm;
     }
     return null;
   }

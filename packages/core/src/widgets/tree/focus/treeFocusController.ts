@@ -8,6 +8,7 @@ import type {
   IViewportService,
   IVmEngineService,
 } from '../../../types';
+import { isTreeWidgetType } from '../../../types';
 import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeNodeModel } from './../model/treeNodeModel';
 import type { TreeMapModel } from './../model/treeMapModel';
@@ -55,11 +56,11 @@ export class TreeFocusController extends Disposable {
     super();
   }
 
-  /** 获取当前焦点脑图 Vm + 节点 Model */
+  /** 获取当前焦点树图 Vm + 节点 Model */
   getFocused(): { vm: TreeMapVm; mapModel: TreeMapModel; node: TreeNodeModel } | null {
     const mapId = this.selector.selected$.value.find((id) => {
       const vm = this.vmEngine.getVmById(id);
-      return vm?.type === 'MIND_MAP';
+      return vm ? isTreeWidgetType(vm.type) : false;
     });
     if (!mapId) return null;
     const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
@@ -69,6 +70,16 @@ export class TreeFocusController extends Disposable {
     if (!node) {
       this.focusedNodeId = null; // 自愈：焦点指向已删除节点（如 undo）时清空
       return null;
+    }
+    // 自愈：焦点在折叠隐藏的后代（undo/远端折叠）→ 移到最近的折叠祖先
+    // （specs §8.4——单点收口，不等调用方各自处理）
+    let anc = node.getParent();
+    while (anc) {
+      if (anc.isCollapsed()) {
+        this.focusedNodeId = anc.id;
+        return { vm, mapModel: model, node: anc };
+      }
+      anc = anc.getParent();
     }
     return { vm, mapModel: model, node };
   }
@@ -232,10 +243,13 @@ export class TreeFocusController extends Disposable {
     }
     const firstHit = (n: TreeNodeModel): string | null => {
       for (const c of n.children) {
+        // 折叠隐藏后代不参与框选命中（specs §8.4）
         const r = worldRect(c.id);
         if (r && intersects(r)) return c.id;
-        const deep = firstHit(c);
-        if (deep) return deep;
+        if (!c.isCollapsed()) {
+          const deep = firstHit(c);
+          if (deep) return deep;
+        }
       }
       return null;
     };

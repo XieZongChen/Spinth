@@ -44,6 +44,24 @@ export function buildTreeDropAreas(
   const dragNode = excludeId ? findMindNode(model.root, excludeId) : null;
   if (dragNode) collect(dragNode);
 
+  // 折叠隐藏后代集（specs §8.4：不参与命中；折叠节点本身保留为目标——
+  // 落下自动展开，specs §8.3）
+  const hidden = new Set<string>();
+  const collectHidden = (n: TreeNodeModel): void => {
+    for (const c of n.children) {
+      hidden.add(c.id);
+      collectHidden(c);
+    }
+  };
+  const scanHidden = (n: TreeNodeModel): void => {
+    if (n.isCollapsed()) {
+      collectHidden(n);
+      return;
+    }
+    for (const c of n.children) scanHidden(c);
+  };
+  scanHidden(model.root);
+
   const rootAreas: DropArea[] = [];
   // 根的左右半区热区（既有设计 mindRootVm.buildDrop：左右半宽各一区，current → 该侧首/末位）
   const root = model.root;
@@ -57,7 +75,7 @@ export function buildTreeDropAreas(
       },
     ];
     for (const half of halves) {
-      const side = sideChildren(root, half.direction, excluded, nodeDirection);
+      const side = sideChildren(root, half.direction, excluded, hidden, nodeDirection);
       rootAreas.push(
         new DropArea({
           originRect: half.origin,
@@ -85,11 +103,12 @@ export function buildTreeDropAreas(
 
   const nodeAreas: DropArea[] = [];
   const walk = (node: TreeNodeModel): void => {
-    if (excluded.has(node.id)) return;
+    if (excluded.has(node.id) || hidden.has(node.id)) return;
     if (node !== model.root) {
-      const area = buildNodeArea(vm, node, nodeDirection, excluded);
+      const area = buildNodeArea(vm, node, nodeDirection, excluded, hidden);
       if (area) nodeAreas.push(area);
     }
+    if (node.isCollapsed()) return; // 隐藏子树不建热区
     for (const c of node.children) walk(c);
   };
   walk(model.root);
@@ -122,13 +141,14 @@ function buildNodeArea(
   node: TreeNodeModel,
   nodeDirection: NodeDirectionOf,
   excluded: Set<string>,
+  hidden: Set<string>,
 ): DropArea | null {
   const rect = vm.getNodeRect(node.id);
   if (!rect) return null;
   const parent = node.getParent();
   const selfIndex = parent ? parent.children.indexOf(node) : -1;
   const direction = nodeDirection(node);
-  const side = sideChildren(node, direction, excluded, nodeDirection);
+  const side = sideChildren(node, direction, excluded, hidden, nodeDirection);
   return new DropArea({
     originRect: rect,
     direction,
@@ -157,11 +177,13 @@ function sideChildren(
   node: TreeNodeModel,
   direction: 'left' | 'right',
   excluded: Set<string>,
+  hidden: Set<string>,
   nodeDirection: NodeDirectionOf,
 ): Array<{ node: TreeNodeModel; index: number }> {
   const out: Array<{ node: TreeNodeModel; index: number }> = [];
   node.children.forEach((c, index) => {
     if (excluded.has(c.id)) return;
+    if (hidden.has(c.id)) return; // 折叠隐藏后代不产子竖条
     if (nodeDirection(c) !== direction) return;
     out.push({ node: c, index });
   });

@@ -232,6 +232,35 @@ export class TreeService extends Disposable {
     this.treeOps.deleteFocused();
   }
 
+  // ---- 折叠（specs/tree-diagrams §4.5/§8.4；数据写在 TreeOps，一次切换一步撤销） ----
+
+  /** 焦点节点设折叠态（ActionBar treeCollapsed 写入口）。编辑态先退出会话
+   *  （commit 落库已输入文本）再写。返回 false = 无焦点/不可折叠（无子） */
+  setCollapsedFocused(next: boolean): boolean {
+    const f = this.getFocused();
+    if (!f || f.node.children.length === 0) return false;
+    this.exitNodeEdit(true);
+    this.treeOps.setCollapsed(f.mapModel.id, f.node.id, next);
+    this.emitFocus();
+    return true;
+  }
+
+  /** 焦点节点折叠/展开切换（快捷键 Cmd/Ctrl+. 入口） */
+  toggleCollapseFocused(): boolean {
+    const f = this.getFocused();
+    if (!f) return false;
+    return this.setCollapsedFocused(!f.node.isCollapsed());
+  }
+
+  /** 折叠徽标命中（selector 按下树节点时先于此询问，specs §8.4：命中则建
+   *  选中/焦点并展开，不建拖拽会话）。返回徽标节点 id 或 null；只读态不消费 */
+  hitToggle(mapId: string, world: { x: number; y: number }): string | null {
+    const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
+    if (!vm) return null;
+    const hit = vm.hitBadge({ x: world.x, y: world.y } as never);
+    return hit ? hit.model.id : null;
+  }
+
   // ---- 方向键导航（docs/11 §7，规则来自 mindNav 纯函数） ----
 
   /**

@@ -20,6 +20,9 @@ export interface ITreeNodeSpec {
   /** 分支色（hex）。仅根的直接子节点由 buildYTree 按位分配；深层沿父链继承。
    *  序列化透传（yTreeToSpec）——拖拽搬移子树不丢色 */
   lineColor?: string;
+  /** 折叠（specs/tree-diagrams D5）：optional 无 default——缺省 = 展开；
+   *  入文档（刷新/导出/多标签一致），一次切换一步撤销 */
+  collapsed?: boolean;
   children?: ITreeNodeSpec[];
 }
 

@@ -84,7 +84,11 @@ export class TreeOps extends Disposable {
       ? nextBranchColor(this.usedBranchColors(mapModel), yChildren.length)
       : undefined;
     const yChild = buildYNode(dir, color, defaultNodeText(node.children.length));
-    yChildren.doc!.transact(() => yChildren.push([yChild]));
+    yChildren.doc!.transact(() => {
+      yChildren.push([yChild]);
+      // 折叠节点上建子：同一事务展开，新节点可见（仍一步撤销，specs §4.5）
+      if (node.isCollapsed()) node.yMap.set('collapsed', false);
+    });
     // 聚焦新子
     this.host.setFocusedNode(String(yChild.get('id')));
     this.history.stopCapturing();
@@ -171,6 +175,8 @@ export class TreeOps extends Disposable {
         this.removeNode(d.mapId, d.nodeId);
         const yNew = this.buildFromSpec(d.spec, target.direction, color);
         destChildren.insert(insertAt, [yNew]);
+        // 折叠节点作为 asChild 目标：同事务展开（specs §8.3），仍一步撤销
+        if (dest.isCollapsed()) dest.yMap.set('collapsed', false);
         newId = String(yNew.get('id'));
       });
     } else {
@@ -192,6 +198,26 @@ export class TreeOps extends Disposable {
     }
     this.history.stopCapturing();
     return newId;
+  }
+
+  /** 折叠/展开（specs/tree-diagrams §4.5，D5 入文档）：一次切换一步撤销。
+   *  no-op：节点不存在 / 无子节点（不写 collapsed:true，避免空徽标）/ 同值。
+   *  折叠时焦点在隐藏后代 → 焦点移到被折叠节点（显式，不等 getFocused 自愈）。 */
+  setCollapsed(mapId: string, nodeId: string, next: boolean): void {
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
+    if (!model?.hasRoot()) return;
+    const node = findMindNode(model.root, nodeId);
+    if (!node || node.children.length === 0) return;
+    if (node.isCollapsed() === next) return;
+    node.yMap.doc!.transact(() => node.yMap.set('collapsed', next));
+    if (next) {
+      // 焦点在隐藏后代：移到折叠节点（沿父链判定，不做全树扫描）
+      const f = this.host.getFocused();
+      let n = f && f.mapModel === model ? f.node : null;
+      while (n && n !== node) n = n.getParent();
+      if (n === node && f && f.node !== node) this.host.setFocusedNode(node.id);
+    }
+    this.history.stopCapturing();
   }
 
   /** 一级分支落位取色：自身带色且同图 → 保留；否则取未占用色（既有设计 move Rule 1.1/1.2） */
@@ -240,6 +266,8 @@ export class TreeOps extends Disposable {
     const dir = direction ?? spec.direction;
     if (dir) m.set('direction', dir);
     if (lineColor) m.set('lineColor', lineColor);
+    // 折叠态透传（specs §4.6：搬移/复制保持折叠；展开态缺省不落盘）
+    if (spec.collapsed) m.set('collapsed', true);
     for (const c of spec.children ?? []) children.push([this.buildFromSpec(c, dir)]);
     m.set('children', children);
     return m;
