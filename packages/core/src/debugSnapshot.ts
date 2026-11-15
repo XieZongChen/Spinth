@@ -31,7 +31,7 @@ export interface IDebugSnapshotDeps {
     __spacingGaps: Array<{ axis: string; from: number; to: number; cross: number; value: number }>;
   } | null;
   shapeTypeOptionIds: string[];
-  mindService: {
+  treeService: {
     nodesDebug: Array<{ id: string; text: string; worldRect: IRect }>;
     dropPreviewDebug: IRect | null;
     getFocusedState(): { nodeId: string; isRoot: boolean; worldRect: IRect } | null;
@@ -95,8 +95,8 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
      *  check-debug-bundle 扫描本字面量在产物中为零） */
     lastRouteObstacles: d.lineService?.routeObstaclesProbe ?? null,
     lineKnockout: d.lineService?.lineKnockoutDebug ?? null,
-    mindNodes: d.mindService?.nodesDebug ?? [],
-    dropPreview: d.mindService?.dropPreviewDebug ?? null,
+    mindNodes: d.treeService?.nodesDebug ?? [],
+    dropPreview: d.treeService?.dropPreviewDebug ?? null,
     /** marks 渲染探针（docs/17 §4 刀 3）：首个 TEXT/STICKY 的渲染 span 清单
      *  （E2E 断言 bold/color 落位——与渲染同源 htmlToDoc） */
     textSpans: (() => {
@@ -106,9 +106,9 @@ export function buildDebugSnapshot(d: IDebugSnapshotDeps) {
       const text = tv ? String((tv.state as unknown as { text?: string }).text ?? '') : '';
       return htmlToDoc(text).flatMap((p: { spans: unknown }) => p.spans);
     })(),
-    mindFocus: d.mindService?.getFocusedState()
+    mindFocus: d.treeService?.getFocusedState()
       ? (() => {
-          const st = d.mindService!.getFocusedState()!;
+          const st = d.treeService!.getFocusedState()!;
           return { nodeId: st.nodeId, isRoot: st.isRoot, worldRect: st.worldRect };
         })()
       : null,

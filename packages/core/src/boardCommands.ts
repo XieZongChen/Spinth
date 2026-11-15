@@ -172,8 +172,8 @@ export class BoardCommands {
   removeSelected(): void {
     if (!this.assertEditable()) return;
     // 4.9：单选脑图且焦点为子节点 → 删节点（删根/整图仍走通用路径删整图）
-    if (this.ctx.mindService?.isNodeFocused()) {
-      this.ctx.mindService.deleteFocused();
+    if (this.ctx.treeService?.isNodeFocused()) {
+      this.ctx.treeService.deleteFocused();
       return;
     }
     this.ctx.selector?.removeSelected();
@@ -184,19 +184,19 @@ export class BoardCommands {
   /** 建子节点并聚焦；根下 direction 决定侧向（Tab 不传 = 默认右侧） */
   mindAddChild(direction?: 'left' | 'right'): void {
     if (!this.assertEditable()) return;
-    this.ctx.mindService?.addChild(direction);
+    this.ctx.treeService?.addChild(direction);
   }
 
   /** 建同级节点并聚焦 */
   mindAddSibling(): void {
     if (!this.assertEditable()) return;
-    this.ctx.mindService?.addSibling();
+    this.ctx.treeService?.addSibling();
   }
 
   /** 删焦点节点（根 = 删整图） */
   mindDeleteFocused(): void {
     if (!this.assertEditable()) return;
-    this.ctx.mindService?.deleteFocused();
+    this.ctx.treeService?.deleteFocused();
   }
 
   bringToFront(): void {

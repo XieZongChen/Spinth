@@ -66,7 +66,7 @@ export class EraserService extends Disposable {
         this.history.stopCapturing();
       },
     });
-    // Escape 中途取消（capture 相拦下，mindService onTypeToEdit 同款）：undo 一步
+    // Escape 中途取消（capture 相拦下，treeService onTypeToEdit 同款）：undo 一步
     // 回退本手势的切割（事务靠 captureTimeout 窗口合并）+ 复位手势 + 吃掉事件
     // ——阻断 edit.escape 把模式中途切 cursor（viewport 按当前模式查表派发，
     // 模式一换 eraser 的 onPointerUp 断流、stopCapturing 被跳过）。

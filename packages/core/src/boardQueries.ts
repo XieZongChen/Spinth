@@ -17,7 +17,7 @@ export function getSelectionBounds(host: IBoardQueryHost): IRect | null {
   if (ids.length === 1) {
     const vm = host.vmEngine?.getVmById(ids[0]!);
     if (vm?.type === 'MIND_MAP') {
-      const st = host.mindService?.getFocusedState();
+      const st = host.treeService?.getFocusedState();
       if (st) return st.worldRect;
     }
   }
@@ -43,10 +43,10 @@ export function toScreenPoint(
  * 拉取式（同 getActionBarSchema 模式）——bridge 在焦点/树/视口变化时重算。
  */
 export function getMindAddButtons(host: IBoardQueryHost): IMindAddButtonsState | null {
-  if (!host.mindService) return null;
-  if (host.mindService.isDragging) return null; // 拖拽重排中隐藏
+  if (!host.treeService) return null;
+  if (host.treeService.isDragging) return null; // 拖拽重排中隐藏
   if (host.viewport!.cursorMode$.value !== 'cursor') return null;
-  const f = host.mindService.getFocusedState();
+  const f = host.treeService.getFocusedState();
   if (!f) return null;
   const a = host.viewport!.toScreen({ x: f.worldRect.x, y: f.worldRect.y });
   const c = host.viewport!.toScreen({

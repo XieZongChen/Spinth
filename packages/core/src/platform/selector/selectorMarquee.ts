@@ -1,6 +1,6 @@
 import { Point, Rectangle } from 'pixi.js';
 import type { IPoint, IRect } from '../../common/geometry';
-import type { IMindDragDelegate, IVmEngineService } from '../../types';
+import type { ITreeDragDelegate, IVmEngineService } from '../../types';
 import { marqueeRectOf, type MarqueeState } from './selectorVm';
 import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
 import type { GroupService } from './groupService';
@@ -22,7 +22,7 @@ export interface IMarqueeContext {
   /** 选中集写入（过程即结果——拖框每帧 setSelected） */
   setSelected(ids: string[]): void;
   /** 脑图节点级框选委托（组合根晚绑定，惰性读取） */
-  mindDragDelegate(): IMindDragDelegate | null;
+  treeDragDelegate(): ITreeDragDelegate | null;
   /** 框选蓝框视觉 */
   selectorVm: { show(rect: IRect): void; update(rect: IRect): void; hide(): void };
 }
@@ -90,7 +90,7 @@ export class MarqueeSession {
     this.ctx.selectorVm.hide();
     for (const id of selectedIds) {
       const vm = this.ctx.vmEngine.getVmById(id);
-      if (vm?.type === 'MIND_MAP') this.ctx.mindDragDelegate()?.focusFromMarquee?.(rect, id);
+      if (vm?.type === 'MIND_MAP') this.ctx.treeDragDelegate()?.focusFromMarquee?.(rect, id);
     }
   }
 

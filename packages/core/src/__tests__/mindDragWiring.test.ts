@@ -1,7 +1,7 @@
 import { BehaviorSubject, Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectorService } from '../platform/selector/selectorService';
-import type { IMindDragDelegate } from '../types';
+import type { ITreeDragDelegate } from '../types';
 import type { RefLineService } from '../platform/refLine/refLineService';
 
 /**
@@ -29,7 +29,7 @@ function makeHarness(opts: { startDragOk: boolean } = { startDragOk: true }) {
     onSelected$: new BehaviorSubject(false),
   };
   let nodeSelectedFlag = false;
-  const delegate: IMindDragDelegate = {
+  const delegate: ITreeDragDelegate = {
     startDrag: vi.fn(
       (_mapId: string, nodeId: string) => opts.startDragOk && nodeId !== 'node-root',
     ),
@@ -74,7 +74,7 @@ function makeHarness(opts: { startDragOk: boolean } = { startDragOk: true }) {
         hideMatches: vi.fn(),
       }) as unknown as RefLineService,
   );
-  selector.mindDragDelegate = delegate;
+  selector.treeDragDelegate = delegate;
   selector.initialize();
 
   const evt = (x: number, y: number): unknown => ({
@@ -158,7 +158,7 @@ describe('节点级选中的整树框隐藏（4.9 视觉对齐既有设计）', 
       onStateChanged$: new (await import('rxjs')).Subject(),
       onSelected$: new BehaviorSubject(false),
     };
-    const delegate: IMindDragDelegate = {
+    const delegate: ITreeDragDelegate = {
       startDrag: vi.fn(() => true),
       dragMove: vi.fn(() => true),
       dragEnd: vi.fn(() => 'click' as const),
@@ -201,7 +201,7 @@ describe('节点级选中的整树框隐藏（4.9 视觉对齐既有设计）', 
           hideMatches: vi.fn(),
         }) as never,
     );
-    selector.mindDragDelegate = delegate;
+    selector.treeDragDelegate = delegate;
     selector.initialize();
     // layerChildren：[0] = SelectorVm（框选）的 graphics，[1] = SelectionVm（选区框）的 graphics
     const frame = layerChildren[1] as { visible: boolean };

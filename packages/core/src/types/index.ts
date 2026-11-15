@@ -8,6 +8,7 @@ export type {
   IDataEngineService,
   IVmEngineService,
   ISelectorService,
+  ITreeDragDelegate,
   IMindDragDelegate,
   IHistoryService,
   EditKernelKind,

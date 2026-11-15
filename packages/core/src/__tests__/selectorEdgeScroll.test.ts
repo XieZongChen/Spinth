@@ -92,7 +92,7 @@ function createHarness(opts: { mind?: boolean; marquee?: boolean } = {}) {
     () => null,
     edgeScroll,
   );
-  selector.mindDragDelegate = opts.mind || opts.marquee ? delegate : null;
+  selector.treeDragDelegate = opts.mind || opts.marquee ? delegate : null;
   selector.initialize();
 
   const evt = (x: number, y: number): unknown => ({

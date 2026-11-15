@@ -25,7 +25,7 @@ function makeHost(opts: {
         vm && id === vm.id ? { toJSON: () => opts.data ?? {} } : undefined,
     },
     group: opts.groupState ? { getGroupActionState: () => opts.groupState } : undefined,
-    mindService: {
+    treeService: {
       isNodeFocused: () => opts.mindNodeFocused ?? false,
       getFocusedLineColor: () => opts.focusedLineColor ?? null,
     },

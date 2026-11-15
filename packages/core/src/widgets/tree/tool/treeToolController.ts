@@ -14,7 +14,7 @@ import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
 import { MIND_ROOT_LABEL } from './../vm/treeNodeVm';
 
 /**
- * 脑图工具域协作者（自 mindService 拆出，2026-10-06 批刀 4）：docs/11 §8——
+ * 脑图工具域协作者（自 treeService 拆出，2026-10-06 批刀 4）：docs/11 §8——
  * mind 工具的建图交互（按下命中已有图 → 选中+聚焦；空白 → 在按下点建图）与
  * 幽灵抑制发布（指针悬停已有脑图时隐藏幽灵示意，视觉由 react 层 ToolGhost
  * 消费，core 只发布语义）。工具事件注册接线与 cursorMode$ 复位订阅留宿主；

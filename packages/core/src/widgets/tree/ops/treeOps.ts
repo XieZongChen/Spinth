@@ -9,7 +9,7 @@ import { rootInsertSide, focusAfterDelete } from './../nav/mind';
 import type { IDropTarget } from './../drop/dropArea';
 
 /**
- * 脑图树写 + 节点操作协作者（自 mindService 拆出，2026-10-06 批刀 1）：
+ * 脑图树写 + 节点操作协作者（自 treeService 拆出，2026-10-06 批刀 1）：
  * Yjs 树结构变更域——Tab/Enter/Delete 节点操作（addChild/addSibling/deleteFocused）、
  * 拖拽松手落库（move 序列化重建 / removeNode / buildFromSpec）与一级分支取色。
  * 无自有状态（纯写编排，零订阅零监听）；焦点归属经 host 回调交还宿主。

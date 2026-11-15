@@ -7,7 +7,7 @@ import type {
   IDataEngineService,
   IEdgeAutoScrollService,
   IHistoryService,
-  IMindDragDelegate,
+  ITreeDragDelegate,
   IPointerEventInfo,
   ISelectorService,
   IViewportService,
@@ -36,7 +36,7 @@ export class SelectorService extends Disposable implements ISelectorService {
   /** 拖拽中的每帧通知：RectEditor 等跟随框订阅它实时重定位 */
   readonly dragMove$ = new Subject<void>();
   /** 脑图节点级拖拽代理（组合根晚绑定，避免 selector↔mind 构造环） */
-  mindDragDelegate: IMindDragDelegate | null = null;
+  treeDragDelegate: ITreeDragDelegate | null = null;
 
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入 gridSnap
    *  服务。缺省关——测试/未组装零行为差） */
@@ -50,9 +50,9 @@ export class SelectorService extends Disposable implements ISelectorService {
   /** 框选会话上下文（initialize 后构造） */
   private marqueeCtx!: IMarqueeContext;
   /** 脑图节点级拖拽进行中（委托 MindService，docs/11 §6） */
-  private mindDragging = false;
+  private treeDragging = false;
   /** 按下时该脑图是否已选中（松手未拖动 → 激活编辑的判据，同通用拖拽的 wasSelected） */
-  private mindDragWasSelected = false;
+  private treeDragWasSelected = false;
   /** 手柄/旋转手势抑制单击激活：生命周期 = 手势本身（rectEditor down 置位、
    *  手势终止单源清除）；本类只读判定——blur/多指/pointercancel 都不是手势
    *  终止，泄掉即松手误进编辑（edit 早退保留预览 scale，框与图形脱节）。 */
@@ -99,7 +99,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     this.marqueeCtx = {
       vmEngine: this.vmEngine,
       setSelected: (ids) => this.setSelected(ids),
-      mindDragDelegate: () => this.mindDragDelegate,
+      treeDragDelegate: () => this.treeDragDelegate,
       selectorVm: this.selectorVm,
     };
     this.addDisposable(this.selected$.subscribe(() => this.syncSelectionVm()));
@@ -183,7 +183,7 @@ export class SelectorService extends Disposable implements ISelectorService {
   lineGestureHook: ((world: IPoint) => boolean) | null = null;
 
   get isDragging(): boolean {
-    return this.dragState !== null || this.marquee !== null || this.mindDragging;
+    return this.dragState !== null || this.marquee !== null || this.treeDragging;
   }
 
   /** 元素拖拽预览中的 id（culling 复核用；框选/脑图拖拽不走 dragState，恒空） */
@@ -198,26 +198,26 @@ export class SelectorService extends Disposable implements ISelectorService {
     const top = hits[0];
     // 脑图节点级拖拽优先于整图拖拽（docs/11 §6）：按下在非根节点 → MindService
     // 接管本次指针序列；根节点/未命中节点落回下方通用路径（整图拖拽/框选）
-    if (top && top.type === 'MIND_MAP' && this.mindDragDelegate) {
+    if (top && top.type === 'MIND_MAP' && this.treeDragDelegate) {
       const node = (
         top as unknown as {
           hitNode(p: Point): { model: { id: string } } | null;
         }
       ).hitNode(e.world);
       // 按下时该脑图是否已在选区（松手未拖动 = 再点已选中 → 激活编辑，同通用路径）
-      this.mindDragWasSelected = this.selected$.value.includes(top.id);
-      if (node && this.mindDragDelegate.startDrag(top.id, node.model.id, e.world)) {
+      this.treeDragWasSelected = this.selected$.value.includes(top.id);
+      if (node && this.treeDragDelegate.startDrag(top.id, node.model.id, e.world)) {
         // 按下即建立节点级选中态（先于 setSelected：选区框同步时 isNodeSelected
         // 已可判定，整树框不闪现——松手 click 分支的焦点覆写同值幂等）
-        this.mindDragDelegate.focusNode?.(top.id, node.model.id);
+        this.treeDragDelegate.focusNode?.(top.id, node.model.id);
         this.setSelected([top.id]);
-        this.mindDragging = true;
+        this.treeDragging = true;
         return;
       }
       // 4.9 点根 = 整图选中 + 焦点重置根（selected$ 订阅对同图旧焦点不重置，
       // 此处精确通知——既有设计点根即选整图的语义）
       if (node) {
-        this.mindDragDelegate.focusRoot?.(top.id);
+        this.treeDragDelegate.focusRoot?.(top.id);
       }
     }
     if (top) {
@@ -259,12 +259,12 @@ export class SelectorService extends Disposable implements ISelectorService {
   }
 
   private onPointerMove(e: IPointerEventInfo): void {
-    if (this.mindDragging && this.mindDragDelegate) {
-      this.mindDragDelegate.dragMove(e.world);
+    if (this.treeDragging && this.treeDragDelegate) {
+      this.treeDragDelegate.dragMove(e.world);
       // 浮层（ActionBar/＋ 按钮）拖拽中隐藏：桥接层订阅 dragMove$（docs/12 §3）。
       // 脑图节点拖拽走独立通道，此前不发此流 → 拖拽中浮动栏压在节点上
       this.dragMove$.next();
-      this.edgeScroll?.update(e.screen, this.mindDragDelegate.isDragMoved ?? false);
+      this.edgeScroll?.update(e.screen, this.treeDragDelegate.isDragMoved ?? false);
       return;
     }
     if (this.dragState) {
@@ -288,9 +288,9 @@ export class SelectorService extends Disposable implements ISelectorService {
       this.marquee.cancel();
       this.marquee = null;
     }
-    if (this.mindDragging) {
-      this.mindDragDelegate?.dragCancel?.();
-      this.mindDragging = false;
+    if (this.treeDragging) {
+      this.treeDragDelegate?.dragCancel?.();
+      this.treeDragging = false;
     }
     this.syncSelectionVm();
     markRender();
@@ -300,9 +300,9 @@ export class SelectorService extends Disposable implements ISelectorService {
     // 手势抑制只读不消费：手势的 window up 稍后到达才由 rectEditor 清除
     const suppressClick = this.suppressClickActivation;
     this.edgeScroll?.stop();
-    if (this.mindDragging && this.mindDragDelegate) {
-      const result = this.mindDragDelegate.dragEnd(e.world);
-      this.mindDragging = false;
+    if (this.treeDragging && this.treeDragDelegate) {
+      const result = this.treeDragDelegate.dragEnd(e.world);
+      this.treeDragging = false;
       // 未拖动（单击）= 与通用路径同款激活语义：**再点已选中的脑图节点 → 进编辑**。
       // 此前这里直接 return：点子节点永远走不到下面的激活分支，只有根（startDrag
       // 对根返回 false、走通用路径）能进编辑（用户实测：子节点无法进入编辑态）
@@ -311,7 +311,7 @@ export class SelectorService extends Disposable implements ISelectorService {
         this.singleClickActivate &&
         !e.shiftKey &&
         !suppressClick && // 手势抑制同拦（与 dragState/final 分支统一；防御性——脑图无手柄）
-        this.mindDragWasSelected
+        this.treeDragWasSelected
       ) {
         const top = this.vmEngine.getVmByPoint(e.world)[0];
         if (top && this.selected$.value.includes(top.id))
@@ -369,7 +369,7 @@ export class SelectorService extends Disposable implements ISelectorService {
     // MIND_NODE 都是这个视觉（框整棵树是 spinth 早期形态；只给根画框则子节点
     // 看起来「没有选中态」）
     if (ids.length === 1) {
-      const focusFrame = this.mindDragDelegate?.getFocusFrame?.();
+      const focusFrame = this.treeDragDelegate?.getFocusFrame?.();
       if (focusFrame) {
         this.selectionVm.showBounds([focusFrame]);
         return;

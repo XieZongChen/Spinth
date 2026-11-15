@@ -108,9 +108,9 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     },
     nudge: (dx, dy, shift) => sdk.commands.nudgeSelected(dx, dy, shift),
     eraserSize: (delta) => sdk.eraserService?.adjustRadius(delta),
-    mindAddChild: () => sdk.mindService?.addChild() ?? false,
-    mindAddSibling: () => sdk.mindService?.addSibling() ?? false,
-    mindNavigate: (key) => sdk.mindService?.navigate(key) ?? false,
+    mindAddChild: () => sdk.treeService?.addChild() ?? false,
+    mindAddSibling: () => sdk.treeService?.addSibling() ?? false,
+    mindNavigate: (key) => sdk.treeService?.navigate(key) ?? false,
   });
   sdk.keyboard.isBlocked = () => sdk.network?.editBlocked$.value ?? false;
   // UI 模态浮层快捷键闸门（specs/a11y-closeout §5.5/§13.5-1）：右键菜单或
@@ -132,7 +132,7 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
   sdk.clipboard.initialize();
   sdk.clipboard.onPasteImage = (blob) => sdk.imageService?.pasteImage(blob);
   sdk.clipboard.onPastePlainText = (text) => sdk.textService?.pasteText(text);
-  sdk.mindService = new TreeService(
+  sdk.treeService = new TreeService(
     sdk.viewport!,
     sdk.engine!,
     sdk.vmEngine!,
@@ -140,13 +140,13 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.history!,
     sdk.editingService!,
   );
-  sdk.mindService.initialize();
+  sdk.treeService.initialize();
   // 脑图节点级拖拽接线（docs/11 §6）：cursor 指针序列按下在非根节点上时
   // 由 TreeService 接管——4.4 曾是零调用死代码， roadmap 标 ✅ 但用户拖不动
-  sdk.selector!.mindDragDelegate = sdk.mindService;
+  sdk.selector!.treeDragDelegate = sdk.treeService;
   // 脑图焦点变化（Tab 建子/方向键导航/点击）不改 selected$——选区框
   // 经此驱动重画到焦点节点（单层化后焦点框是节点唯一选中视觉）
-  sdk.mindService.focusChanged$.subscribe(() => sdk.selector?.refreshSelectionFrame());
+  sdk.treeService.focusChanged$.subscribe(() => sdk.selector?.refreshSelectionFrame());
 
   // awareness（docs/10 §3）：仅协同模式（wsProvider 存在）；本地模式零开销
   const wsProvider = sdk.engine!.wsProvider;
@@ -170,8 +170,8 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     );
     // 4.9 节点级选中上报：图 id 在 selectedWidgetIds（既有），节点 id 单独字段
     // （focusChanged$ 随 TreeService dispose complete，订阅随之终结）
-    sdk.mindService!.focusChanged$.subscribe(() => {
-      sdk.awareness!.setMindNodeId(sdk.mindService?.focusedNodeId ?? null);
+    sdk.treeService!.focusChanged$.subscribe(() => {
+      sdk.awareness!.setMindNodeId(sdk.treeService?.focusedNodeId ?? null);
     });
   }
 }

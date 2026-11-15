@@ -17,7 +17,7 @@ describe('BoardSDK 命令层守卫与 dispose 幂等', () => {
     w.history = { undo, redo: vi.fn() };
     w.selector = { removeSelected };
     w.layer = { apply };
-    w.mindService = { isNodeFocused: () => false };
+    w.treeService = { isNodeFocused: () => false };
     sdk.undo();
     sdk.redo();
     sdk.removeSelected();

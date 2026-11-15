@@ -18,7 +18,7 @@ import { HORIZONTAL_OFFSET_NODE, HORIZONTAL_OFFSET_ROOT } from './../layout/mind
 import type { TreeOps } from './../ops/treeOps';
 
 /**
- * 脑图拖拽重排协作者（自 mindService 拆出，2026-10-06 批刀 2）：docs/11 §6——
+ * 脑图拖拽重排协作者（自 treeService 拆出，2026-10-06 批刀 2）：docs/11 §6——
  * 节点拖起判定（单轴阈值）+ 拖影快照跟随（generateTexture）+ 全脑图 DropArea
  * 命中（会话级缓存）+ 落点预置块预览 + 松手三分支（moved/new-map/click）。
  * 拖拽会话状态（drag/dropAreaCache/dropPreview）归属本类；树写落库经兄弟直引

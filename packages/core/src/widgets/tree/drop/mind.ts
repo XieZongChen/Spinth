@@ -6,7 +6,7 @@ import { findMindNode } from './../model/treeMapModel';
 import type { IRect } from '../../../common/geometry';
 
 /**
- * 脑图拖拽落点命中（docs/11 §6，自 mindService 拆出的纯函数模块）：
+ * 脑图拖拽落点命中（docs/11 §6，自 treeService 拆出的纯函数模块）：
  * DropArea 装配与树级 hitTest 不依赖任何服务状态——输入 (model, vm, excludeId)，
  * 输出可复用的热区集。既有设计对应 mindController.hitTestDrop + mindNodeVm/
  * mindRootVm.hitTestDrop。

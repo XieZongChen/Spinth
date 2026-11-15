@@ -16,7 +16,7 @@ import { MIND_COLORS } from './../vm/treeNodeVm';
 import { focusFollowDelta } from './../nav/mind';
 
 /**
- * 脑图焦点域协作者（自 mindService 拆出，2026-10-06 批刀 3）：docs/11 §7——
+ * 脑图焦点域协作者（自 treeService 拆出，2026-10-06 批刀 3）：docs/11 §7——
  * 焦点状态机（focusedNodeId 瞬态不存 Yjs）+ 焦点广播（focusChanged$）+ 视窗安全区
  * 跟随 + 方向键导航编排 + selector 委托的节点级选中（focusNode/focusRoot/
  * focusFromMarquee/getFocusFrame）+ 焦点节点查询面（AddButtons/ActionBar 消费）。

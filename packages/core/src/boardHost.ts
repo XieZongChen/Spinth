@@ -68,7 +68,7 @@ export interface IBoardServices {
   penService: PenService | null;
   eraserService: EraserService | null;
   stickyService: StickyService | null;
-  mindService: TreeService | null;
+  treeService: TreeService | null;
   contextMenu: ContextMenuService | null;
   keyboard: KeyboardService | null;
   clipboard: ClipboardService | null;
@@ -99,7 +99,7 @@ export type IBoardStreamHost = Pick<
   | 'selector'
   | 'history'
   | 'contextMenu'
-  | 'mindService'
+  | 'treeService'
   | 'network'
   | 'storageStatus'
   | 'shapeService'
@@ -109,13 +109,13 @@ export type IBoardStreamHost = Pick<
 /** 拉取式查询宿主（getSelectionBounds/toScreenPoint/getMindAddButtons） */
 export type IBoardQueryHost = Pick<
   IBoardServices,
-  'viewport' | 'vmEngine' | 'selector' | 'mindService'
+  'viewport' | 'vmEngine' | 'selector' | 'treeService'
 >;
 
 /** ActionBar schema 宿主（多选分支读 group，单选分支读 vmEngine/engine） */
 export type IActionBarHost = Pick<
   IBoardServices,
-  'selector' | 'vmEngine' | 'engine' | 'group' | 'mindService'
+  'selector' | 'vmEngine' | 'engine' | 'group' | 'treeService'
 >;
 
 /** 销毁：服务字段 + 生命周期标志（顺序在 boardTeardown 内实现） */
@@ -145,7 +145,7 @@ export interface IBoardDebugHost extends Pick<
   | 'eraserService'
   | 'lineService'
   | 'refLine'
-  | 'mindService'
+  | 'treeService'
   | 'awareness'
   | 'imageTextures'
   | 'assetStore'

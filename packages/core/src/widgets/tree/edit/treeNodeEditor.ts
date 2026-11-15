@@ -13,7 +13,7 @@ import { findMindNode } from './../model/treeMapModel';
 import { MIND_NODE_STYLE, MIND_COLORS, MIND_ROOT_STYLE } from './../vm/treeNodeVm';
 
 /**
- * 脑图节点文本编辑协作者（docs/11 §8，自 mindService 拆出的协作者；
+ * 脑图节点文本编辑协作者（docs/11 §8，自 treeService 拆出的协作者；
  * 2026-10-06 编辑会话批 3 收编统一 EditingService plain 内核）：textarea
  * 生命周期/定位缩放/34ms 节流/blur 落库已在 PlainTextKernel，本类只声明
  * mind 节点的编辑事实——深度决定样式（IPlainEditorStyle）、树落库

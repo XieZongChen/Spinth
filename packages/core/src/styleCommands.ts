@@ -14,8 +14,8 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
   // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
   if (ids.length === 1 && typeof patch.lineColor === 'string' && patch.lineColor.startsWith('#')) {
     const vm = ctx.vmEngine?.getVmById(ids[0]!);
-    if (vm?.type === 'MIND_MAP' && ctx.mindService?.isNodeFocused()) {
-      ctx.mindService.setFocusedNodeColor(patch.lineColor);
+    if (vm?.type === 'MIND_MAP' && ctx.treeService?.isNodeFocused()) {
+      ctx.treeService.setFocusedNodeColor(patch.lineColor);
       return;
     }
   }

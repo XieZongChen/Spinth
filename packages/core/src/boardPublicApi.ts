@@ -116,7 +116,7 @@ export type BoardInternalMember =
   | 'assetStore'
   | 'imageTextures'
   | 'lastAssetMaintenance'
-  | 'mindService'
+  | 'treeService'
   | 'contextMenu'
   | 'keyboard'
   | 'clipboard'

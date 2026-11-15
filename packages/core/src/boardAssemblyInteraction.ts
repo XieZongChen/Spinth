@@ -107,7 +107,7 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.selector.onActivate = (id, type, world) => {
     if (type === 'TEXT' || type === 'STICKY' || type === 'SHAPE') sdk.textService?.enterEdit(id);
     // 脑图：再点一次已选中 → 按点击位置命中节点进节点编辑（既有设计同款）
-    else if (type === 'MIND_MAP' && world) sdk.mindService?.enterNodeEditAt(id, world);
+    else if (type === 'MIND_MAP' && world) sdk.treeService?.enterNodeEditAt(id, world);
   };
   sdk.lineService = new LineService(
     sdk.viewport!,

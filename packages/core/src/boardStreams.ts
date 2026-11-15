@@ -166,9 +166,9 @@ export class BoardOutputs {
 
   /** mind 幽灵抑制（指针悬停已有脑图）——ToolGhost 消费（2026-09-22 幽灵 DOM 化）。
    *  批 B 三分后组装在 boardComposition、bridge 订阅可能早于组装完成——
-   *  BehaviorSubject(false) 兜底（mindService 就绪后返回真值流） */
+   *  BehaviorSubject(false) 兜底（treeService 就绪后返回真值流） */
   get mindGhostSuppressed$(): import('rxjs').BehaviorSubject<boolean> {
-    if (this.host.mindService) return this.host.mindService.ghostSuppressed$;
+    if (this.host.treeService) return this.host.treeService.ghostSuppressed$;
     this.mindGhostFallback ??= new BehaviorSubject<boolean>(false);
     return this.mindGhostFallback;
   }
@@ -177,7 +177,7 @@ export class BoardOutputs {
   /** 脑图焦点节点变化（导航/建删/点击落点——AddButtons 重算触发器之一）。
    *  组装前兜底 dead Subject（批 B 同 mindGhostSuppressed） */
   get mindFocusChanged$(): Subject<void> {
-    if (this.host.mindService) return this.host.mindService.focusChanged$;
+    if (this.host.treeService) return this.host.treeService.focusChanged$;
     this.mindFocusFallback ??= new Subject<void>();
     return this.mindFocusFallback;
   }

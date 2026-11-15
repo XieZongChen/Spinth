@@ -169,8 +169,9 @@ export interface IVmEngineService {
   getVmsInRect(r: IRect): IBaseWidgetVm[];
 }
 
-/** 脑图节点级拖拽代理（docs/11 §6）：cursor 指针序列按下在非根节点上时由 MindService 接管 */
-export interface IMindDragDelegate {
+/** 树节点级拖拽代理（docs/11 §6，specs/tree-diagrams）：cursor 指针序列按下在
+ *  非根节点上时由 TreeService 接管——selector 经 family 'tree' 判定后委托 */
+export interface ITreeDragDelegate {
   startDrag(mapId: string, nodeId: string, world: IPoint): boolean;
   dragMove(world: IPoint): boolean;
   /** 'moved' 序列化搬移 / 'new-map' 拖出成新图 / 'click' 单击（焦点落节点，不搬移） / null 未构成序列 */
@@ -204,7 +205,7 @@ export interface ISelectorService {
   /** 拖拽移动中的每帧通知（跟随框订阅它实时重定位） */
   readonly dragMove$: Subject<void>;
   /** 脑图节点级拖拽代理（组合根晚绑定 MindService——避免 selector↔mind 构造环） */
-  mindDragDelegate: IMindDragDelegate | null;
+  treeDragDelegate: ITreeDragDelegate | null;
   /** 网格吸附开关读取（specs/flowchart-closeout §9.2；组合根注入 gridSnap 服务，
    *  缺省关——拖拽量化路径的 ISelectorDragContext.gridSnapOn 数据源） */
   gridSnapOn: () => boolean;
@@ -323,3 +324,6 @@ export interface IEditingService {
   /** 会话开始/结束广播（手柄守卫/选区框/awareness 跟随的重算触发器） */
   readonly session$: Subject<void>;
 }
+
+/** 1.0 公开导出别名（specs/tree-diagrams §11.2：重命名留别名到主版本） */
+export type IMindDragDelegate = ITreeDragDelegate;

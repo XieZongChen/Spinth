@@ -293,7 +293,7 @@ export function buildActionBarSchema(
     case 'MIND_MAP': {
       // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色——自身落盘
       // 整棵子树继承）；根/无焦点走通用（删除 = 删整图）
-      if (host.mindService?.isNodeFocused()) {
+      if (host.treeService?.isNodeFocused()) {
         return {
           type: vm.type,
           items: [
@@ -301,7 +301,7 @@ export function buildActionBarSchema(
               id: 'lineColor',
               kind: 'popover',
               label: '分支色',
-              value: host.mindService.getFocusedLineColor() ?? '',
+              value: host.treeService.getFocusedLineColor() ?? '',
               options: swatches(BRANCH_COLORS),
             },
           ],

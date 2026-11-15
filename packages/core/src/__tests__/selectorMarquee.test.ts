@@ -27,7 +27,7 @@ function createHarness(opts: { types?: Record<string, string>; groups?: unknown 
       getVmById: (id: string) => vmsOf(hits).find((v) => v.id === id),
     },
     setSelected,
-    mindDragDelegate: () => ({ focusFromMarquee }),
+    treeDragDelegate: () => ({ focusFromMarquee }),
     selectorVm,
   } as unknown as IMarqueeContext;
 

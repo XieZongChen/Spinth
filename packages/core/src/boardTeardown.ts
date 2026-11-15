@@ -33,7 +33,7 @@ export function disposeBoard(host: IBoardTeardownHost): void {
   host.eraserService?.dispose();
   host.stickyService?.dispose();
   host.imageService?.dispose();
-  host.mindService?.dispose();
+  host.treeService?.dispose();
   host.contextMenu?.dispose();
   host.edgeScroll?.dispose(); // 滚屏 rAF 先于其上报方 selector 停止
   host.selector?.dispose();

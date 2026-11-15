@@ -39,7 +39,7 @@ export function buildBoardDebugSnapshot(host: IBoardDebugHost) {
     lineService: host.lineService as unknown as Record<string, unknown> | null,
     refLine: host.refLine,
     shapeTypeOptionIds: SHAPE_TYPE_OPTIONS.map((o) => o.id),
-    mindService: host.mindService,
+    treeService: host.treeService,
     awareness: host.awareness,
     imageTextures: host.imageTextures,
     assetStore: host.assetStore,

@@ -106,7 +106,7 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   penService: PenService | null = null;
   eraserService: EraserService | null = null;
   stickyService: StickyService | null = null;
-  mindService: TreeService | null = null;
+  treeService: TreeService | null = null;
   contextMenu: ContextMenuService | null = null;
   keyboard: KeyboardService | null = null;
   clipboard: ClipboardService | null = null;
