@@ -38,6 +38,24 @@ export class DropArea {
 
   constructor(private readonly input: IDropAreaInput) {
     const o = input.originRect;
+    if (input.axis === 'x') {
+      // 竖向（specs §8.3 轴换 x）：本体左右扩 80、朝子侧（上/下）扩 120；
+      // current 全宽带；子零高横条（上树取子下边、下树取子上边）
+      const topPad = input.direction === 'left' ? DROP_AREA_HORIZONTAL_PADDING : 0;
+      const bottomPad = input.direction === 'left' ? 0 : DROP_AREA_HORIZONTAL_PADDING;
+      this.area = {
+        x: o.x - DROP_AREA_VERTICAL_PADDING,
+        y: o.y - topPad,
+        width: o.width + DROP_AREA_VERTICAL_PADDING * 2,
+        height: o.height + topPad + bottomPad,
+      };
+      this.current = { x: this.area.x, y: o.y, width: this.area.width, height: o.height };
+      for (const c of input.childRects) {
+        const y = input.direction === 'left' ? c.rect.y + c.rect.height : c.rect.y;
+        this.childStrips.push({ x: c.rect.x, y, width: c.rect.width, height: 0 });
+      }
+      return;
+    }
     const leftPad = input.direction === 'left' ? DROP_AREA_HORIZONTAL_PADDING : 0;
     const rightPad = input.direction === 'left' ? 0 : DROP_AREA_HORIZONTAL_PADDING;
     this.area = {
@@ -55,48 +73,55 @@ export class DropArea {
     }
   }
 
-  /** 命中测试（未命中返回 null = 空白） */
+  /** 命中测试（未命中返回 null = 空白）；主轴坐标 = axis==='x' ? point.x : point.y */
   hitTest(point: { x: number; y: number }): IDropHit | null {
     if (!contains(this.area, point)) return null;
 
-    const o = this.input.originRect;
+    const axis = this.input.axis === 'x' ? 'x' : 'y';
+    const cross = axis === 'x' ? point.x : point.y;
     // 2) current 带 → before/after（按 current 中线）
     if (contains(this.current, point)) {
-      const mid = this.current.y + this.current.height / 2;
-      const pos = point.y <= mid ? 'before' : 'after';
+      const mid =
+        axis === 'x'
+          ? this.current.x + this.current.width / 2
+          : this.current.y + this.current.height / 2;
+      const pos = cross <= mid ? 'before' : 'after';
       const target = this.input.currentTarget(pos);
-      return target ? { target, distance: rectDistanceY(o, point.y) } : null;
+      return target ? { target, distance: this.originDistance(cross) } : null;
     }
 
-    // 3) 子区分界（既有设计 hitTest：lastY 从扩区顶开始，逐子取中线分段）
-    const pos = this.childIndexAt(point.y);
+    // 3) 子区分界（既有设计 hitTest：lastPos 从扩区主轴起点开始，逐子取中线分段）
+    const pos = this.childIndexAt(cross, axis);
     const target = this.input.childTarget(pos);
     if (!target) return null;
-    return { target, distance: this.childDistance(pos, point.y, o) };
+    return { target, distance: this.childDistance(pos, cross, axis) };
   }
 
-  /** y 落在哪个插入下标（0..n）：分段边界 = 各子节点中线 */
-  private childIndexAt(y: number): number {
-    let lastY = this.area.y;
+  /** 主轴坐标落在哪个插入下标（0..n）：分段边界 = 各子节点中线 */
+  private childIndexAt(p: number, axis: 'x' | 'y'): number {
+    let last = axis === 'x' ? this.area.x : this.area.y;
     for (let i = 0; i < this.childStrips.length; i++) {
       const s = this.childStrips[i]!;
-      const mid = s.y + s.height / 2;
-      if (y >= lastY && y <= mid) return i;
-      lastY = mid;
+      const mid = axis === 'x' ? s.x + s.width / 2 : s.y + s.height / 2;
+      if (p >= last && p <= mid) return i;
+      last = mid;
     }
     return this.childStrips.length;
   }
 
-  /** 候选择优距离（既有设计 hitTestDrop 内 distance 分支） */
-  private childDistance(pos: number, y: number, origin: IRect): number {
-    if (this.childStrips.length === 0) return Math.abs(y - (origin.y + origin.height / 2));
-    if (pos === 0) return rectDistanceY(this.childStrips[0]!, y);
-    if (pos >= this.childStrips.length)
-      return rectDistanceY(this.childStrips[this.childStrips.length - 1]!, y);
-    return Math.min(
-      rectDistanceY(this.childStrips[pos - 1]!, y),
-      rectDistanceY(this.childStrips[pos]!, y),
-    );
+  /** 候选择优距离（既有设计 hitTestDrop 内 distance 分支；沿主轴） */
+  private childDistance(pos: number, p: number, axis: 'x' | 'y'): number {
+    if (this.childStrips.length === 0) return this.originDistance(p);
+    const d = (r: IRect): number => (axis === 'x' ? rectDistanceX(r, p) : rectDistanceY(r, p));
+    if (pos === 0) return d(this.childStrips[0]!);
+    if (pos >= this.childStrips.length) return d(this.childStrips[this.childStrips.length - 1]!);
+    return Math.min(d(this.childStrips[pos - 1]!), d(this.childStrips[pos]!));
+  }
+
+  /** 点到本体矩形的**主轴**距离（跨轴落在本体投影内为 0） */
+  private originDistance(p: number): number {
+    const o = this.input.originRect;
+    return this.input.axis === 'x' ? rectDistanceX(o, p) : rectDistanceY(o, p);
   }
 }
 
@@ -108,4 +133,10 @@ function contains(r: IRect, p: { x: number; y: number }): boolean {
 function rectDistanceY(r: IRect, y: number): number {
   if (y >= r.y && y <= r.y + r.height) return 0;
   return Math.min(Math.abs(y - r.y), Math.abs(y - r.y - r.height));
+}
+
+/** 点到矩形的横向距离（竖向主轴版；语义同 rectDistanceY 转置） */
+function rectDistanceX(r: IRect, x: number): number {
+  if (x >= r.x && x <= r.x + r.width) return 0;
+  return Math.min(Math.abs(x - r.x), Math.abs(x - r.x - r.width));
 }

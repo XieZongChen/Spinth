@@ -269,6 +269,11 @@ export class TreeService extends Disposable {
     return true;
   }
 
+  /** 切换选中树图排列（ActionBar treeOrientation 写入口；一步撤销零节点写） */
+  setOrientation(mapId: string, orientation: 'horizontal' | 'vertical'): void {
+    this.treeOps.setOrientation(mapId, orientation);
+  }
+
   /** 焦点节点折叠/展开切换（快捷键 Cmd/Ctrl+. 入口） */
   toggleCollapseFocused(): boolean {
     const f = this.getFocused();

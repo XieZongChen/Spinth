@@ -24,4 +24,8 @@ export interface IDropAreaInput {
   currentTarget: (pos: 'before' | 'after') => IDropTarget | null;
   /** 子区第 pos 位命中（0..children.length）→ 目标 */
   childTarget: (pos: number) => IDropTarget | null;
+  /** 主轴（兄弟堆叠轴，specs/tree-diagrams §8.3）：'y' = 横向脑图（默认——
+   *  本体上下扩 80/朝子侧 120、current 全高带、子零宽竖条）；
+   *  'x' = 竖向（左右扩 80/朝上或下 120、current 全宽带、子零高横条） */
+  axis?: 'x' | 'y';
 }

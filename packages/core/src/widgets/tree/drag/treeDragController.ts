@@ -257,17 +257,20 @@ export class TreeDragController extends Disposable {
       height: r.height,
     });
     const worldDest = toWorld(destRect);
-    // 预置块挂在被拖子树之外：invalidate 由调用方保证（此处直接算）
+    // 预置块挂在被拖子树之外：invalidate 由调用方保证（此处直接算）。
+    // 竖向预览与实物同向（specs §6.5）：axis 换 x、预连线走竖向分支
+    const vertical = vm.orientation === 'vertical';
     const block = fakeBlockRect({
       dest: worldDest,
       before: beforeNode ? toWorld(vm.getNodeRect(beforeNode.id) ?? destRect) : null,
       after: afterNode ? toWorld(vm.getNodeRect(afterNode.id) ?? destRect) : null,
       direction,
       offset: isRoot ? HORIZONTAL_OFFSET_ROOT : HORIZONTAL_OFFSET_NODE,
+      axis: vertical ? 'x' : 'y',
     });
 
     if (!this.dropPreview) this.dropPreview = new TreeDropPreview(this.viewport.optionLayer);
-    this.dropPreview.show({ block, dest: worldDest, isRoot, direction });
+    this.dropPreview.show({ block, dest: worldDest, isRoot, direction, vertical });
   }
 
   /** 松手：拖动且命中 → move；拖动未命中 → 拖出成新图；**未拖动（单击）= 焦点

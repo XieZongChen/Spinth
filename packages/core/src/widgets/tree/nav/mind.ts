@@ -249,3 +249,27 @@ export function mindNavigate(
       return nearestSibling(current, 'after')?.id ?? null;
   }
 }
+
+/**
+ * mind 竖向方向键映射（specs/tree-diagrams §8.1，Phase 2）：物理键换轴、逻辑侧
+ * 语义不变——↑↓ = 子/父（按侧：上侧 ↑ 子、下侧 ↓ 子）、←→ = 兄弟（到边界上溯叔）；
+ * 根 ↑/↓ 取上/下侧最近子。映射到横向语义后复用 mindNavigate（行为冻结源），
+ * spanOf 由调用方按 orientation 提供主轴区间（竖向 = x 区间）。
+ */
+const VERTICAL_KEY_MAP: Record<
+  'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
+  'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
+> = {
+  ArrowUp: 'ArrowLeft', // 上侧 = 横向的左侧（子）
+  ArrowDown: 'ArrowRight', // 下侧 = 横向的右侧
+  ArrowLeft: 'ArrowUp', // 前兄弟
+  ArrowRight: 'ArrowDown', // 后兄弟
+};
+
+export function mindNavigateVertical(
+  currentId: string,
+  key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
+  ctx: Parameters<typeof mindNavigate>[2],
+): string | null {
+  return mindNavigate(currentId, VERTICAL_KEY_MAP[key], ctx);
+}

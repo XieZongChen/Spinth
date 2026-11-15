@@ -175,6 +175,11 @@ export const MindMapSchema = z.object({
   zOrder: z.string(),
   /** 根节点 JSON 树（创建时输入；树结构由 MindNodeModel 构建期校验，schema 放行） */
   root: z.unknown().optional(),
+  /** 排列物理轴（specs/tree-diagrams D4）：optional 无 default——老文档零迁移，
+   *  消费侧 `?? 'horizontal'`。direction 恒逻辑侧 left/right（vertical 时
+   *  left=上、right=下），切换 orientation 不重写任何节点；旧客户端忽略
+   *  本字段按左右渲染（降级不损坏） */
+  orientation: z.enum(['horizontal', 'vertical']).optional(),
 });
 export type MindMapData = z.infer<typeof MindMapSchema>;
 

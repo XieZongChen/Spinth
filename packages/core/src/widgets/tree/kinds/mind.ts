@@ -13,10 +13,19 @@ import type {
   ITreeStyle,
 } from '../registry';
 import { layoutMindTree } from '../layout/mindHorizontal';
+import { layoutMindTreeVertical } from '../layout/mindVertical';
 import type { ILayoutNode, ILayoutResult } from '../layout/types';
 import type { ITreeEdge } from '../connector/types';
-import { nodeConnectorPath, rootEnd, rootStartX, rootT, ROOT_CP_RATIO } from '../connector/mind';
-import { mindNavigate } from '../nav/mind';
+import {
+  nodeConnectorPath,
+  nodeConnectorPathVertical,
+  rootConnectorCmdsVertical,
+  rootEnd,
+  rootStartX,
+  rootT,
+  ROOT_CP_RATIO,
+} from '../connector/mind';
+import { mindNavigate, mindNavigateVertical } from '../nav/mind';
 import { MIND_ROOT_LABEL, mindPresentation, type ITreeNodePresentation } from './mind/style';
 
 export {
@@ -34,8 +43,25 @@ class MindHorizontalLayout implements ITreeLayout {
   }
 }
 
+/** mind 竖向布局策略：横向的严格转置（specs §5.3） */
+class MindVerticalLayout implements ITreeLayout {
+  layout(root: ILayoutNode): ILayoutResult {
+    return layoutMindTreeVertical(root);
+  }
+}
+
 /** mind 横向连线策略：根→一级贝塞尔（升阶 cubic 输出——与 PIXI
  *  quadraticCurveTo 内部实现同一升阶，逐像素一致）+ 普通鱼骨命令直通 */
+/** mind 竖向连线策略：根贝塞尔/鱼骨的转置镜像（specs §6.3） */
+class MindVerticalConnector implements ITreeConnector {
+  path(edge: ITreeEdge) {
+    if (edge.depth === 1) {
+      return rootConnectorCmdsVertical(edge.parent, edge.child, edge.side === 'left');
+    }
+    return nodeConnectorPathVertical(edge.parent, edge.child);
+  }
+}
+
 class MindHorizontalConnector implements ITreeConnector {
   path(edge: ITreeEdge) {
     if (edge.depth === 1) {
@@ -73,6 +99,17 @@ class MindHorizontalNav implements ITreeNav {
   }
 }
 
+/** mind 竖向导航策略：键位映射后复用横向逻辑（specs §8.1 表） */
+class MindVerticalNav implements ITreeNav {
+  navigate(
+    currentId: string,
+    key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
+    ctx: ITreeNavCtx,
+  ): string | null {
+    return mindNavigateVertical(currentId, key, ctx);
+  }
+}
+
 /** mind 样式策略：presentation 按深度（行为冻结） */
 const mindStyle: ITreeStyle = {
   presentation(node: { text: string; lineColor?: string }, depth: number): ITreeNodePresentation {
@@ -83,7 +120,7 @@ const mindStyle: ITreeStyle = {
 export const mindKind: ITreeKind = {
   type: 'MIND_MAP',
   defaultOrientation: 'horizontal',
-  orientations: ['horizontal'],
+  orientations: ['horizontal', 'vertical'],
   supportsSides: true,
   supportsLineColor: true,
   connectorLineWidth: 4,
@@ -91,16 +128,12 @@ export const mindKind: ITreeKind = {
   defaultRootText: MIND_ROOT_LABEL,
   defaultChildText: (n: number) => `子节点 ${n + 1}`,
   layout(o: TreeOrientation): ITreeLayout {
-    // Phase 0 仅横向；vertical 在 Phase 2 落位（非法值防御回默认）
-    void o;
-    return new MindHorizontalLayout();
+    return o === 'vertical' ? new MindVerticalLayout() : new MindHorizontalLayout();
   },
   connector(o: TreeOrientation): ITreeConnector {
-    void o;
-    return new MindHorizontalConnector();
+    return o === 'vertical' ? new MindVerticalConnector() : new MindHorizontalConnector();
   },
   nav(o: TreeOrientation): ITreeNav {
-    void o;
-    return new MindHorizontalNav();
+    return o === 'vertical' ? new MindVerticalNav() : new MindHorizontalNav();
   },
 };

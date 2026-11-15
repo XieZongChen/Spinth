@@ -49,9 +49,11 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     this.root.addChild(this.drawer);
   }
 
-  /** 物理轴（Phase 0 恒 kind 默认；Phase 2 起读图字段 orientation，缺省回默认） */
-  protected get orientation(): TreeOrientation {
-    return this.kind.defaultOrientation;
+  /** 物理轴：读图字段 orientation（缺省回 kind 默认；spec §4.4 切换零节点写）。
+   *  public——focusController 的 spanOf 主轴、徽标锚定、拖拽落点共消费 */
+  get orientation(): TreeOrientation {
+    const o = (this.state as { orientation?: TreeOrientation }).orientation;
+    return o ?? this.kind.defaultOrientation;
   }
 
   private get mapModel(): TreeMapModel | null {
@@ -198,8 +200,10 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
   }
 
   /** 徽标同步：折叠节点（hiddenCount>0）显示 +N，锚在朝子侧边中点（根恒右下角）。
-   *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n) */
+   *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n)。竖向时 left=上侧、
+   *  right=下侧（物理轴映射在 TreeNodeVm.badgeCenter 内按 vertical 翻转） */
   private syncBadges(spec: ILayoutNode & { hiddenCount: number }): void {
+    const vertical = this.orientation === 'vertical';
     const info = new Map<string, { side: 'left' | 'right'; hiddenCount: number }>();
     const walk = (n: ILayoutNode & { hiddenCount: number }, side: 'left' | 'right'): void => {
       const s = n.direction ?? side;
@@ -211,8 +215,8 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     walk(spec, 'right');
     for (const [id, vm] of this.nodeVms) {
       const st = info.get(id);
-      if (!st || st.hiddenCount <= 0 || id === spec.id) vm.setBadge(null, 'right');
-      else vm.setBadge(st.hiddenCount, st.side);
+      if (!st || st.hiddenCount <= 0 || id === spec.id) vm.setBadge(null, 'right', vertical);
+      else vm.setBadge(st.hiddenCount, st.side, vertical);
     }
   }
 

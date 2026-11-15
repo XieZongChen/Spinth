@@ -63,23 +63,35 @@ export function buildTreeDropAreas(
   scanHidden(model.root);
 
   const rootAreas: DropArea[] = [];
-  // 根的左右半区热区（既有设计 mindRootVm.buildDrop：左右半宽各一区，current → 该侧首/末位）
+  // 根的半区热区（既有设计 mindRootVm.buildDrop）：横向左右半宽各一区、竖向上下半高
+  // 各一区（specs §8.3），current → 该侧首/末位
   const root = model.root;
   const rect = vm.getNodeRect(root.id);
+  const axis = vm.orientation === 'vertical' ? 'x' : 'y';
   if (rect) {
-    const halves: Array<{ direction: 'left' | 'right'; origin: IRect }> = [
-      { direction: 'left', origin: { ...rect, width: rect.width / 2 } },
-      {
-        direction: 'right',
-        origin: { ...rect, x: rect.x + rect.width / 2, width: rect.width / 2 },
-      },
-    ];
+    const halves: Array<{ direction: 'left' | 'right'; origin: IRect }> =
+      axis === 'x'
+        ? [
+            { direction: 'left', origin: { ...rect, height: rect.height / 2 } },
+            {
+              direction: 'right',
+              origin: { ...rect, y: rect.y + rect.height / 2, height: rect.height / 2 },
+            },
+          ]
+        : [
+            { direction: 'left', origin: { ...rect, width: rect.width / 2 } },
+            {
+              direction: 'right',
+              origin: { ...rect, x: rect.x + rect.width / 2, width: rect.width / 2 },
+            },
+          ];
     for (const half of halves) {
       const side = sideChildren(root, half.direction, excluded, hidden, nodeDirection);
       rootAreas.push(
         new DropArea({
           originRect: half.origin,
           direction: half.direction,
+          axis,
           childRects: side.map(({ node }) => ({ rect: vm.getNodeRect(node.id) ?? rect })),
           currentTarget: (pos) => ({
             kind: 'asChild',
@@ -105,7 +117,7 @@ export function buildTreeDropAreas(
   const walk = (node: TreeNodeModel): void => {
     if (excluded.has(node.id) || hidden.has(node.id)) return;
     if (node !== model.root) {
-      const area = buildNodeArea(vm, node, nodeDirection, excluded, hidden);
+      const area = buildNodeArea(vm, node, nodeDirection, excluded, hidden, axis);
       if (area) nodeAreas.push(area);
     }
     if (node.isCollapsed()) return; // 隐藏子树不建热区
@@ -142,6 +154,7 @@ function buildNodeArea(
   nodeDirection: NodeDirectionOf,
   excluded: Set<string>,
   hidden: Set<string>,
+  axis: 'x' | 'y',
 ): DropArea | null {
   const rect = vm.getNodeRect(node.id);
   if (!rect) return null;
@@ -152,6 +165,7 @@ function buildNodeArea(
   return new DropArea({
     originRect: rect,
     direction,
+    axis,
     childRects: side.map(({ node: c }) => ({ rect: vm.getNodeRect(c.id) ?? rect })),
     // current 带（节点上下 80px、节点列宽内）→ 与该节点做兄弟；
     // 带上**被悬停节点自己的侧向**（根层左右混排时唯一可靠的插入侧判据）

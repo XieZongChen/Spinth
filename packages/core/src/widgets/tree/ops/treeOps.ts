@@ -200,6 +200,17 @@ export class TreeOps extends Disposable {
     return newId;
   }
 
+  /** 切换排列物理轴（specs §4.4）：只写图字段 orientation，一个事务一步撤销，
+   *  不重写任何节点（direction 恒逻辑侧）；非法值与同值 no-op */
+  setOrientation(mapId: string, orientation: 'horizontal' | 'vertical'): void {
+    if (orientation !== 'horizontal' && orientation !== 'vertical') return;
+    const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
+    if (!model) return;
+    if (model.yData.get('orientation') === orientation) return;
+    model.yData.doc!.transact(() => model.yData.set('orientation', orientation));
+    this.history.stopCapturing();
+  }
+
   /** 折叠/展开（specs/tree-diagrams §4.5，D5 入文档）：一次切换一步撤销。
    *  no-op：节点不存在 / 无子节点（不写 collapsed:true，避免空徽标）/ 同值。
    *  折叠时焦点在隐藏后代 → 焦点移到被折叠节点（显式，不等 getFocused 自愈）。 */

@@ -165,12 +165,18 @@ export class TreeFocusController extends Disposable {
     if (!f) return false;
     const { vm, mapModel, node } = f;
     const { root, byId } = buildNavTree(mapModel.root);
-    const next = mapModel.kind.nav(mapModel.kind.defaultOrientation).navigate(node.id, key, {
+    // orientation 读图字段（缺省回 kind 默认）；竖向导航的"视图最近"判据
+    // 沿 x 轴（specs §8.1），横向沿 y 轴
+    const orientation = vm.orientation;
+    const next = mapModel.kind.nav(orientation).navigate(node.id, key, {
       root,
       byId,
       spanOf: (id) => {
         const r = vm.getNodeRect(id);
-        return r ? { start: r.y, end: r.y + r.height } : null;
+        if (!r) return null;
+        return orientation === 'vertical'
+          ? { start: r.x, end: r.x + r.width }
+          : { start: r.y, end: r.y + r.height };
       },
     });
     if (next) {

@@ -164,3 +164,79 @@ export function nodeConnectorPath(
     lineTo(endX, endY),
   ];
 }
+
+// —— 竖向镜像（specs/tree-diagrams §6.3，Phase 2）：横向命令经 (x,y) 互换
+//    （关于 y=x 镜像）得到竖向——根起点上/下边、t 按水平距、垂直出→水平干→
+//    R8 圆弧；单子同轴直线（delta 判据自动转置）。arc 角度 θ ↦ π/2−θ、
+//    方向翻转（镜像变换保几何）。 ——
+
+/** 命令转置：关于 y=x 镜像（moveTo/lineTo/cubicTo 点互换；arc 圆心互换 +
+ *  角度 π/2−θ + ccw 翻转） */
+export function transposeConnectorCmds(cmds: IConnectorCmd[]): IConnectorCmd[] {
+  return cmds.map((c) => {
+    if (c.op === 'moveTo' || c.op === 'lineTo') return { ...c, x: c.y, y: c.x };
+    if (c.op === 'cubicTo')
+      return {
+        ...c,
+        c1x: c.c1y,
+        c1y: c.c1x,
+        c2x: c.c2y,
+        c2y: c.c2x,
+        x: c.y,
+        y: c.x,
+      };
+    return {
+      ...c,
+      cx: c.cy,
+      cy: c.cx,
+      start: Math.PI / 2 - c.start,
+      end: Math.PI / 2 - c.end,
+      ccw: !c.ccw,
+    };
+  });
+}
+
+/** 普通节点竖向鱼骨：横向 nodeConnectorPath 的转置（边 rect 宽高互换） */
+export function nodeConnectorPathVertical(
+  parent: { x: number; y: number; width: number; height: number },
+  child: { x: number; y: number; width: number; height: number },
+  radius = NODE_LINE_ARC_RADIUS,
+): IConnectorCmd[] {
+  const swap = (r: { x: number; y: number; width: number; height: number }) => ({
+    x: r.y,
+    y: r.x,
+    width: r.height,
+    height: r.width,
+  });
+  return transposeConnectorCmds(nodeConnectorPath(swap(parent), swap(child), radius));
+}
+
+/** 根→一级竖向贝塞尔：横向路径的转置（升阶 cubic 输出，与实物渲染同一命令流） */
+export function rootConnectorCmdsVertical(
+  root: { x: number; y: number; width: number; height: number },
+  child: { x: number; y: number; width: number; height: number },
+  isUp: boolean,
+): IConnectorCmd[] {
+  const swap = (r: { x: number; y: number; width: number; height: number }) => ({
+    x: r.y,
+    y: r.x,
+    width: r.height,
+    height: r.width,
+  });
+  const horizDist = Math.abs(child.x + child.width / 2 - (root.x + root.width / 2));
+  const t = rootT(horizDist, isUp);
+  const sY = rootStartX(root.y + root.height / 2, root.height, t);
+  const sX = root.x + root.width / 2;
+  const e = rootEnd(swap(child), isUp);
+  // 横向语义：起点 (sY→x, sX→y)、终点 (e.x, e.y)、控制点 x = s.x+(e.x−s.x)·RATIO
+  const cpX = sY + (e.x - sY) * ROOT_CP_RATIO;
+  const cpY = e.y;
+  const c1x = sY + (2 / 3) * (cpX - sY);
+  const c1y = sX + (2 / 3) * (cpY - sX);
+  const c2x = e.x + (2 / 3) * (cpX - e.x);
+  const c2y = e.y + (2 / 3) * (cpY - e.y);
+  return transposeConnectorCmds([
+    { op: 'moveTo', x: sY, y: sX },
+    { op: 'cubicTo', c1x, c1y, c2x, c2y, x: e.x, y: e.y },
+  ]);
+}

@@ -30,17 +30,35 @@ export interface IFakeBlockInput {
   after: IRect | null;
   /** 子树朝向（决定块在父的哪一侧） */
   direction: 'left' | 'right';
-  /** 父→子的水平偏移（根层 100 / 其余 48） */
+  /** 父→子的主轴偏移（根层 100 / 其余 48；横向沿 x、竖向沿 y） */
   offset: number;
+  /** 主轴（specs §8.3）：'y' = 横向（默认）；'x' = 竖向（缝隙沿 y、块在父上/下） */
+  axis?: 'x' | 'y';
 }
 
 /**
  * 预置块矩形（既有设计 mindDraggerVm.calculateFakeBounds 逐分支移植）：
- * 两侧都有兄弟 → 居中；只有前一个 → 其下方 +16；只有后一个 → 其上方 −16；
- * 都没有 → 与父垂直居中。
+ * 两侧都有兄弟 → 缝隙居中；只有前一个 → 其后 +16；只有后一个 → 其前 −16；
+ * 都没有 → 与父跨轴居中。竖向为横向的转置（specs §6.5 预览与实物同向）。
  */
 export function fakeBlockRect(input: IFakeBlockInput): IRect {
   const { dest, before, after, direction, offset } = input;
+  if (input.axis === 'x') {
+    const y =
+      direction === 'left' ? dest.y - offset - FAKE_NODE_HEIGHT : dest.y + dest.height + offset;
+    let x = dest.x;
+    if (before && after) {
+      const beforeRight = before.x + before.width;
+      x = beforeRight + (after.x - beforeRight - FAKE_NODE_WIDTH) / 2;
+    } else if (before) {
+      x = before.x + before.width + FAKE_VERTICAL_MARGIN;
+    } else if (after) {
+      x = after.x - FAKE_NODE_WIDTH - FAKE_VERTICAL_MARGIN;
+    } else {
+      x = dest.x + (dest.width - FAKE_NODE_WIDTH) / 2;
+    }
+    return { x, y, width: FAKE_NODE_WIDTH, height: FAKE_NODE_HEIGHT };
+  }
   const x = direction === 'left' ? dest.x - offset - FAKE_NODE_WIDTH : dest.x + dest.width + offset;
   let y = dest.y;
 
@@ -67,8 +85,14 @@ export class TreeDropPreview {
     optionLayer.addChild(this.g);
   }
 
-  /** 画预置块 + 预连线（dest/block 均为世界坐标） */
-  show(opts: { block: IRect; dest: IRect; isRoot: boolean; direction: 'left' | 'right' }): void {
+  /** 画预置块 + 预连线（dest/block 均为世界坐标；竖向预连线与实物同向） */
+  show(opts: {
+    block: IRect;
+    dest: IRect;
+    isRoot: boolean;
+    direction: 'left' | 'right';
+    vertical?: boolean;
+  }): void {
     const { block, dest, isRoot, direction } = opts;
     this.lastBlock = { ...block };
     const left = direction === 'left';
@@ -78,6 +102,11 @@ export class TreeDropPreview {
       color: FAKE_COLOR,
       alpha: 0.9,
     });
+
+    if (opts.vertical) {
+      this.drawLinkVertical(block, dest, isRoot, left);
+      return;
+    }
 
     const midY = block.y + block.height / 2;
     const destMidY = dest.y + dest.height / 2;
@@ -105,6 +134,37 @@ export class TreeDropPreview {
       .lineTo(midX, destMidY)
       .lineTo(midX, midY)
       .lineTo(endX, midY)
+      .stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
+    markRender();
+  }
+
+  /** 竖向预连线（specs §6.5）：根 = t 按水平距的贝塞尔（垂直出）；普通 = 垂直出 →
+   *  水平干（聚合线 ±24）→ 子上/下边中点——与实物连线同向 */
+  private drawLinkVertical(block: IRect, dest: IRect, isRoot: boolean, up: boolean): void {
+    const g = this.g;
+    const midX = block.x + block.width / 2;
+    const destMidX = dest.x + dest.width / 2;
+    if (isRoot) {
+      const startY = rootStartX(
+        dest.y + dest.height / 2,
+        dest.height,
+        rootT(Math.abs(midX - destMidX), up),
+      );
+      const endY = up ? block.y + block.height : block.y;
+      const cpY = startY + (endY - startY) * 0.2;
+      g.moveTo(destMidX, startY)
+        .quadraticCurveTo(midX, cpY, midX, endY)
+        .stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
+      markRender();
+      return;
+    }
+    const startY = up ? dest.y : dest.y + dest.height;
+    const endY = up ? block.y + block.height : block.y;
+    const midY = up ? dest.y - 24 : dest.y + dest.height + 24; // NODE_LINE_AGGREGATED
+    g.moveTo(destMidX, startY)
+      .lineTo(destMidX, midY)
+      .lineTo(midX, midY)
+      .lineTo(midX, endY)
       .stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
     markRender();
   }

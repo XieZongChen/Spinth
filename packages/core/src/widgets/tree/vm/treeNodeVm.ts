@@ -34,8 +34,13 @@ export class TreeNodeVm extends Container {
     text: '',
     style: { fontFamily: 'sans-serif', fontSize: 11, fontWeight: '600', fill: 0xffffff },
   });
-  /** 折叠徽标（null = 无徽标）；由 TreeMapVm 布局后写入 */
-  private badgeState: { hiddenCount: number; anchor: 'left' | 'right' | 'root' } | null = null;
+  /** 折叠徽标（null = 无徽标）；由 TreeMapVm 布局后写入。vertical 时
+   *  left 锚上边中点、right 锚下边中点（specs §8.4 锚定随物理轴） */
+  private badgeState: {
+    hiddenCount: number;
+    anchor: 'left' | 'right' | 'root';
+    vertical: boolean;
+  } | null = null;
   readonly textLabel: Text;
   /** 测量后的本体尺寸（不含子树；布局输入） */
   nodeWidth = 0;
@@ -100,8 +105,9 @@ export class TreeNodeVm extends Container {
   }
 
   /** 折叠徽标：布局后由 TreeMapVm 写入（hiddenCount=null 清除） */
-  setBadge(hiddenCount: number | null, anchor: 'left' | 'right' | 'root'): void {
-    this.badgeState = hiddenCount === null || hiddenCount <= 0 ? null : { hiddenCount, anchor };
+  setBadge(hiddenCount: number | null, anchor: 'left' | 'right' | 'root', vertical = false): void {
+    this.badgeState =
+      hiddenCount === null || hiddenCount <= 0 ? null : { hiddenCount, anchor, vertical };
     this.drawBadge();
     markRender();
   }
@@ -115,8 +121,15 @@ export class TreeNodeVm extends Container {
   }
 
   private badgeCenter(): { x: number; y: number } {
-    const a = this.badgeState?.anchor ?? 'right';
+    const st = this.badgeState;
+    const a = st?.anchor ?? 'right';
     if (a === 'root') return { x: this.nodeWidth, y: this.nodeHeight }; // 根右下角（横竖通用）
+    if (st?.vertical) {
+      // 竖向：朝子侧 = 上（left）/ 下（right）
+      return a === 'left'
+        ? { x: this.nodeWidth / 2, y: 0 }
+        : { x: this.nodeWidth / 2, y: this.nodeHeight };
+    }
     if (a === 'left') return { x: 0, y: this.nodeHeight / 2 };
     return { x: this.nodeWidth, y: this.nodeHeight / 2 };
   }
