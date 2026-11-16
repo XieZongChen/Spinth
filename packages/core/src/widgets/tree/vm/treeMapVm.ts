@@ -183,9 +183,11 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     const json = node.toJSON();
     const collapsed = json.collapsed === true;
     const childSpecs = collapsed ? [] : node.children.map((c) => this.toLayoutSpec(c));
+    // hiddenCount = **自身折叠直接隐藏**的后代数（非折叠 = 0，不冒泡——
+    // 审查返工：冒泡语义让未折叠祖先也拿到非零计数，根出现假徽标 +N）
     const hiddenCount = collapsed
       ? node.children.reduce((acc, c) => acc + 1 + this.subtreeSize(c), 0)
-      : childSpecs.reduce((acc, c) => acc + c.hiddenCount, 0);
+      : 0;
     return {
       id: node.id,
       width: vm?.nodeWidth ?? 60,
@@ -204,7 +206,9 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
    *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n)。竖向时 left=上侧、
    *  right=下侧（物理轴映射在 TreeNodeVm.badgeCenter 内按 vertical 翻转） */
   private syncBadges(spec: ILayoutNode & { hiddenCount: number }): void {
-    // 竖向锚 = 非 horizontal（mind vertical 上下边中点 / org 卡片底边中点）
+    // 竖向锚 = 非 horizontal（mind vertical 上下边中点 / org 卡片底边中点）。
+    // hiddenCount 已是「自身折叠直接隐藏数」（不冒泡）——徽标只在折叠节点上
+    // 出现（含根：锚 'root' 右下角，审查返工 P1-9）；非折叠/根未折叠恒无
     const vertical = this.orientation !== 'horizontal';
     const info = new Map<string, { side: 'left' | 'right'; hiddenCount: number }>();
     const walk = (n: ILayoutNode & { hiddenCount: number }, side: 'left' | 'right'): void => {
@@ -217,8 +221,6 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     walk(spec, 'right');
     for (const [id, vm] of this.nodeVms) {
       const st = info.get(id);
-      // 根折叠也显示徽标（审查返工 P1-9：锚 'root' 右下角——此前根被排除，
-      // 折叠后无点击展开入口，只能 ActionBar/快捷键）
       if (!st || st.hiddenCount <= 0) vm.setBadge(null, 'right', vertical);
       else if (id === spec.id) vm.setBadge(st.hiddenCount, 'root', vertical);
       else vm.setBadge(st.hiddenCount, st.side, vertical);
