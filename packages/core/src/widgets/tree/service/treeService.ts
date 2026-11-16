@@ -1,6 +1,5 @@
 import { type BehaviorSubject, type Subject } from 'rxjs';
 import { Disposable } from '../../../base/disposable';
-import { isEditableTarget } from '../../../platform/keyboard/shortcuts';
 import type {
   IDataEngineService,
   IEditingService,
@@ -17,6 +16,9 @@ import { TreeOps } from './../ops/treeOps';
 import { TreeDragController } from './../drag/treeDragController';
 import { TreeFocusController } from './../focus/treeFocusController';
 import { TreeToolController } from './../tool/treeToolController';
+import { installTypeToEdit } from './treeTypeToEdit';
+import { collectTreeNodesDebug } from '../debug/treeNodesDebug';
+import type { ITreeNodesDebugRow } from '../debug/treeNodesDebug';
 import type { IRect } from '../../../common/geometry';
 import type { TreeOrientation } from '../../../types/tree';
 
@@ -43,54 +45,11 @@ export class TreeService extends Disposable {
   get ghostSuppressed$(): BehaviorSubject<boolean> {
     return this.toolCtl.ghostSuppressed$;
   }
-
-  /** dev 调试探针：焦点树的节点几何（世界 rect + 文案 + 折叠/可见态；
-   *  E2E 断言节点/浮层相对位置与折叠可见性用——specs/tree-diagrams §14.2） */
-  get nodesDebug(): Array<{
-    id: string;
-    text: string;
-    worldRect: IRect;
-    collapsed: boolean;
-    visible: boolean;
-    hiddenCount: number;
-  }> {
+  /** dev 调试探针：焦点树的节点几何（实现拆至 debug/treeNodesDebug.ts，
+   *  审查返工 P0-6 保 400 行；specs/tree-diagrams §14.2） */
+  get nodesDebug(): ITreeNodesDebugRow[] {
     const f = this.getFocused();
-    if (!f) return [];
-    type Row = {
-      id: string;
-      text: string;
-      worldRect: IRect;
-      collapsed: boolean;
-      visible: boolean;
-      hiddenCount: number;
-    };
-    const out: Row[] = [];
-    // 后序统计隐藏后代数（与 TreeMapVm.toLayoutSpec 同式——O(n) 一次）
-    const size = (n: TreeNodeModel): number => 1 + n.children.reduce((a, c) => a + size(c), 0);
-    const walk = (n: TreeNodeModel, underCollapsed: boolean): void => {
-      const r = f.vm.getNodeRect(n.id);
-      const collapsed = n.isCollapsed();
-      const hidden = collapsed ? n.children.reduce((a, c) => a + size(c), 0) : 0;
-      if (r) {
-        out.push({
-          id: n.id,
-          text: n.toJSON().text,
-          worldRect: {
-            x: f.vm.root.x + r.x,
-            y: f.vm.root.y + r.y,
-            width: r.width,
-            height: r.height,
-          },
-          collapsed,
-          // Vm 对全部节点持位；探针的 visible = 布局可见（不在折叠子树内）
-          visible: !underCollapsed,
-          hiddenCount: hidden,
-        });
-      }
-      for (const c of n.children) walk(c, underCollapsed || collapsed);
-    };
-    walk(f.mapModel.root, false);
-    return out;
+    return f ? collectTreeNodesDebug(f.vm, f.mapModel.root) : [];
   }
 
   /** dev 调试探针：落点预置块（E2E/单测断言落点位置——数据探针优先于截图） */
@@ -187,17 +146,18 @@ export class TreeService extends Disposable {
     // 捕获阶段拦下按键，避免同一按键又被工具快捷键消费（既有设计靠编辑器吃键，
     // spinth 无「选中态 DOM 编辑器」，改在捕获阶段 stopPropagation）
     // （node/无 DOM 环境下 SDK 仍可构造：与 viewportService 的 navigator 守卫同款）
+    // 选中态键入 → 进编辑（实现拆至 service/treeTypeToEdit.ts，审查返工 P0-6
+    // 保 400 行；语义逐字迁移：捕获拦键 + IME 首键三重判定）
     if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', this.onTypeToEdit, { capture: true });
-      window.addEventListener('compositionstart', this.onCompositionStart, { capture: true });
+      this.addDisposable(
+        installTypeToEdit(this.viewport, {
+          getFocused: () => this.getFocused(),
+          enterNodeEdit: (mapId, nodeId, opts) => this.enterNodeEdit(mapId, nodeId, opts ?? {}),
+        }),
+      );
     }
     // 切出 mind 工具时复位幽灵抑制（抑制语义只属于 mind 模式——react ToolGhost 消费）
     this.addDisposable(
-      () => {
-        if (typeof window === 'undefined') return;
-        window.removeEventListener('keydown', this.onTypeToEdit, { capture: true });
-        window.removeEventListener('compositionstart', this.onCompositionStart, { capture: true });
-      },
       this.viewport.cursorMode$.subscribe((mode) => {
         if (mode !== 'mind') this.ghostSuppressed$.next(false);
       }),
@@ -395,41 +355,6 @@ export class TreeService extends Disposable {
   enterNodeEditAt(mapId: string, world: { x: number; y: number }): boolean {
     return this.editor.enterNodeEditAt(mapId, world);
   }
-
-  /**
-   * 选中态键入字符 → 进编辑并用该字符替换原文本（既有设计：选中态键入任意单字符
-   * 触发 setEditor + selectAll，随后输入即全量替换）。空格与带修饰键的组合不触发。
-   */
-  private onTypeToEdit = (e: KeyboardEvent): void => {
-    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-    // IME 合成首键：Windows keydown 是 Process；macOS/Chrome 的合成首键 keydown
-    // 携带真实字符但 keyCode=229 且 isComposing 仍 false（先于 compositionstart
-    // 到达）。两条路都不能走 replaceWith——拼音首字母会立即落库并同步给协同用户、
-    // 取消合成后原文案被毁（首键竞态）。统一走「进编辑 + 全选」等 IME 落字
-    const isProcess = e.key === 'Process';
-    const isIme = isProcess || e.isComposing || e.keyCode === 229;
-    if (!isIme && (e.key === ' ' || e.key.length !== 1)) return;
-    if (isEditableTarget(e.target)) return; // 已在自己的编辑器/输入框里
-    if (this.viewport.cursorMode$.value !== 'cursor') return;
-    const f = this.getFocused();
-    if (!f) return;
-    e.preventDefault();
-    e.stopPropagation();
-    this.enterNodeEdit(
-      f.mapModel.id,
-      f.node.id,
-      isIme ? { selectAll: true } : { replaceWith: e.key },
-    );
-  };
-
-  /** 输入法开始合成：进编辑并全选（既有设计 compositionstart 同款，Safari 事件顺序兼容） */
-  private onCompositionStart = (e: CompositionEvent): void => {
-    if (isEditableTarget(e.target)) return;
-    if (this.viewport.cursorMode$.value !== 'cursor') return;
-    const f = this.getFocused();
-    if (!f) return;
-    this.enterNodeEdit(f.mapModel.id, f.node.id, { selectAll: true });
-  };
 
   enterNodeEdit(
     mapId: string,

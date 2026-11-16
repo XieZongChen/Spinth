@@ -1,6 +1,6 @@
-import { Sprite } from 'pixi.js';
+import type { Sprite } from 'pixi.js';
 import { Disposable } from '../../../base/disposable';
-import { markRender } from '../../../common/render';
+import { TreeDragGhost } from './treeDragGhost';
 import type { IRect } from '../../../common/geometry';
 import { isTreeWidgetType } from '../../../types';
 import type {
@@ -93,6 +93,11 @@ export class TreeDragController extends Disposable {
     private readonly host: ITreeDragHost,
   ) {
     super();
+    this.ghost_ = new TreeDragGhost({
+      getVmById: (id) => vmEngine.getVmById(id) as TreeMapVm | undefined,
+      optionLayer: viewport.optionLayer,
+      renderer: viewport.renderer,
+    });
   }
 
   /** 会话进行中（宿主 isDragging 契约与焦点跟随的「拖拽中不跟随」守卫共用） */
@@ -138,51 +143,18 @@ export class TreeDragController extends Disposable {
     return true;
   }
 
-  /** 拖影惰性创建（既有设计拖影走 selectionService.dragStart$——拖动成立后才建，
-   *  按下即建会让「第一次单击」闪现半透明+快照）：本体半透明留原地 +
-   *  generateTexture 快照挂 optionLayer（无 renderer 降级只有半透明） */
+  // 拖影管理拆至 drag/treeDragGhost.ts（审查返工 P0-6 保 400 行；语义逐字
+  // 迁移：惰性创建/快照绝对定位/销毁恢复透明度）。构造器尾部初始化——
+  // viewport 参数属性晚于字段初始化
+  private readonly ghost_!: TreeDragGhost;
   private startGhost(): void {
-    const d = this.drag;
-    if (!d || d.ghost || d.startRect.width === 0) return;
-    const vm = this.vmEngine.getVmById(d.mapId) as TreeMapVm | undefined;
-    if (!vm) return;
-    vm.setNodeAlpha(d.nodeId, 0.8); // 本体半透明留原地（既有设计 alpha 档位）
-    const nodeVm = vm.getNodeVm(d.nodeId);
-    const renderer = this.viewport.renderer;
-    if (nodeVm && renderer) {
-      const ghost = new Sprite(renderer.generateTexture(nodeVm));
-      ghost.eventMode = 'none';
-      ghost.alpha = 0.9;
-      ghost.position.set(d.startRect.x, d.startRect.y);
-      this.viewport.optionLayer.addChild(ghost);
-      d.ghost = ghost;
-      markRender();
-    }
+    if (this.drag) this.ghost_.start(this.drag);
   }
-
-  /** 拖影跟随（快照绝对定位：起始世界 rect + 指针位移——无状态化，docs/14） */
   private syncGhost(world: { x: number; y: number }): void {
-    const d = this.drag;
-    if (!d?.ghost) return;
-    d.ghost.position.set(
-      d.startRect.x + (world.x - d.startWorld.x),
-      d.startRect.y + (world.y - d.startWorld.y),
-    );
-    markRender(); // 快照跟手依赖标脏（同幽灵根，漏标即"拖影不动"）
+    this.ghost_.sync(this.drag, world);
   }
-
-  /** 拖影销毁 + 本体恢复不透明（松手/取消统一出口） */
   private clearGhost(): void {
-    const d = this.drag;
-    if (!d) return;
-    if (d.ghost) {
-      const tex = d.ghost.texture;
-      d.ghost.destroy();
-      tex.destroy(true);
-      d.ghost = null;
-      markRender();
-    }
-    (this.vmEngine.getVmById(d.mapId) as TreeMapVm | undefined)?.setNodeAlpha(d.nodeId, 1);
+    this.ghost_.clear(this.drag);
   }
 
   /** 拖拽中：对全脑图节点做 DropArea hitTest；返回落点或 null（空白=成新图） */
