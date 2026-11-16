@@ -211,7 +211,8 @@ export class TreeOps extends Disposable {
    *  不重写任何节点（direction 恒逻辑侧）；kind 不支持的档位与同值 no-op */
   setOrientation(mapId: string, orientation: TreeOrientation): void {
     const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
-    if (!model) return;
+    // kind 防御（审查返工 P0-1）：非树模型无 kind——命令层已守卫，这里兜底
+    if (!model?.kind) return;
     if (!model.kind.orientations.includes(orientation)) return;
     if (model.yData.get('orientation') === orientation) return;
     model.yData.doc!.transact(() => model.yData.set('orientation', orientation));

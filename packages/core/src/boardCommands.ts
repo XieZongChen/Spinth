@@ -1,4 +1,5 @@
 import type { ShapeType, LineType, CursorMode } from './types';
+import { isTreeWidgetType } from './types';
 import type { TreeOrientation } from './types/tree';
 import { setTextTheme } from './platform/textEngine/theme';
 import type { AlignMode, DistributeAxis } from './platform/selector/alignOps';
@@ -196,14 +197,18 @@ export class BoardCommands {
 
   /** 删焦点节点（根 = 删整图） */
   toggleTreeCollapse(): void {
-    this.assertEditable();
+    if (!this.assertEditable()) return;
     this.ctx.treeService?.toggleCollapseFocused();
   }
 
   setTreeOrientation(o: TreeOrientation): void {
-    this.assertEditable();
+    if (!this.assertEditable()) return;
     const ids = this.ctx.selector?.selected$.value ?? [];
     if (ids.length !== 1) return;
+    // kind 守卫（审查返工 P0-1）：非树选中不下发——treeOps 侧另有防御，
+    // 双层门禁与 removeSelected 的节点分流同口径
+    const vm = this.ctx.vmEngine?.getVmById(ids[0]!);
+    if (!vm || !isTreeWidgetType(vm.type)) return;
     this.ctx.treeService?.setOrientation(ids[0]!, o);
   }
 

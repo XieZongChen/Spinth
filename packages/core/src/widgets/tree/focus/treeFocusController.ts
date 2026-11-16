@@ -274,11 +274,14 @@ export class TreeFocusController extends Disposable {
     if (hit) this.focusNode(mapId, hit);
   }
 
-  /** 选区变化 → 焦点重置（4.9 节点级选中）：选区不含脑图 = 清选中；
-   *  选区含脑图且焦点无效（点根/框选/切图）= 焦点落该图根（点子节点的
+  /** 选区变化 → 焦点重置（4.9 节点级选中）：选区不含树图 = 清选中；
+   *  选区含树图且焦点无效（点根/框选/切图）= 焦点落该图根（点子节点的
    *  单击分支随后覆盖为精确节点——按下 setSelected 先于此发生，松手覆写） */
   applySelection(ids: string[]): void {
-    const mindId = ids.find((id) => this.vmEngine.getVmById(id)?.type === 'MIND_MAP');
+    const mindId = ids.find((id) => {
+      const vm = this.vmEngine.getVmById(id);
+      return vm ? isTreeWidgetType(vm.type) : false;
+    });
     if (!mindId) {
       if (this.focusMapId) this.clearFocusHighlight();
       return;
