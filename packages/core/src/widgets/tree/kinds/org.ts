@@ -13,7 +13,7 @@ import type {
 } from '../registry';
 import { layoutOrgTree } from '../layout/org';
 import { ORG_LINE, orgConnectorPath } from '../connector/org';
-import { orgNavigate } from '../nav/org';
+import { orgNavigate, orgFocusAfterDelete } from '../nav/org';
 import { buildOrgDropAreas, orgHitTreeDropAreas } from '../drop/org';
 import { ORG_ROOT_TEXT, orgPresentation } from './org/style';
 
@@ -28,6 +28,8 @@ class OrgConnector implements ITreeConnector {
 class OrgNav implements ITreeNav {
   navigate: ITreeNav['navigate'] = (currentId, key, ctx: ITreeNavCtx) =>
     orgNavigate(currentId, key, ctx);
+  focusAfterDelete: ITreeNav['focusAfterDelete'] = (nodeId, ctx) =>
+    orgFocusAfterDelete(nodeId, ctx);
 }
 
 class OrgDrop implements ITreeDrop {

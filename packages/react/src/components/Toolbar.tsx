@@ -36,6 +36,9 @@ interface ToolFlyoutGroupInput {
 }
 
 interface ToolDef {
+  /** 稳定 id（审查返工 P1-10：React key 用它——树形图切 kind 时 mode 变化
+   *  不再 remount 按钮/flyout，roving 焦点与锚点不丢） */
+  id: string;
   mode: CursorMode;
   icon: IconName;
   title: string;
@@ -51,9 +54,10 @@ interface ToolDef {
 
 /** 静态八件（shape 槽位由默认型动态生成，见下方 SHAPE_SLOT） */
 const BASE_TOOLS: ToolDef[] = [
-  { mode: 'cursor', icon: 'select', title: '选择 (V)', tone: 'ink' },
-  { mode: 'hand', icon: 'hand', title: '抓手 (H / 空格)', tone: 'hand' },
+  { id: 'cursor', mode: 'cursor', icon: 'select', title: '选择 (V)', tone: 'ink' },
+  { id: 'hand', mode: 'hand', icon: 'hand', title: '抓手 (H / 空格)', tone: 'hand' },
   {
+    id: 'text',
     mode: 'text',
     icon: 'text',
     title: '文本 (T)',
@@ -61,6 +65,7 @@ const BASE_TOOLS: ToolDef[] = [
     subMenuGroups: [{ key: 'fontSize', options: FONT_SIZE_OPTIONS }],
   },
   {
+    id: 'line',
     mode: 'line',
     icon: 'connector',
     title: '连线 (L)',
@@ -71,6 +76,7 @@ const BASE_TOOLS: ToolDef[] = [
     ],
   },
   {
+    id: 'pen',
     mode: 'pen',
     icon: 'pen',
     title: '画笔 (P)',
@@ -81,6 +87,7 @@ const BASE_TOOLS: ToolDef[] = [
     ],
   },
   {
+    id: 'eraser',
     mode: 'eraser',
     icon: 'eraser',
     title: '橡皮 (E)',
@@ -88,6 +95,7 @@ const BASE_TOOLS: ToolDef[] = [
     subMenuGroups: [{ key: 'size', options: ERASER_SIZE_OPTIONS }],
   },
   {
+    id: 'sticky',
     mode: 'sticky',
     icon: 'sticky',
     title: '便签 (S)',
@@ -149,6 +157,7 @@ export function Toolbar() {
   const shapeCur = toolOptions['shape']?.type ?? 'rect';
   const shapeOpt = SHAPE_TYPE_OPTIONS.find((o) => o.id === shapeCur) ?? SHAPE_TYPE_OPTIONS[0]!;
   const shapeDef: ToolDef = {
+    id: 'shape',
     mode: 'shape',
     icon: (shapeOpt.icon ?? 'shape') as IconName,
     title: `${shapeOpt.label} (R)`,
@@ -162,6 +171,7 @@ export function Toolbar() {
   const treeKind = useSpinthStore((tk) => tk.treeKind);
   const treeLabel = treeKind === 'org' ? '树形图 · 组织架构 (O)' : '树形图 · 脑图 (M)';
   const treeDef: ToolDef = {
+    id: 'tree',
     mode: treeKind,
     icon: 'tree',
     title: treeLabel,
@@ -200,7 +210,7 @@ export function Toolbar() {
         // haspopup/expanded/controls（flyout 容器固定 id，同一时刻仅一工具激活）
         const hasFlyout = !!(t.subMenuGroups || t.buildSubMenuGroups);
         return (
-          <div key={t.mode} className="relative shrink-0" ref={active ? activeBtnRef : undefined}>
+          <div key={t.id} className="relative shrink-0" ref={active ? activeBtnRef : undefined}>
             <button
               type="button"
               title={t.title}

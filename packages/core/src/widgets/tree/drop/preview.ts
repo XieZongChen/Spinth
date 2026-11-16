@@ -165,6 +165,9 @@ export class TreeDropPreview {
         g.moveTo(cmd.x, cmd.y);
         started = true;
       } else if (cmd.op === 'lineTo' && started) g.lineTo(cmd.x, cmd.y);
+      // 圆角拐角（审查返工 P1-11：此前忽略 arc——预连线与实物圆角不一致）
+      else if (cmd.op === 'arc' && started)
+        g.arc(cmd.cx, cmd.cy, cmd.r, cmd.start, cmd.end, cmd.ccw);
     }
     g.stroke({ width: LINK_WIDTH, color: FAKE_COLOR, alpha: 0.6 });
     markRender();

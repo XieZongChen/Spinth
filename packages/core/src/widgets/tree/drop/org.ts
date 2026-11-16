@@ -6,8 +6,7 @@
  * 折叠节点保留为 asChild 目标（落下自动展开，TreeOps.move 内处理）；
  * 拖起子树与折叠隐藏后代不参与命中。
  */
-import type { TreeMapModel } from '../model/treeMapModel';
-import type { TreeMapVm } from '../vm/treeMapVm';
+import type { ITreeDropModelHost, ITreeDropVmHost } from '../registry';
 import type { TreeNodeModel } from '../model/treeNodeModel';
 import { findTreeNode } from '../model/treeSpec';
 import type { IRect } from '../../../common/geometry';
@@ -33,8 +32,8 @@ export interface IOrgDropAreas {
 
 /** 装配：一次 DFS 收集可见节点（拖拽会话内静态，可缓存复用） */
 export function buildOrgDropAreas(
-  model: TreeMapModel,
-  vm: TreeMapVm,
+  model: ITreeDropModelHost,
+  vm: ITreeDropVmHost,
   excludeId: string,
 ): IOrgDropAreas {
   const excluded = new Set<string>();
@@ -68,7 +67,7 @@ function contains(r: IRect, p: { x: number; y: number }): boolean {
 
 /** 命中：局部坐标 → 三带/缝隙/空带逐优先级取最近 */
 export function orgHitTreeDropAreas(
-  vm: TreeMapVm,
+  vm: ITreeDropVmHost,
   areas: IOrgDropAreas,
   world: { x: number; y: number },
 ): IDropTarget | null {

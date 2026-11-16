@@ -6,7 +6,7 @@ import type { TreeNodeModel } from './../model/treeNodeModel';
 import type { TreeMapModel, IMindNodeSpec } from './../model/treeMapModel';
 import { nextBranchColor, findMindNode, buildNavTree } from './../model/treeMapModel';
 import { projectSpecFor } from './../model/treeSpec';
-import { rootInsertSide, focusAfterDelete } from './../nav/mind';
+import { rootInsertSide } from './../nav/mind';
 import type { IDropTarget } from './../drop/dropArea';
 import type { TreeOrientation } from '../../../types/tree';
 
@@ -147,10 +147,15 @@ export class TreeOps extends Disposable {
     const idx = parent.children.indexOf(node);
     // 焦点落点先按既有设计 getFocusAfterDelete 规则算好（同侧后兄弟 → 前兄弟 →
     // 递归到父；父为根且该侧删空 → 回根），再落库删除——避免删完拿不到兄弟信息
-    const navNode = buildNavTree(mapModel.root).byId.get(node.id);
-    const nextFocus = navNode ? focusAfterDelete(new Set([node.id]), navNode) : undefined;
+    // 焦点落点经 kind 导航策略（审查返工 P1-8：org 用 后兄弟→前→父、
+    // 不跨叔；mind 用侧向过滤版——此前 org 走 mind 碰巧兼容）
+    const nav = buildNavTree(mapModel.root);
+    const navNode = nav.byId.get(node.id);
+    const nextFocus = navNode
+      ? mapModel.kind.nav(mapModel.kind.defaultOrientation).focusAfterDelete(node.id, nav)
+      : null;
     yChildren.doc!.transact(() => yChildren.delete(idx, 1));
-    this.host.setFocusedNode(nextFocus?.id ?? null);
+    this.host.setFocusedNode(nextFocus);
     this.history.stopCapturing();
   }
 

@@ -217,7 +217,10 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
     walk(spec, 'right');
     for (const [id, vm] of this.nodeVms) {
       const st = info.get(id);
-      if (!st || st.hiddenCount <= 0 || id === spec.id) vm.setBadge(null, 'right', vertical);
+      // 根折叠也显示徽标（审查返工 P1-9：锚 'root' 右下角——此前根被排除，
+      // 折叠后无点击展开入口，只能 ActionBar/快捷键）
+      if (!st || st.hiddenCount <= 0) vm.setBadge(null, 'right', vertical);
+      else if (id === spec.id) vm.setBadge(st.hiddenCount, 'root', vertical);
       else vm.setBadge(st.hiddenCount, st.side, vertical);
     }
   }

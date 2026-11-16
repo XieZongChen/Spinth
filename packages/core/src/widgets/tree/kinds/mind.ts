@@ -16,6 +16,7 @@ import { layoutMindTree } from '../layout/mindHorizontal';
 import { layoutMindTreeVertical } from '../layout/mindVertical';
 import type { ILayoutNode, ILayoutResult } from '../layout/types';
 import type { ITreeEdge } from '../connector/types';
+import type { INavNode } from '../nav/types';
 import {
   nodeConnectorPath,
   nodeConnectorPathVertical,
@@ -25,11 +26,14 @@ import {
   rootT,
   ROOT_CP_RATIO,
 } from '../connector/mind';
-import { mindNavigate, mindNavigateVertical } from '../nav/mind';
+import {
+  mindNavigate,
+  mindNavigateVertical,
+  focusAfterDelete as mindFocusAfterDelete,
+} from '../nav/mind';
 import { MIND_COLORS } from './mind/style';
 import { buildTreeDropAreas, hitTreeDropAreas } from '../drop/mind';
-import type { TreeMapModel } from '../model/treeMapModel';
-import type { TreeMapVm } from '../vm/treeMapVm';
+import type { ITreeDropModelHost, ITreeDropVmHost } from '../registry';
 import { MIND_ROOT_LABEL, mindPresentation, type ITreeNodePresentation } from './mind/style';
 
 export {
@@ -92,6 +96,16 @@ class MindHorizontalConnector implements ITreeConnector {
   }
 }
 
+const mindFocusAfterDeleteAdapted = (
+  nodeId: string,
+  ctx: { root: INavNode; byId: Map<string, INavNode> },
+): string | null => {
+  const navNode = ctx.byId.get(nodeId);
+  if (!navNode) return null;
+  const next = mindFocusAfterDelete(new Set([nodeId]), navNode);
+  return next?.id ?? null;
+};
+
 /** mind 横向导航策略（直通 mindNavigate） */
 class MindHorizontalNav implements ITreeNav {
   navigate(
@@ -101,9 +115,11 @@ class MindHorizontalNav implements ITreeNav {
   ): string | null {
     return mindNavigate(currentId, key, ctx);
   }
+  focusAfterDelete = mindFocusAfterDeleteAdapted;
 }
 
-/** mind 竖向导航策略：键位映射后复用横向逻辑（specs §8.1 表） */
+/** mind 竖向导航策略：键位映射后复用横向逻辑（specs §8.1 表）。
+ *  删除焦点落点与横向同源（侧向规则与物理轴无关） */
 class MindVerticalNav implements ITreeNav {
   navigate(
     currentId: string,
@@ -112,6 +128,7 @@ class MindVerticalNav implements ITreeNav {
   ): string | null {
     return mindNavigateVertical(currentId, key, ctx);
   }
+  focusAfterDelete = mindFocusAfterDeleteAdapted;
 }
 
 /** mind 样式策略：presentation 按深度（行为冻结） */
@@ -123,14 +140,14 @@ const mindStyle: ITreeStyle = {
 
 /** mind 落点策略：DropArea 三层热区（横/竖轴经 vm.orientation 自动分派） */
 class MindDrop {
-  buildAreas = (model: TreeMapModel, vm: TreeMapVm, excludeId: string) =>
+  buildAreas = (model: ITreeDropModelHost, vm: ITreeDropVmHost, excludeId: string) =>
     buildTreeDropAreas(model, vm, excludeId, (n) => nodeDirectionOf(vm, n));
-  hitTest = (vm: TreeMapVm, areas: unknown, world: { x: number; y: number }) =>
+  hitTest = (vm: ITreeDropVmHost, areas: unknown, world: { x: number; y: number }) =>
     hitTreeDropAreas(vm, areas as Parameters<typeof hitTreeDropAreas>[1], world);
 }
 
 /** 节点侧向判定（nodeDirection 需要 Model 树回溯——经 vm 取同树模型） */
-function nodeDirectionOf(vm: TreeMapVm, node: unknown): 'left' | 'right' {
+function nodeDirectionOf(vm: ITreeDropVmHost, node: unknown): 'left' | 'right' {
   const m = node as { getParent(): unknown; toJSON(): { direction?: 'left' | 'right' } };
   let n: unknown = m;
   while (n) {

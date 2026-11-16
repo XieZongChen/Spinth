@@ -1,7 +1,5 @@
 import { DropArea, type IDropHit, type IDropTarget } from './dropArea';
-import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeNodeModel } from './../model/treeNodeModel';
-import type { TreeMapModel } from './../model/treeMapModel';
 import { findMindNode } from './../model/treeMapModel';
 import type { IRect } from '../../../common/geometry';
 
@@ -31,8 +29,8 @@ export interface IMindTreeDropAreas {
 
 /** 一次装配整棵树的热区（拖拽会话内树结构/节点 rect 静态，可安全缓存复用） */
 export function buildTreeDropAreas(
-  model: TreeMapModel,
-  vm: TreeMapVm,
+  model: import('../registry').ITreeDropModelHost,
+  vm: import('../registry').ITreeDropVmHost,
   excludeId: string,
   nodeDirection: NodeDirectionOf,
 ): IMindTreeDropAreas {
@@ -130,7 +128,7 @@ export function buildTreeDropAreas(
 
 /** 世界坐标命中：root 区即返，否则 node 区取距离最小（局部坐标换算在此收口） */
 export function hitTreeDropAreas(
-  vm: TreeMapVm,
+  vm: import('../registry').ITreeDropVmHost,
   areas: IMindTreeDropAreas,
   world: { x: number; y: number },
 ): IDropTarget | null {
@@ -149,7 +147,7 @@ export function hitTreeDropAreas(
 
 /** 普通节点热区（既有设计 baseNodeVm.buildDropArea + mindNodeVm.hitTestDrop） */
 function buildNodeArea(
-  vm: TreeMapVm,
+  vm: import('../registry').ITreeDropVmHost,
   node: TreeNodeModel,
   nodeDirection: NodeDirectionOf,
   excluded: Set<string>,

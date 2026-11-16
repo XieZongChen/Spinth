@@ -10,8 +10,6 @@
 
 import type { TreeWidgetType } from '../../types';
 import type { TreeOrientation } from '../../types/tree';
-import type { TreeMapModel } from './model/treeMapModel';
-import type { TreeMapVm } from './vm/treeMapVm';
 import type { IDropTarget } from './drop/types';
 import { mindKind } from './kinds/mind';
 import { orgKind } from './kinds/org';
@@ -42,13 +40,18 @@ export interface ITreeNavCtx {
   spanOf(id: string): { start: number; end: number } | null;
 }
 
-/** 导航策略：方向键语义（返回 null = 不动）。删除焦点落点仍是 nav/mind.ts
- *  的 focusAfterDelete 纯函数（ops 直调；种类差异出现时再进接口） */
+/** 导航策略：方向键语义（返回 null = 不动）+ 删除后焦点落点（审查返工
+ *  P1-8：org 策略此前是死代码——ops 对所有 kind 都用 mind 的侧向过滤版） */
 export interface ITreeNav {
   navigate(
     currentId: string,
     key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
     ctx: ITreeNavCtx,
+  ): string | null;
+  /** 删除 nodeId 后焦点落哪（返回 null = 无落点；根删除 = 删整图语义在 ops） */
+  focusAfterDelete(
+    nodeId: string,
+    ctx: { root: INavNode; byId: Map<string, INavNode> },
   ): string | null;
 }
 
@@ -59,9 +62,21 @@ export interface ITreeStyle {
 
 /** 落点策略（specs §8.3）：areas 是策略私有形状（mind = DropArea 集、
  *  org = 可见节点集），buildAreas/hitTest 成对使用——骨架只透传 */
+/** 落点策略的窄 host（审查返工 P1-10，spec §3.4：用结构化最小面而非
+ *  TreeMapModel/TreeMapVm 具体类——kind 配置不反向依赖骨架 Vm/Model） */
+export interface ITreeDropModelHost {
+  kind: ITreeKind;
+  root: import('./model/treeNodeModel').TreeNodeModel;
+  hasRoot(): boolean;
+}
+export interface ITreeDropVmHost {
+  orientation: TreeOrientation;
+  getNodeRect(id: string): { x: number; y: number; width: number; height: number } | null;
+  root: { x: number; y: number };
+}
 export interface ITreeDrop {
-  buildAreas(model: TreeMapModel, vm: TreeMapVm, excludeId: string): unknown;
-  hitTest(vm: TreeMapVm, areas: unknown, world: { x: number; y: number }): IDropTarget | null;
+  buildAreas(model: ITreeDropModelHost, vm: ITreeDropVmHost, excludeId: string): unknown;
+  hitTest(vm: ITreeDropVmHost, areas: unknown, world: { x: number; y: number }): IDropTarget | null;
 }
 
 /** 种类配置：语义差异的全部来源（布局/连线/导航/落点/样式/文案） */
