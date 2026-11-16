@@ -64,7 +64,7 @@ export class TreeMapModel<D extends IWidgetData = IWidgetData> extends BaseModel
     const yMap = super.initialize(rest as D);
     if (rootSpec) {
       this.processor.transact(() => {
-        yMap.set('root', buildYTree(this.processor, rootSpec));
+        yMap.set('root', buildYTree(this.processor, rootSpec, this.kind));
       });
     }
     return yMap;

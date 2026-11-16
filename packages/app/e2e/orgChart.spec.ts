@@ -61,7 +61,7 @@ test('OC-2 父在子跨度居中：根三个子，根中心 x = 首末子中心 
   // AddButtons 跟随焦点（建子后焦点移新子）——用 sibling 槽连建兄弟：
   // 当前焦点根（Escape 后）；先点根 child 槽建 B（焦点→B），再点 B 的
   // sibling 槽建 C → 根三子 A/B/C（A 来自 Tab 链，带孙 A1 不影响层判定）
-  await page.click('[data-spinth-mind-add="right"]');
+  await page.click('[data-spinth-mind-add="child"]');
   await page.waitForTimeout(200);
   await page.click('[data-spinth-mind-add="sibling"]');
   await page.waitForTimeout(250);
@@ -94,6 +94,10 @@ test('OC-3 方向键：↑ 父 / ↓ 子；折叠徽标点击展开', async ({ p
     o.top + nodeA.worldRect.y + nodeA.worldRect.height / 2,
   );
   await page.waitForTimeout(200);
+  // 焦点保持（审查返工 P0-2 回归锁）：点击后 applySelection 不再把 org
+  // 选中清成无焦点——ActionBar/AddButtons 依赖该焦点
+  p = await probe(page);
+  expect(p.mindFocus?.nodeId).toBe(nodeA.id);
   await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(150);
   p = await probe(page);

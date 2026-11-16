@@ -72,20 +72,25 @@ export class TreeOps extends Disposable {
     const f = this.host.getFocused();
     if (!f) return;
     const { mapModel, node } = f;
+    const kind = mapModel.kind;
     const isRoot = node === mapModel.root;
-    const dir = isRoot
-      ? (direction ??
-        rootInsertSide({
-          direction: node.toJSON().direction,
-          children: node.children.map((c) => ({ direction: c.toJSON().direction })),
-        }))
-      : undefined;
+    // kind 能力位（审查返工 P0-4）：org 不写 direction/lineColor——文案/侧向/
+    // 分支色全部经 kind（org「成员 N」、恒无侧无色），mind 行为不变
+    const dir =
+      isRoot && kind.supportsSides
+        ? (direction ??
+          rootInsertSide({
+            direction: node.toJSON().direction,
+            children: node.children.map((c) => ({ direction: c.toJSON().direction })),
+          }))
+        : undefined;
     const yChildren = node.yChildList;
     // 根的直接子节点分配分支色（未占用色规避撞色；深层继承，不落盘）
-    const color = isRoot
-      ? nextBranchColor(this.usedBranchColors(mapModel), yChildren.length)
-      : undefined;
-    const yChild = buildYNode(dir, color, defaultNodeText(node.children.length));
+    const color =
+      isRoot && kind.supportsLineColor
+        ? nextBranchColor(this.usedBranchColors(mapModel), yChildren.length)
+        : undefined;
+    const yChild = buildYNode(dir, color, kind.defaultChildText(node.children.length));
     yChildren.doc!.transact(() => {
       yChildren.push([yChild]);
       // 折叠节点上建子：同一事务展开，新节点可见（仍一步撤销，specs §4.5）
@@ -110,12 +115,16 @@ export class TreeOps extends Disposable {
     if (!parent) return;
     const yChildren = parent.yChildList;
     const idx = parent.children.indexOf(node);
-    // 根层建同级 = 新的一级分支，取插入位起第一个未占用分支色
+    // 根层建同级 = 新的一级分支，取插入位起第一个未占用分支色（kind 守卫）
     const color =
-      parent === mapModel.root
+      parent === mapModel.root && mapModel.kind.supportsLineColor
         ? nextBranchColor(this.usedBranchColors(mapModel), idx + 1)
         : undefined;
-    const yChild = buildYNode(undefined, color, defaultNodeText(parent.children.length));
+    const yChild = buildYNode(
+      undefined,
+      color,
+      mapModel.kind.defaultChildText(parent.children.length),
+    );
     yChildren.doc!.transact(() => yChildren.insert(idx + 1, [yChild]));
     this.host.setFocusedNode(String(yChild.get('id')));
     this.history.stopCapturing();
@@ -175,9 +184,10 @@ export class TreeOps extends Disposable {
       }
       // 颜色规则（既有设计 move Rule 1）：移入根节点且同图、自身带色 → 保留原色；
       // 跨图或自身无色 → 按落位分配未占用色。移入普通节点 → 清空继承新父（Rule 2）
-      const color = isRoot
-        ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
-        : undefined;
+      const color =
+        isRoot && model.kind.supportsLineColor
+          ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
+          : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
         const yNew = this.buildFromSpec(project(target.direction, color), target.direction, color);
@@ -192,9 +202,10 @@ export class TreeOps extends Disposable {
       const parentChildren = parent.yChildList;
       const insertAt = Math.min(target.index, parentChildren.length);
       const isRoot = parent === model.root;
-      const color = isRoot
-        ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
-        : undefined;
+      const color =
+        isRoot && model.kind.supportsLineColor
+          ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
+          : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
         const yNew = this.buildFromSpec(project(undefined, color), undefined, color);

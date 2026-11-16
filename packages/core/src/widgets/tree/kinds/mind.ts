@@ -26,6 +26,7 @@ import {
   ROOT_CP_RATIO,
 } from '../connector/mind';
 import { mindNavigate, mindNavigateVertical } from '../nav/mind';
+import { MIND_COLORS } from './mind/style';
 import { buildTreeDropAreas, hitTreeDropAreas } from '../drop/mind';
 import type { TreeMapModel } from '../model/treeMapModel';
 import type { TreeMapVm } from '../vm/treeMapVm';
@@ -148,6 +149,7 @@ export const mindKind: ITreeKind = {
   supportsSides: true,
   supportsLineColor: true,
   connectorLineWidth: 4,
+  connectorFallback: MIND_COLORS.lineFallback,
   style: mindStyle,
   defaultRootText: MIND_ROOT_LABEL,
   defaultChildText: (n: number) => `子节点 ${n + 1}`,

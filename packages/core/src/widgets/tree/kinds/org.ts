@@ -44,6 +44,7 @@ export const orgKind: ITreeKind = {
   supportsSides: false,
   supportsLineColor: false,
   connectorLineWidth: 2,
+  connectorFallback: ORG_LINE,
   style: { presentation: orgPresentation },
   defaultRootText: ORG_ROOT_TEXT,
   defaultChildText: (n: number) => `成员 ${n + 1}`,

@@ -53,6 +53,9 @@ export interface ITreeNodePresentation {
   stroke: { color: string; width: number };
   /** 文本换行宽（不含 padding；Vm 里 wordWrapWidth = max(此值, 40)） */
   wrapWidth: number;
+  /** 本体宽钳制（org 卡片 clamp(120,260)——specs §7.3；mind 不给 = 不钳制） */
+  minWidth?: number;
+  maxWidth?: number;
 }
 
 /** mind presentation（行为冻结：与 2026-09 实现逐字段一致）。

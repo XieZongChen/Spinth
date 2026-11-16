@@ -547,7 +547,7 @@ test('视觉快照 @visual：组织架构样本（层级对齐 + 正交总线 + 
   await page.waitForTimeout(150);
   await page.mouse.click(geo.x, geo.y); // 选中 A
   await page.waitForTimeout(250);
-  await page.click('[data-spinth-mind-add="right"]'); // 组 1（焦点组 1）
+  await page.click('[data-spinth-mind-add="child"]'); // 组 1（焦点组 1；org 槽位无侧）
   await page.waitForTimeout(200);
   await page.click('[data-spinth-mind-add="sibling"]'); // 组 2
   await page.waitForTimeout(200);

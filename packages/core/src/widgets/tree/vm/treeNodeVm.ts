@@ -89,7 +89,11 @@ export class TreeNodeVm extends Container {
     const maxTextW = p.wrapWidth; // 含自身 padding 总宽恒 ≤ maxWidth（presentation 单源）
     this.textLabel.style.wordWrapWidth = Math.max(maxTextW, 40);
     this.textLabel.position.set(p.padding.x, p.padding.y);
-    this.nodeWidth = Math.ceil(this.textLabel.width) + p.padding.x * 2;
+    // 宽钳制（specs §7.3 org 卡片 clamp(120,260)；mind 无钳制字段不生效）
+    let w = Math.ceil(this.textLabel.width) + p.padding.x * 2;
+    if (p.minWidth !== undefined) w = Math.max(w, p.minWidth);
+    if (p.maxWidth !== undefined) w = Math.min(w, p.maxWidth);
+    this.nodeWidth = w;
     this.nodeHeight = Math.ceil(this.textLabel.height) + p.padding.y * 2;
 
     this.bg.clear();

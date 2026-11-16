@@ -64,78 +64,73 @@ test('V-1 切竖向：分支上下分布、同侧子树横向堆叠、父在子�
   expect(Math.abs(mid - (root.worldRect.x + root.worldRect.width / 2))).toBeLessThanOrEqual(2);
 });
 
-// test.slow：本例多次编辑器开合 + 全量并行时对机器负载敏感（单跑/四跑全绿，
-// 全量高负载窗口偶发吞键超时）——3× 超时给 poll 与等待留余量
-test.describe('V-2 负载缓冲', () => {
-  test.slow();
-  test('V-2 竖向导航：↓=子、↑=父（右侧=下侧树）；撤销一步回横向', async ({ page }) => {
-    const docId = `e2e-mind-v2-${Date.now()}`;
-    await page.goto(`/?doc=${docId}`);
-    await waitForSynced(page);
-    await createMap(page);
-    await switchToVertical(page);
+test('V-2 竖向导航：↓=子、↑=父（右侧=下侧树）；撤销一步回横向', async ({ page }) => {
+  const docId = `e2e-mind-v2-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await waitForSynced(page);
+  await createMap(page);
+  await switchToVertical(page);
 
-    // 建链：根 → A → A1。barPick 后 DOM 焦点在菜单项上（Tab 会走原生焦点序列），
-    // 先点根回画布焦点再 Tab
-    const o0 = await canvasOrigin(page);
-    await page.mouse.click(o0.left + 560, o0.top + 320);
-    await page.waitForTimeout(200);
-    await page.keyboard.press('Tab');
-    await page.waitForTimeout(150);
-    await page.keyboard.press('Tab');
-    await page.waitForTimeout(200);
-    let p = await probe(page);
-    expect(p.mindNodes).toHaveLength(3);
-    const [, nodeA, nodeA1] = p.mindNodes;
+  // 建链：根 → A → A1。barPick 后 DOM 焦点在菜单项上（Tab 会走原生焦点序列），
+  // 先点根回画布焦点再 Tab
+  const o0 = await canvasOrigin(page);
+  await page.mouse.click(o0.left + 560, o0.top + 320);
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(200);
+  let p = await probe(page);
+  expect(p.mindNodes).toHaveLength(3);
+  const [, nodeA, nodeA1] = p.mindNodes;
 
-    // 焦点 A → ↓ 进子 A1（下侧树 ↓=子）。先 Escape 清选区——否则点已选中图
-    // = 「再点已选中 → 进编辑」，textarea 会吞掉方向键（treeCollapse.spec 同款）
-    const o = await canvasOrigin(page);
-    // Tab 建子会自动进编辑（textarea 聚焦会吞方向键）：双 Escape 先关编辑器、
-    // 再清选区——之后点 A 才是纯选中（不触发「再点已选中 → 进编辑」）
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(250);
-    await page.mouse.click(
-      o.left + nodeA.worldRect.x + nodeA.worldRect.width / 2,
-      o.top + nodeA.worldRect.y + nodeA.worldRect.height / 2,
-    );
-    // 焦点就位 poll 等待（编辑器收起微任务竞态下固定延时不够——负载机器偶发吞键）
-    await expect
-      .poll(async () => (await probe(page)).mindFocus?.nodeId, { timeout: 5000 })
-      .toBe(nodeA.id);
-    await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(300);
-    p = await probe(page);
-    expect(p.mindFocus?.nodeId).toBe(nodeA1.id);
-    // ↑ 回父
-    await page.keyboard.press('ArrowUp');
-    await page.waitForTimeout(300);
-    p = await probe(page);
-    expect(p.mindFocus?.nodeId).toBe(nodeA.id);
+  // 焦点 A → ↓ 进子 A1（下侧树 ↓=子）。先 Escape 清选区——否则点已选中图
+  // = 「再点已选中 → 进编辑」，textarea 会吞掉方向键（treeCollapse.spec 同款）
+  const o = await canvasOrigin(page);
+  // Tab 建子会自动进编辑（textarea 聚焦会吞方向键）：双 Escape 先关编辑器、
+  // 再清选区——之后点 A 才是纯选中（不触发「再点已选中 → 进编辑」）
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  await page.mouse.click(
+    o.left + nodeA.worldRect.x + nodeA.worldRect.width / 2,
+    o.top + nodeA.worldRect.y + nodeA.worldRect.height / 2,
+  );
+  // 焦点就位 poll 等待（编辑器收起微任务竞态下固定延时不够——负载机器偶发吞键）
+  await expect
+    .poll(async () => (await probe(page)).mindFocus?.nodeId, { timeout: 5000 })
+    .toBe(nodeA.id);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(300);
+  p = await probe(page);
+  expect(p.mindFocus?.nodeId).toBe(nodeA1.id);
+  // ↑ 回父
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(300);
+  p = await probe(page);
+  expect(p.mindFocus?.nodeId).toBe(nodeA.id);
 
-    // 撤销回横向：栈序 = A1 → A → 切竖向（导航不写文档）。逐步撤到只剩根，
-    // 再 Tab 建子——恢复横向几何（子在根右侧、纵向中线对齐）
-    await page.keyboard.press('ControlOrMeta+z'); // 撤 A1
-    await page.waitForTimeout(150);
-    await page.keyboard.press('ControlOrMeta+z'); // 撤 A
-    await page.waitForTimeout(150);
-    await page.keyboard.press('ControlOrMeta+z'); // 撤切竖向
-    await page.waitForTimeout(300);
-    p = await probe(page);
-    expect(p.mindNodes).toHaveLength(1);
-    // 根仍选中（选区未清）——Tab 建子后横向：子 x ≥ 根右缘
-    await page.keyboard.press('Tab');
-    await page.waitForTimeout(250);
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(150);
-    p = await probe(page);
-    expect(p.mindNodes).toHaveLength(2);
-    const root = p.mindNodes[0]!;
-    const kid = p.mindNodes[1]!;
-    expect(kid.worldRect.x).toBeGreaterThanOrEqual(root.worldRect.x + root.worldRect.width);
-  });
+  // 撤销回横向：栈序 = A1 → A → 切竖向（导航不写文档）。逐步撤到只剩根，
+  // 再 Tab 建子——恢复横向几何（子在根右侧、纵向中线对齐）
+  await page.keyboard.press('ControlOrMeta+z'); // 撤 A1
+  await page.waitForTimeout(200);
+  await page.keyboard.press('ControlOrMeta+z'); // 撤 A
+  await page.waitForTimeout(200);
+  await page.keyboard.press('ControlOrMeta+z'); // 撤切竖向
+  await page.waitForTimeout(300);
+  // 审查返工：撤销链会清选区/焦点（页面「已取消选择」）——此前假设「根
+  // 仍选中」不成立，Tab 无焦点可建。修法 = undo 后重选根（锚点固定）；
+  // 选中态 Tab 不开编辑器，建子后不再 Escape（清选区会打死探针）
+  const o2 = await canvasOrigin(page);
+  await page.mouse.click(o2.left + 560, o2.top + 320);
+  await expect.poll(async () => (await probe(page)).mindNodes.length, { timeout: 5000 }).toBe(1);
+  await page.keyboard.press('Tab');
+  await expect.poll(async () => (await probe(page)).mindNodes.length, { timeout: 5000 }).toBe(2);
+  p = await probe(page);
+  const root = p.mindNodes[0]!;
+  const kid = p.mindNodes[1]!;
+  expect(kid.worldRect.x).toBeGreaterThanOrEqual(root.worldRect.x + root.worldRect.width);
 });
 
 test('V-3 刷新保持竖向；旧语义 direction 不变（折叠徽标随轴转不炸）', async ({ page }) => {

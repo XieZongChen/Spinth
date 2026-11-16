@@ -100,10 +100,20 @@ export function getTreeAddButtons(host: IBoardQueryHost): ITreeAddButtonsState |
   const midY = bounds.y + bounds.height / 2 - TREE_ADD_BTN / 2;
 
   const slots: ITreeAddButtonsState['slots'] = [];
-  const child = (side: 'left' | 'right', left: number, top: number): void => {
+  const child = (side: 'left' | 'right' | undefined, left: number, top: number): void => {
     slots.push({ key: 'child', side, left, top });
   };
-  if (orientation === 'vertical') {
+  if (kind === 'ORG_CHART' || orientation === 'top-down') {
+    // org（审查返工 P0-3）：child 恒卡片正下方（无侧——specs §8.5 下+右），
+    // sibling 右。此前 top-down 落入横向分支出左右槽，属 bug
+    child(undefined, midX, bounds.y + bounds.height + TREE_ADD_GAP);
+    if (!f.isRoot)
+      slots.push({
+        key: 'sibling',
+        left: bounds.x + bounds.width + TREE_ADD_GAP,
+        top: midY,
+      });
+  } else if (orientation === 'vertical') {
     // mind vertical：上（left）/下（right）建子、右建同级（spec §8.5 表）
     if (f.isRoot || f.direction === 'left')
       child('left', midX, bounds.y - TREE_ADD_BTN - TREE_ADD_GAP);

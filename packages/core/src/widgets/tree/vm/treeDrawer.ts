@@ -7,7 +7,6 @@ import { TreeNodeModel } from '../model/treeNodeModel';
 import type { ITreeKind } from '../registry';
 import type { ILayoutResult } from '../layout/types';
 import type { IConnectorCmd } from '../connector/types';
-import { MIND_COLORS } from '../kinds/mind/style';
 import type { TreeNodeVm } from './treeNodeVm';
 
 function hexToInt(hex: string): number {
@@ -51,14 +50,30 @@ export function drawTreeConnectors(
       const cp = layout.positions.get(c.id);
       const cvm = nodeVms.get(c.id);
       if (!cp || !cvm) continue;
-      const childIsLeft = cp.x < p.x;
-      const color = hexToInt(c.getLineColor(MIND_COLORS.lineFallback));
+      // side 按物理轴取（审查返工 P1-7）：竖向上分支可在父 x 任意一侧——
+      // cp.x<p.x 判据只在横向成立；org 无侧恒 null
+      const side: 'left' | 'right' | null =
+        orientation === 'vertical'
+          ? cp.y < p.y
+            ? 'left'
+            : 'right'
+          : orientation === 'top-down'
+            ? null
+            : cp.x < p.x
+              ? 'left'
+              : 'right';
+      // 边色（审查返工 P0-4）：org 不消费分支色——恒 kind.connectorFallback
+      // （ORG_LINE #64748b）；mind 沿父链继承 + 兜底
+      const lineColor = kind.supportsLineColor
+        ? c.getLineColor(kind.connectorFallback)
+        : kind.connectorFallback;
+      const color = hexToInt(lineColor);
       const cmds = connector.path({
         parent: { x: p.x, y: p.y, width: vm.nodeWidth, height: vm.nodeHeight },
         child: { x: cp.x, y: cp.y, width: cvm.nodeWidth, height: cvm.nodeHeight },
-        side: childIsLeft ? 'left' : 'right',
+        side,
         depth,
-        lineColor: c.getLineColor(MIND_COLORS.lineFallback),
+        lineColor,
       });
       executeConnectorCmds(g, cmds);
       g.stroke({ width: lineWidth, color, cap: 'round', join: 'round' });

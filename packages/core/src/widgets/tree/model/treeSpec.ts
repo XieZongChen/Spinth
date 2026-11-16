@@ -12,9 +12,15 @@ import { branchColorAt } from '../kinds/mind/colors';
 
 export type { IMindNodeSpec, ITreeNodeSpec };
 
-/** JSON 树 → 嵌套 Y.Map（id 此处生成：树内节点 id 不走 widgets 语义） */
-export function buildYTree(processor: DataProcessor, spec: ITreeNodeSpec): Y.Map<unknown> {
-  return buildYNodeY(processor, spec, 0, 0);
+/** JSON 树 → 嵌套 Y.Map（id 此处生成：树内节点 id 不走 widgets 语义）。
+ *  kind 可选（审查返工 P0-4）：缺省 = mind 行为（旧测试兼容）；org kind 下
+ *  direction/lineColor 不落盘（specs §4.3 按目标 kind 投影、不写脏字段） */
+export function buildYTree(
+  processor: DataProcessor,
+  spec: ITreeNodeSpec,
+  kind?: { supportsSides: boolean; supportsLineColor: boolean },
+): Y.Map<unknown> {
+  return buildYNodeY(processor, spec, 0, 0, kind);
 }
 
 function buildYNodeY(
@@ -22,20 +28,24 @@ function buildYNodeY(
   spec: ITreeNodeSpec,
   depth: number,
   index: number,
+  kind?: { supportsSides: boolean; supportsLineColor: boolean },
 ): Y.Map<unknown> {
+  // 字段能力缺省按 mind（全支持）——显式传入的 kind 按其能力位收窄
+  const sides = kind?.supportsSides ?? true;
+  const colors = kind?.supportsLineColor ?? true;
   const m = new Y.Map<unknown>();
   const children = new Y.Array<Y.Map<unknown>>();
   processor.transact(() => {
     m.set('id', `mn-${Math.random().toString(36).slice(2, 10)}`);
     m.set('text', spec.text);
-    if (spec.direction) m.set('direction', spec.direction);
+    if (sides && spec.direction) m.set('direction', spec.direction);
     // 分支色：根的直接子节点按位分配；spec 自带（拖拽搬移）优先；深层不落盘走继承
     const lineColor = spec.lineColor ?? (depth === 1 ? branchColorAt(index) : undefined);
-    if (lineColor) m.set('lineColor', lineColor);
+    if (colors && lineColor) m.set('lineColor', lineColor);
     // 折叠透传（搬移/复制保持折叠态；展开态缺省不落盘——老文档零迁移）
     if (spec.collapsed) m.set('collapsed', true);
     for (const [i, c] of (spec.children ?? []).entries()) {
-      children.push([buildYNodeY(processor, c, depth + 1, i)]);
+      children.push([buildYNodeY(processor, c, depth + 1, i, kind)]);
     }
     m.set('children', children);
   });

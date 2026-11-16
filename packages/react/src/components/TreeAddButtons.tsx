@@ -12,10 +12,12 @@ import { TREE_ADD_BTN, clampTreeAddSlots } from '../treeAddLayout';
  * bounds/slots 是 canvas 局部坐标（挂 <main> 内直接用，禁止 +TOPBAR_HEIGHT）。
  */
 
-/** 槽位动作：child 槽带逻辑侧，文案随物理轴（horizontal 左/右——沿用
- *  MindAddButtons 旧文案，mindSelect.spec 等选择器零迁移；vertical 上/下） */
+/** 槽位动作：文案随 kind/物理轴（审查返工 P0-3）——org 无侧「添加子主题」；
+ *  mind horizontal 左/右（沿用 MindAddButtons 旧文案，mindSelect.spec 等
+ *  选择器零迁移）；vertical 上/下 */
 function slotAction(
   slot: { key: 'child' | 'sibling'; side?: 'left' | 'right' },
+  kind: 'MIND_MAP' | 'ORG_CHART',
   orientation: 'horizontal' | 'vertical',
 ): {
   title: string;
@@ -25,13 +27,15 @@ function slotAction(
     return { title: '添加同级主题', onClick: () => spinthCommands.mindAddSibling() };
   }
   const title =
-    orientation === 'vertical'
-      ? slot.side === 'left'
-        ? '添加上方子主题'
-        : '添加下方子主题'
-      : slot.side === 'left'
-        ? '添加左侧子主题'
-        : '添加右侧子主题';
+    kind === 'ORG_CHART'
+      ? '添加子主题'
+      : orientation === 'vertical'
+        ? slot.side === 'left'
+          ? '添加上方子主题'
+          : '添加下方子主题'
+        : slot.side === 'left'
+          ? '添加左侧子主题'
+          : '添加右侧子主题';
   return { title, onClick: () => spinthCommands.mindAddChild(slot.side) };
 }
 
@@ -57,20 +61,22 @@ export function TreeAddButtons() {
   if (!editable || !state) return null;
   const slots = clampTreeAddSlots(state.slots, area);
   const vertical = state.orientation === 'vertical';
+  const act = (s: (typeof slots)[number]) =>
+    slotAction(s, state.kind, vertical ? 'vertical' : 'horizontal');
   return (
     <>
       {slots.map((s) => {
-        // data 属性沿用 mind-add（mobile E2E 选择器依赖；key 含逻辑侧：
-        // child-left/child-right/sibling——竖向时 left=上、right=下）
-        const dataKey = s.key === 'child' ? s.side : 'sibling';
+        // data 属性沿用 mind-add（mobile E2E 选择器依赖）；org child 无侧
+        // → 'child'（审查返工 P0-3：org 槽位唯一，选择器用 child）
+        const dataKey = s.key === 'child' ? (s.side ?? 'child') : 'sibling';
         return (
           <button
             key={s.key === 'child' ? `child-${s.side ?? 'x'}` : 'sibling'}
             type="button"
-            title={slotAction(s, vertical ? 'vertical' : 'horizontal').title}
-            aria-label={slotAction(s, vertical ? 'vertical' : 'horizontal').title}
+            title={act(s).title}
+            aria-label={act(s).title}
             data-spinth-mind-add={dataKey}
-            onClick={() => slotAction(s, vertical ? 'vertical' : 'horizontal').onClick()}
+            onClick={() => act(s).onClick()}
             onPointerDown={(e) => e.stopPropagation()}
             style={{ left: s.left, top: s.top, width: TREE_ADD_BTN, height: TREE_ADD_BTN }}
             className="pointer-events-auto absolute z-10 flex items-center justify-center rounded-full border border-edge bg-surface text-tool-mind shadow-dock transition-transform duration-100 hover:scale-110 hover:border-tool-mind"

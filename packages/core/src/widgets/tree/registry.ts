@@ -75,6 +75,8 @@ export interface ITreeKind {
   readonly supportsLineColor: boolean;
   /** 连线宽度（mind 4 / org 2——绘制与预览同源） */
   readonly connectorLineWidth: number;
+  /** 连线兜底色（mind = 分支色兜底；org 恒 ORG_LINE——节点无 lineColor） */
+  readonly connectorFallback: string;
   readonly style: ITreeStyle;
   readonly defaultRootText: string;
   defaultChildText(n: number): string;

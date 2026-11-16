@@ -36,6 +36,8 @@ export function orgPresentation(
       width: depth === 0 ? ORG_CARD.rootStrokeWidth : ORG_CARD.strokeWidth,
     },
     wrapWidth: ORG_CARD.maxW - ORG_CARD.padX * 2,
+    minWidth: ORG_CARD.minW,
+    maxWidth: ORG_CARD.maxW,
   };
 }
 
