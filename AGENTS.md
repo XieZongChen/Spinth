@@ -279,7 +279,13 @@ popover 只读往返清开合 + 栏内收起回焦触发钮；quick-add 单撤�
 stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广播的挂线 reattach
 滞后写并入同捕获窗，一次 quick-add 恒一步 undo、不暴露 [0,0] 草稿中间态）。
 
-树形图族（specs/tree-diagrams，docs/22）已落地：mind 目录迁移
+树形图族（specs/tree-diagrams，docs/22）已落地并完成一轮审查返工（f7948fd..2c41d54）：
+树命令只读早退与 kind 守卫、applySelection family 化（org 选中不再清焦点）、
+org 语义统一（AddButtons 下+右/成员 N/零 direction+lineColor 污染/连线 ORG_LINE
+固定灰蓝/卡片 min 120 宽）、徽标 hiddenCount 不冒泡（仅自身折叠节点显示）、
+focusAfterDelete 经 kind 策略分派、preview 圆角、Toolbar 稳定 id、
+treeService 382 行/treeDragController 376 行拆分达标、基线双平台重生成
+（--stability 逐字节全等）。骨架层：mind 目录迁移
 `widgets/tree`（family 'tree' 三注册表/TREE_KINDS 编译锁/公开导出冻结 +
 golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标点击、
 命中/导航/框选/落点排隐藏、自动展开、序列化透传）；脑图竖向（orientation
@@ -289,10 +295,11 @@ golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标�
 菜单/kind 记忆/M/O 直达）；公开面新增 getTreeAddButtons/toggleTreeCollapse/
 setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
 
-当前实测基线：`pnpm verify` 通过；1327 单测（core 1210 + react 79 + app 38）；
-E2E 54 spec / 293 例（291 通过 + 2 跳过为旋转手柄用例暂跳，specs/rotate-hide；
-主配置 286 = 284 通过 + 2 跳过，pwa 7 独立配置；树形图族 +18 例
-treeCollapse 6/mindVertical 3/treeTool 5/orgChart 4；rotate 3 通过 + 2 跳过含
+当前实测基线：`pnpm verify` 通过；1333 单测（core 1216 + react 79 + app 38）；
+E2E 54 spec / 296 例（主配置 289 --list 实测：非 visual 281 = 279 通过 +
+2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 8；pwa 7 独立配置；
+全量实测 0 failed；树形图族 +19 例 treeCollapse 6/mindVertical 3/
+treeTool 5/orgChart 4/debugSurface 71；rotate 3 通过 + 2 跳过含
 入口隐藏锁、rotateAnchor 2/2；flowchart 15 例；edgeAutoScroll 11/11 含 E-6
 culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E
 端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；clickCreateSlip

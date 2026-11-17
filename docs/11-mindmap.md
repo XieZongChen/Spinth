@@ -155,7 +155,7 @@ dragEnd:   命中 → move()（目标图内按 index 插入，序列化→删除
 
 ## 7. 焦点导航（MindFocusController）
 
-实现：`mindNav.ts` 纯函数 + `MindService`。
+实现：`widgets/tree/nav/mind.ts` 纯函数 + `TreeService`（焦点域在 `focus/treeFocusController.ts`）。
 
 - 方向键智能判断：左树的 ← 是子节点、→ 是父节点（右树相反）；根节点 ←/→ 分别取
   左右子树中与根中点最近的子节点。
@@ -181,8 +181,9 @@ dragEnd:   命中 → move()（目标图内按 index 插入，序列化→删除
 - 连续 Tab 建节点每步 `stopCapturing()`（逐步撤销）。
 - 节点编辑：再点一次已选中节点进编辑（与 TEXT/STICKY 同一激活通道，无时间窗）；
   输入即落库（34ms 节流），退出统一 flush。
-- 工具模式 `mind`：按下空白落盘建图；跟随示意是 react 层 `ToolGhost`（DOM 幽灵），
-  悬停已有图的隐藏由 core 经 `mindGhostSuppressed$` 发布。
+- 工具入口是工具坞的「树形图」单按钮（类型二级菜单切脑图/组织架构，`M/O`
+  直达，specs/tree-diagrams §10.1）：按下空白落盘建图；跟随示意是 react 层
+  `ToolGhost`（DOM 幽灵），悬停已有图的隐藏由 core 经 `mindGhostSuppressed$` 发布。
 
 ### 8.1 折叠（specs/tree-diagrams §8.4）
 
@@ -190,7 +191,7 @@ dragEnd:   命中 → move()（目标图内按 index 插入，序列化→删除
   序列化（复制/搬移）透传折叠态。一次切换一步撤销（`stopCapturing`）。
 - 布局与可见性：折叠节点的子树不进布局、不渲染（Vm 保留 `visible=false`）、
   不参与命中/导航/框选/落点/AddButtons；隐藏后代数一次后序统计（O(n)）。
-- 徽标：仅折叠节点显示直径 24 深底白字 `+N` 徽标，锚在朝子侧边中点（根恒右下角）；
+- 徽标：仅折叠节点显示直径 24 深底白字 `+N` 徽标，锚在朝子侧边中点（折叠的根锚右下角；未折叠节点含根无徽标——hiddenCount 不冒泡）；
   点击徽标 = 展开（selector 在节点拖拽判定前先查徽标命中，命中不建拖拽会话）。
 - 入口：ActionBar `treeCollapsed` toggle（有子才出现，文案/图标随态翻转）、
   Cmd/Ctrl+. 快捷键、徽标点击（仅展开）。

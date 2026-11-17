@@ -1,6 +1,7 @@
 # 树形图族（Tree Diagram Family）技术方案
 
-> 状态：**已实施（Phase 0-3 全量，2026-11-15）**。Phase 4 可选增强未做；
+> 状态：**已实施（Phase 0-3 全量，2026-11-15）+ 一轮外部审查返工全量收口
+> （f7948fd..2c41d54，P0×6/P1×5 全修）**。Phase 4 可选增强未做；
 > 手工验收六项（§14.5）待人工。复审按 §16 清单逐条核对。
 >
 > 基线备注：mind-horizontal/mind-vertical/org-sample 三张基线 darwin 本地
