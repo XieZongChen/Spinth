@@ -1,4 +1,3 @@
-import * as Y from 'yjs';
 import { Disposable } from '../../../base/disposable';
 import type { IDataEngineService, IHistoryService, ISelectorService } from '../../../types';
 import type { TreeMapVm } from './../vm/treeMapVm';
@@ -9,6 +8,7 @@ import { projectSpecFor } from './../model/treeSpec';
 import { rootInsertSide } from './../nav/mind';
 import type { IDropTarget } from './../drop/dropArea';
 import type { TreeOrientation } from '../../../types/tree';
+import { buildFromSpec, buildYNode, rootChildColor, usedBranchColors } from './treeOpsNodes';
 
 /**
  * 脑图树写 + 节点操作协作者（自 treeService 拆出，2026-10-06 批刀 1）：
@@ -33,27 +33,6 @@ export interface ITreeMoveSource {
   spec: IMindNodeSpec;
   /** 命中目标所属脑图（跨图拖拽用；null = 未命中/与源图相同） */
   lastTargetMapId: string | null;
-}
-
-/**
- * 新节点默认文案（既有设计 mindController.insertChild：`子节点 ${count + 1}`，
- * count = 父节点当前子数）。带占位文案的节点让「建完直接打字替换」有落点，
- * 也避免空文本节点渲染成一个看不出是什么的小方块。
- */
-export function defaultNodeText(siblingCount: number): string {
-  return `子节点 ${siblingCount + 1}`;
-}
-
-/** 单节点 Y.Map（树内 id 生成；lineColor 仅根的直接子节点按位分配，深层继承） */
-function buildYNode(direction?: 'left' | 'right', lineColor?: string, text = ''): Y.Map<unknown> {
-  const m = new Y.Map<unknown>();
-  const children = new Y.Array<Y.Map<unknown>>();
-  m.set('id', `mn-${Math.random().toString(36).slice(2, 10)}`);
-  m.set('text', text);
-  if (direction) m.set('direction', direction);
-  if (lineColor) m.set('lineColor', lineColor);
-  m.set('children', children);
-  return m;
 }
 
 export class TreeOps extends Disposable {
@@ -88,7 +67,7 @@ export class TreeOps extends Disposable {
     // 根的直接子节点分配分支色（未占用色规避撞色；深层继承，不落盘）
     const color =
       isRoot && kind.supportsLineColor
-        ? nextBranchColor(this.usedBranchColors(mapModel), yChildren.length)
+        ? nextBranchColor(usedBranchColors(mapModel), yChildren.length)
         : undefined;
     const yChild = buildYNode(dir, color, kind.defaultChildText(node.children.length));
     yChildren.doc!.transact(() => {
@@ -118,7 +97,7 @@ export class TreeOps extends Disposable {
     // 根层建同级 = 新的一级分支，取插入位起第一个未占用分支色（kind 守卫）
     const color =
       parent === mapModel.root && mapModel.kind.supportsLineColor
-        ? nextBranchColor(this.usedBranchColors(mapModel), idx + 1)
+        ? nextBranchColor(usedBranchColors(mapModel), idx + 1)
         : undefined;
     const yChild = buildYNode(
       undefined,
@@ -191,11 +170,11 @@ export class TreeOps extends Disposable {
       // 跨图或自身无色 → 按落位分配未占用色。移入普通节点 → 清空继承新父（Rule 2）
       const color =
         isRoot && model.kind.supportsLineColor
-          ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
+          ? rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
           : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
-        const yNew = this.buildFromSpec(project(target.direction, color), target.direction, color);
+        const yNew = buildFromSpec(project(target.direction, color), target.direction, color);
         destChildren.insert(insertAt, [yNew]);
         // 折叠节点作为 asChild 目标：同事务展开（specs §8.3），仍一步撤销
         if (dest.isCollapsed()) dest.yMap.set('collapsed', false);
@@ -209,11 +188,11 @@ export class TreeOps extends Disposable {
       const isRoot = parent === model.root;
       const color =
         isRoot && model.kind.supportsLineColor
-          ? this.rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
+          ? rootChildColor(model, d.spec.lineColor, crossMap, insertAt)
           : undefined;
       this.engine.transact(() => {
         this.removeNode(d.mapId, d.nodeId);
-        const yNew = this.buildFromSpec(project(undefined, color), undefined, color);
+        const yNew = buildFromSpec(project(undefined, color), undefined, color);
         // 删除自身后同父长度变短（同父搬移）——insertAt 在删前算的，删后再兜底
         parentChildren.insert(Math.min(insertAt, parentChildren.length), [yNew]);
         newId = String(yNew.get('id'));
@@ -255,17 +234,6 @@ export class TreeOps extends Disposable {
     this.history.stopCapturing();
   }
 
-  /** 一级分支落位取色：自身带色且同图 → 保留；否则取未占用色（既有设计 move Rule 1.1/1.2） */
-  private rootChildColor(
-    model: TreeMapModel,
-    ownColor: string | undefined,
-    crossMap: boolean,
-    index: number,
-  ): string {
-    if (!crossMap && ownColor) return ownColor;
-    return nextBranchColor(this.usedBranchColors(model), index);
-  }
-
   /** Y.Map 删节点（找父 children 数组删） */
   removeNode(mapId: string, nodeId: string): void {
     const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
@@ -283,38 +251,5 @@ export class TreeOps extends Disposable {
       return false;
     };
     walk(model.root);
-  }
-
-  /** 从 spec 建 Y.Map 节点（递归）。颜色规则（docs/11 §6）由调用方分派：
-   *  lineColor 显式传入（移入根节点分配/根层插入），不传 = 清空继承新父
-   *  （曾透传 spec.lineColor——移入普通节点后子树仍显原分支色） */
-  private buildFromSpec(
-    spec: IMindNodeSpec,
-    direction?: 'left' | 'right',
-    lineColor?: string,
-  ): Y.Map<unknown> {
-    const m = new Y.Map<unknown>();
-    const children = new Y.Array<Y.Map<unknown>>();
-    m.set('id', `mn-${Math.random().toString(36).slice(2, 10)}`);
-    m.set('text', spec.text);
-    // 落点侧优先（既有设计 move：dest 为根时 json.direction = 命中侧向）
-    const dir = direction ?? spec.direction;
-    if (dir) m.set('direction', dir);
-    if (lineColor) m.set('lineColor', lineColor);
-    // 折叠态透传（specs §4.6：搬移/复制保持折叠；展开态缺省不落盘）
-    if (spec.collapsed) m.set('collapsed', true);
-    for (const c of spec.children ?? []) children.push([this.buildFromSpec(c, dir)]);
-    m.set('children', children);
-    return m;
-  }
-
-  /** 根层现有一级分支已占用色集（撞色规避取色输入） */
-  private usedBranchColors(model: TreeMapModel): Set<string> {
-    const used = new Set<string>();
-    for (const c of model.root.children) {
-      const color = c.toJSON().lineColor;
-      if (color) used.add(color);
-    }
-    return used;
   }
 }

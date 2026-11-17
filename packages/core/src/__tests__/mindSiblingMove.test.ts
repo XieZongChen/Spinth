@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { TreeOps, defaultNodeText } from '../widgets/tree/ops/treeOps';
+import { TreeOps } from '../widgets/tree/ops/treeOps';
+import { defaultNodeText } from '../widgets/tree/ops/treeOpsNodes';
 import { MindMapModel } from '../widgets/tree/model/treeMapModel';
 import { DataProcessor } from '../platform/dataEngine/dataProcessor';
 import type { IDataEngineService, IHistoryService, ISelectorService } from '../types';
