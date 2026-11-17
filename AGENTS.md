@@ -284,7 +284,8 @@ stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广�
 org 语义统一（AddButtons 下+右/成员 N/零 direction+lineColor 污染/连线 ORG_LINE
 固定灰蓝/卡片 min 120 宽）、徽标 hiddenCount 不冒泡（仅自身折叠节点显示）、
 focusAfterDelete 经 kind 策略分派、preview 圆角、Toolbar 稳定 id、
-treeService 382 行/treeDragController 376 行拆分达标。三轮返工（a96681f 后）：
+treeService 383 行/treeDragController 375 行（400 铁律内），treeMapVm 300 /
+treeFocusController 271 / treeOps 255（设计预算内）。三轮返工（a96681f 后）：
 org 多子 ↓ 的 spanOf 主轴分派（top-down 沿 x——曾落 else 恒选最左子）、
 getFocusedOrientation 对齐 TreeOrientation、darwin 三张基线经容差陷阱
 （--update 在 2% 容差内不重写）删后强制重生成（md5 变化 + 目视 +
