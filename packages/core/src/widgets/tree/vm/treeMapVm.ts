@@ -7,7 +7,8 @@ import type { TreeOrientation } from '../../../types/tree';
 import { TreeNodeModel } from '../model/treeNodeModel';
 import { TreeNodeVm } from './treeNodeVm';
 import { drawTreeConnectors } from './treeDrawer';
-import type { ILayoutNode, ILayoutResult } from '../layout/types';
+import { buildTreeLayoutSpec, syncTreeBadges } from './treeVmLayout';
+import type { ILayoutResult } from '../layout/types';
 import type { TreeMapModel } from '../model/treeMapModel';
 import type { ITreeKind } from '../registry';
 import { mindKind } from '../kinds/mind';
@@ -134,7 +135,10 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
   private applyLayout(): void {
     const model = this.mapModel;
     if (!model?.hasRoot()) return;
-    const spec = this.toLayoutSpec(model.root);
+    const spec = buildTreeLayoutSpec(model.root, (id) => {
+      const vm = this.nodeVms.get(id);
+      return vm ? { width: vm.nodeWidth, height: vm.nodeHeight } : null;
+    });
     const layout = this.kind.layout(this.orientation).layout(spec);
     this.lastLayout = layout;
     for (const [id, vm] of this.nodeVms) {
@@ -147,7 +151,7 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
         vm.visible = false;
       }
     }
-    this.syncBadges(spec);
+    syncTreeBadges(this.nodeVms, spec, this.orientation !== 'horizontal');
     drawTreeConnectors(this.drawer, this.kind, this.orientation, model.root, layout, this.nodeVms);
     markRender();
     // 布局是派生视觉、不产生 Yjs 状态变更——但选区框/ActionBar/AddButtons 都按
@@ -173,58 +177,6 @@ export class TreeMapVm<D extends IWidgetData = IWidgetData> extends BaseWidgetVm
       this.lastBbox = { ...b };
     }
     this.onStateChanged$.next({ diff, local: true });
-  }
-
-  /** TreeNodeModel 树 → 可见布局输入（含各节点测量尺寸——纯函数层零 PIXI 依赖）。
-   *  折叠节点的 children 剔除（specs §5.1 输入可见树）；hiddenCount 后序统计
-   *  一次完成（禁止每节点 O(子树) 重算）——徽标显示隐藏后代数 */
-  private toLayoutSpec(node: TreeNodeModel): ILayoutNode & { hiddenCount: number } {
-    const vm = this.nodeVms.get(node.id);
-    const json = node.toJSON();
-    const collapsed = json.collapsed === true;
-    const childSpecs = collapsed ? [] : node.children.map((c) => this.toLayoutSpec(c));
-    // hiddenCount = **自身折叠直接隐藏**的后代数（非折叠 = 0，不冒泡——
-    // 审查返工：冒泡语义让未折叠祖先也拿到非零计数，根出现假徽标 +N）
-    const hiddenCount = collapsed
-      ? node.children.reduce((acc, c) => acc + 1 + this.subtreeSize(c), 0)
-      : 0;
-    return {
-      id: node.id,
-      width: vm?.nodeWidth ?? 60,
-      height: vm?.nodeHeight ?? 24,
-      direction: json.direction,
-      children: childSpecs,
-      hiddenCount,
-    };
-  }
-
-  private subtreeSize(node: TreeNodeModel): number {
-    return 1 + node.children.reduce((acc, c) => acc + this.subtreeSize(c), 0);
-  }
-
-  /** 徽标同步：折叠节点（hiddenCount>0）显示 +N，锚在朝子侧边中点（根恒右下角）。
-   *  一次 DFS 展平（id → 继承侧 + hiddenCount），全体 O(n)。竖向时 left=上侧、
-   *  right=下侧（物理轴映射在 TreeNodeVm.badgeCenter 内按 vertical 翻转） */
-  private syncBadges(spec: ILayoutNode & { hiddenCount: number }): void {
-    // 竖向锚 = 非 horizontal（mind vertical 上下边中点 / org 卡片底边中点）。
-    // hiddenCount 已是「自身折叠直接隐藏数」（不冒泡）——徽标只在折叠节点上
-    // 出现（含根：锚 'root' 右下角，审查返工 P1-9）；非折叠/根未折叠恒无
-    const vertical = this.orientation !== 'horizontal';
-    const info = new Map<string, { side: 'left' | 'right'; hiddenCount: number }>();
-    const walk = (n: ILayoutNode & { hiddenCount: number }, side: 'left' | 'right'): void => {
-      const s = n.direction ?? side;
-      info.set(n.id, { side: s, hiddenCount: n.hiddenCount });
-      for (const c of (n.children ?? []) as Array<ILayoutNode & { hiddenCount: number }>) {
-        walk(c, s);
-      }
-    };
-    walk(spec, 'right');
-    for (const [id, vm] of this.nodeVms) {
-      const st = info.get(id);
-      if (!st || st.hiddenCount <= 0) vm.setBadge(null, 'right', vertical);
-      else if (id === spec.id) vm.setBadge(st.hiddenCount, 'root', vertical);
-      else vm.setBadge(st.hiddenCount, st.side, vertical);
-    }
   }
 
   override hitTestPoint(p: Point): boolean {
