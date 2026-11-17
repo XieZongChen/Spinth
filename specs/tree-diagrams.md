@@ -1083,15 +1083,16 @@ packages/core/src/widgets/tree/
 | 文件                           | 预算 | 说明                                    |
 | ------------------------------ | ---- | --------------------------------------- |
 | `treeMapVm.ts`                 | ≤320 | 同步/测量/调度/命中/几何；连线拆 drawer |
-| `treeDragController.ts`        | ≤300 | 会话/拖影/三分支；落点拆 drop/*         |
+| `treeDragController.ts`        | ≤400 | 会话/拖影/三分支；落点拆 drop/*         |
 | `treeFocusController.ts`       | ≤280 | 焦点/跟随/选区委托；导航拆 nav/*        |
-| `treeService.ts`               | ≤340 | 组合与转发；不写算法                    |
+| `treeService.ts`               | ≤400 | 组合与转发；不写算法                    |
 | `treeOps.ts`                   | ≤300 | 写编排；折叠/orientation 独立函数       |
 | `treeNodeVm.ts`                | ≤260 | 标题/副标题/徽标                        |
 | 每个 layout/connector/nav/drop | ≤220 | 纯逻辑                                  |
 
-> 现有 `mindDragController` 372 / `mindFocusController` 349 在拆分后自然回落；
-> 若实施中出现超 400，先拆文件再继续，不得用 eslint 豁免。
+> 拆分后实际：treeDrag 375 / treeService 383 / treeMapVm 300 / focus 271 / ops 255。
+> 初版估算 300/340 对 service/drag 偏紧，实际未破 400 铁律；保持现有职责边界，
+> 不再为凑估算拆散转发层。若实施中出现超 400，先拆文件再继续，不得用 eslint 豁免。
 
 ### 12.4 组合根、react、docs 改动地图
 
