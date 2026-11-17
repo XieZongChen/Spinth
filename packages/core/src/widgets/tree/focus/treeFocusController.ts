@@ -12,9 +12,15 @@ import { isTreeWidgetType } from '../../../types';
 import type { TreeMapVm } from './../vm/treeMapVm';
 import type { TreeNodeModel } from './../model/treeNodeModel';
 import type { TreeMapModel } from './../model/treeMapModel';
-import { findMindNode, buildNavTree, nodeDirection } from './../model/treeMapModel';
+import { findMindNode, buildNavTree } from './../model/treeMapModel';
 import { MIND_COLORS } from './../vm/treeNodeVm';
 import { focusFollowDelta } from './../nav/mind';
+import {
+  describeFocusedState,
+  focusedFrame,
+  marqueeFocusTarget,
+  type ITreeFocusState,
+} from './focusGeometry';
 
 /**
  * 脑图焦点域协作者（自 treeService 拆出，2026-10-06 批刀 3）：docs/11 §7——
@@ -108,54 +114,10 @@ export class TreeFocusController extends Disposable {
     return !!f && f.node !== f.mapModel.root;
   }
 
-  /** 焦点节点快照（MindAddButtons 定位源——世界坐标 rect + 侧向标志） */
-  getFocusedState(): {
-    mapId: string;
-    nodeId: string;
-    /** 焦点图 kind（debugSnapshot/探针用，specs §10.2） */
-    kind: 'MIND_MAP' | 'ORG_CHART';
-    /** 焦点图排列（探针用） */
-    orientation: string;
-    isRoot: boolean;
-    direction: 'left' | 'right';
-    worldRect: IRect;
-    slotLeft: number;
-    slotRight: number;
-    /** 折叠态与子数（ActionBar treeCollapsed 的出现条件与当前值，specs §8.4） */
-    collapsed: boolean;
-    hasChildren: boolean;
-  } | null {
+  /** 焦点节点快照（AddButtons/ActionBar 定位源；几何见 focusGeometry） */
+  getFocusedState(): ITreeFocusState | null {
     const f = this.getFocused();
-    if (!f) return null;
-    const { vm, mapModel, node } = f;
-    const rect = vm.getNodeRect(node.id);
-    if (!rect) return null;
-    const worldRect = {
-      x: vm.root.x + rect.x,
-      y: vm.root.y + rect.y,
-      width: rect.width,
-      height: rect.height,
-    };
-    // 槽位边 = **焦点节点本体**左右边（既有设计 mindAddBtn：xStart = x − 直径 − 间距、
-    // xEnd = x + width + 间距）。曾扩到「同侧后代最远端」——根节点的左右按钮因此飞到
-    // 整棵树两端，与「在根旁边加一级分支」的语义不符。
-    // 布局上父→子水平间隔为根层 100 / 深层 48，均大于按钮占位（直径 28 + 间距 8 = 36），
-    // 因此按钮落在间隔内、不会压到子节点。
-    const slotLeft = worldRect.x;
-    const slotRight = worldRect.x + worldRect.width;
-    return {
-      mapId: mapModel.id,
-      nodeId: node.id,
-      kind: mapModel.kind.type,
-      orientation: vm.orientation,
-      isRoot: node === mapModel.root,
-      direction: nodeDirection(node),
-      worldRect,
-      slotLeft,
-      slotRight,
-      collapsed: node.isCollapsed(),
-      hasChildren: node.children.length > 0,
-    };
+    return f ? describeFocusedState(f) : null;
   }
 
   /**
@@ -205,23 +167,10 @@ export class TreeFocusController extends Disposable {
     return this.isNodeFocused();
   }
 
-  /**
-   * 焦点节点的选区框矩形（根/子节点统一）。既有设计点任意 MIND_NODE（含根）都会让
-   * SelectionVm 在**节点本体**上画蓝框（`calculateStageBounds` 对 MIND_NODE 取
-   * `getNodeBounds()`）；spinth 之前只在根焦点画框、子节点仅靠本体描边，视觉上
-   * 「点子节点没有选中框」（分支色本身是蓝色时完全看不出来）。
-   */
+  /** 焦点节点的选区框矩形（根/子节点统一；几何见 focusGeometry） */
   getFocusFrame(): IRect | null {
     const f = this.getFocused();
-    if (!f) return null;
-    const rect = f.vm.getNodeRect(f.node.id);
-    if (!rect) return null;
-    return {
-      x: f.vm.root.x + rect.x,
-      y: f.vm.root.y + rect.y,
-      width: rect.width,
-      height: rect.height,
-    };
+    return f ? focusedFrame(f) : null;
   }
 
   /** 按下根节点（selector 委托，4.9）：焦点重置根——同图旧焦点在子节点时
@@ -233,46 +182,15 @@ export class TreeFocusController extends Disposable {
     this.emitFocus();
   }
 
-  /** 框选节点级命中（4.9，docs/11 §0 修订）：框中根本体 = 整图（焦点回根）；
-   *  否则框中首个子节点 bbox（相交判定，既有设计 MIND_NODE 参与 hitTestRect）=
-   *  节点级选中。选中集（widget id）由 selector 管理，此处只细化焦点 */
+  /** 框选节点级命中（4.9，docs/11 §0 修订）：根优先，其次首个相交子节点；
+   *  命中落点由 focusGeometry.marqueeFocusTarget 单源计算 */
   focusFromMarquee(rect: IRect, mapId: string): void {
     const model = this.engine.getModelById(mapId) as TreeMapModel | undefined;
     const vm = this.vmEngine.getVmById(mapId) as TreeMapVm | undefined;
     if (!model?.hasRoot() || !vm) return;
-    // getNodeRect 是节点局部 rect，换算到世界坐标再与框选矩形求交（getFocusFrame 同款）
-    const worldRect = (
-      id: string,
-    ): { x: number; y: number; width: number; height: number } | null => {
-      const r = vm.getNodeRect(id);
-      return r
-        ? { x: vm.root.x + r.x, y: vm.root.y + r.y, width: r.width, height: r.height }
-        : null;
-    };
-    const intersects = (r: { x: number; y: number; width: number; height: number }): boolean =>
-      r.x < rect.x + rect.width &&
-      r.x + r.width > rect.x &&
-      r.y < rect.y + rect.height &&
-      r.y + r.height > rect.y;
-    const rootRect = worldRect(model.root.id);
-    if (rootRect && intersects(rootRect)) {
-      this.focusRoot(mapId);
-      return;
-    }
-    const firstHit = (n: TreeNodeModel): string | null => {
-      for (const c of n.children) {
-        // 折叠隐藏后代不参与框选命中（specs §8.4）
-        const r = worldRect(c.id);
-        if (r && intersects(r)) return c.id;
-        if (!c.isCollapsed()) {
-          const deep = firstHit(c);
-          if (deep) return deep;
-        }
-      }
-      return null;
-    };
-    const hit = firstHit(model.root);
-    if (hit) this.focusNode(mapId, hit);
+    const target = marqueeFocusTarget(model, vm, rect);
+    if (target === 'root') this.focusRoot(mapId);
+    else if (target) this.focusNode(mapId, target);
   }
 
   /** 选区变化 → 焦点重置（4.9 节点级选中）：选区不含树图 = 清选中；
