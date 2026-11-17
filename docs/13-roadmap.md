@@ -3,7 +3,8 @@
 ## 1. 当前基线
 
 - 画布与渲染：PIXI 无限画布、视口、按需渲染、空间索引与 culling。
-- 控件与编辑：SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP；多选 / 编组 /
+- 控件与编辑：SHAPE / TEXT / STICKY / LINE / PEN / IMAGE / MIND_MAP /
+  ORG_CHART（树形图族，docs/22）；多选 / 编组 /
   对齐 / 分布 / 参考线；富文本 / 排版 / 橡皮分段擦除；旋转手柄入口暂隐藏
   （rotation 数据能力保留，specs/rotate-hide）。
 - 数据与平台：Yjs + IndexedDB 持久化 / undo / compaction；本地资产与图片生命周期；

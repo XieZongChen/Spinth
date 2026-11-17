@@ -230,7 +230,10 @@ interface ITreeNavCtx {
   parentOf(id: string): string | null;
   childrenOf(id: string): string[];
   sideOf(id: string): TreeSide | null;
-  spanOf(id: string, axis: 'x' | 'y'): { start: number; end: number } | null;
+  // 主轴跨度：axis 由宿主按 orientation 分派（mind horizontal→y；
+  // vertical / org top-down→x；org left-right Phase 4 届时→y）——
+  // 实现见 focus/treeFocusController.ts navigate 的 alongX
+  spanOf(id: string): { start: number; end: number } | null;
   isCollapsed(id: string): boolean;
 }
 

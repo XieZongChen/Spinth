@@ -79,6 +79,31 @@ test('OC-2 父在子跨度居中：根三个子，根中心 x = 首末子中心 
     (first.worldRect.x + first.worldRect.width / 2 + last.worldRect.x + last.worldRect.width / 2) /
     2;
   expect(Math.abs(mid - (root.worldRect.x + root.worldRect.width / 2))).toBeLessThanOrEqual(2);
+
+  // 多子 ↓ 导航（审查返工三轮）：org top-down 的 spanOf 沿 x——根按 ↓ 应落
+  // x 最近的子（非恒最左子）。建完三子焦点在 C——先 Escape 清选区点根，
+  // 再 ↓（与 OC-3 的编辑器陷阱口径同源）
+  const rootCx = root.worldRect.x + root.worldRect.width / 2;
+  const nearest = layer1.reduce((a, b) =>
+    Math.abs(a.worldRect.x + a.worldRect.width / 2 - rootCx) <=
+    Math.abs(b.worldRect.x + b.worldRect.width / 2 - rootCx)
+      ? a
+      : b,
+  );
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  const o2 = await canvasOrigin(page);
+  await page.mouse.click(
+    o2.left + root.worldRect.x + root.worldRect.width / 2,
+    o2.top + root.worldRect.y + root.worldRect.height / 2,
+  );
+  await expect
+    .poll(async () => (await probe(page)).mindFocus?.nodeId, { timeout: 5000 })
+    .toBe(root.id);
+  await page.keyboard.press('ArrowDown');
+  await expect
+    .poll(async () => (await probe(page)).mindFocus?.nodeId, { timeout: 5000 })
+    .toBe(nearest.id);
 });
 
 test('OC-3 方向键：↑ 父 / ↓ 子；折叠徽标点击展开', async ({ page }) => {

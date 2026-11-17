@@ -284,8 +284,11 @@ stopCapturing 经 queueMicrotask 延后一拍——新建形状首帧几何广�
 org 语义统一（AddButtons 下+右/成员 N/零 direction+lineColor 污染/连线 ORG_LINE
 固定灰蓝/卡片 min 120 宽）、徽标 hiddenCount 不冒泡（仅自身折叠节点显示）、
 focusAfterDelete 经 kind 策略分派、preview 圆角、Toolbar 稳定 id、
-treeService 382 行/treeDragController 376 行拆分达标、基线双平台重生成
-（--stability 逐字节全等）。骨架层：mind 目录迁移
+treeService 382 行/treeDragController 376 行拆分达标。三轮返工（a96681f 后）：
+org 多子 ↓ 的 spanOf 主轴分派（top-down 沿 x——曾落 else 恒选最左子）、
+getFocusedOrientation 对齐 TreeOrientation、darwin 三张基线经容差陷阱
+（--update 在 2% 容差内不重写）删后强制重生成（md5 变化 + 目视 +
+根无徽标数据断言）、双平台 --stability 逐字节全等。骨架层：mind 目录迁移
 `widgets/tree`（family 'tree' 三注册表/TREE_KINDS 编译锁/公开导出冻结 +
 golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标点击、
 命中/导航/框选/落点排隐藏、自动展开、序列化透传）；脑图竖向（orientation

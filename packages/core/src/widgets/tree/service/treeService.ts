@@ -247,11 +247,13 @@ export class TreeService extends Disposable {
   }
 
   /** 焦点图当前排列（ActionBar treeOrientation 当前值；无焦点 null） */
-  getFocusedOrientation(): 'horizontal' | 'vertical' | null {
+  getFocusedOrientation(): TreeOrientation | null {
     const f = this.getFocused();
     if (!f) return null;
-    const o = (f.vm.state as { orientation?: 'horizontal' | 'vertical' }).orientation;
-    return o ?? 'horizontal';
+    // 与 TreeOrientation 对齐（审查返工三轮）：org 无图字段时回 'top-down'
+    // 而非 'horizontal'——ActionBar 排列项仅 mind 出（值域 horizontal/vertical），
+    // 但接口语义不应把 org 归横，防下一种 org 方向踩坑
+    return f.vm.orientation;
   }
 
   /** 切换选中树图排列（ActionBar treeOrientation 写入口；一步撤销零节点写） */

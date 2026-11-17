@@ -171,18 +171,19 @@ export class TreeFocusController extends Disposable {
     if (!f) return false;
     const { vm, mapModel, node } = f;
     const { root, byId } = buildNavTree(mapModel.root);
-    // orientation 读图字段（缺省回 kind 默认）；竖向导航的"视图最近"判据
-    // 沿 x 轴（specs §8.1），横向沿 y 轴
+    // orientation 读图字段（缺省回 kind 默认）；"视图最近"判据沿**主轴**取区间：
+    // mind horizontal 沿 y；vertical / org top-down 沿 x（审查返工三轮——
+    // top-down 曾落 else 用 y 区间，org 同层子 y 全同导致 ↓ 恒选最左子）；
+    // org left-right（Phase 4）届时应走 y，接口已按 orientation 分派
     const orientation = vm.orientation;
+    const alongX = orientation === 'vertical' || orientation === 'top-down';
     const next = mapModel.kind.nav(orientation).navigate(node.id, key, {
       root,
       byId,
       spanOf: (id) => {
         const r = vm.getNodeRect(id);
         if (!r) return null;
-        return orientation === 'vertical'
-          ? { start: r.x, end: r.x + r.width }
-          : { start: r.y, end: r.y + r.height };
+        return alongX ? { start: r.x, end: r.x + r.width } : { start: r.y, end: r.y + r.height };
       },
     });
     if (next) {

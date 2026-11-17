@@ -571,6 +571,14 @@ test('视觉快照 @visual：组织架构样本（层级对齐 + 正交总线 + 
   expect(folded).not.toBeNull();
   expect(folded!.hidden).toBe(2); // 两组被折叠
   expect(folded!.visible).toBe(4); // 根 + 三部门
+  // 根无徽标的数据面（审查返工三轮：hiddenCount 不冒泡——根未折叠恒 0，
+  // 与折叠节点唯一徽标互补，不只靠截图容差）
+  const rootRow = await page.evaluate(() => {
+    const d = (window as unknown as { __spinthDebug: { __debug: Probe } }).__spinthDebug.__debug;
+    const r = d.mindNodes[0]!;
+    return { collapsed: r.collapsed, hidden: r.hiddenCount };
+  });
+  expect(rootRow).toEqual({ collapsed: false, hidden: 0 });
   await page.keyboard.press('Escape'); // 清选区/收 ActionBar
   await page.waitForTimeout(200);
 
