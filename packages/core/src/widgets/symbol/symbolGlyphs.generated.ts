@@ -3,6 +3,7 @@
 // currentColor 已归一为纯白 #ffffff——PIXI tint 是逐通道乘法，白是唯一能
 // 让 tint 呈现目标色的乘法基色（specs/symbol-widget §4.4 及其勘误记录）。
 export const SYMBOL_GLYPHS = {
+  'net-database': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14a12 5 0 1 0 24 0a12 5 0 1 0 -24 0"/><path d="M12 14v20"/><path d="M36 14v20"/><path d="M12 34a12 5 0 0 0 24 0"/><path d="M12 23a12 5 0 0 0 24 0"/></g></svg>',
   'net-router': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="13"/><line x1="24" y1="24" x2="24" y2="16"/><line x1="24" y1="24" x2="24" y2="32"/><line x1="24" y1="24" x2="16" y2="24"/><line x1="24" y1="24" x2="32" y2="24"/><polyline points="21.2,18.8 24,15.4 26.8,18.8"/><polyline points="21.2,29.2 24,32.6 26.8,29.2"/><polyline points="18.8,21.2 15.4,24 18.8,26.8"/><polyline points="29.2,21.2 32.6,24 29.2,26.8"/></g></svg>',
 } as const;
 
