@@ -36,7 +36,10 @@ const TARGET = join(ROOT, 'packages/core/src/widgets/symbol/symbolGlyphs.generat
 const MAX_BYTES = 6 * 1024;
 const VIEWBOX = '0 0 48 48';
 const TINT_BASE = '#ffffff';
-const ALLOWED_ELEMENTS = new Set(['g', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon']);
+// polyline/polygon 不在白名单：PIXI GraphicsContext.svg 对 points 属性
+// 「逗号+空格混合」格式的解析有缺陷（实测 8.22 渲染成乱线出界；path 版
+// 逐条实证正确）——多段折线一律用 path 表达（表达力等价），生成期硬拦
+const ALLOWED_ELEMENTS = new Set(['g', 'path', 'circle', 'rect', 'line']);
 const ALLOWED_ATTRS = new Set([
   'd',
   'cx',
@@ -50,7 +53,6 @@ const ALLOWED_ATTRS = new Set([
   'y1',
   'x2',
   'y2',
-  'points',
   'fill',
   'fill-rule',
   'clip-rule',
@@ -70,12 +72,15 @@ const FORBIDDEN_TOKENS = [
   '<image',
   '<text',
   '<style',
+  '<polyline',
+  '<polygon',
   'xlink',
   'transform',
   'class=',
   'id=',
   'href',
   'style=',
+  'points=',
 ];
 
 const errors = [];
