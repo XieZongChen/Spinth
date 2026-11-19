@@ -131,7 +131,8 @@ M/O 直达，9 按钮）；`mind-horizontal/mind-vertical/org-sample` 视觉基�
 
 **范围**
 
-- 符号控件：图形区 / 标签区两段几何、图形区锚点、纯文本单行标签、编辑会话、工具坞入口、
+- 符号控件：图形区 / 标签区两段几何、图形区锚点、纯文本单行标签、逐实例着色、编辑会话、
+  工具坞入口、
   ActionBar 切种类；内置 13 图标（网络 8 + 数据存储 3 + 文档 2），eng-database / eng-queue /
   eng-file / eng-folder 各有一份符号版（形状保留）。详见 specs/symbol-widget.md。
 - 区域 / 集群：4.4 容器落地前用矩形（无填充 + 虚线）+ TEXT 标题 + 编组近似；前置小改
@@ -287,7 +288,8 @@ none；单标签；无表格；无空心三角 / 菱形 / 鸦爪；包 / 框架�
   复用容器；不提前造完整容器。
 - 全局避障在 4.1 首发并已落地（`routeElbow` obstacles + `collectRouteObstacles`
   单源）；4.3 只按设备规模校验预算，4.4–4.7 复用。
-- 符号承载已拍板：新增 SYMBOL 控件（图标 + 外置标签、标签计入 bbox、内置 SVG 资产），
+- 符号承载已拍板：新增 SYMBOL 控件（图标 + 外置标签、标签计入 bbox、内置 SVG 资产、
+  逐实例着色），
   不扩 ShapeType、不用 IMAGE + TEXT 拼；首批 13 图标，4.7 BPMN 复用，UML 分栏不复用
   （specs/symbol-widget.md）。
 - 符号控件二期吸收「IMAGE 当图标」场景（用户自带图标 / 符号包）；4.3 不做自定义上传。
