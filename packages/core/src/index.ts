@@ -36,6 +36,7 @@ export type {
   ShapeData,
   IWidgetData,
   ImageData,
+  SymbolData,
   IActionBarSchema,
   IActionBarItem,
   IActionBarOption,
@@ -94,6 +95,10 @@ export { createBrowserLockPort } from './platform/tabSession/browserLockPort';
 
 // 形状工具默认创建型（docs/04 §2 形状默认型小节——工具坞二级菜单与 ActionBar 同源）
 export { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
+// 符号种类（specs/symbol-widget §4.1——工具坞二级菜单与 ActionBar 同源；类型
+// 单源在生成文件，SymbolKind 经 widgets/symbol 路径导出）
+export { SYMBOL_OPTIONS } from './widgets/symbol/symbolService';
+export type { SymbolKind } from './widgets/symbol/symbolGlyphs.generated';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）
 export { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 export { PEN_COLOR_OPTIONS, PEN_WIDTH_OPTIONS } from './widgets/pen/penService';

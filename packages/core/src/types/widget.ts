@@ -208,6 +208,24 @@ export const ImageSchema = z.object({
 });
 export type ImageData = z.infer<typeof ImageSchema>;
 
+/** 符号控件（specs/symbol-widget §2）：矢量图标 + 外置单行标签（标签计入
+ *  bbox，几何走独立 rect 同 SHAPE 扁平化路径）。symbol 不用 enum——旧客户端
+ *  打开新项目文件未知类型跳过 + warning（docs/20），未知 id 渲染占位图（D7） */
+export const SymbolSchema = z.object({
+  id: z.string(),
+  type: z.literal('SYMBOL'),
+  zOrder: z.string(),
+  /** 符号种类 id（§4.1 清单，SYMBOL_KINDS 单源）；未知值降级占位（D7） */
+  symbol: z.string().default('net-server'),
+  /** 外置标签（纯文本非 HTML，单行 ≤64 字符）；空串 = 只画图标 */
+  label: z.string().default(''),
+  /** 逐实例着色（hex）；缺省 = 主题文字色（light #333333 / dark #ededf2），
+   *  图标与标签同色；写入即固定不随主题反转（同 textColor 实例数据语义） */
+  color: z.string().optional(),
+  ...GroupIdField,
+});
+export type SymbolData = z.infer<typeof SymbolSchema>;
+
 /** 控件实现族（specs/tree-diagrams D1）：family 是引擎层的唯一判据——
  *  `family: 'tree'` 的唯一含义是「节点不是 widget、几何由树布局派生、
  *  空间索引与 culling 豁免」。vmEngine/culling/selector 只认 family，
@@ -365,6 +383,24 @@ export const WIDGET_REGISTRY = {
       selectable: true,
       keepRatio: true,
       editable: false,
+      referenceable: true,
+      erasable: false,
+    },
+  },
+  SYMBOL: {
+    family: 'widget',
+    schema: SymbolSchema,
+    capabilities: {
+      // 不旋转（specs/symbol-widget §2.4/D6：标签带恒高，旋转几何不做）
+      rotatable: false,
+      groupable: true,
+      resizable: true,
+      movable: true,
+      selectable: true,
+      // contain 适配不改宽高比，但 bbox 仍是矩形缩放（keepRatio 只约束手势）
+      keepRatio: false,
+      // 标签走统一编辑会话（docs/17，TYPES_WHERE('editable') 自动纳入）
+      editable: true,
       referenceable: true,
       erasable: false,
     },

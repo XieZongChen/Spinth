@@ -17,6 +17,8 @@
     "license:check": "node scripts/check-licenses.mjs",
     "license:notices": "node scripts/gen-third-party-notices.mjs",
     "og:image": "node scripts/gen-og-image.mjs",
+    "symbols:build": "node scripts/build-symbol-glyphs.mjs",
+    "symbols:check": "node scripts/build-symbol-glyphs.mjs --check",
     "hygiene:staged": "node scripts/check-hygiene.mjs --staged",
     "prepare": "node scripts/install-git-hooks.mjs",
     "lint": "eslint .",

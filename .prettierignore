@@ -8,5 +8,9 @@ coverage/
 .spinth/
 # 生成物：第三方许可声明由脚本产出，按原文排版，不参与 prettier 重排
 THIRD_PARTY_NOTICES.md
+# 生成物：符号字形表由 symbols:build 产出（specs/symbol-widget §4.2）；资产
+# 源文件的排版由生成器归一，prettier 不介入
+packages/core/src/widgets/symbol/symbolGlyphs.generated.ts
+packages/core/src/widgets/symbol/assets/
 # 本地隐藏工具目录（不入库）
 .*/

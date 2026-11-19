@@ -154,7 +154,7 @@ export function createCanvasMeasurer(): IMeasurer {
  */
 export type WordBreak = 'break-all' | 'break-word';
 
-function* graphemes(text: string): Generator<string> {
+export function* graphemes(text: string): Generator<string> {
   const seg =
     typeof Intl !== 'undefined' && 'Segmenter' in Intl
       ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })

@@ -28,6 +28,8 @@ import { StickyModel } from './widgets/sticky/stickyModel';
 import { StickyVm } from './widgets/sticky/stickyVm';
 import { ImageModel } from './widgets/image/imageModel';
 import { ImageVm } from './widgets/image/imageVm';
+import { SymbolModel } from './widgets/symbol/symbolModel';
+import { SymbolVm } from './widgets/symbol/symbolVm';
 import { MindMapModel, OrgChartModel } from './widgets/tree/model/treeMapModel';
 import { MindMapVm, OrgChartVm } from './widgets/tree/vm/treeMapVm';
 
@@ -67,6 +69,12 @@ export const WIDGET_RUNTIME = {
     vmToken: token<IBaseWidgetVm>('ImageVm'),
     createModel: (r: ServiceRegistry) => new ImageModel(r.resolve(Tokens.DataProcessor)),
     createVm: () => new ImageVm(),
+  },
+  SYMBOL: {
+    modelToken: token<IBaseModel>('SymbolModel'),
+    vmToken: token<IBaseWidgetVm>('SymbolVm'),
+    createModel: (r: ServiceRegistry) => new SymbolModel(r.resolve(Tokens.DataProcessor)),
+    createVm: (r: ServiceRegistry) => new SymbolVm(r.resolve(Tokens.TextRender)),
   },
   MIND_MAP: {
     modelToken: token<IBaseModel>('MindMapModel'),

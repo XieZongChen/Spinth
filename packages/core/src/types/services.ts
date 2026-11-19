@@ -9,7 +9,17 @@ import type { IWidgetData } from './widget';
 import type { IEditorAttachStyle } from '../platform/textEngine/richTextEditor';
 
 export type CursorMode =
-  'cursor' | 'hand' | 'shape' | 'sticky' | 'text' | 'pen' | 'line' | 'eraser' | 'mind' | 'org';
+  | 'cursor'
+  | 'hand'
+  | 'shape'
+  | 'symbol'
+  | 'sticky'
+  | 'text'
+  | 'pen'
+  | 'line'
+  | 'eraser'
+  | 'mind'
+  | 'org';
 
 export type DocState = 'idle' | 'loading' | 'synced';
 

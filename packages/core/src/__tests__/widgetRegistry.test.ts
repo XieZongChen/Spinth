@@ -17,7 +17,7 @@ import type { IRect } from '../common/geometry';
  * 任一侧加字段/加类型未同步即此处编译红/测红（防两套真相漂移）。
  */
 describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
-  it('注册表覆盖全部八类型', () => {
+  it('注册表覆盖全部九类型', () => {
     expect(Object.keys(WIDGET_REGISTRY).sort()).toEqual([
       'IMAGE',
       'LINE',
@@ -26,6 +26,7 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
       'PEN',
       'SHAPE',
       'STICKY',
+      'SYMBOL',
       'TEXT',
     ]);
     for (const entry of Object.values(WIDGET_REGISTRY)) {
@@ -44,10 +45,16 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     }
   });
 
-  it('TYPES_WHERE 派生集（第五刀）：编辑三类/参照四类/可擦一类', async () => {
+  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照五类/可擦一类', async () => {
     const { TYPES_WHERE } = await import('../types/widget');
-    expect(TYPES_WHERE('editable').sort()).toEqual(['SHAPE', 'STICKY', 'TEXT']);
-    expect(TYPES_WHERE('referenceable').sort()).toEqual(['IMAGE', 'SHAPE', 'STICKY', 'TEXT']);
+    expect(TYPES_WHERE('editable').sort()).toEqual(['SHAPE', 'STICKY', 'SYMBOL', 'TEXT']);
+    expect(TYPES_WHERE('referenceable').sort()).toEqual([
+      'IMAGE',
+      'SHAPE',
+      'STICKY',
+      'SYMBOL',
+      'TEXT',
+    ]);
     expect(TYPES_WHERE('erasable')).toEqual(['PEN']);
   });
 
