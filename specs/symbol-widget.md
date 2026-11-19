@@ -8,6 +8,7 @@
 > 1. 标签放在图形外、且**计入控件 bbox**（图形区 + 标签区两段几何）。
 > 2. 图形资产采用**内置 SVG 资产**。
 > 3. `eng-database / eng-queue / eng-file / eng-folder` 四型在符号控件中各做一份（形状保留）。
+> 4. 支持**逐实例着色**（`color` optional）；缺省随主题墨色。
 >
 > 配套：`specs/network-diagram.md`（4.3 图种设计）。
 
@@ -20,22 +21,23 @@
 
 ### 0.2 关键决策
 
-| 编号 | 决策     | 结论                                                         | 主要理由                                              |
-| ---- | -------- | ------------------------------------------------------------ | ----------------------------------------------------- |
-| D1   | 承载     | 新增 widget type `SYMBOL`，不扩 `ShapeType`                  | 标签外置与形状的「框内文字」是两套几何契约            |
-| D2   | 标签几何 | 图形区 + 标签区，标签**计入 bbox**                           | 命中 / 框选 / 对齐 / 导出天然一致；标签外溢问题不存在 |
-| D3   | 图形资产 | 内置 SVG 资产，构建期内联为 TS 常量                          | 矢量清晰、可着色、离线零成本、可单测；运行时不解码    |
-| D4   | 标签数据 | 纯文本 `label`，单行，≤ 64 字符                              | 符号名是标识不是富文本；单行让几何稳定                |
-| D5   | 锚点     | 贴**图形区**四边（`t ∈ [0,1]`），标签区不参与锚定            | 连线落在图标上而不是名字上                            |
-| D6   | 尺寸能力 | 可缩放；不旋转；无 autoHeight；标签带恒高 24                 | 图标不该被文字撑变形；标签带恒定 = 几何与对齐可预测   |
-| D7   | 容错     | 未知 `symbol` id 渲染占位图，不阻断导入                      | 项目文件跨版本 / 未来符号包更安全                     |
-| D8   | 公开面   | 不新增 `BoardSDK` 成员；`CursorMode` 增 `'symbol'`；导出类型 | 工具默认值走既有 `setDefaultToolOption`，无需新命令   |
-| D9   | 资产来源 | 自绘，不引第三方图标库                                       | 许可与来源卫生零负担                                  |
-| D10  | 与 IMAGE | 一期不吸收「IMAGE 当图标」场景；列路线图二期                 | 先保证 4.3 交付，IMAGE 替换涉及资产 / 导出迁移        |
+| 编号 | 决策     | 结论                                                                    | 主要理由                                              |
+| ---- | -------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| D1   | 承载     | 新增 widget type `SYMBOL`，不扩 `ShapeType`                             | 标签外置与形状的「框内文字」是两套几何契约            |
+| D2   | 标签几何 | 图形区 + 标签区，标签**计入 bbox**                                      | 命中 / 框选 / 对齐 / 导出天然一致；标签外溢问题不存在 |
+| D3   | 图形资产 | 内置 SVG 资产，构建期内联为 TS 常量                                     | 矢量清晰、可着色、离线零成本、可单测；运行时不解码    |
+| D4   | 标签数据 | 纯文本 `label`，单行，≤ 64 字符                                         | 符号名是标识不是富文本；单行让几何稳定                |
+| D5   | 锚点     | 贴**图形区**四边（`t ∈ [0,1]`），标签区不参与锚定                       | 连线落在图标上而不是名字上                            |
+| D6   | 尺寸能力 | 可缩放；不旋转；无 autoHeight；标签带恒高 24                            | 图标不该被文字撑变形；标签带恒定 = 几何与对齐可预测   |
+| D7   | 容错     | 未知 `symbol` id 渲染占位图，不阻断导入                                 | 项目文件跨版本 / 未来符号包更安全                     |
+| D8   | 公开面   | 不新增 `BoardSDK` 成员；`CursorMode` 增 `'symbol'`；导出类型            | 工具默认值走既有 `setDefaultToolOption`，无需新命令   |
+| D9   | 资产来源 | 自绘，不引第三方图标库                                                  | 许可与来源卫生零负担                                  |
+| D10  | 与 IMAGE | 一期不吸收「IMAGE 当图标」场景；列路线图二期                            | 先保证 4.3 交付，IMAGE 替换涉及资产 / 导出迁移        |
+| D11  | 着色     | per-实例 `color`（optional），缺省随主题；色板复用 `TEXT_COLOR_PALETTE` | 图标与标签同色；写入即固定（同 textColor 语义）       |
 
 ### 0.3 不做什么
 
-- 多行标签 / 富文本 / 自动换行；逐实例颜色；旋转；符号内状态（端口号、告警、选中态标记）。
+- 多行标签 / 富文本 / 自动换行；旋转；符号内状态（端口号、告警、选中态标记）。
 - 自定义符号上传、运行时符号包加载、SVG 外链。
 - 容器语义（子元素归属、裁剪、带子移动）——属于 4.4 的 FRAME，符号只是图元。
 - 语义模型（设备类型校验、连接规则、拓扑自动布局）。
@@ -98,6 +100,8 @@ export const SymbolSchema = z.object({
   symbol: z.string().default('net-server'),
   /** 外置标签（纯文本，单行，≤ 64 字符）；空串 = 只画图标 */
   label: z.string().default(''),
+  /** 逐实例着色（hex）；缺省 = 主题文字色（light #333333 / dark #ededf2） */
+  color: z.string().optional(),
   ...GroupIdField,
 });
 export type SymbolData = z.infer<typeof SymbolSchema>;
@@ -112,19 +116,20 @@ export type SymbolData = z.infer<typeof SymbolSchema>;
 | --------- | ------- | ------------ | --------------------------------------------- |
 | `symbol`  | string  | `net-server` | 图标 id，见 §4.1 清单；未知值 → 占位图        |
 | `label`   | string  | `''`         | 纯文本（不是 HTML）；渲染与编辑都按纯文本处理 |
+| `color`   | string? | 无（随主题） | 图标与标签的着色；缺省跟随主题墨色            |
 | `groupId` | string? | 无           | 编组标记，与自由六类同语义（docs/18）         |
 
 ### 2.3 与 SHAPE 的差异
 
-| 维度       | SHAPE                            | SYMBOL                                  |
-| ---------- | -------------------------------- | --------------------------------------- |
-| 文字位置   | 框内内接箱，垂直居中             | 图形下方固定标签带（24 高）             |
-| 文本数据   | HTML（TipTap）                   | 纯文本 `label`                          |
-| 形状切换   | ActionBar 可换 20 型             | ActionBar 可换符号种类（图形区不变）    |
-| 锚点       | 轮廓交点（`outlineAnchor`）      | 图形区矩形四边（覆写 `getAnchorPoint`） |
-| autoHeight | 有（撑高形状）                   | 无（高度恒用户控制）                    |
-| 旋转       | 数据能力保留（入口隐藏）         | 不支持（`rotatable: false`）            |
-| 样式       | fill / borderColor / borderWidth | 无填充无边框语义；着色随主题            |
+| 维度       | SHAPE                            | SYMBOL                                       |
+| ---------- | -------------------------------- | -------------------------------------------- |
+| 文字位置   | 框内内接箱，垂直居中             | 图形下方固定标签带（24 高）                  |
+| 文本数据   | HTML（TipTap）                   | 纯文本 `label`                               |
+| 形状切换   | ActionBar 可换 20 型             | ActionBar 可换符号种类（图形区不变）         |
+| 锚点       | 轮廓交点（`outlineAnchor`）      | 图形区矩形四边（覆写 `getAnchorPoint`）      |
+| autoHeight | 有（撑高形状）                   | 无（高度恒用户控制）                         |
+| 旋转       | 数据能力保留（入口隐藏）         | 不支持（`rotatable: false`）                 |
+| 样式       | fill / borderColor / borderWidth | 单色着色：`color` optional（图标与标签同色） |
 
 ### 2.4 注册
 
@@ -153,7 +158,7 @@ SYMBOL: {
 ### 2.5 持久化 / 撤销 / 剪贴板 / 项目文件
 
 - 持久化：SYMBOL 进 `WIDGET_RUNTIME` 即被 IndexedDB 恢复链路覆盖，无额外代码。
-- 撤销：创建 / 改标签 / 改种类 / 移动 / 缩放全部走 Model 写，走既有事务与 500ms 捕获窗。
+- 撤销：创建 / 改标签 / 改种类 / 改颜色 / 移动 / 缩放全部走 Model 写，走既有事务与 500ms 捕获窗。
 - 剪贴板：`clipboardService` 按快照复制、`id` 重排、`groupId` 重映射，SYMBOL 无需分支；
   与锚定线同批复制的端点重映射同样生效（`idMap` 覆盖全部类型）。
 - 项目文件：schema 校验来自注册表；符号不产生资产条目（与 IMAGE 的关键差别）。
@@ -286,21 +291,25 @@ right:  { x: r.x + r.width, y: r.y + Math.max(bottom, 0) * t }
 fill / fill-rule / clip-rule / stroke / stroke-width / stroke-linecap / stroke-linejoin`；
 - **禁止**：`style / class / id / href / xlink / use / image / text / defs / filter /
 gradient / mask / transform`（一期不做变换与渐变；需要旋转就在设计稿里画正）；
-- 颜色：`fill` / `stroke` 只允许 `none` 或 `currentColor`（生成时替换为 `#000000` 占位）；
-  出现任何硬编码颜色即报错；
+- 颜色：`fill` / `stroke` 只允许 `none` 或 `currentColor`（生成时替换为纯黑 `#000000`，
+  作为 tint 的乘法基色）；出现任何硬编码颜色即报错；
 - 单文件 ≤ 6 KB；路径点数不做硬限制，但设计上保持「48 视方格内 1.5~2px 描边」的线稿密度。
 
 ### 4.4 运行时渲染与缓存
 
-- 颜色替换：`svg.replaceAll('#000000', ink)`，`ink` = 主题文字色（light `#333333` /
-  dark `#ededf2`，复用 `defaultTextColor()`）；**不用 tint**——GraphCtx 的矢量着色在
-  不同混合模式下语义不稳，替换字符串是确定性的。
-- 上下文缓存：`Map<string /* kind@color */, GraphicsContext>`，首次
-  `new GraphicsContext().svg(svgString)`，之后 `new Graphics({ context })` 复用；
-  传入的 context 不随 Graphics 销毁（PIXI 8 契约）。
+- 着色单源 `resolveSymbolColor(data)`：`data.color ?? defaultTextColor()`（light `#333333` /
+  dark `#ededf2`）；图标与标签同色，显式 `color` 不随主题反转（与 `textColor` 同语义：
+  实例数据）。
+- **用 tint 渲染，不替换 SVG 字符串**：资产生成时把 `currentColor` 归一为纯黑 `#000000`
+  （tint 的乘法基色），运行时 `glyph.tint = hexToNum(color)`——黑 × 色 = 色；主题切换
+  只改 tint，不重建 context（PIXI 8 的 `Container.tint` 对 Graphics 的填充 / 描边生效）。
+- 上下文缓存：**按 kind** 一个共享 `GraphicsContext`（`new GraphicsContext().svg(svg)`），
+  VM 用 `new Graphics({ context })` 复用；传入的 context 不随 Graphics 销毁（PIXI 8 契约）。
+  颜色不进缓存键，任意色值不会撑大缓存。
+- 标签颜色单独走 `DocDisplay` 的 style（不继承父容器 tint），与图标用同一个解析色。
 - 每帧重绘只做 `scale.set(s)` 与 `position.set(x, y)`；描边随缩放变粗是矢量语义，
   资产按 48 视方 / 2px 描边设计，默认 96 显示时约 4px 视觉线宽。
-- 主题切换：`vmEngine.refreshAll` 触发重建 sprite 与 context 选择（颜色键变）。
+- 主题切换：`vmEngine.refreshAll` 触发重算 tint 与标签色（无显式 color 时两者都变）。
 
 ### 4.5 离线 / PWA / 导出
 
@@ -345,6 +354,8 @@ gradient / mask / transform`（一期不做变换与渐变；需要旋转就在�
 }
 ```
 
+编辑器字色 = `resolveSymbolColor(data)`（与画布标签同源，进入 / 退出编辑不跳色）。
+
 ### 5.3 落库规则
 
 - 事务：`model.update({ label })`；不改几何（无 autoHeight）。
@@ -359,7 +370,7 @@ gradient / mask / transform`（一期不做变换与渐变；需要旋转就在�
   `createCanvasMeasurer`）做逐字截断，超宽时末尾补 `…`；数据里保留完整 64 字符，
   加宽控件后完整名字回来。
 - `DocDisplay` 放在 `labelRect` 内，段落 `align: 'center'`，只消费截断后的单行文本。
-- 垂直在标签带内居中；颜色 = 主题文字色；字号 16 / 行高 24 与编辑框同源常量。
+- 垂直在标签带内居中；颜色 = `resolveSymbolColor(data)`；字号 16 / 行高 24 与编辑框同源常量。
 - 无标签时只画图标；编辑态隐藏画布标签（编辑器接管），与 SHAPE 同一套 `_textEditing` 守卫。
 
 ### 5.5 进入编辑
@@ -396,8 +407,8 @@ gradient / mask / transform`（一期不做变换与渐变；需要旋转就在�
 
 ### 6.4 工具坞
 
-- 一个「符号」入口（`IconName 'symbol'`），标题 `符号 (N)`，主题色沿用 shape 槽位或新增
-  `tool-symbol-*`（实现时二选一，选新增则同步 Tailwind 安全类清单与对比度护栏）。
+- 一个「符号」入口（`IconName 'symbol'`），标题 `符号 (N)`，主题色**沿用 shape 槽位**
+  （不新增 `tool-symbol-*`，避免多一套 Tailwind 安全类与对比度护栏）。
 - 二级菜单：`SYMBOL_OPTIONS` 13 项平铺（>8 自动两行 grid，与 20 型形状同款），选中项点亮。
 
 ### 6.5 ToolGhost
@@ -407,9 +418,14 @@ gradient / mask / transform`（一期不做变换与渐变；需要旋转就在�
 
 ### 6.6 ActionBar
 
-`case 'SYMBOL'`：一个 popover「符号类型」→ `SYMBOL_OPTIONS`，写 `{ symbol: id }` 走
-`updateSelectedStyle` 既有通道（无需新命令）。多选时按首个选中项取值（与 SHAPE 同款）。
-一期不提供颜色 / 填充 / 边框（符号没有这些语义）。
+`case 'SYMBOL'`：两个 popover——
+
+- 「符号类型」→ `SYMBOL_OPTIONS`，写 `{ symbol: id }`；多选按首个选中项取值（与 SHAPE 同款）；
+- 「颜色」→ `TEXT_COLOR_PALETTE`（与 TEXT 同源），写 `{ color }`；触发钮缺省显示主题墨色点。
+  **无「跟随主题」还原项**——与 `textColor` / `borderColor` 一致（写入即固定；避免
+  「删除字段」写路径未定义，docs/04 §8.3 先例）。
+
+两者都走 `updateSelectedStyle` 既有通道，无需新命令；不提供填充 / 边框（符号没有这些语义）。
 
 ### 6.7 其他交互
 
@@ -453,7 +469,7 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 | `boardCommands.ts`                                      | `setDefaultToolOption` 增 `symbol/kind` 分支                                               | 无新公开命令              |
 | `boardActionBar.ts`                                     | `case 'SYMBOL'` popover                                                                    | 选项单源 `SYMBOL_OPTIONS` |
 | `textService.ts`                                        | `getRect` / `getContent` 的 SYMBOL 分支                                                    | 编辑会话                  |
-| `textEditStyle.ts`                                      | `editStyleOf('SYMBOL')`：16 / 24 / 主题色                                                  | 渲染与编辑同源            |
+| `textEditStyle.ts`                                      | `editStyleOf('SYMBOL')`：16 / 24 / `resolveSymbolColor`                                    | 渲染与编辑同源            |
 | `textCommit.ts`                                         | SYMBOL 分支：HTML → 纯文本 → 截断，只写 label                                              | 不改几何                  |
 | `platform/keyboard/shortcuts.ts` + `keyboardService.ts` | `tool.symbol = 'n'`                                                                        | 只读闸门自动覆盖          |
 | `spinth/react` Toolbar / Icon / announcement            | 工具入口、图标、播报「符号」                                                               | 对比度与 390px 布局       |
@@ -472,7 +488,11 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 - `symbolGlyphs.test.ts`：`SYMBOL_KINDS` 与 `SYMBOL_GLYPHS` 一一对应；
   每个字符串含 `<svg` 且不含禁用 token（`style=` / `<defs` / `href` / 硬编码色）；
   `--check` 的负向夹具（改动生成文件 → 校验红）。
-- `symbolSchema.test.ts`：缺省值；未知 symbol id 保留原值；label 截断在提交路径。
+- `symbolSchema.test.ts`：缺省值（含 `color` 缺省 = 无字段）；未知 symbol id 保留原值；
+  label 截断在提交路径。
+- `symbolColor.test.ts`：`resolveSymbolColor` 缺省随主题、显式 color 优先且不随主题变；
+  `TEXT_COLOR_PALETTE` 每个色在浅 / 深两种画布底至少一底 ≥ 4.5:1（文本口径），
+  主题墨色在两种底上都 ≥ 4.5:1。
 - `widgetRegistry.test.ts`：editable / referenceable 期望列表更新；能力位断言。
 - `textService` 扩展：SYMBOL 进入 / 退出编辑、空标签、清空后几何不变。
 - `projectRoundTrip.test.ts`：含 SYMBOL 的项目文件往返，label 与 symbol 保真。
@@ -489,6 +509,7 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 - S-6 ActionBar 切种类：几何与标签不变、图形更换。
 - S-7 撤销 / 重做：创建 + 命名各为独立撤销步；刷新恢复。
 - S-8 只读：工具禁用、双击不进编辑。
+- S-9 着色：ActionBar 选色 → 图标与标签同步变色；撤销一步回到主题色；刷新后保真。
 
 ### 9.3 视觉
 
@@ -501,6 +522,7 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 - [ ] 锚点贴图形区四边，标签区不参与。
 - [ ] 13 个符号资产齐全，生成脚本 `--check` 绿，verify 接入。
 - [ ] 工具坞可创建、可连击、可切种类；快捷键 N。
+- [ ] 逐实例着色：缺省随主题、显式色图标与标签同色、撤销 / 刷新保真、色板对比度护栏绿。
 - [ ] 编辑会话完整：进入 / 提交 / 取消 / 只读 / 主题。
 - [ ] 撤销、持久化、项目文件、剪贴板、导出全部通过。
 - [ ] 单测 / E2E / 视觉基线全绿，`pnpm verify` 通过。
@@ -511,19 +533,48 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 2. 双击第 1 个，输入「核心交换机」，回车：名字在图标下方居中，不挤压图标。
 3. 拖动右下角缩放到很窄（宽 60）与很矮（高 40）：图标等比缩小 / 消失只剩名字，不拉伸。
 4. 从图标底边拉一条 ELBOWED 线到另一个符号：线贴图形区底边，不贴标签带底。
-5. 切换深色主题：图标与名字同步变色，画布上清晰可读。
-6. 复制粘贴两个符号并改名：互不影响；撤销一次回到粘贴前。
-7. 刷新页面、导出 PNG、导出项目文件再导入：图标与名字全部保真。
-8. 只读标签页打开：工具按钮禁用、双击无反应，但图仍可平移缩放。
+5. 切换深色主题：未着色的图标与名字同步变色；显式着色的保持原色（实例数据语义）。
+6. ActionBar 给一个符号选红色：图标与标签同时变红；撤销一步回到主题色。
+7. 复制粘贴两个符号并改名：互不影响；撤销一次回到粘贴前。
+8. 刷新页面、导出 PNG、导出项目文件再导入：图标、名字、颜色全部保真。
+9. 只读标签页打开：工具按钮禁用、双击无反应，但图仍可平移缩放。
 
 ## 12. 风险与挂账
 
-| 项                  | 现状 / 决策                     | 后续                                      |
-| ------------------- | ------------------------------- | ----------------------------------------- |
-| 从下方连线穿过标签  | 接受；标签单行、线多从侧上进入  | 标签避让 / 底片（二期）                   |
-| 多行标签            | 单行 + 末尾省略号（渲染期截断） | 两行上限（按真实反馈）                    |
-| 逐实例颜色          | 主题色单源                      | 设备着色（深色底对比度需一并设计）        |
-| 旋转                | 不支持                          | 与 SHAPE 旋转入口一起评估                 |
-| 自定义符号 / 符号包 | 内置 13 个                      | 用户图标上传（吸收 IMAGE 图标场景，二期） |
-| 未知 kind           | 占位图，导图不崩                | 版本化符号包与迁移                        |
-| CursorMode 增量     | 公开类型加一个成员              | 发布说明标注（非破坏性）                  |
+| 项                   | 现状 / 决策                                        | 后续                                                      |
+| -------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| 从下方连线穿过标签   | 接受；标签单行、线多从侧上进入                     | 标签避让 / 底片（二期）                                   |
+| 多行标签             | 单行 + 末尾省略号（渲染期截断）                    | 两行上限（按真实反馈）                                    |
+| 显式颜色不随主题反转 | 实例数据语义（同 textColor），写入即固定           | 若需要「随主题切换的语义色」另做色角色                    |
+| 旋转                 | 不支持                                             | 与 SHAPE 旋转入口一起评估                                 |
+| 自定义符号 / 符号包  | 内置 13 个                                         | 用户图标上传（吸收 IMAGE 图标场景，二期）                 |
+| 未知 kind            | 占位图，导图不崩                                   | 版本化符号包与迁移                                        |
+| CursorMode 增量      | 公开类型加一个成员                                 | 发布说明标注（非破坏性）                                  |
+| tint 着色            | 依据 8.22 的 `multiplyHexColors(style, tint)` 路径 | 若 WebGL 下不生效，退回按色替换 + LRU 缓存（≤64），不阻塞 |
+
+## 13. 实施顺序（可回退小步）
+
+1. **骨架 + 1 个图标**：`SymbolSchema` / `WIDGET_REGISTRY` / `WIDGET_RUNTIME` / 几何纯函数 /
+   Vm（tint + 标签）/ Service / 工具入口；先用 `net-router` 一个 SVG 跑通生成脚本与渲染，
+   浅色与深色主题各看一眼。
+2. **第二个图标 + 观感确认**：加 `net-database`（圆柱，与形状 `eng-database` 对照），
+   确认线宽 / 圆角 / 100% 与 25% 缩放的观感后再批量。**此步停下等用户确认，不要直接画完
+   13 个**（图标质量是唯一需要人眼拍板的产物）。
+3. **交互接入**：工具坞二级菜单 / ToolGhost / ActionBar（种类 + 颜色）/ 编辑会话 /
+   快捷键 N / 只读闸门；单测覆盖几何、锚点、截断、着色、落库。
+4. **资产批量 + 护栏**：其余 11 个 SVG + `--check` 接 verify + 资产约束负向夹具 +
+   `symbol.spec.ts` S-1…S-9。
+5. **docs 同步**：见 §14。
+
+## 14. docs 同步（实施末）
+
+| 文档    | 改什么                                                                 |
+| ------- | ---------------------------------------------------------------------- |
+| docs/04 | 控件表加 `SYMBOL`；补符号控件小节（schema / 能力位 / 标签几何 / 着色） |
+| docs/07 | 文本层：符号标签的单行截断、编辑 profile                               |
+| docs/09 | 快捷键 N（符号工具）                                                   |
+| docs/12 | 工具坞单入口 + 二级菜单；ActionBar 颜色 popover                        |
+| docs/15 | 单测 / E2E 计数与 spec 名                                              |
+| docs/17 | 编辑 profile：SYMBOL 的编辑框几何与纯文本落库                          |
+| docs/20 | 项目文件：符号零资产条目（与 IMAGE 的差别）                            |
+| docs/13 | 4.3 状态随实施推进（完成后再改「已实施」）                             |
