@@ -42,11 +42,9 @@ export class SymbolService extends DragCreateServiceBase {
   protected readonly defaultSize = { width: SYMBOL_DEFAULT_WIDTH, height: SYMBOL_DEFAULT_HEIGHT };
   protected override readonly minDraftSize = { width: SYMBOL_MIN_WIDTH, height: SYMBOL_MIN_HEIGHT };
 
-  /** 工具默认种类（会话级，§6.2：不落库不持久化）；档位外取值忽略。
-   *  cast 是分步实施中间态：net-server 资产在批量步（§13 第 3 步）落地前
-   *  不在 SymbolKind 联合里，齐全后移除 */
-  private defaultKind: SymbolKind = 'net-server' as SymbolKind;
-  readonly defaultSymbol$ = new BehaviorSubject<SymbolKind>('net-server' as SymbolKind);
+  /** 工具默认种类（会话级，§6.2：不落库不持久化）；档位外取值忽略 */
+  private defaultKind: SymbolKind = 'net-server';
+  readonly defaultSymbol$ = new BehaviorSubject<SymbolKind>('net-server');
 
   get defaultSymbol(): SymbolKind {
     return this.defaultKind;
