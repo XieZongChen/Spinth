@@ -7,6 +7,7 @@ import { RefLineService } from './platform/refLine/refLineService';
 import { LayerService } from './platform/layer/layerService';
 import { GroupService } from './platform/selector/groupService';
 import { ShapeService } from './widgets/shape/shapeService';
+import { SymbolService } from './widgets/symbol/symbolService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
@@ -72,6 +73,11 @@ export function assembleInteraction(sdk: BoardSDK): void {
   // 工具默认参数聚合流（docs/04 §2 工具默认参数节）：各 service 流 → 单表
   // （react 单字段镜像 + Toolbar 按 mode 查表——避免 per-tool ×N 样板）
   sdk.shapeService.defaultShapeType$.subscribe((v) => sdk.syncToolOption('shape', 'type', v));
+  // 符号工具（specs/symbol-widget §6.1/§6.2）：同基类 DragCreateServiceBase，
+  // 顺序在 selector 之后（与 shapeService 同段）；种类记忆走同一聚合表
+  sdk.symbolService = new SymbolService(sdk.viewport!, sdk.engine!, sdk.history!, sdk.selector!);
+  sdk.symbolService.initialize();
+  sdk.symbolService.defaultSymbol$.subscribe((v) => sdk.syncToolOption('symbol', 'kind', v));
   sdk.rectEditor = new RectEditorService(
     sdk.viewport!,
     sdk.vmEngine!,
@@ -106,7 +112,8 @@ export function assembleInteraction(sdk: BoardSDK): void {
   // lineService.onLineDblClick 承接；线身单击是段滑移/胶囊手势，selector
   // 兜底激活分支曾把单击转发进编辑，这里删除该转发）
   sdk.selector.onActivate = (id, type, world) => {
-    if (type === 'TEXT' || type === 'STICKY' || type === 'SHAPE') sdk.textService?.enterEdit(id);
+    if (type === 'TEXT' || type === 'STICKY' || type === 'SHAPE' || type === 'SYMBOL')
+      sdk.textService?.enterEdit(id);
     // 脑图：再点一次已选中 → 按点击位置命中节点进节点编辑（既有设计同款）
     else if (isTreeWidgetType(type) && world) sdk.treeService?.enterNodeEditAt(id, world);
   };
@@ -122,6 +129,7 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.selector.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
   sdk.rectEditor.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
   sdk.shapeService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
+  sdk.symbolService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
   sdk.lineService.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
 
   sdk.lineService.defaultLineType$.subscribe((v) => sdk.syncToolOption('line', 'type', v));

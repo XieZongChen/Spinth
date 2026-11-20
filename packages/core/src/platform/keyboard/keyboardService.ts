@@ -113,6 +113,9 @@ export class KeyboardService extends Disposable {
         case 'tool.shape':
           bind(def.keys, () => this.handlers.setCursorMode('shape'));
           break;
+        case 'tool.symbol':
+          bind(def.keys, () => this.handlers.setCursorMode('symbol'));
+          break;
         case 'tool.text':
           bind(def.keys, () => this.handlers.setCursorMode('text'));
           break;

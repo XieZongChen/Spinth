@@ -297,6 +297,7 @@ export class ViewportService extends Disposable implements IViewportService {
     cursor: 'default',
     hand: 'grab',
     shape: 'crosshair',
+    symbol: 'crosshair',
     text: 'text',
     line: 'crosshair',
     pen: 'crosshair',

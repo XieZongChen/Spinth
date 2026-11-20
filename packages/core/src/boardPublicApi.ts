@@ -105,6 +105,7 @@ export type BoardInternalMember =
   | 'gridSnap'
   | 'selector'
   | 'shapeService'
+  | 'symbolService'
   | 'rectEditor'
   | 'refLine'
   | 'layer'

@@ -19,6 +19,7 @@ export function disposeBoard(host: IBoardTeardownHost): void {
   host.clipboard?.dispose();
   host.layer?.dispose();
   host.shapeService?.dispose();
+  host.symbolService?.dispose();
   host.culling?.dispose();
   host.network?.dispose();
   host.awarenessVm?.dispose();

@@ -1,7 +1,13 @@
 import { BehaviorSubject } from 'rxjs';
 import { DragCreateServiceBase } from '../base/dragCreateServiceBase';
 import { genId } from '../../utils/id';
-import type { IActionBarOption } from '../../types';
+import type {
+  IActionBarOption,
+  IDataEngineService,
+  IHistoryService,
+  ISelectorService,
+  IViewportService,
+} from '../../types';
 import { SYMBOL_KINDS, type SymbolKind } from './symbolGlyphs.generated';
 import {
   SYMBOL_DEFAULT_HEIGHT,
@@ -45,6 +51,16 @@ export class SymbolService extends DragCreateServiceBase {
   /** 工具默认种类（会话级，§6.2：不落库不持久化）；档位外取值忽略 */
   private defaultKind: SymbolKind = 'net-server';
   readonly defaultSymbol$ = new BehaviorSubject<SymbolKind>('net-server');
+
+  /** 基类构造是 protected（模板基类不直接实例化）——子类显式公开（ShapeService 同款） */
+  constructor(
+    viewport: IViewportService,
+    engine: IDataEngineService,
+    history: IHistoryService,
+    selector: ISelectorService,
+  ) {
+    super(viewport, engine, history, selector);
+  }
 
   get defaultSymbol(): SymbolKind {
     return this.defaultKind;

@@ -18,6 +18,7 @@ import type {
 import type { DataEngineService } from './platform/dataEngine/dataEngineService';
 import type { ServiceRegistry } from './platform/registry/serviceRegistry';
 import type { ShapeService } from './widgets/shape/shapeService';
+import type { SymbolService } from './widgets/symbol/symbolService';
 import type { RectEditorService } from './platform/rectEditor/rectEditorService';
 import type { LayerService } from './platform/layer/layerService';
 import type { RefLineService } from './platform/refLine/refLineService';
@@ -59,6 +60,7 @@ export interface IBoardServices {
   history: IHistoryService | null;
   selector: ISelectorService | null;
   shapeService: ShapeService | null;
+  symbolService: SymbolService | null;
   refLine: RefLineService | null;
   layer: LayerService | null;
   group: GroupService | null;

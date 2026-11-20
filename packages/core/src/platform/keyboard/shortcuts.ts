@@ -52,6 +52,7 @@ export const DEFAULT_SHORTCUTS: IShortcutDef[] = [
   { id: 'tool.cursor', keys: 'v', description: '选择工具' },
   { id: 'tool.hand', keys: 'h', description: '抓手工具' },
   { id: 'tool.shape', keys: 'r', description: '矩形工具' },
+  { id: 'tool.symbol', keys: 'n', description: '符号工具' },
   { id: 'tool.text', keys: 't', description: '文本工具' },
   { id: 'tool.line', keys: 'l', description: '连线工具' },
   { id: 'tool.pen', keys: 'p', description: '画笔工具' },
