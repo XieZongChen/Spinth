@@ -16,13 +16,14 @@
 - 单测：1372 passed（core 1255 + react 79 + app 38）。符号控件 +39
   （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 4 / symbolEdit 12 /
   symbolColor 5，specs/symbol-widget §9.1）。
-- E2E：54 个 spec（主配置 53 + pwa 1）、296 例 = 主配置 289（--list 实测，
-  含 @visual 8）+ pwa 7。非 visual 全量 281 = 279 通过 + 2 跳过（旋转手柄
+- E2E：55 个 spec（主配置 54 + pwa 1）、305 例 = 主配置 298（--list 实测，
+  含 @visual 8）+ pwa 7。非 visual 全量 290 = 288 通过 + 2 跳过（旋转手柄
   用例暂跳，specs/rotate-hide）——实测 0 failed。树形图族 +19 例
   （treeCollapse 6 / mindVertical 3 / treeTool 5 / orgChart 4 / debugSurface
-  +1 公开面 71，specs/tree-diagrams §14.2）。分层对账 = 主配置 289 −
-  @visual 8 − @timing/@bench 5 = fast 276 + pwa 7 = CI gate 283；
-  四层全量 296（gate 283 + nightly @visual 8 + @timing/@bench 5）；
+  +1 公开面 71，specs/tree-diagrams §14.2）；符号控件 +9 例
+  （symbol.spec S-1..S-9，specs/symbol-widget §9.2）。分层对账 = 主配置 298 −
+  @visual 8 − @timing/@bench 5 = fast 285 + pwa 7 = CI gate 292；
+  四层全量 305（gate 292 + nightly @visual 8 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：6/6（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 9 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3）；
