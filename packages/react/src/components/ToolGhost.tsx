@@ -32,7 +32,9 @@ interface GhostToolDef {
 /** 可创建工具 → 幽灵示意（与 Toolbar 同源对齐；类名完整字符串保证被扫描。
  *  shape 图标随默认型动态（SHAPE_TYPE_OPTIONS 单源）——坞里什么图标，幽灵就是什么 */
 const GHOST_TOOLS: Partial<Record<string, GhostToolDef>> = {
-  shape: { icon: 'shape', tone: 'text-tool-shape' }, // icon 被动态覆盖（见 def 计算）
+  shape: { icon: 'shape', tone: 'text-tool-shape' },
+  // 符号（specs/symbol-widget §6.5）：静态「符号」图标（DOM 侧不渲染具体 SVG）
+  symbol: { icon: 'symbol', tone: 'text-tool-shape' }, // icon 被动态覆盖（见 def 计算）
   text: { icon: 'text', tone: 'text-tool-text' },
   line: { icon: 'connector', tone: 'text-tool-line' },
   pen: { icon: 'pen', tone: 'text-tool-pen' },

@@ -112,6 +112,20 @@ export type IconName =
   | 'shape-round-rect'
   | 'shape-ellipse'
   | 'shape-diamond'
+  | 'symbol'
+  | 'symbol-net-server'
+  | 'symbol-net-router'
+  | 'symbol-net-switch'
+  | 'symbol-net-firewall'
+  | 'symbol-net-cloud'
+  | 'symbol-net-load-balancer'
+  | 'symbol-net-internet'
+  | 'symbol-net-user'
+  | 'symbol-net-database'
+  | 'symbol-net-storage'
+  | 'symbol-data-queue'
+  | 'symbol-doc-file'
+  | 'symbol-doc-folder'
   | 'shape-triangle-up' // 12 型扩展（docs/04 §8.2，2026-10-11）
   | 'shape-triangle-down'
   | 'shape-parallelogram-right'
@@ -277,6 +291,103 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   'shape-eng-file': File,
   'shape-eng-folder': Folder,
   'shape-stadium': svgIcon(<rect x="3" y="7" width="18" height="10" rx="5" />),
+  // 符号（specs/symbol-widget §6.4/§6.5）：工具入口「图标 + 标签线」示意；
+  // 13 个种类简笔与画布 48 视方资产同语义（DOM 侧不引 glyph SVG 字符串）
+  symbol: svgIcon(
+    <>
+      <circle cx="12" cy="8.5" r="4.5" />
+      <line x1="6.5" y1="19" x2="17.5" y2="19" />
+    </>,
+  ),
+  'symbol-net-server': svgIcon(
+    <>
+      <rect x="7" y="4" width="10" height="16" />
+      <line x1="9.5" y1="8" x2="14.5" y2="8" />
+      <line x1="9.5" y1="12" x2="14.5" y2="12" />
+      <line x1="9.5" y1="16" x2="14.5" y2="16" />
+    </>,
+  ),
+  'symbol-net-router': svgIcon(
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9.6 6.8L12 4.6L14.4 6.8" />
+      <path d="M9.6 17.2L12 19.4L14.4 17.2" />
+      <path d="M6.8 9.6L4.6 12L6.8 14.4" />
+      <path d="M17.2 9.6L19.4 12L17.2 14.4" />
+    </>,
+  ),
+  'symbol-net-switch': svgIcon(
+    <>
+      <rect x="3.5" y="8.5" width="17" height="7" />
+      <path d="M7.5 10.5L10 12L7.5 13.5" />
+      <path d="M13.5 10.5L16 12L13.5 13.5" />
+    </>,
+  ),
+  'symbol-net-firewall': svgIcon(
+    <>
+      <rect x="4" y="5.5" width="16" height="13" />
+      <line x1="4" y1="9.8" x2="20" y2="9.8" />
+      <line x1="4" y1="14.2" x2="20" y2="14.2" />
+      <line x1="12" y1="5.5" x2="12" y2="9.8" />
+      <line x1="8" y1="9.8" x2="8" y2="14.2" />
+      <line x1="16" y1="9.8" x2="16" y2="14.2" />
+      <line x1="12" y1="14.2" x2="12" y2="18.5" />
+    </>,
+  ),
+  'symbol-net-cloud': svgIcon(
+    <path d="M17.8 18H6.9a4.2 4.2 0 1 1 .8-8.3A5.6 5.6 0 0 1 18 9a4.5 4.5 0 0 1-.2 9Z" />,
+  ),
+  'symbol-net-load-balancer': svgIcon(
+    <>
+      <rect x="5" y="10" width="14" height="4.5" />
+      <path d="M12 3.5V8.4M10.3 7L12 8.9L13.7 7" />
+      <path d="M7 14.5V18.4M5.3 16.7L7 18.6L8.7 16.7" />
+      <path d="M12 14.5V18.4M10.3 16.7L12 18.6L13.7 16.7" />
+      <path d="M17 14.5V18.4M15.3 16.7L17 18.6L18.7 16.7" />
+    </>,
+  ),
+  'symbol-net-internet': svgIcon(
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5C9.4 5.8 8 8.6 8 12s1.4 6.2 4 8.5c2.6-2.3 4-5.1 4-8.5s-1.4-6.2-4-8.5Z" />
+      <line x1="3.5" y1="12" x2="20.5" y2="12" />
+    </>,
+  ),
+  'symbol-net-user': svgIcon(
+    <>
+      <circle cx="12" cy="8" r="3.8" />
+      <path d="M5 19.5a7 7 0 0 1 14 0" />
+    </>,
+  ),
+  'symbol-net-database': svgIcon(
+    <>
+      <path d="M5 6.5c0-1.4 3.1-2.5 7-2.5s7 1.1 7 2.5" />
+      <path d="M5 6.5v11c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-11" />
+      <path d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5" />
+    </>,
+  ),
+  'symbol-net-storage': svgIcon(
+    <>
+      <rect x="4.5" y="5" width="15" height="3.6" />
+      <rect x="4.5" y="10.2" width="15" height="3.6" />
+      <rect x="4.5" y="15.4" width="15" height="3.6" />
+    </>,
+  ),
+  'symbol-data-queue': svgIcon(
+    <>
+      <path d="M6 12a2.6 4.6 0 1 0 5.2 0a2.6 4.6 0 1 0-5.2 0" />
+      <line x1="8.6" y1="7.4" x2="17" y2="7.4" />
+      <line x1="8.6" y1="16.6" x2="17" y2="16.6" />
+      <path d="M17 7.4A2.6 4.6 0 0 1 17 16.6" />
+    </>,
+  ),
+  'symbol-doc-file': svgIcon(
+    <>
+      <path d="M6 3.5h8.5L18.5 7.5v13H6Z" />
+      <path d="M14.5 3.5v4h4" />
+    </>,
+  ),
+  'symbol-doc-folder': svgIcon(<path d="M3.5 6.5h6l2 2.5h9v9.5h-17Z" />),
   'shape-document': svgIcon(<path d="M5 5 H19 V14 Q16.5 17.5 12 16.5 Q7.5 15.5 5 17 Z" />),
   'shape-hexagon': Hexagon,
   'shape-predefined-process': svgIcon(

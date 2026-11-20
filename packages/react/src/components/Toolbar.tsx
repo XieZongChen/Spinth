@@ -6,6 +6,7 @@ import { Icon, type IconName } from './Icon';
 import { ToolFlyout } from './ToolFlyout';
 import {
   SHAPE_TYPE_OPTIONS,
+  SYMBOL_OPTIONS,
   LINE_TYPE_OPTIONS,
   LINE_WIDTH_OPTIONS,
   PEN_COLOR_OPTIONS,
@@ -164,6 +165,19 @@ export function Toolbar() {
     tone: 'shape',
     subMenuGroups: [{ key: 'type', options: SHAPE_TYPE_OPTIONS }],
   };
+  // 符号条目（specs/symbol-widget §6.4）：图标随当前默认种类（shape 同款体验），
+  // 标题固定「符号 (N)」（spec 文案）；主题色沿用 shape 槽位（不新增 tool-symbol-*
+  // 安全类与对比度护栏）；二级菜单 13 项平铺（>8 自动两行 grid，与形状同款）
+  const symbolCur = toolOptions['symbol']?.kind ?? 'net-server';
+  const symbolOpt = SYMBOL_OPTIONS.find((o) => o.id === symbolCur) ?? SYMBOL_OPTIONS[0]!;
+  const symbolDef: ToolDef = {
+    id: 'symbol',
+    mode: 'symbol',
+    icon: (symbolOpt.icon ?? 'symbol') as IconName,
+    title: '符号 (N)',
+    tone: 'shape',
+    subMenuGroups: [{ key: 'kind', options: SYMBOL_OPTIONS }],
+  };
   // 树形图单入口（specs/tree-diagrams §10.1，Phase 3c）：不再有独立 org 按钮——
   // 图标/标题/aria 随当前 kind；二级菜单 = 类型组（切换保持激活）；kind 记忆
   // 随 M/O 直达更新（bridge 镜像）。标题含当前 kind 名，脑图态保留「脑图」字样
@@ -189,6 +203,7 @@ export function Toolbar() {
   const tools = [
     ...BASE_TOOLS.slice(0, SHAPE_SLOT),
     shapeDef,
+    symbolDef,
     ...BASE_TOOLS.slice(SHAPE_SLOT),
     treeDef,
   ];

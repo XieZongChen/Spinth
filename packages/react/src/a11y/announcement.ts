@@ -20,6 +20,7 @@ export interface IAnnouncementSnapshot {
 const TOOL_NAMES: Partial<Record<CursorMode, string>> = {
   hand: '抓手',
   shape: '形状',
+  symbol: '符号',
   text: '文本',
   line: '连线',
   pen: '画笔',
