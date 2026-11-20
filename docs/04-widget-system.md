@@ -155,17 +155,18 @@ VmEngine.initialize():
 
 ## 8. 控件清单
 
-| 控件      | 说明                                                       |
-| --------- | ---------------------------------------------------------- |
-| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect       |
-| STICKY    | 便签，共享文本测量/渲染管线                                |
-| TEXT      | 富文本，三态模型（docs/07）                                |
-| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08） |
-| PEN       | 画笔，60ms 采样，points 增量写                             |
-| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）          |
-| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                |
-| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）          |
-| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）          |
+| 控件      | 说明                                                           |
+| --------- | -------------------------------------------------------------- |
+| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect           |
+| STICKY    | 便签，共享文本测量/渲染管线                                    |
+| TEXT      | 富文本，三态模型（docs/07）                                    |
+| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08）     |
+| PEN       | 画笔，60ms 采样，points 增量写                                 |
+| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）              |
+| SYMBOL    | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget） |
+| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                    |
+| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）              |
+| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）              |
 
 ### 8.1 橡皮
 
@@ -180,6 +181,31 @@ VmEngine.initialize():
 
 - 形状类型由 `SHAPE_TYPE_OPTIONS` 单一源维护：四基础型 + 流程图/工程图扩展，共 20 型。
 - 几何内接、路径绘制与带字撑高见 `shapeGeometry.ts` / `shapePath.ts` / docs/17 §6。
+
+### 8.4 符号（SYMBOL）
+
+矢量图标 + 外置单行标签的图元（specs/symbol-widget，4.3 网络拓扑的设备底座）：
+
+- 数据：`symbol`（种类 id，未知值渲染占位图不阻断导入）、`label`（纯文本
+  ≤64 字素，空串只画图标）、`color`（逐实例着色，缺省随主题墨色
+  `resolveSymbolColor` 单源——图标与标签同色、写入即固定不随主题反转）、
+  `groupId`；几何走独立 rect（SHAPE 同一扁平化路径）。
+- 两段几何（`symbolGeometry.ts` 单源）：图形区 + 恒 24 标签带（间距 8，
+  计入 bbox；命中/框选/对齐/导出按整 bbox）；默认 96×128；图标 contain
+  适配不拉伸；锚点只贴图形区四边（`t∈[0,1]`），标签带不参与锚定。
+- 资产：`widgets/symbol/assets/*.svg` 自绘单色线稿（48 viewBox / 2px 描边 /
+  currentColor），`scripts/build-symbol-glyphs.mjs` 构建期内联为
+  `symbolGlyphs.generated.ts`（硬校验：元素/属性白名单、禁 polyline/polygon
+  （PIXI SVG 解析缺陷）与硬编码色；`pnpm symbols:check` 接 verify）。
+- 渲染：按 kind 共享 `GraphicsContext`（`new GraphicsContext().svg()`），
+  颜色走 `tint`（生成期 currentColor 归一为纯白 `#ffffff`——PIXI tint 是
+  逐通道乘法，白是唯一能呈现 tint 色的乘法基色）；颜色不进缓存键。
+- 工具：`SymbolService extends DragCreateServiceBase`（scope `symbol`、
+  单击默认尺寸按下点居中可连击）；`CursorMode 'symbol'`、快捷键 N、
+  种类记忆经 `setDefaultToolOption('symbol','kind',·)`。
+- 标签编辑走统一编辑会话（docs/17 SYMBOL profile：标签带中心 anchor
+  center、纯文本落库、渲染期单行截断 + 省略号——数据恒存完整 64 字素）。
+- 项目文件零资产条目（与 IMAGE 的关键差别）；不旋转、无 autoHeight。
 
 ### 8.3 形状样式
 

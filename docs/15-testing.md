@@ -13,7 +13,9 @@
 
 ## 2. 当前基线
 
-- 单测：1333 passed（core 1216 + react 79 + app 38）。
+- 单测：1372 passed（core 1255 + react 79 + app 38）。符号控件 +39
+  （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 4 / symbolEdit 12 /
+  symbolColor 5，specs/symbol-widget §9.1）。
 - E2E：54 个 spec（主配置 53 + pwa 1）、296 例 = 主配置 289（--list 实测，
   含 @visual 8）+ pwa 7。非 visual 全量 281 = 279 通过 + 2 跳过（旋转手柄
   用例暂跳，specs/rotate-hide）——实测 0 failed。树形图族 +19 例

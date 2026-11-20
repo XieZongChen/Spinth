@@ -1,7 +1,7 @@
 /** 符号控件 E2E（specs/symbol-widget §9.2 S-1..S-9）：创建/连击/编辑/标签几何/
  *  图形区锚定/种类切换/撤销持久化/只读/着色。断言走数据探针（docs/15 §3）。 */
 import { expect, test, type Page } from '@playwright/test';
-import { openBoardDoc } from './helpers/boardE2e';
+import { openBoardDoc, waitForSynced } from './helpers/boardE2e';
 import { probe } from './helpers/widgetProbeE2e';
 import { modelCount } from './helpers/projectFileE2e';
 import { waitRole } from './helpers/multiTabE2e';
@@ -258,17 +258,27 @@ test('S-7 创建与命名各为独立撤销步；刷新恢复', async ({ page })
   // undo 2：创建回退（控件删除）
   await page.keyboard.press('Meta+z');
   await expect.poll(() => modelCount(page)).toBe(0);
-  // redo ×2：控件与名字都回来
+  // redo ×2：控件与名字都回来（两 redo 之间等模型恢复，高负载下背靠背会丢拍）
   await page.keyboard.press('Meta+Shift+z');
   await expect.poll(() => modelCount(page)).toBe(1);
+  await page.waitForTimeout(300);
   await page.keyboard.press('Meta+Shift+z');
   await expect.poll(async () => (await symbols(page))[0]!.label).toBe('持久验证');
 
-  // 刷新恢复（IndexedDB）
+  // 刷新恢复（IndexedDB）——先等防抖持久化落盘（persistState$ 'saved'），
+  // reload 后原地等 synced（再 goto 会双导航竞态）
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as { __spinth: { persistState$: { getValue(): string } } }
+      ).__spinth.persistState$.getValue() === 'saved',
+    undefined,
+    { timeout: 10_000 },
+  );
   await page.reload();
-  await openBoardDoc(page, (await page.url().match(/doc=([^&]+)/))![1]!);
-  await expect.poll(async () => (await symbols(page)).length).toBe(1);
-  expect((await symbols(page))[0]!.label).toBe('持久验证');
+  await waitForSynced(page);
+  // IndexedDB 存 Yjs 增量日志：恢复时创建事务先到、label 事务后到——poll 等
+  await expect.poll(async () => (await symbols(page))[0]?.label).toBe('持久验证');
   expect((await symbols(page))[0]!.symbol).toBe('net-server');
 });
 
@@ -320,7 +330,6 @@ test('S-8 只读跟随：符号工具禁用、双击不进编辑', async ({ page
 });
 
 test('S-9 着色：ActionBar 选色落库、撤销回主题色、刷新保真', async ({ page }) => {
-  const docId = (await page.url().match(/doc=([^&]+)/))![1]!;
   await pickSymbolTool(page);
   await page.mouse.click(300, 300 + TOP_BAR);
   await expect.poll(() => modelCount(page)).toBe(1);
@@ -341,7 +350,15 @@ test('S-9 着色：ActionBar 选色落库、撤销回主题色、刷新保真', 
   await page.waitForTimeout(300);
   await page.keyboard.press('Meta+Shift+z');
   await expect.poll(async () => (await symbols(page))[0]!.color).toBe('#dc2626');
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as { __spinth: { persistState$: { getValue(): string } } }
+      ).__spinth.persistState$.getValue() === 'saved',
+    undefined,
+    { timeout: 10_000 },
+  );
   await page.reload();
-  await openBoardDoc(page, docId);
+  await waitForSynced(page);
   await expect.poll(async () => (await symbols(page))[0]?.color).toBe('#dc2626');
 });

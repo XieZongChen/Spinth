@@ -63,6 +63,8 @@ IDocView  = Doc → Paragraph → Line → Span（带 rect 坐标的视图模型
   缓存键含 bold/italic/字号/字族，不含 color/underline。
 - 输出由 `DocDisplay` 消费产出 PIXI 显示树（每 span 一个 Text）。
 - 未实现：`overflow: hidden` / ellipsis（STICKY 纵向溢出靠换行约束）。
+  符号（SYMBOL）标签不依赖它：`symbolGeometry.truncateLabelToWidth` 在渲染前
+  按可用宽逐字素截断 + 省略号（数据恒存完整 64 字素，加宽即恢复）。
 
 ## 6. 两级文字渲染
 
@@ -107,6 +109,9 @@ editStyleOf` 统一「model override → 控件常量默认」。
   `textColor` 优先；STICKY/SHAPE 文字不主题化（底色固定）。
   切换经门面 `setTheme`（`createBoard()` 公共投影）→ `vmEngine.refreshAll()`。
 - ActionBar 排版项（字号/对齐/文字色/行高）与改档高度重排见 docs/17 §4。
+- 符号（SYMBOL）标签：单行 16/24 居中、色随 `resolveSymbolColor`（缺省随
+  主题、逐实例 color 优先且不反转）；编辑 profile 见 docs/17，落库是纯文本
+  `label`（非 HTML）。
 
 ## 8. 实现边界
 

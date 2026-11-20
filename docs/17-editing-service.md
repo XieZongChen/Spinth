@@ -4,12 +4,13 @@
 
 文字编辑能力统一到 `platform/textEngine/editingService.ts`：
 
-| 编排层                           | 服务控件      | 内核                 | 行为                                    |
-| -------------------------------- | ------------- | -------------------- | --------------------------------------- |
-| `widgets/text/textService.ts`    | TEXT + STICKY | TipTap（html）       | enterEdit/34ms 节流/autoHeight/空删控件 |
-| `widgets/line/lineTextEditor.ts` | LINE 文字     | TipTap（html）       | ratio 锚定/镂空喂框/空保线              |
-| `widgets/mind/mindNodeEditor.ts` | mind 节点     | 裸 textarea（plain） | 树重排落库/Tab 建子/像素级对齐          |
-| SHAPE 图形内文字                 | SHAPE         | TipTap（html）       | 内接矩形/autoHeight                     |
+| 编排层                           | 服务控件      | 内核                 | 行为                                            |
+| -------------------------------- | ------------- | -------------------- | ----------------------------------------------- |
+| `widgets/text/textService.ts`    | TEXT + STICKY | TipTap（html）       | enterEdit/34ms 节流/autoHeight/空删控件         |
+| `widgets/line/lineTextEditor.ts` | LINE 文字     | TipTap（html）       | ratio 锚定/镂空喂框/空保线                      |
+| `widgets/mind/mindNodeEditor.ts` | mind 节点     | 裸 textarea（plain） | 树重排落库/Tab 建子/像素级对齐                  |
+| SHAPE 图形内文字                 | SHAPE         | TipTap（html）       | 内接矩形/autoHeight                             |
+| 符号外置标签                     | SYMBOL        | TipTap（html）       | 标签带中心/纯文本落库（specs/symbol-widget §5） |
 
 抽取动机：34ms 节流器三份重复、跨控件编辑无显式互斥、空文本策略散落、排版常量四散。
 内核已经统一参数化——要抽的是编排层，不是重写编辑器。
@@ -105,6 +106,12 @@ STICKY/SHAPE 的底色固定，文字默认色不参与主题化。
 - marks：span 感知断行、htmlToDoc、DocDisplay span 级 fill/italic/underline。
 - SHAPE 图形内文字 + autoHeight（隐式默认开，手动改高即关；只撑不缩；
   空文本不撑高；text + height 一个事务）。
+- SYMBOL 外置标签（specs/symbol-widget §5）：`editStyleOf` 分支 16/1.5/center，
+  字色 `resolveSymbolColor` 单源；编辑框 = 标签带中心（anchor center、宽 =
+  可用宽，`getRect` 与渲染 `symbolLabelRect` 同源）；`getContent` 把纯文本
+  label 转义进 `<p>`，提交端 `htmlToDoc` 段落提取 → 连续空白折一空格 →
+  trim → 截 64 字素 → 只写 `label`（不改几何）；空文本 keep（空标签合法，
+  标签带不塌陷）。
 
 ## 5. 迁移与验证
 

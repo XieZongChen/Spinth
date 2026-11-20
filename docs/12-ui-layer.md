@@ -113,6 +113,13 @@ ActionBar / TreeAddButtons：纯算术定位
 | `ToolGhost`      | 工具幽灵；ref 直写 transform，不进 React 渲染                                                                                                                                                                                                                                                            |
 | `DotGrid`        | 画布点阵；CSS radial-gradient；命令式重定位                                                                                                                                                                                                                                                              |
 
+工具序列（含会话级默认参数的创建型工具）：选择、抓手、形状（R，图标随默认型）、
+**符号（N，图标随默认种类；二级菜单 13 项 = SYMBOL_OPTIONS 单源、>8 两行
+grid，主题色沿用 shape 槽位）**、文本、连线、画笔、橡皮、便签、树形图
+（M/O 单入口）。符号 ActionBar：符号类型 popover（`SYMBOL_OPTIONS`）+ 颜色
+popover（`TEXT_COLOR_PALETTE`，无「跟随主题」还原项——写入即固定；缺省触发
+钮显示主题墨色点）。
+
 Roving 焦点协议（specs/a11y-closeout §5）：纯函数 `a11y/rovingFocus.ts`（方向键步进/
 跳禁用/wrap）+ hook `a11y/useRovingFocus`（容器级 keydown/focusin，单 Tab 停靠）；
 五个消费者（ContextMenu/Toolbar/ToolFlyout/PopoverControl/ProjectMenu）共用同一协议。

@@ -286,13 +286,19 @@ right:  { x: r.x + r.width, y: r.y + Math.max(bottom, 0) * t }
 ### 4.3 资产约束（生成期硬校验）
 
 - 根元素只有 `viewBox="0 0 48 48"`（不写 `width/height`，不写其他布局属性）；
-- 允许元素：`g / path / circle / rect / line / polyline / polygon`；
+- 允许元素：`g / path / circle / rect / line`（**不含 polyline/polygon**——PIXI
+  `GraphicsContext.svg` 对 points 属性「逗号+空格混合」解析有缺陷，实测渲染成
+  乱线出界；多段折线一律 path 表达，表达力等价。实施勘误 2026-11-20）；
 - 允许属性白名单：`d / cx / cy / r / x / y / width / height / x1 / y1 / x2 / y2 / points /
 fill / fill-rule / clip-rule / stroke / stroke-width / stroke-linecap / stroke-linejoin`；
 - **禁止**：`style / class / id / href / xlink / use / image / text / defs / filter /
-gradient / mask / transform`（一期不做变换与渐变；需要旋转就在设计稿里画正）；
-- 颜色：`fill` / `stroke` 只允许 `none` 或 `currentColor`（生成时替换为纯黑 `#000000`，
-  作为 tint 的乘法基色）；出现任何硬编码颜色即报错；
+gradient / mask / transform / polyline / polygon`（一期不做变换与渐变；需要旋转
+  就在设计稿里画正）；
+- 颜色：`fill` / `stroke` 只允许 `none` 或 `currentColor`（生成时归一为纯白
+  `#ffffff` 作为 tint 的乘法基色——实施勘误 2026-11-20：PIXI tint 是逐通道乘法
+  （`multiplyHexColors: c = a·b/255`，8.22 实测），黑基色 × 任何 tint = 黑，
+  本节原文的 `#000000` 与「黑×色=色」不成立，白（255×tint=tint）是唯一能让
+  tint 呈现目标色的基色）；出现任何硬编码颜色即报错；
 - 单文件 ≤ 6 KB；路径点数不做硬限制，但设计上保持「48 视方格内 1.5~2px 描边」的线稿密度。
 
 ### 4.4 运行时渲染与缓存
@@ -300,9 +306,10 @@ gradient / mask / transform`（一期不做变换与渐变；需要旋转就在�
 - 着色单源 `resolveSymbolColor(data)`：`data.color ?? defaultTextColor()`（light `#333333` /
   dark `#ededf2`）；图标与标签同色，显式 `color` 不随主题反转（与 `textColor` 同语义：
   实例数据）。
-- **用 tint 渲染，不替换 SVG 字符串**：资产生成时把 `currentColor` 归一为纯黑 `#000000`
-  （tint 的乘法基色），运行时 `glyph.tint = hexToNum(color)`——黑 × 色 = 色；主题切换
-  只改 tint，不重建 context（PIXI 8 的 `Container.tint` 对 Graphics 的填充 / 描边生效）。
+- **用 tint 渲染，不替换 SVG 字符串**：资产生成时把 `currentColor` 归一为纯白
+  `#ffffff`（tint 的乘法基色，见 §4.3 勘误），运行时 `glyph.tint = hexToNum(color)`；
+  主题切换只改 tint，不重建 context（PIXI 8 的 `Container.tint` 对 Graphics 生效，
+  浅 / 深双主题实机验证通过）。
 - 上下文缓存：**按 kind** 一个共享 `GraphicsContext`（`new GraphicsContext().svg(svg)`），
   VM 用 `new Graphics({ context })` 复用；传入的 context 不随 Graphics 销毁（PIXI 8 契约）。
   颜色不进缓存键，任意色值不会撑大缓存。
@@ -541,16 +548,16 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 
 ## 12. 风险与挂账
 
-| 项                   | 现状 / 决策                                        | 后续                                                      |
-| -------------------- | -------------------------------------------------- | --------------------------------------------------------- |
-| 从下方连线穿过标签   | 接受；标签单行、线多从侧上进入                     | 标签避让 / 底片（二期）                                   |
-| 多行标签             | 单行 + 末尾省略号（渲染期截断）                    | 两行上限（按真实反馈）                                    |
-| 显式颜色不随主题反转 | 实例数据语义（同 textColor），写入即固定           | 若需要「随主题切换的语义色」另做色角色                    |
-| 旋转                 | 不支持                                             | 与 SHAPE 旋转入口一起评估                                 |
-| 自定义符号 / 符号包  | 内置 13 个                                         | 用户图标上传（吸收 IMAGE 图标场景，二期）                 |
-| 未知 kind            | 占位图，导图不崩                                   | 版本化符号包与迁移                                        |
-| CursorMode 增量      | 公开类型加一个成员                                 | 发布说明标注（非破坏性）                                  |
-| tint 着色            | 依据 8.22 的 `multiplyHexColors(style, tint)` 路径 | 若 WebGL 下不生效，退回按色替换 + LRU 缓存（≤64），不阻塞 |
+| 项                   | 现状 / 决策                                              | 后续                                      |
+| -------------------- | -------------------------------------------------------- | ----------------------------------------- |
+| 从下方连线穿过标签   | 接受；标签单行、线多从侧上进入                           | 标签避让 / 底片（二期）                   |
+| 多行标签             | 单行 + 末尾省略号（渲染期截断）                          | 两行上限（按真实反馈）                    |
+| 显式颜色不随主题反转 | 实例数据语义（同 textColor），写入即固定                 | 若需要「随主题切换的语义色」另做色角色    |
+| 旋转                 | 不支持                                                   | 与 SHAPE 旋转入口一起评估                 |
+| 自定义符号 / 符号包  | 内置 13 个                                               | 用户图标上传（吸收 IMAGE 图标场景，二期） |
+| 未知 kind            | 占位图，导图不崩                                         | 版本化符号包与迁移                        |
+| CursorMode 增量      | 公开类型加一个成员                                       | 发布说明标注（非破坏性）                  |
+| tint 着色            | 已实机验证生效（白基色乘法，浅 / 深主题 + 25% 缩放实测） | 无需回退；基色勘误记录见 §4.3             |
 
 ## 13. 实施顺序（可回退小步）
 

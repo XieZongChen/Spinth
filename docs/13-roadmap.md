@@ -121,7 +121,11 @@ M/O 直达，9 按钮）；`mind-horizontal/mind-vertical/org-sample` 视觉基�
 
 #### 4.3 网络拓扑 / 架构图
 
-**状态**：设计定稿，待实施（specs/network-diagram.md、specs/symbol-widget.md）。
+**状态**：底座已落地——**SYMBOL 符号控件全量交付**（specs/symbol-widget.md：
+13 图标 / 两段几何 + 图形区锚点 / 单行标签编辑 / 逐实例着色 / 工具坞 N 入口 /
+ActionBar / 持久化撤销剪贴板项目文件全链路，symbol.spec S-1..S-9 绿）。
+剩余：网络样本（10+ 设备 + 区域 + 避障线路）与 N-1..N-11 E2E、
+`network-sample` 视觉基线、无填充避障豁免（§5.2 前置小改）。
 
 **审计结论**：20 型形状全部是「轮廓 + 框内文字」，装不下「图标 + 外置标签」的设备图元
 （16 型文字容器、2 型混合态 eng-database/eng-queue、2 型偏符号 eng-file/eng-folder）。

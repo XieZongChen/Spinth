@@ -140,6 +140,9 @@ spinth-<docId>-<YYYYMMDD-HHmmss>.spinth.zip
 - 导出前重新计算哈希并与 id 比对；不一致则拒绝导出，避免产出“自校验失败”的备份。
 - 导入时再次校验；不一致即 `PROJECT_ASSET_INVALID`。
 - 只打包当前文档实际引用的资产（`IMAGE.src` 为 `spinth-asset:`）；不打包未引用的库内资产。
+- 符号（SYMBOL）图标是构建期内联的矢量常量：项目文件**零资产条目**（与
+  IMAGE 的关键差别），体积只随标签文本增长；导入时未知 symbol id 走占位图
+  渲染（specs/symbol-widget D7），不产生 warning 之外的失败。
 - `data:` 图片保留在 Yjs 内（旧文档兼容），不单独入包；导出结果给出 warning。
 - `http(s):` 图片保持 URL 原样，不下载、不打包；导出/导入结果给出 warning。
 
