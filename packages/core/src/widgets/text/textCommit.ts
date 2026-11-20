@@ -4,6 +4,7 @@ import { createCanvasMeasurer, measureDoc } from '../../platform/textEngine/meas
 import { htmlToDoc } from '../../platform/textEngine/htmlDoc';
 import { htmlToPlainText } from '../../platform/textEngine/plainText';
 import { insetRectOf, shapeHeightFromTextHeight } from '../shape/shapeVm';
+import { clampSymbolLabel } from '../symbol/symbolGeometry';
 import type { ITextEditStyle } from './textEditStyle';
 
 /** 编辑落库依赖（textService.commitEdit 的方法体外移——纯函数，无状态） */
@@ -24,6 +25,17 @@ export function commitTextEdit(
   const model = deps.engine.getModelById(id);
   const vm = deps.vmEngine.getVmById(id);
   if (!model || !vm) return;
+  // SYMBOL（specs/symbol-widget §5.3）：落库是纯文本——HTML→纯文本→连续空白
+  // 折一空格→trim→截 64 字素；只写 label 不改几何（无 autoHeight），空串合法
+  if (vm.type === 'SYMBOL') {
+    // 段落感知降级：htmlToPlainText 的 textContent 段间无分隔（多段粘贴粘连），
+    // htmlToDoc 按段提取、段间折一空格（单行语义，§5.1「去换行折一空格」）
+    const plain = htmlToDoc(html)
+      .map((p) => p.spans.map((sp) => sp.text).join(''))
+      .join(' ');
+    model.update({ label: clampSymbolLabel(plain) } as never);
+    return;
+  }
   if (vm.type !== 'SHAPE') {
     const m = measureDoc(
       {

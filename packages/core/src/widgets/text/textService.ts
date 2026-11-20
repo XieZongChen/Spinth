@@ -19,6 +19,7 @@ import {
   TEXT_FONT_SIZE_STEPS,
 } from './textVm';
 import { insetRectOf } from '../shape/shapeVm';
+import { SYMBOL_LABEL_PADDING_X, symbolLabelRect } from '../symbol/symbolGeometry';
 import type { ShapeType } from '../../types';
 import { createCanvasMeasurer, measureDoc } from '../../platform/textEngine/measure';
 import { htmlToDoc } from '../../platform/textEngine/htmlDoc';
@@ -136,6 +137,8 @@ export class TextService extends Disposable {
     const st = editStyleOf(vm.type, data);
     const shapeType = data.shapeType ?? 'rect';
     const isShape = vm.type === 'SHAPE';
+    // SYMBOL 标签带中心锚定（specs/symbol-widget §5.2）：与 SHAPE 同款 anchor
+    // center（打字时上下对称生长），宽 = 标签可用宽（与画布截断同源）
     this.lastSessionStyle = { fontSize: st.fontSize, lineHeight: st.lineHeight, color: st.color };
     this.editing.begin({
       widgetId: id,
@@ -159,6 +162,16 @@ export class TextService extends Disposable {
             height: 0,
           };
         }
+        if (vm.type === 'SYMBOL') {
+          // 带中心与渲染 symbolLabelRect 同源（h<24 带被压扁时中心随 min(h,24)/2）
+          const band = symbolLabelRect(b.width, b.height);
+          return {
+            x: b.x + b.width / 2,
+            y: b.y + band.y + band.height / 2,
+            width: Math.max(b.width - SYMBOL_LABEL_PADDING_X * 2, st.minWidth),
+            height: 0,
+          };
+        }
         // STICKY：编辑框盖满整张便签（2026-10-16 用户实测揪出「只盖一角」——
         // 高度此前由内容撑、空便签 ≈ 一行高）；文字内缩 14px 移交编辑器 padding
         if (vm.type === 'STICKY') {
@@ -172,14 +185,23 @@ export class TextService extends Disposable {
           rotation: theta,
         };
       },
-      getContent: () => String((model.toJSON() as unknown as { text: string }).text ?? '<p></p>'),
+      getContent: () => {
+        // SYMBOL 的数据是纯文本 label（specs/symbol-widget §5.1）：转义包 <p>
+        // 进 html 内核，提交端再回到纯文本
+        if (vm.type === 'SYMBOL') {
+          const label = String((model.toJSON() as unknown as { label?: string }).label ?? '');
+          const esc = label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `<p>${esc}</p>`;
+        }
+        return String((model.toJSON() as unknown as { text: string }).text ?? '<p></p>');
+      },
       style: {
         fontSize: st.fontSize,
         color: st.color,
         lineHeight: st.lineHeight,
         textAlign: st.align,
         // SHAPE 编辑框中心锚定（LINE 同款 anchor 选项）
-        anchor: isShape ? 'center' : undefined,
+        anchor: isShape || vm.type === 'SYMBOL' ? 'center' : undefined,
         // 旋转跟随（docs/05 §8）：编辑框随控件 θ（SHAPE center 锚定下中心即
         // 旋转中心，rotate 由 transform 承载）
         rotation: vm.getRotation() || undefined,
@@ -197,7 +219,8 @@ export class TextService extends Disposable {
       // 空文本策略分流：TEXT 删除控件（docs/07 §7 空删语义）；SHAPE/STICKY
       // keep——形状与便签是色块图形类不随文字删除（STICKY 2026-10-16 用户
       // 拍板改 keep——「进编辑不输入退出即蒸发」违背便签直觉；LINE 同语义）
-      emptyTextPolicy: isShape || vm.type === 'STICKY' ? 'keep' : 'delete-widget',
+      emptyTextPolicy:
+        isShape || vm.type === 'STICKY' || vm.type === 'SYMBOL' ? 'keep' : 'delete-widget',
       // 编辑期画布文字节能隐藏（消双显 + 跳过重建，LINE 模式——descriptor 闭包
       // 直改 vm；三类全接：SHAPE→STICKY→TEXT（本笔收官，编辑体系统一））
       onEnter: () => (vm as unknown as { setTextEditing(b: boolean): void }).setTextEditing(true),

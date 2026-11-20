@@ -18,6 +18,12 @@ import {
   SHAPE_TEXT_PADDING,
   defaultTextColorForFill,
 } from '../shape/shapeVm';
+import {
+  SYMBOL_LABEL_FONT_SIZE,
+  SYMBOL_LABEL_LINE_HEIGHT,
+  SYMBOL_LABEL_PADDING_X,
+} from '../symbol/symbolGeometry';
+import { resolveSymbolColor } from '../symbol/symbolVm';
 
 /** 编辑样式（textService 编辑会话的排版事实——TEXT/STICKY/SHAPE 三型分流） */
 export interface ITextEditStyle {
@@ -57,6 +63,20 @@ export function editStyleOf(
       fontSize: data.fontSize ?? STICKY_FONT_SIZE,
       lineHeight: data.lineHeight ?? STICKY_LINE_HEIGHT,
       color: data.textColor ?? STICKY_TEXT_COLOR,
+    };
+  }
+  if (type === 'SYMBOL') {
+    // 符号标签（specs/symbol-widget §5）：16/24（=1.5 倍）与画布渲染同源常量；
+    // 居中；字色 resolveSymbolColor 单源（缺省随主题、显式色不反转——进入/
+    // 退出编辑不跳色）
+    return {
+      padding: SYMBOL_LABEL_PADDING_X,
+      minWidth: TEXT_MIN_WIDTH,
+      fontFamily: 'sans-serif',
+      align: 'center',
+      fontSize: SYMBOL_LABEL_FONT_SIZE,
+      lineHeight: SYMBOL_LABEL_LINE_HEIGHT / SYMBOL_LABEL_FONT_SIZE,
+      color: resolveSymbolColor(data),
     };
   }
   if (type === 'SHAPE') {

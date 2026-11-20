@@ -6,6 +6,9 @@
 import type { IActionBarItem, IActionBarOption, IActionBarSchema } from './types';
 import type { IActionBarHost } from './boardHost';
 import { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
+import { SYMBOL_OPTIONS } from './widgets/symbol/symbolService';
+import { resolveSymbolColor } from './widgets/symbol/symbolVm';
+import { TEXT_COLOR_PALETTE } from './actionBarOptions';
 import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
@@ -291,6 +294,32 @@ export function buildActionBarSchema(
       };
     case 'IMAGE':
       return { type: vm.type, items: [] };
+    case 'SYMBOL':
+      // 符号两件（specs/symbol-widget §6.6）：类型 popover 写 { symbol }、
+      // 颜色 popover 写 { color }（经 updateSelectedStyle 的 color→fill:'solid'
+      // 特判补写的 fill 键被 SymbolSchema strip，无害）；无「跟随主题」还原项
+      // ——写入即固定（与 textColor/borderColor 同口径，docs/04 §8.3 先例）；
+      // 缺省触发钮如实显示主题墨色点（resolveSymbolColor 单源）
+      return {
+        type: vm.type,
+        items: [
+          {
+            id: 'symbol',
+            kind: 'popover',
+            label: '符号类型',
+            value: String(data.symbol ?? 'net-server'),
+            options: SYMBOL_OPTIONS,
+          },
+          {
+            id: 'color',
+            kind: 'popover',
+            label: '颜色',
+            value: String(data.color ?? ''),
+            ...(data.color === undefined ? { displaySwatch: resolveSymbolColor(data) } : {}),
+            options: swatches(TEXT_COLOR_PALETTE),
+          },
+        ],
+      };
     case 'MIND_MAP':
     case 'ORG_CHART': {
       // 4.9 节点级选中：焦点为子节点时按节点出操作集（分支色仅 mind——自身
