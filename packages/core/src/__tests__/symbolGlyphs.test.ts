@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 import { SYMBOL_GLYPHS, SYMBOL_KINDS } from '../widgets/symbol/symbolGlyphs.generated';
 import { SYMBOL_OPTIONS } from '../widgets/symbol/symbolService';
 
@@ -53,5 +55,12 @@ describe('SYMBOL_GLYPHS / SYMBOL_KINDS / SYMBOL_OPTIONS', () => {
         `${kind} 出现非法硬编码色`,
       ).toBe(true);
     }
+  });
+
+  it('生成产物与 assets 实时一致（spawn --check；改生成文件/资产未重建即红）', () => {
+    // vitest cwd = packages/core；仓库根上溯三级
+    const script = join(process.cwd(), '..', '..', 'scripts', 'build-symbol-glyphs.mjs');
+    const r = spawnSync(process.execPath, [script, '--check'], { encoding: 'utf8' });
+    expect(r.status, r.stderr || r.stdout).toBe(0);
   });
 });
