@@ -113,13 +113,13 @@ test('S-2 拖拽创建尺寸跟手、松手选中回选择工具；<10px 滑移�
   expect(await cursorMode(page)).toBe('symbol');
 });
 
-test('S-3 双击进编辑：Esc 取消不落库，回车落库出现标签', async ({ page }) => {
+test('S-3 双击进编辑：未输入 Esc 保持空标签，回车落库出现标签', async ({ page }) => {
   await pickSymbolTool(page);
   await page.mouse.click(300, 300 + TOP_BAR);
   await expect.poll(() => modelCount(page)).toBe(1);
   await page.keyboard.press('v');
 
-  // 双击进编辑 → Esc：label 保持空
+  // 双击进编辑 → 未输入 Esc（Esc = 保存退出的 flush 语义下空入空出，docs/17）
   await page.mouse.dblclick(300, 280 + TOP_BAR);
   await expect(page.locator('#spinth-text-layer [contenteditable="true"]')).toBeVisible();
   await page.keyboard.press('Escape');
