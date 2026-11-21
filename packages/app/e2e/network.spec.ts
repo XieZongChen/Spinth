@@ -1,5 +1,6 @@
-/** 网络拓扑 E2E（specs/network-diagram §12.1 N-1..N-6）：设备创建/命名/锚定/
- *  区域编组/避障/无填充豁免。坐标纪律：断言走 __spinthDebug.__debug 探针
+/** 网络拓扑 E2E（specs/network-diagram §12.1 N-1..N-11）：创建/命名/锚定/
+ *  区域编组/避障/无填充豁免/同边多线/撤销/持久化/项目文件往返+PNG/只读。
+ *  坐标纪律：断言走 __spinthDebug.__debug 探针
  *  （世界坐标），指针坐标 = 世界 + 顶栏 44。设备批量搭建走 dev 注入 engine
  *  （bench.spec 先例）；**线一律 UI 拉线**——裸 add 的锚定线不触发 reattach
  *  也不随宿主移动（本批实证），锚定语义必须走真实手势路径。 */
