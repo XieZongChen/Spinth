@@ -604,29 +604,59 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
   // 图形区内但不在正中心（nearestJoin 对 dx=dy=0 恒落 top，中心拉线会绕到
   // 图形上方穿过标题/标签，与 spec §14「侧上方进入」口径相反——审查返工）
   await page.keyboard.press('l');
-  const LINKS: Array<[number, number, number, number, string | null]> = [
-    [160, 160, 340, 160, '<p>HTTPS 443</p>'], // 互联网→防火墙
-    [160, 360, 340, 160, null], // 用户→防火墙
-    [340, 160, 340, 360, null], // 防火墙→负载均衡
-    [340, 360, 480, 360, null], // 负载均衡→云
-    [480, 360, 620, 160, null], // 云→路由器（穿区域框——无填充豁免）
-    [620, 160, 780, 160, null], // 路由器→交换机
-    [780, 160, 620, 340, null], // 交换机→Web-01
-    [780, 160, 940, 160, '<p>3306</p>'], // 交换机→数据库
-    [940, 160, 940, 340, '<p>同步</p>'], // 数据库→存储
+  // dir?: [from, to] 单位向量覆盖——默认沿 A→B；竖直/近竖直链路会让线从
+  // 图形区底/顶边出线而横穿自身标签带，覆写为侧向进出（审查返工二轮）
+  const LINKS: Array<{
+    a: [number, number];
+    b: [number, number];
+    text?: string;
+    dir?: [[number, number], [number, number]];
+  }> = [
+    { a: [160, 160], b: [340, 160], text: '<p>HTTPS 443</p>' }, // 互联网→防火墙
+    { a: [160, 360], b: [340, 160] }, // 用户→防火墙
+    {
+      a: [340, 160],
+      b: [340, 360],
+      dir: [
+        [1, 0],
+        [1, 0],
+      ],
+    }, // 防火墙→LB：右进右出（竖穿标签规避）
+    { a: [340, 360], b: [480, 360] }, // 负载均衡→云
+    {
+      a: [480, 360],
+      b: [620, 160],
+      dir: [
+        [0, 0],
+        [-1, 0],
+      ],
+    }, // 云→路由器：路由器左半入
+    { a: [620, 160], b: [780, 160] }, // 路由器→交换机
+    { a: [780, 160], b: [620, 340] }, // 交换机→Web-01
+    { a: [780, 160], b: [940, 160], text: '<p>3306</p>' }, // 交换机→数据库
+    {
+      a: [940, 160],
+      b: [940, 340],
+      text: '<p>同步</p>',
+      dir: [
+        [1, 0],
+        [1, 0],
+      ],
+    }, // 数据库→存储：右侧绕（竖穿标签规避）
   ];
   const edgePoints = (
     a: [number, number],
     b: [number, number],
+    dir?: [[number, number], [number, number]],
   ): [number, number, number, number] => {
     const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    const ux = (b[0] - a[0]) / d;
-    const uy = (b[1] - a[1]) / d;
+    const u = dir?.[0] ?? [(b[0] - a[0]) / d, (b[1] - a[1]) / d];
+    const v = dir?.[1] ?? [-u[0], -u[1]];
     const off = Math.min(40, d / 2 - 10);
-    return [a[0] + ux * off, a[1] + uy * off, b[0] - ux * off, b[1] - uy * off];
+    return [a[0] + u[0] * off, a[1] + u[1] * off, b[0] + v[0] * off, b[1] + v[1] * off];
   };
   for (let li = 0; li < LINKS.length; li++) {
-    const [ax, ay, bx, by] = LINKS[li]!;
+    const { a, b, dir } = LINKS[li]!;
     // 上条线的选中/hover 态（ActionBar、宿主 quickDots）会让下一条的 down 被吞
     // （Esc 会退出连线工具——用 v→l 切换清态，实测连拉 9 条稳定）
     if (li > 0) {
@@ -634,7 +664,7 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
       await page.keyboard.press('l');
       await page.waitForTimeout(120);
     }
-    const [x1, y1, x2, y2] = edgePoints([ax, ay], [bx, by]);
+    const [x1, y1, x2, y2] = edgePoints(a, b, dir);
     await page.mouse.move(x1, y1 + 44);
     await page.mouse.down();
     await page.mouse.move(x2, y2 + 44, { steps: 6 });
@@ -657,7 +687,7 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
       const lineIds = d.vmStates.filter((s) => s.type === 'LINE').map((s) => s.id);
       for (const [i, text] of labels) d.engine.getModelById(lineIds[i]!)!.update({ text });
     },
-    LINKS.map((l, i) => [i, l[4]]).filter(([, t]) => t !== null),
+    LINKS.map((l, i) => [i, l.text ?? null]).filter(([, t]) => t !== null),
   );
   await page.waitForTimeout(400);
 
