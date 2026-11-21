@@ -159,6 +159,11 @@
 
 **决策**：障碍收集跳过 `fill === 'none'` 的 SHAPE。
 
+**实现契约**：`collectRouteObstacles` 的 VM 最小面（`IObstacleVmSource`）加可选
+`isRouteObstacle?(): boolean`；`ShapeVm` 提供 `isRouteObstacle()` = `state.fill !== 'none'`，
+其余类型缺省视为障碍。**不读 `model.toJSON()`**——该函数在拖拽 / 重排热路径上按线 ×
+候选逐帧调用（候选 ≤ `MAX_OBSTACLES`），模型投影会放大开销。
+
 **理由**：无填充 = 只描边、没有遮挡实体；线从标注框 / 区域框上穿过比绕一大圈更符合直觉。
 副作用是「无填充标注框不再挡线」，属于同一条语义的修正。
 
@@ -298,7 +303,7 @@ FRAME 控件到位后，区域 = FRAME（标题 / 背景 / 子元素归属 / 裁
 ### 12.2 视觉基线
 
 - 场景 `network-sample`：云区域（矩形 + 标题）+ 10 个设备（服务器 / 路由器 / 交换机 /
-  防火墙 / 负载均衡 / 云 / 用户 / 数据库 / 存储）+ 正交链路 + 线上标签；浅色主题，
+  防火墙 / 负载均衡 / 云 / 互联网 / 用户 / 数据库 / 存储）+ 正交链路 + 线上标签；浅色主题，
   clip 到内容并清 UI（与 flowchart-sample 同款口径）；
 - darwin / linux 双平台各一张，`--stability` 双跑全等后入库。
 
