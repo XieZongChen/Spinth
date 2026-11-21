@@ -182,6 +182,26 @@ VmEngine.initialize():
 - 形状类型由 `SHAPE_TYPE_OPTIONS` 单一源维护：四基础型 + 流程图/工程图扩展，共 20 型。
 - 几何内接、路径绘制与带字撑高见 `shapeGeometry.ts` / `shapePath.ts` / docs/17 §6。
 
+### 8.3 形状样式
+
+- 样式字段 optional 零迁移：`color`（填充色）/ `fill`（solid|none，none = 只描边
+  不填充）/ `borderColor` / `borderWidth`（档位 1/2/4）/ `borderStyle`
+  （solid|dashed|none）。
+- 解析单源 `shapeStyle.resolveShapeStyle`：缺省回退（无新字段的老文档渲染不变），
+  渲染与导出同源。
+- 默认字色随填充自适应（`shapeVm.defaultTextColorForFill`，specs/flowchart-closeout
+  §16）：浅填充维持 `#333333`、深填充（对比度 <4.5:1）切 `#ffffff`、无填充（文字
+  直对画布底，与 TEXT 同场景）随主题默认（`defaultTextColor()`：light `#333333` /
+  dark `#ededf2`）；实色填充的字色不主题化（填充色是实例数据）；per-实例 `textColor`
+  恒优先。渲染快速路径带主题版本守卫（`setTheme → refreshAll` 生效）；编辑器字色
+  同源（`textEditStyle.editStyleOf` SHAPE 分支走同一函数）。文字色板
+  `TEXT_COLOR_PALETTE` 深浅双底各可达（护栏单测 `shapeContrast.test.ts`、
+  `textEditStyle.test.ts`）。
+- 边框色板含 `#ffffff`：定位为**深色填充上的选项**（浅底上低对比，属用户显式
+  选择；默认派生边框 = darkenHex(color, 0.25) 不受影响）。
+- 「白底黑框」一次配出：填充 `#ffffff` + 边框 `#000000` + 宽 2（specs/flowchart-closeout
+  §4.2；色板含黑白两色与无填充/无边框态）。
+
 ### 8.4 符号（SYMBOL）
 
 矢量图标 + 外置单行标签的图元（specs/symbol-widget，4.3 网络拓扑的设备底座）：
@@ -206,23 +226,3 @@ VmEngine.initialize():
 - 标签编辑走统一编辑会话（docs/17 SYMBOL profile：标签带中心 anchor
   center、纯文本落库、渲染期单行截断 + 省略号——数据恒存完整 64 字素）。
 - 项目文件零资产条目（与 IMAGE 的关键差别）；不旋转、无 autoHeight。
-
-### 8.3 形状样式
-
-- 样式字段 optional 零迁移：`color`（填充色）/ `fill`（solid|none，none = 只描边
-  不填充）/ `borderColor` / `borderWidth`（档位 1/2/4）/ `borderStyle`
-  （solid|dashed|none）。
-- 解析单源 `shapeStyle.resolveShapeStyle`：缺省回退（无新字段的老文档渲染不变），
-  渲染与导出同源。
-- 默认字色随填充自适应（`shapeVm.defaultTextColorForFill`，specs/flowchart-closeout
-  §16）：浅填充维持 `#333333`、深填充（对比度 <4.5:1）切 `#ffffff`、无填充（文字
-  直对画布底，与 TEXT 同场景）随主题默认（`defaultTextColor()`：light `#333333` /
-  dark `#ededf2`）；实色填充的字色不主题化（填充色是实例数据）；per-实例 `textColor`
-  恒优先。渲染快速路径带主题版本守卫（`setTheme → refreshAll` 生效）；编辑器字色
-  同源（`textEditStyle.editStyleOf` SHAPE 分支走同一函数）。文字色板
-  `TEXT_COLOR_PALETTE` 深浅双底各可达（护栏单测 `shapeContrast.test.ts`、
-  `textEditStyle.test.ts`）。
-- 边框色板含 `#ffffff`：定位为**深色填充上的选项**（浅底上低对比，属用户显式
-  选择；默认派生边框 = darkenHex(color, 0.25) 不受影响）。
-- 「白底黑框」一次配出：填充 `#ffffff` + 边框 `#000000` + 宽 2（specs/flowchart-closeout
-  §4.2；色板含黑白两色与无填充/无边框态）。

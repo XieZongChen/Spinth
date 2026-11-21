@@ -94,12 +94,12 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
 拖拽/缩放的「视觉预览 + 松手落库」是 `IBaseWidgetVm` 的四个可覆写方法；
 selector/rectEditor 禁止直接改 root 或 `updateRect`。
 
-| 方法                              | rect 型（SHAPE/TEXT/STICKY/IMAGE） | points 世界坐标型（LINE/PEN）                           |
-| --------------------------------- | ---------------------------------- | ------------------------------------------------------- |
-| `applyDragPreview(init, dx, dy)`  | `root.position = init + delta`     | `root.position = delta`（root 恒在原点）                |
-| `commitDrag(init, dx, dy)`        | `updateRect({x, y})`               | `update({points: 平移后的 points})`                     |
-| `applyResizePreview(start, next)` | `root.position + root.scale`       | `mapPointsRect(points, start, next)`（禁止 root.scale） |
-| `commitResize(start, next)`       | `updateRect(next)`                 | `update({points: 重映射后的 points})`，线宽字段不动     |
+| 方法                              | rect 型（SHAPE/SYMBOL/TEXT/STICKY/IMAGE） | points 世界坐标型（LINE/PEN）                           |
+| --------------------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| `applyDragPreview(init, dx, dy)`  | `root.position = init + delta`            | `root.position = delta`（root 恒在原点）                |
+| `commitDrag(init, dx, dy)`        | `updateRect({x, y})`                      | `update({points: 平移后的 points})`                     |
+| `applyResizePreview(start, next)` | `root.position + root.scale`              | `mapPointsRect(points, start, next)`（禁止 root.scale） |
+| `commitResize(start, next)`       | `updateRect(next)`                        | `update({points: 重映射后的 points})`，线宽字段不动     |
 
 - 一切平移落库入口（选区拖拽、键盘微移、UI 命令）一律调 `vm.commitDrag`。
 - 缩放松手：`commitResize` 后、`stopCapturing` 前经 `onResizeCommitted`

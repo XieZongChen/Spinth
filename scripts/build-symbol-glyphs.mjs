@@ -8,12 +8,14 @@
  *
  * 生成期硬校验（资产约束，§4.3）：
  * - 根元素只有 viewBox="0 0 48 48"（+ xmlns 命名空间声明），不写 width/height；
- * - 元素白名单 g/path/circle/rect/line/polyline/polygon；
- * - 属性白名单 d/cx/cy/r/x/y/width/height/x1/y1/x2/y2/points/fill/fill-rule/
- *   clip-rule/stroke/stroke-width/stroke-linecap/stroke-linejoin；
+ * - 元素白名单 g/path/circle/rect/line（polyline/polygon 不在内——PIXI
+ *   GraphicsContext.svg 对 points 属性解析有缺陷，实测渲染乱线出界，多段
+ *   折线一律 path 表达）；
+ * - 属性白名单 d/cx/cy/r/x/y/width/height/x1/y1/x2/y2/fill/fill-rule/
+ *   clip-rule/stroke/stroke-width/stroke-linecap/stroke-linejoin（无 points）；
  * - fill/stroke 只允许 none 或 currentColor（禁一切硬编码色）；
  * - 禁 style/class/id/href/xlink/use/image/text/defs/filter/gradient/mask/
- *   transform/注释（需要旋转就在设计稿里画正）；
+ *   transform/polyline/polygon/注释（需要旋转就在设计稿里画正）；
  * - 单文件 ≤ 6 KB。
  *
  * currentColor 归一为纯白 #ffffff：PIXI 8 的 tint 是逐通道乘法

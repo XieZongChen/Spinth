@@ -28,7 +28,7 @@ import { commitTextEdit } from './textCommit';
 
 /**
  * 文本控件交互层（docs/07 §2 + docs/17）：text 工具落点创建 + 编辑会话 descriptor
- * 工厂——三类可编辑控件（TEXT/STICKY/SHAPE，EDITABLE_TYPES）：三态编排/34ms 节流/
+ * 工厂——四类可编辑控件（TEXT/STICKY/SHAPE/SYMBOL，EDITABLE_TYPES）：三态编排/34ms 节流/
  * flush/空文本策略已上收 EditingService（批 1），本服务只声明各类型的编辑事实
  * （几何/内容/样式/落库尾巴）；SHAPE 的差异见 docs/17 §6（keep 空文本/内接矩形/
  * 不 autoHeight）。
