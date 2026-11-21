@@ -303,9 +303,10 @@ gradient / mask / transform / polyline / polygon`（一期不做变换与渐变�
 
 ### 4.4 运行时渲染与缓存
 
-- 着色单源 `resolveSymbolColor(data)`：`data.color ?? defaultTextColor()`（light `#333333` /
-  dark `#ededf2`）；图标与标签同色，显式 `color` 不随主题反转（与 `textColor` 同语义：
-  实例数据）。
+- 着色单源 `resolveSymbolColor(data)`：合法 `#RRGGBB` 的 `data.color` 优先，否则
+  `defaultTextColor()`（light `#333333` / dark `#ededf2`）——坏项目文件里的空串 /
+  色名 / 三位 hex 不产 NaN tint；图标与标签同色，显式 `color` 不随主题反转（与
+  `textColor` 同语义：实例数据）。
 - **用 tint 渲染，不替换 SVG 字符串**：资产生成时把 `currentColor` 归一为纯白
   `#ffffff`（tint 的乘法基色，见 §4.3 勘误），运行时 `glyph.tint = hexToNum(color)`；
   主题切换只改 tint，不重建 context（PIXI 8 的 `Container.tint` 对 Graphics 生效，
@@ -497,7 +498,8 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
   `--check` 的负向夹具（改动生成文件 → 校验红）。
 - `symbolSchema.test.ts`：缺省值（含 `color` 缺省 = 无字段）；未知 symbol id 保留原值；
   label 截断在提交路径。
-- `symbolColor.test.ts`：`resolveSymbolColor` 缺省随主题、显式 color 优先且不随主题变；
+- `symbolColor.test.ts`：`resolveSymbolColor` 缺省随主题、合法 `#RRGGBB` 显式 color
+  优先且不随主题变、非法值（空串 / 色名 / 三位 hex）兜底随主题；
   `TEXT_COLOR_PALETTE` 每个色在浅 / 深两种画布底至少一底 ≥ 4.5:1（文本口径），
   主题墨色在两种底上都 ≥ 4.5:1。
 - `widgetRegistry.test.ts`：editable / referenceable 期望列表更新；能力位断言。
