@@ -193,7 +193,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   await expect.poll(async () => (await probe(page)).line !== null).toBe(true);
   // 端点在图形区矩形边界上（四边之一）且不在图形区外（含标签带）
   const onGlyphEdge = (s: SymState, pt: [number, number]) => {
-    const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 32, 0) };
+    const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 28, 0) };
     const insideX = pt[0] >= g.x - 1.5 && pt[0] <= g.x + g.w + 1.5;
     const insideY = pt[1] >= g.y - 1.5 && pt[1] <= g.y + g.h + 1.5;
     const onEdge =
@@ -206,7 +206,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   let line = (await probe(page)).line!;
   let end = line.points[line.points.length - 1]!;
   expect(onGlyphEdge(b, end)).toBe(true); // 吸在图形区某条边上
-  expect(end[1]).toBeLessThan(b.y + b.height - 32 + 1.5); // 不进标签带
+  expect(end[1]).toBeLessThan(b.y + b.height - 28 + 1.5); // 不进标签带
 
   // 移动 B：线跟随（端点随 B 新几何重锚，仍贴图形区边）
   await page.keyboard.press('v');
@@ -219,7 +219,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   line = (await probe(page)).line!;
   end = line.points[line.points.length - 1]!;
   expect(onGlyphEdge(bAfter, end)).toBe(true);
-  expect(end[1]).toBeLessThan(bAfter.y + bAfter.height - 32 + 1.5);
+  expect(end[1]).toBeLessThan(bAfter.y + bAfter.height - 28 + 1.5);
 });
 
 test('S-6 ActionBar 切种类：几何与标签不变、图形更换', async ({ page }) => {
@@ -343,7 +343,7 @@ test('S-8 只读跟随：符号工具禁用、双击不进编辑', async ({ page
         };
       }
     ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'SYMBOL')!;
-    return { x: sym.x + sym.width / 2, y: sym.y + (sym.height - 32) / 2 };
+    return { x: sym.x + sym.width / 2, y: sym.y + (sym.height - 28) / 2 };
   });
   await pageB.mouse.dblclick(center.x, center.y + TOP_BAR);
   await pageB.waitForTimeout(300);

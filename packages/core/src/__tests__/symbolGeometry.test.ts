@@ -30,19 +30,19 @@ const STYLE: ITextStyleProps = {
 };
 
 describe('两段几何（§3.2）', () => {
-  it('默认 96×128：图形区 96×96，标签带 24 贴底，间距 8', () => {
+  it('默认 96×128：图形区 96×100，标签带 24 贴底，间距 4', () => {
     expect(SYMBOL_DEFAULT_WIDTH).toBe(96);
     expect(SYMBOL_DEFAULT_HEIGHT).toBe(128);
     const glyph = symbolGlyphRect(96, 128);
-    expect(glyph).toEqual({ x: 0, y: 0, width: 96, height: 96 });
+    expect(glyph).toEqual({ x: 0, y: 0, width: 96, height: 100 });
     const label = symbolLabelRect(96, 128);
     expect(label).toEqual({ x: 0, y: 104, width: 96, height: 24 });
-    expect(SYMBOL_LABEL_BAND + SYMBOL_LABEL_GAP).toBe(32);
+    expect(SYMBOL_LABEL_BAND + SYMBOL_LABEL_GAP).toBe(28);
   });
 
-  it('高度 32：图形区高度归零（不画图标仅标签）；高度 24 标签带贴顶', () => {
-    expect(symbolGlyphRect(96, 32).height).toBe(0);
-    expect(symbolLabelRect(96, 32)).toEqual({ x: 0, y: 8, width: 96, height: 24 });
+  it('高度 28：图形区高度归零（不画图标仅标签）；高度 24 标签带贴顶', () => {
+    expect(symbolGlyphRect(96, 28).height).toBe(0);
+    expect(symbolLabelRect(96, 28)).toEqual({ x: 0, y: 4, width: 96, height: 24 });
     // h=24：图形区负值钳 0，标签带从顶开始且高恰 24
     expect(symbolGlyphRect(96, 24)).toEqual({ x: 0, y: 0, width: 96, height: 0 });
     expect(symbolLabelRect(96, 24)).toEqual({ x: 0, y: 0, width: 96, height: 24 });
@@ -93,22 +93,22 @@ describe('图形区锚点（§3.4：标签带不参与）', () => {
     expect(symbolGlyphAnchor(rect, 'top', 0)).toEqual({ x: 10, y: 20 });
     expect(symbolGlyphAnchor(rect, 'top', 0.5)).toEqual({ x: 58, y: 20 });
     expect(symbolGlyphAnchor(rect, 'top', 1)).toEqual({ x: 106, y: 20 });
-    expect(symbolGlyphAnchor(rect, 'bottom', 0)).toEqual({ x: 10, y: 116 });
-    expect(symbolGlyphAnchor(rect, 'bottom', 0.5)).toEqual({ x: 58, y: 116 });
-    expect(symbolGlyphAnchor(rect, 'bottom', 1)).toEqual({ x: 106, y: 116 });
+    expect(symbolGlyphAnchor(rect, 'bottom', 0)).toEqual({ x: 10, y: 120 });
+    expect(symbolGlyphAnchor(rect, 'bottom', 0.5)).toEqual({ x: 58, y: 120 });
+    expect(symbolGlyphAnchor(rect, 'bottom', 1)).toEqual({ x: 106, y: 120 });
     expect(symbolGlyphAnchor(rect, 'left', 0)).toEqual({ x: 10, y: 20 });
-    expect(symbolGlyphAnchor(rect, 'left', 0.5)).toEqual({ x: 10, y: 68 });
-    expect(symbolGlyphAnchor(rect, 'left', 1)).toEqual({ x: 10, y: 116 });
-    expect(symbolGlyphAnchor(rect, 'right', 0.5)).toEqual({ x: 106, y: 68 });
+    expect(symbolGlyphAnchor(rect, 'left', 0.5)).toEqual({ x: 10, y: 70 });
+    expect(symbolGlyphAnchor(rect, 'left', 1)).toEqual({ x: 10, y: 120 });
+    expect(symbolGlyphAnchor(rect, 'right', 0.5)).toEqual({ x: 106, y: 70 });
   });
 
-  it('bottom 落在图形区底边（y=116），不是 bbox 底（y=148）', () => {
-    expect(symbolGlyphAnchor(rect, 'bottom', 0.5).y).toBe(116);
+  it('bottom 落在图形区底边（y=120），不是 bbox 底（y=148）', () => {
+    expect(symbolGlyphAnchor(rect, 'bottom', 0.5).y).toBe(120);
     expect(symbolGlyphAnchor(rect, 'bottom', 0.5).y).not.toBe(rect.y + rect.height);
   });
 
-  it('高度退化（<32）：图形区底边钳到顶边，不进标签带', () => {
-    const degenerate = { x: 0, y: 0, width: 96, height: 30 };
+  it('高度退化（<28）：图形区底边钳到顶边，不进标签带', () => {
+    const degenerate = { x: 0, y: 0, width: 96, height: 26 };
     expect(symbolGlyphAnchor(degenerate, 'bottom', 1)).toEqual({ x: 96, y: 0 });
     expect(symbolGlyphAnchor(degenerate, 'left', 0.5)).toEqual({ x: 0, y: 0 });
   });

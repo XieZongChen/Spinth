@@ -105,7 +105,7 @@ function segCrossRect(a: Pt, b: Pt, r: { x: number; y: number; width: number; he
 
 /** 符号图形区四边谓词（symbol.spec S-5 同款）：端点贴图形区矩形边界且不在带内 */
 function onGlyphEdge(s: { x: number; y: number; width: number; height: number }, pt: Pt): boolean {
-  const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 32, 0) };
+  const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 28, 0) };
   const insideX = pt[0] >= g.x - 1.5 && pt[0] <= g.x + g.w + 1.5;
   const insideY = pt[1] >= g.y - 1.5 && pt[1] <= g.y + g.h + 1.5;
   const onEdge =
@@ -285,20 +285,20 @@ test('N-3 锚点：从设备底边拉线——起点贴 A 图形区底（≠bbox
     },
   ]);
   await activateLineTool(page);
-  // 从 A 图形区底边中点 (300, 332) 拉到 B 中心 (600, 300)
-  await drawLine(page, 300, 332 + TOP_BAR, 600, 300 + TOP_BAR);
+  // 从 A 图形区底边中点 (300, 336) 拉到 B 中心 (600, 300)——图形区底 = 236+100（GAP 4）
+  await drawLine(page, 300, 336 + TOP_BAR, 600, 300 + TOP_BAR);
 
   const line = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as { points: Pt[] };
   expect(line).toBeDefined();
   const start = line.points[0]!;
   const end = line.points[line.points.length - 1]!;
-  // 起点贴 A 图形区底边（y = 236 + 96 = 332），不是 bbox 底（364）
-  expect(Math.abs(start[1] - 332)).toBeLessThan(1.5);
+  // 起点贴 A 图形区底边（y = 236 + 100 = 336），不是 bbox 底（364）
+  expect(Math.abs(start[1] - 336)).toBeLessThan(1.5);
   expect(Math.abs(start[1] - 364)).toBeGreaterThan(20);
   // 端点在 B 图形区四边之一、不进标签带（symbol S-5 口径）
   const b = (await symbolsOf(page)).find((s) => s.id === 'n3b')!;
   expect(onGlyphEdge(b, end)).toBe(true);
-  expect(end[1]).toBeLessThan(b.y + b.height - 32 + 1.5);
+  expect(end[1]).toBeLessThan(b.y + b.height - 28 + 1.5);
 
   // 移动 B：线跟随（端点重锚到 B 新图形区边）
   await page.keyboard.press('v');
@@ -313,7 +313,7 @@ test('N-3 锚点：从设备底边拉线——起点贴 A 图形区底（≠bbox
   };
   const end2 = line2.points[line2.points.length - 1]!;
   expect(onGlyphEdge(bAfter, end2)).toBe(true);
-  expect(end2[1]).toBeLessThan(bAfter.y + bAfter.height - 32 + 1.5);
+  expect(end2[1]).toBeLessThan(bAfter.y + bAfter.height - 28 + 1.5);
 });
 
 test('N-4 区域：无填充虚线框 + TEXT 标题 + 设备编组——整体拖动位移一致、Alt 直选设备', async ({

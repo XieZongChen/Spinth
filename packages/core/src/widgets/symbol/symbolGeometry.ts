@@ -26,11 +26,12 @@ export const SYMBOL_LABEL_FONT_SIZE = 16;
 export const SYMBOL_LABEL_LINE_HEIGHT = 24;
 /** 标签带高度（恒定，空标签也保留） */
 export const SYMBOL_LABEL_BAND = 24;
-/** 图形区与标签带间距 */
-export const SYMBOL_LABEL_GAP = 8;
+/** 图形区与标签带间距（2026-11-21 用户实测反馈 8→4：标签观感离图标偏远；
+ *  默认高 128 不变 = 100 图形 + 4 间距 + 24 标签带，标签带位置不动） */
+export const SYMBOL_LABEL_GAP = 4;
 /** 单击创建默认宽 */
 export const SYMBOL_DEFAULT_WIDTH = 96;
-/** 单击创建默认高（96 图形 + 8 间距 + 24 标签带） */
+/** 单击创建默认高（100 图形 + 4 间距 + 24 标签带） */
 export const SYMBOL_DEFAULT_HEIGHT = 128;
 /** 拖拽创建草稿软下限（再低只退化不禁止，§3.3） */
 export const SYMBOL_MIN_WIDTH = 48;
