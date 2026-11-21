@@ -182,7 +182,8 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   四类置 false（docs/04 §4，specs/rotate-hide）。rotation 数据能力全部保留：已旋转
   的旧文档与导入的项目文件照常渲染、命中、拖拽、缩放、连线锚定；旋转件只是无法
   继续旋转。下文是入口恢复时的完整规格。
-- 范围：SHAPE/TEXT/STICKY/IMAGE 四类 rect 型；LINE/PEN/MIND_MAP 首版不旋转。
+- 范围：SHAPE/TEXT/STICKY/IMAGE 四类 rect 型（SYMBOL 无 rotation 字段、能力位恒
+  false，不属于本规格）；LINE/PEN/MIND_MAP 首版不旋转。
 - 只做单选；旋转手柄仅单选出现，多选不出。
 - 数据：`rotation: z.number().optional()`（无 default，旧文档零迁移），弧度存储，
   绕中心顺时针；不是 yRect 几何字段。
