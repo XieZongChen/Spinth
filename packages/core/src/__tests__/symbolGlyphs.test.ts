@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
@@ -86,6 +87,26 @@ describe('SYMBOL_GLYPHS / SYMBOL_KINDS / SYMBOL_OPTIONS', () => {
     if (good.ok) {
       expect(good.svg).toContain('#ffffff');
       expect(good.svg).not.toContain('currentColor');
+    }
+  });
+
+  it('光学包围盒归一化（specs/symbol-widget §4.3：含描边 bounds 落 2..46、底 ≥45、最大边 ≥40）', async () => {
+    // bounds 实测含 stroke 外扩（描边 2 → 几何 ±1）——阈值按光学口径直取
+    const { GraphicsContext } = await import('pixi.js');
+    for (const [kind, svg] of Object.entries(SYMBOL_GLYPHS)) {
+      const ctx = new GraphicsContext().svg(svg);
+      const b = ctx.bounds;
+      const issues: string[] = [];
+      // 浮点容差 0.1（弧端点计算有 ~1e-6 抖动）
+      if (b.minX < 1.9 || b.maxX > 46.1)
+        issues.push(`x ${b.minX.toFixed(1)}..${b.maxX.toFixed(1)}`);
+      if (b.maxY < 45) issues.push(`底 ${b.maxY.toFixed(1)} < 45（未贴底边）`);
+      if (b.maxY > 46.5) issues.push(`底 ${b.maxY.toFixed(1)} 越界`);
+      const maxSide = Math.max(b.maxX - b.minX, b.maxY - b.minY);
+      if (maxSide < 40) issues.push(`最大边 ${maxSide.toFixed(1)} < 40（内容太小）`);
+      if (Math.abs((b.minX + b.maxX) / 2 - 24) > 1.5)
+        issues.push(`水平中心 ${((b.minX + b.maxX) / 2).toFixed(1)} 偏离 24`);
+      expect(issues, `${kind}: ${issues.join('；')}`).toEqual([]);
     }
   });
 
