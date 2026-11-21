@@ -172,18 +172,18 @@ SYMBOL: {
 
 ### 3.1 常量（单源 `symbolGeometry.ts`）
 
-| 常量                       | 值  | 含义                                              |
-| -------------------------- | --- | ------------------------------------------------- |
-| `SYMBOL_LABEL_FONT_SIZE`   | 16  | 与 SHAPE 正文默认字号一致                         |
-| `SYMBOL_LABEL_LINE_HEIGHT` | 24  | 1.5 倍行高                                        |
-| `SYMBOL_LABEL_BAND`        | 24  | 标签带高度（**恒定**，空标签也保留）              |
-| `SYMBOL_LABEL_GAP`         | 4   | 图形区与标签带间距（2026-11-21 用户实测反馈 8→4） |
-| `SYMBOL_DEFAULT_WIDTH`     | 96  | 单击创建默认宽                                    |
-| `SYMBOL_DEFAULT_HEIGHT`    | 128 | 100 图形 + 4 间距 + 24 标签带                     |
-| `SYMBOL_MIN_WIDTH`         | 48  | 软下限（拖拽创建草稿钳制）                        |
-| `SYMBOL_MIN_HEIGHT`        | 56  | 28 图形 + 28；再低只退化不禁止                    |
-| `SYMBOL_LABEL_MAX_CHARS`   | 64  | 落库截断                                          |
-| `SYMBOL_LABEL_PADDING_X`   | 4   | 标签左右内边距（渲染与编辑同源）                  |
+| 常量                       | 值  | 含义                                                                      |
+| -------------------------- | --- | ------------------------------------------------------------------------- |
+| `SYMBOL_LABEL_FONT_SIZE`   | 16  | 与 SHAPE 正文默认字号一致                                                 |
+| `SYMBOL_LABEL_LINE_HEIGHT` | 24  | 1.5 倍行高                                                                |
+| `SYMBOL_LABEL_BAND`        | 24  | 标签带高度（**恒定**，空标签也保留）                                      |
+| `SYMBOL_LABEL_GAP`         | 2   | 图形区与标签带间距（两轮实测 8→4→2；默认尺寸下方形铺满，盒模型=可见间距） |
+| `SYMBOL_DEFAULT_WIDTH`     | 100 | 单击创建默认宽（图形区正方形，contain 零留白）                            |
+| `SYMBOL_DEFAULT_HEIGHT`    | 126 | 100 图形 + 2 间距 + 24 标签带                                             |
+| `SYMBOL_MIN_WIDTH`         | 48  | 软下限（拖拽创建草稿钳制）                                                |
+| `SYMBOL_MIN_HEIGHT`        | 56  | 30 图形 + 26；再低只退化不禁止                                            |
+| `SYMBOL_LABEL_MAX_CHARS`   | 64  | 落库截断                                                                  |
+| `SYMBOL_LABEL_PADDING_X`   | 4   | 标签左右内边距（渲染与编辑同源）                                          |
 
 标签带恒定的理由：文本从无到有、字号不变、编辑中途不跳几何；同排符号的基线天然一致，
 对齐工具与参考线不会因为「有没有名字」而错位。
@@ -191,7 +191,7 @@ SYMBOL: {
 ### 3.2 派生矩形（局部系，左上原点）
 
 ```ts
-glyphRect = { x: 0, y: 0, width: w, height: Math.max(h - SYMBOL_LABEL_BAND - SYMBOL_LABEL_GAP, 0) }; // GAP 4：默认 128 时高 100
+glyphRect = { x: 0, y: 0, width: w, height: Math.max(h - SYMBOL_LABEL_BAND - SYMBOL_LABEL_GAP, 0) }; // GAP 2：默认 126 时高 100（正方形铺满）
 labelRect = {
   x: 0,
   y: Math.max(h - SYMBOL_LABEL_BAND, 0),
@@ -207,7 +207,7 @@ labelRect = {
 ### 3.3 缩放与退化
 
 - 缩放只改 bbox：标签带高度不变，图形区吃剩余高度；宽度只影响留白与标签可写宽度。
-- 高度 < 28 时图形区高度 ≤ 0：**不画图标**，仅标签（标签带贴底）；高度 < 24 时标签带被压扁，
+- 高度 < 26 时图形区高度 ≤ 0：**不画图标**，仅标签（标签带贴底）；高度 < 24 时标签带被压扁，
   **不画标签**（只剩空白框，仍可选中与缩放）。
   不额外加硬下限（缩放基座是通用 RectEditor，不为单一类型开特例）；编辑框仍可用。
 - 默认尺寸 96×128；拖拽创建沿用 `DRAG_TRACTION_SCREEN = 10` 屏幕 px 的单击 / 拖拽分界，
@@ -220,7 +220,7 @@ labelRect = {
 ```ts
 const g = geom ?? this.getHostGeom();
 const r = g.rect;
-const bottom = r.height - SYMBOL_LABEL_BAND - SYMBOL_LABEL_GAP; // 图形区底边（GAP 4 → h-28）
+const bottom = r.height - SYMBOL_LABEL_BAND - SYMBOL_LABEL_GAP; // 图形区底边（GAP 2 → h-26）
 top:    { x: r.x + r.width * t, y: r.y }
 bottom: { x: r.x + r.width * t, y: r.y + Math.max(bottom, 0) }
 left:   { x: r.x, y: r.y + Math.max(bottom, 0) * t }
