@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SYMBOL_GLYPHS, SYMBOL_KINDS } from '../widgets/symbol/symbolGlyphs.generated';
 import { SYMBOL_OPTIONS } from '../widgets/symbol/symbolService';
 
@@ -58,8 +59,17 @@ describe('SYMBOL_GLYPHS / SYMBOL_KINDS / SYMBOL_OPTIONS', () => {
   });
 
   it('生成产物与 assets 实时一致（spawn --check；改生成文件/资产未重建即红）', () => {
-    // vitest cwd = packages/core；仓库根上溯三级
-    const script = join(process.cwd(), '..', '..', 'scripts', 'build-symbol-glyphs.mjs');
+    // 路径从本文件解析（cwd 随运行方式漂移：pnpm -r test 在 packages/core、
+    // 根 pnpm test/test:coverage 在仓库根——曾致 CI coverage 步找不到脚本）
+    const script = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      '..',
+      '..',
+      '..',
+      'scripts',
+      'build-symbol-glyphs.mjs',
+    );
     const r = spawnSync(process.execPath, [script, '--check'], { encoding: 'utf8' });
     expect(r.status, r.stderr || r.stdout).toBe(0);
   });
