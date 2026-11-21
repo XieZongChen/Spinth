@@ -32,7 +32,7 @@ function saveSampleIfAsked(blob: Blob, fileName: string): void {
 }
 
 describe('project round-trip', () => {
-  it('SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP 文档：导出→导入→恢复，数据与资产一致', async () => {
+  it('SHAPE/TEXT/STICKY/IMAGE/LINE/MIND_MAP/SYMBOL 文档：导出→导入→恢复，数据与资产一致', async () => {
     // 1. 源文档：六类 widget + 两张图片资产
     const exportStore = new AssetStore();
     const imgA = await exportStore.put(
@@ -52,6 +52,8 @@ describe('project round-trip', () => {
         widgetMap('MIND_MAP', { label: '根节点' }),
         widgetMap('IMAGE', { src: imgA.src }),
         widgetMap('IMAGE', { src: imgB.src }),
+        // 符号（specs/symbol-widget §2.5）：纯数据零资产条目
+        widgetMap('SYMBOL', { symbol: 'net-router', label: '核心路由', color: '#dc2626' }),
       ]);
     });
 
@@ -62,7 +64,7 @@ describe('project round-trip', () => {
       appVersion: '0.3.0',
       now: () => new Date('2026-10-21T08:00:00.000Z'),
     });
-    expect(exported.stats.widgets).toBe(7);
+    expect(exported.stats.widgets).toBe(8);
     expect(exported.stats.assetCount).toBe(2);
     expect(exported.warnings).toEqual([]);
     saveSampleIfAsked(exported.blob, exported.fileName);
@@ -80,7 +82,7 @@ describe('project round-trip', () => {
       exported.blob,
     );
     expect(imported.docId).toBe('rt0');
-    expect(imported.stats.widgets).toBe(7);
+    expect(imported.stats.widgets).toBe(8);
     expect(imported.stats.assetCount).toBe(2);
 
     // 4. 启动链路恢复：类型逐件对齐、IMAGE src 均为 spinth-asset: 引用（A4）
@@ -88,9 +90,18 @@ describe('project round-trip', () => {
     const provider = new DbProvider();
     await provider.attach(imported.docId, reopened);
     const restored = reopened.getArray('widgets').toArray() as Y.Map<unknown>[];
-    expect(restored).toHaveLength(7);
+    expect(restored).toHaveLength(8);
     const typeOf = (m: Y.Map<unknown>): string => m.get('type') as string;
-    const expectedTypes = ['SHAPE', 'TEXT', 'STICKY', 'LINE', 'MIND_MAP', 'IMAGE', 'IMAGE'];
+    const expectedTypes = [
+      'SHAPE',
+      'TEXT',
+      'STICKY',
+      'LINE',
+      'MIND_MAP',
+      'IMAGE',
+      'IMAGE',
+      'SYMBOL',
+    ];
     expect(restored.map(typeOf)).toEqual(expectedTypes);
     const srcs = restored
       .filter((m) => m.get('type') === 'IMAGE')
@@ -103,6 +114,11 @@ describe('project round-trip', () => {
     // 非 IMAGE 字段逐一保留
     expect(restored.find((m) => m.get('type') === 'MIND_MAP')!.get('label')).toBe('根节点');
     expect(restored.find((m) => m.get('type') === 'STICKY')!.get('color')).toBe('yellow');
+    // SYMBOL 字段保真（label/symbol/color）；资产计数仍为 2——符号零资产条目
+    const sym = restored.find((m) => m.get('type') === 'SYMBOL')!;
+    expect(sym.get('symbol')).toBe('net-router');
+    expect(sym.get('label')).toBe('核心路由');
+    expect(sym.get('color')).toBe('#dc2626');
 
     // 5. 资产字节与源一致
     const blobA = await importStore.get(imgA.id);

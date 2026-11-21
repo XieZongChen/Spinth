@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSymbolColor } from '../widgets/symbol/symbolVm';
+import { resolveSymbolColor } from '../widgets/symbol/symbolGeometry';
 import { setTextTheme } from '../platform/textEngine/theme';
 import { TEXT_COLOR_PALETTE } from '../actionBarOptions';
 import { contrastRatio } from '../common/contrast';
@@ -23,6 +23,16 @@ describe('resolveSymbolColor（着色单源）', () => {
     expect(resolveSymbolColor({ color: '#dc2626' })).toBe('#dc2626');
     setTextTheme('dark');
     expect(resolveSymbolColor({ color: '#dc2626' })).toBe('#dc2626');
+    setTextTheme('light');
+  });
+
+  it('非法 color 兜底随主题（空串/色名/三位 hex 不产 NaN tint）', () => {
+    setTextTheme('light');
+    expect(resolveSymbolColor({ color: '' })).toBe('#333333');
+    expect(resolveSymbolColor({ color: 'red' })).toBe('#333333');
+    expect(resolveSymbolColor({ color: '#f00' })).toBe('#333333');
+    setTextTheme('dark');
+    expect(resolveSymbolColor({ color: '' })).toBe('#ededf2');
     setTextTheme('light');
   });
 });

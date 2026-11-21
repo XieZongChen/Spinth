@@ -4,6 +4,19 @@
  */
 import type { IPoint, IRect, JoinDir } from '../../common/geometry';
 import { graphemes, type IMeasurer, type ITextStyleProps } from '../../platform/textEngine/measure';
+import { defaultTextColor } from '../../platform/textEngine/theme';
+
+/** 合法着色：#RRGGBB（ActionBar 色板全 6 位 hex；坏项目文件里的空串/色名/
+ *  三位 hex 一律兜底——防 hexToNum 产出 NaN tint） */
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+/** 着色单源（specs/symbol-widget §4.4）：缺省随主题墨色（light #333333 /
+ *  dark #ededf2）；图标与标签同色；显式 color 不随主题反转（实例数据语义，
+ *  与 textColor 同口径）。渲染 Vm / 编辑器 / ActionBar 触发钮共用本函数。
+ *  纯模块（无 PIXI）——样式层与编辑链 import 本文件即可，不依赖 Vm 层 */
+export function resolveSymbolColor(data: { color?: string }): string {
+  return data.color && HEX6.test(data.color) ? data.color : defaultTextColor();
+}
 
 // —— 常量（§3.1；标签带恒定 = 几何与对齐可预测，空标签不塌陷） ——
 

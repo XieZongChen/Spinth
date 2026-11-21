@@ -27,7 +27,7 @@
 import { Buffer } from 'node:buffer';
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ASSETS_DIR = join(ROOT, 'packages/core/src/widgets/symbol/assets');
@@ -98,40 +98,47 @@ function parseAttrs(text) {
   return attrs;
 }
 
-/** 校验单个资产并归一为单行字符串；失败返回 null（错误已入 errors） */
-function validateAsset(id, raw) {
+/** 校验单个资产并归一为单行字符串。
+ *  纯函数（导出供单测喂负向夹具，specs/symbol-widget §9.1）：
+ *  成功 → { ok: true, svg }（currentColor 已归一 TINT_BASE）；
+ *  失败 → { ok: false, error }（首个违规原因）。 */
+export function validateAsset(id, raw) {
+  const bad = (msg) => ({ ok: false, error: `${id}.svg: ${msg}` });
   const src = raw.trim();
-  if (Buffer.byteLength(src, 'utf8') > MAX_BYTES) return fail(id, '超过 6 KB 上限');
+  if (Buffer.byteLength(src, 'utf8') > MAX_BYTES) return bad('超过 6 KB 上限');
   for (const t of FORBIDDEN_TOKENS) {
-    if (src.includes(t)) return fail(id, `禁用 token：${t}`);
+    if (src.includes(t)) return bad(`禁用 token：${t}`);
   }
   const root = src.match(/^<svg\b([^>]*)>([\s\S]*)<\/svg>$/);
-  if (!root) return fail(id, '根必须是单个 <svg>…</svg>');
+  if (!root) return bad('根必须是单个 <svg>…</svg>');
   const rootAttrs = parseAttrs(root[1]);
   for (const name of Object.keys(rootAttrs)) {
     if (name !== 'viewBox' && name !== 'xmlns') {
-      return fail(id, `根元素只允许 viewBox（+xmlns），发现 ${name}`);
+      return bad(`根元素只允许 viewBox（+xmlns），发现 ${name}`);
     }
   }
-  if (rootAttrs.viewBox !== VIEWBOX) return fail(id, `viewBox 必须为 "${VIEWBOX}"`);
-  if (Object.keys(rootAttrs).length === 0) return fail(id, '缺 viewBox');
+  if (rootAttrs.viewBox !== VIEWBOX) return bad(`viewBox 必须为 "${VIEWBOX}"`);
+  if (Object.keys(rootAttrs).length === 0) return bad('缺 viewBox');
 
   const tagRe = /<\s*(\/)?\s*([a-zA-Z][\w:-]*)\b([^>]*?)(\/)?>/g;
   let t;
   while ((t = tagRe.exec(root[2]))) {
     const [, close, name, attrText] = t;
     if (close) continue;
-    if (!ALLOWED_ELEMENTS.has(name)) return fail(id, `元素 <${name}> 不在白名单`);
+    if (!ALLOWED_ELEMENTS.has(name)) return bad(`元素 <${name}> 不在白名单`);
     const attrs = parseAttrs(attrText);
     for (const [attr, value] of Object.entries(attrs)) {
-      if (!ALLOWED_ATTRS.has(attr)) return fail(id, `属性 ${attr} 不在白名单`);
+      if (!ALLOWED_ATTRS.has(attr)) return bad(`属性 ${attr} 不在白名单`);
       if ((attr === 'fill' || attr === 'stroke') && value !== 'none' && value !== 'currentColor') {
-        return fail(id, `${attr} 只允许 none/currentColor，发现 "${value}"`);
+        return bad(`${attr} 只允许 none/currentColor，发现 "${value}"`);
       }
     }
   }
   // 归一：空白折叠 + 标签间去空隙 + currentColor → tint 乘法基色
-  return src.replace(/\s+/g, ' ').replace(/>\s+</g, '><').replaceAll('currentColor', TINT_BASE);
+  return {
+    ok: true,
+    svg: src.replace(/\s+/g, ' ').replace(/>\s+</g, '><').replaceAll('currentColor', TINT_BASE),
+  };
 }
 
 /** 生成目标文件内容（确定性）；任一资产校验失败返回 null */
@@ -154,8 +161,12 @@ function render() {
       fail(id, '文件名须为小写字母开头的 kebab-case');
       continue;
     }
-    const svg = validateAsset(id, readFileSync(join(ASSETS_DIR, f), 'utf8'));
-    if (svg) entries.push(`  '${id}': '${svg}',`);
+    const v = validateAsset(id, readFileSync(join(ASSETS_DIR, f), 'utf8'));
+    if (!v.ok) {
+      errors.push(v.error);
+      continue;
+    }
+    entries.push(`  '${id}': '${v.svg}',`);
   }
   if (errors.length > 0) return null;
   return [
@@ -175,23 +186,29 @@ function render() {
   ].join('\n');
 }
 
-const checkOnly = process.argv.includes('--check');
-const content = render();
-if (content === null) {
-  for (const e of errors) console.error('[symbols] ' + e);
-  process.exit(1);
-}
-if (checkOnly) {
-  if (!existsSync(TARGET)) {
-    console.error('[symbols] 生成文件缺失，请跑 pnpm symbols:build');
+// CLI 入口守卫：被单测 import 时不执行（specs/symbol-widget §9.1 负向夹具）
+const isMain = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
+if (isMain) {
+  const checkOnly = process.argv.includes('--check');
+  const content = render();
+  if (content === null) {
+    for (const e of errors) console.error('[symbols] ' + e);
     process.exit(1);
   }
-  if (readFileSync(TARGET, 'utf8') !== content) {
-    console.error('[symbols] symbolGlyphs.generated.ts 与 assets 不一致，请跑 pnpm symbols:build');
-    process.exit(1);
+  if (checkOnly) {
+    if (!existsSync(TARGET)) {
+      console.error('[symbols] 生成文件缺失，请跑 pnpm symbols:build');
+      process.exit(1);
+    }
+    if (readFileSync(TARGET, 'utf8') !== content) {
+      console.error(
+        '[symbols] symbolGlyphs.generated.ts 与 assets 不一致，请跑 pnpm symbols:build',
+      );
+      process.exit(1);
+    }
+    console.log('[symbols] OK（生成产物与 assets 一致）');
+    process.exit(0);
   }
-  console.log('[symbols] OK（生成产物与 assets 一致）');
-  process.exit(0);
+  writeFileSync(TARGET, content);
+  console.log('[symbols] 已生成', TARGET);
 }
-writeFileSync(TARGET, content);
-console.log('[symbols] 已生成', TARGET);

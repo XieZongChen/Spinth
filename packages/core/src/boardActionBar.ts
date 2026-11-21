@@ -7,7 +7,7 @@ import type { IActionBarItem, IActionBarOption, IActionBarSchema } from './types
 import type { IActionBarHost } from './boardHost';
 import { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 import { SYMBOL_OPTIONS } from './widgets/symbol/symbolService';
-import { resolveSymbolColor } from './widgets/symbol/symbolVm';
+import { resolveSymbolColor } from './widgets/symbol/symbolGeometry';
 import { TEXT_COLOR_PALETTE } from './actionBarOptions';
 import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';

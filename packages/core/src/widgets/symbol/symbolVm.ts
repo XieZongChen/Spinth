@@ -2,7 +2,7 @@ import { Graphics, GraphicsContext, Point, Text, type Rectangle } from 'pixi.js'
 import { BaseWidgetVm } from '../../base/baseWidgetVm';
 import { markRender } from '../../common/render';
 import { hexToNum } from '../../common/color';
-import { defaultTextColor, textThemeVersion } from '../../platform/textEngine/theme';
+import { textThemeVersion } from '../../platform/textEngine/theme';
 import { type IHostGeom, type IPoint, type IRect, type JoinDir } from '../../common/geometry';
 import {
   createCanvasMeasurer,
@@ -15,6 +15,7 @@ import type { SymbolData } from '../../types';
 import { SYMBOL_GLYPHS, type SymbolKind } from './symbolGlyphs.generated';
 import {
   containFitGlyph,
+  resolveSymbolColor,
   symbolGlyphAnchor,
   symbolGlyphRect,
   symbolLabelRect,
@@ -29,13 +30,6 @@ import {
   rotatedRectBounds,
   rotatedRectIntersectsRect,
 } from '../../platform/rectEditor/rotateMath';
-
-/** 着色单源（specs/symbol-widget §4.4）：缺省随主题墨色（light #333333 /
- *  dark #ededf2）；图标与标签同色；显式 color 不随主题反转（实例数据语义，
- *  与 textColor 同口径）。渲染 / 编辑器 / ActionBar 触发钮共用本函数 */
-export function resolveSymbolColor(data: { color?: string }): string {
-  return data.color ?? defaultTextColor();
-}
 
 /**
  * 按 kind 共享的 GraphicsContext 缓存（§4.4）：SVG 解析只在首次；颜色不进

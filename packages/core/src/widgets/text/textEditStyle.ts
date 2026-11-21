@@ -22,8 +22,8 @@ import {
   SYMBOL_LABEL_FONT_SIZE,
   SYMBOL_LABEL_LINE_HEIGHT,
   SYMBOL_LABEL_PADDING_X,
+  resolveSymbolColor,
 } from '../symbol/symbolGeometry';
-import { resolveSymbolColor } from '../symbol/symbolVm';
 
 /** 编辑样式（textService 编辑会话的排版事实——TEXT/STICKY/SHAPE 三型分流） */
 export interface ITextEditStyle {

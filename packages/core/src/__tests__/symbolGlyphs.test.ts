@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error -- 仓库根 .mjs 无类型声明（负向夹具只用 ok/svg/error 字段）
+import { validateAsset } from '../../../../scripts/build-symbol-glyphs.mjs';
 import { SYMBOL_GLYPHS, SYMBOL_KINDS } from '../widgets/symbol/symbolGlyphs.generated';
 import { SYMBOL_OPTIONS } from '../widgets/symbol/symbolService';
 
@@ -55,6 +57,35 @@ describe('SYMBOL_GLYPHS / SYMBOL_KINDS / SYMBOL_OPTIONS', () => {
         colors.every((c) => c === '#ffffff'),
         `${kind} 出现非法硬编码色`,
       ).toBe(true);
+    }
+  });
+
+  it('生成器负向夹具：非法 SVG 逐类拒收（specs/symbol-widget §9.1）', () => {
+    const ok = (raw: string) => validateAsset('fixture', raw);
+    // polyline/polygon（PIXI points 解析缺陷，§4.3 修订）
+    expect(ok('<svg viewBox="0 0 48 48"><polyline points="1,1 2,2"/></svg>').ok).toBe(false);
+    expect(ok('<svg viewBox="0 0 48 48"><polygon points="1,1 2,2 3,3"/></svg>').ok).toBe(false);
+    // 硬编码色 / transform / 错 viewBox / 超尺寸 / 白名单外属性
+    expect(
+      ok('<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="13" stroke="#ff0000"/></svg>').ok,
+    ).toBe(false);
+    expect(ok('<svg viewBox="0 0 48 48"><g transform="translate(1)"/></svg>').ok).toBe(false);
+    expect(ok('<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>').ok).toBe(false);
+    // 6KB 上限：'M1 1L2 2' 8 字节 ×800 = 6.4KB 超限
+    expect(ok(`<svg viewBox="0 0 48 48"><path d="${'M1 1L2 2'.repeat(800)}"/></svg>`).ok).toBe(
+      false,
+    );
+    expect(
+      ok('<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="13" opacity="0.5"/></svg>').ok,
+    ).toBe(false);
+    // 正向基线：合法资产 ok 且 currentColor 归一 #ffffff
+    const good = ok(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="13" stroke="currentColor"/></svg>',
+    );
+    expect(good.ok).toBe(true);
+    if (good.ok) {
+      expect(good.svg).toContain('#ffffff');
+      expect(good.svg).not.toContain('currentColor');
     }
   });
 
