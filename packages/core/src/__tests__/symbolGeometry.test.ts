@@ -30,26 +30,26 @@ const STYLE: ITextStyleProps = {
 };
 
 describe('两段几何（§3.2）', () => {
-  it('默认 96×128：图形区 96×100，标签带 24 贴底，间距 4', () => {
-    expect(SYMBOL_DEFAULT_WIDTH).toBe(96);
-    expect(SYMBOL_DEFAULT_HEIGHT).toBe(128);
-    const glyph = symbolGlyphRect(96, 128);
-    expect(glyph).toEqual({ x: 0, y: 0, width: 96, height: 100 });
-    const label = symbolLabelRect(96, 128);
-    expect(label).toEqual({ x: 0, y: 104, width: 96, height: 24 });
-    expect(SYMBOL_LABEL_BAND + SYMBOL_LABEL_GAP).toBe(28);
+  it('默认 100×126：图形区 100×100 铺满，标签带 24 贴底，间距 2', () => {
+    expect(SYMBOL_DEFAULT_WIDTH).toBe(100);
+    expect(SYMBOL_DEFAULT_HEIGHT).toBe(126);
+    const glyph = symbolGlyphRect(100, 126);
+    expect(glyph).toEqual({ x: 0, y: 0, width: 100, height: 100 });
+    const label = symbolLabelRect(100, 126);
+    expect(label).toEqual({ x: 0, y: 102, width: 100, height: 24 });
+    expect(SYMBOL_LABEL_BAND + SYMBOL_LABEL_GAP).toBe(26);
   });
 
-  it('高度 28：图形区高度归零（不画图标仅标签）；高度 24 标签带贴顶', () => {
-    expect(symbolGlyphRect(96, 28).height).toBe(0);
-    expect(symbolLabelRect(96, 28)).toEqual({ x: 0, y: 4, width: 96, height: 24 });
+  it('高度 26：图形区高度归零（不画图标仅标签）；高度 24 标签带贴顶', () => {
+    expect(symbolGlyphRect(100, 26).height).toBe(0);
+    expect(symbolLabelRect(100, 26)).toEqual({ x: 0, y: 2, width: 100, height: 24 });
     // h=24：图形区负值钳 0，标签带从顶开始且高恰 24
-    expect(symbolGlyphRect(96, 24)).toEqual({ x: 0, y: 0, width: 96, height: 0 });
-    expect(symbolLabelRect(96, 24)).toEqual({ x: 0, y: 0, width: 96, height: 24 });
+    expect(symbolGlyphRect(100, 24)).toEqual({ x: 0, y: 0, width: 100, height: 0 });
+    expect(symbolLabelRect(100, 24)).toEqual({ x: 0, y: 0, width: 100, height: 24 });
   });
 
   it('高度 <24：标签带被压扁（渲染侧不画标签）', () => {
-    expect(symbolLabelRect(96, 20)).toEqual({ x: 0, y: 0, width: 96, height: 20 });
+    expect(symbolLabelRect(100, 20)).toEqual({ x: 0, y: 0, width: 100, height: 20 });
   });
 });
 
@@ -87,29 +87,29 @@ describe('contain 适配（§3.2）', () => {
 });
 
 describe('图形区锚点（§3.4：标签带不参与）', () => {
-  const rect = { x: 10, y: 20, width: 96, height: 128 };
+  const rect = { x: 10, y: 20, width: 100, height: 126 };
 
   it('四边 t = 0 / 0.5 / 1 的坐标', () => {
     expect(symbolGlyphAnchor(rect, 'top', 0)).toEqual({ x: 10, y: 20 });
-    expect(symbolGlyphAnchor(rect, 'top', 0.5)).toEqual({ x: 58, y: 20 });
-    expect(symbolGlyphAnchor(rect, 'top', 1)).toEqual({ x: 106, y: 20 });
+    expect(symbolGlyphAnchor(rect, 'top', 0.5)).toEqual({ x: 60, y: 20 });
+    expect(symbolGlyphAnchor(rect, 'top', 1)).toEqual({ x: 110, y: 20 });
     expect(symbolGlyphAnchor(rect, 'bottom', 0)).toEqual({ x: 10, y: 120 });
-    expect(symbolGlyphAnchor(rect, 'bottom', 0.5)).toEqual({ x: 58, y: 120 });
-    expect(symbolGlyphAnchor(rect, 'bottom', 1)).toEqual({ x: 106, y: 120 });
+    expect(symbolGlyphAnchor(rect, 'bottom', 0.5)).toEqual({ x: 60, y: 120 });
+    expect(symbolGlyphAnchor(rect, 'bottom', 1)).toEqual({ x: 110, y: 120 });
     expect(symbolGlyphAnchor(rect, 'left', 0)).toEqual({ x: 10, y: 20 });
     expect(symbolGlyphAnchor(rect, 'left', 0.5)).toEqual({ x: 10, y: 70 });
     expect(symbolGlyphAnchor(rect, 'left', 1)).toEqual({ x: 10, y: 120 });
-    expect(symbolGlyphAnchor(rect, 'right', 0.5)).toEqual({ x: 106, y: 70 });
+    expect(symbolGlyphAnchor(rect, 'right', 0.5)).toEqual({ x: 110, y: 70 });
   });
 
-  it('bottom 落在图形区底边（y=120），不是 bbox 底（y=148）', () => {
+  it('bottom 落在图形区底边（y=120），不是 bbox 底（y=146）', () => {
     expect(symbolGlyphAnchor(rect, 'bottom', 0.5).y).toBe(120);
     expect(symbolGlyphAnchor(rect, 'bottom', 0.5).y).not.toBe(rect.y + rect.height);
   });
 
-  it('高度退化（<28）：图形区底边钳到顶边，不进标签带', () => {
-    const degenerate = { x: 0, y: 0, width: 96, height: 26 };
-    expect(symbolGlyphAnchor(degenerate, 'bottom', 1)).toEqual({ x: 96, y: 0 });
+  it('高度退化（<26）：图形区底边钳到顶边，不进标签带', () => {
+    const degenerate = { x: 0, y: 0, width: 100, height: 24 };
+    expect(symbolGlyphAnchor(degenerate, 'bottom', 1)).toEqual({ x: 100, y: 0 });
     expect(symbolGlyphAnchor(degenerate, 'left', 0.5)).toEqual({ x: 0, y: 0 });
   });
 });

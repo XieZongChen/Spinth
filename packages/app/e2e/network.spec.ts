@@ -106,7 +106,7 @@ function segCrossRect(a: Pt, b: Pt, r: { x: number; y: number; width: number; he
 
 /** 符号图形区四边谓词（symbol.spec S-5 同款）：端点贴图形区矩形边界且不在带内 */
 function onGlyphEdge(s: { x: number; y: number; width: number; height: number }, pt: Pt): boolean {
-  const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 28, 0) };
+  const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 26, 0) };
   const insideX = pt[0] >= g.x - 1.5 && pt[0] <= g.x + g.w + 1.5;
   const insideY = pt[1] >= g.y - 1.5 && pt[1] <= g.y + g.h + 1.5;
   const onEdge =
@@ -185,7 +185,7 @@ test('N-1 工具坞连放 10 设备：计数/类型正确，连击不退工具�
     云: 'net-cloud',
   };
   for (const [kind, wx, wy] of plan) {
-    const hit = syms.find((s) => Math.abs(s.x - (wx - 48)) < 1 && Math.abs(s.y - (wy - 64)) < 1);
+    const hit = syms.find((s) => Math.abs(s.x - (wx - 50)) < 1 && Math.abs(s.y - (wy - 63)) < 1);
     expect(hit, `${kind}@(${wx},${wy}) 应存在`).toBeDefined();
     expect(hit!.symbol).toBe(byKind[kind]);
   }
@@ -200,8 +200,8 @@ test('N-2 命名：回车/Esc 均落库（flush 语义）、清空合法；缩�
       label: '',
       x: 200,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n2b',
@@ -210,8 +210,8 @@ test('N-2 命名：回车/Esc 均落库（flush 语义）、清空合法；缩�
       label: '',
       x: 400,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
   ]);
   await page.keyboard.press('v');
@@ -252,7 +252,7 @@ test('N-2 命名：回车/Esc 均落库（flush 语义）、清空合法；缩�
         };
       }
     ).__spinthDebug.__debug;
-    d.engine.getModelById('n2a').updateRect({ x: 200, y: 200, width: 60, height: 128 });
+    d.engine.getModelById('n2a').updateRect({ x: 200, y: 200, width: 60, height: 126 });
   });
   await expect
     .poll(async () => (await symbolsOf(page)).find((s) => s.id === 'n2a')!.width)
@@ -269,37 +269,37 @@ test('N-3 锚点：从设备底边拉线——起点贴 A 图形区底（≠bbox
       type: 'SYMBOL',
       symbol: 'net-server',
       label: 'A',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n3b',
       type: 'SYMBOL',
       symbol: 'net-database',
       label: 'B',
-      x: 552,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 550,
+      y: 237,
+      width: 100,
+      height: 126,
     },
   ]);
   await activateLineTool(page);
-  // 从 A 图形区底边中点 (300, 336) 拉到 B 中心 (600, 300)——图形区底 = 236+100（GAP 4）
-  await drawLine(page, 300, 336 + TOP_BAR, 600, 300 + TOP_BAR);
+  // 从 A 图形区底边中点 (300, 337) 拉到 B 中心 (600, 300)——图形区底 = 237+100（GAP 2）
+  await drawLine(page, 300, 337 + TOP_BAR, 600, 300 + TOP_BAR);
 
   const line = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as { points: Pt[] };
   expect(line).toBeDefined();
   const start = line.points[0]!;
   const end = line.points[line.points.length - 1]!;
-  // 起点贴 A 图形区底边（y = 236 + 100 = 336），不是 bbox 底（364）
-  expect(Math.abs(start[1] - 336)).toBeLessThan(1.5);
+  // 起点贴 A 图形区底边（y = 237 + 100 = 337），不是 bbox 底（363）
+  expect(Math.abs(start[1] - 337)).toBeLessThan(1.5);
   expect(Math.abs(start[1] - 364)).toBeGreaterThan(20);
   // 端点在 B 图形区四边之一、不进标签带（symbol S-5 口径）
   const b = (await symbolsOf(page)).find((s) => s.id === 'n3b')!;
   expect(onGlyphEdge(b, end)).toBe(true);
-  expect(end[1]).toBeLessThan(b.y + b.height - 28 + 1.5);
+  expect(end[1]).toBeLessThan(b.y + b.height - 26 + 1.5);
 
   // 移动 B：线跟随（端点重锚到 B 新图形区边）
   await page.keyboard.press('v');
@@ -314,7 +314,7 @@ test('N-3 锚点：从设备底边拉线——起点贴 A 图形区底（≠bbox
   };
   const end2 = line2.points[line2.points.length - 1]!;
   expect(onGlyphEdge(bAfter, end2)).toBe(true);
-  expect(end2[1]).toBeLessThan(bAfter.y + bAfter.height - 28 + 1.5);
+  expect(end2[1]).toBeLessThan(bAfter.y + bAfter.height - 26 + 1.5);
 });
 
 test('N-4 区域：无填充虚线框 + TEXT 标题 + 设备编组——整体拖动位移一致、Alt 直选设备', async ({
@@ -353,8 +353,8 @@ test('N-4 区域：无填充虚线框 + TEXT 标题 + 设备编组——整体�
       label: '应用 A',
       x: 150,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n4b',
@@ -363,8 +363,8 @@ test('N-4 区域：无填充虚线框 + TEXT 标题 + 设备编组——整体�
       label: '主库',
       x: 300,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
   ]);
   // 框选三件（矩形+标题+两设备 = 四件：区域含两台设备）
@@ -425,30 +425,30 @@ test('N-5 避障：三设备横排，首尾连线绕开中间设备（探针含�
       type: 'SYMBOL',
       symbol: 'net-server',
       label: 'A',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n5mid',
       type: 'SYMBOL',
       symbol: 'net-switch',
       label: 'M',
-      x: 552,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 550,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n5c',
       type: 'SYMBOL',
       symbol: 'net-router',
       label: 'C',
-      x: 852,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 850,
+      y: 237,
+      width: 100,
+      height: 126,
     },
   ]);
   await activateLineTool(page);
@@ -483,20 +483,20 @@ test('N-6 无填充区域不挡线：线从区域框上穿过、框不入障碍�
       type: 'SYMBOL',
       symbol: 'net-user',
       label: '客户端',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n6b',
       type: 'SYMBOL',
       symbol: 'net-internet',
       label: 'Internet',
-      x: 652,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 650,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     // 大无填充区域框盖住 A→B 走廊（B 在框内——设备进区域是拓扑常态）
     {
@@ -548,20 +548,20 @@ test('N-7 同边多线：两条线默认重叠，拖端点分开后各自落库'
       type: 'SYMBOL',
       symbol: 'net-server',
       label: 'A',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n7b',
       type: 'SYMBOL',
       symbol: 'net-switch',
       label: 'B',
-      x: 652,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 650,
+      y: 237,
+      width: 100,
+      height: 126,
     },
   ]);
   await activateLineTool(page);
@@ -638,8 +638,8 @@ test('N-8 撤销/重做：删除、移动、建组各一步，创建再一步（
       label: 'A',
       x: 150,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n8b',
@@ -648,8 +648,8 @@ test('N-8 撤销/重做：删除、移动、建组各一步，创建再一步（
       label: 'B',
       x: 300,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
   ]);
   await page.waitForTimeout(700); // 出创建捕获窗：建组独立成步
@@ -715,10 +715,10 @@ test('N-9 持久化：刷新后设备/标签/颜色/组/线全部保真', async 
       label: 'DMZ 防火墙',
       color: '#dc2626',
       groupId: 'g-net',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n9b',
@@ -726,10 +726,10 @@ test('N-9 持久化：刷新后设备/标签/颜色/组/线全部保真', async 
       symbol: 'net-internet',
       label: 'Internet',
       groupId: 'g-net',
-      x: 552,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 550,
+      y: 237,
+      width: 100,
+      height: 126,
     },
   ]);
   await activateLineTool(page);
@@ -759,13 +759,15 @@ test('N-9 持久化：刷新后设备/标签/颜色/组/线全部保真', async 
   expect(a.groupId).toBe('g-net');
   const b = (await symbolsOf(page)).find((s) => s.id === 'n9b')!;
   expect(b.groupId).toBe('g-net');
+  // 线回来了且终点贴 B 图形区四边（N-3 同款精确断言，不进标签带）
   await expect
     .poll(async () => {
       const l = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as
         { points: Pt[] } | undefined;
-      return l?.points?.at(-1)?.[1];
+      const end = l?.points?.at(-1);
+      return end && onGlyphEdge(b, end) ? end : null;
     })
-    .toBeLessThan(236 + 128); // 线回来了且终点在 B 的 bbox 上方（图形区边）
+    .not.toBeNull();
   const lineAfter = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as {
     startNodeId: string;
     endNodeId: string;
@@ -782,10 +784,10 @@ test('N-10 项目文件往返 + PNG 导出：设备/标签/组/线在新文档�
       symbol: 'net-load-balancer',
       label: 'LB-01',
       groupId: 'g-rt',
-      x: 252,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 250,
+      y: 237,
+      width: 100,
+      height: 126,
     },
     {
       id: 'n10b',
@@ -793,10 +795,10 @@ test('N-10 项目文件往返 + PNG 导出：设备/标签/组/线在新文档�
       symbol: 'net-storage',
       label: '对象存储',
       groupId: 'g-rt',
-      x: 552,
-      y: 236,
-      width: 96,
-      height: 128,
+      x: 550,
+      y: 237,
+      width: 100,
+      height: 126,
     },
   ]);
   await activateLineTool(page);
@@ -850,8 +852,8 @@ test('N-11 只读：工具禁用、双击不进编辑、ActionBar 不出现', as
       label: '核心路由',
       x: 200,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     },
   ]);
   await expect.poll(() => symbolsOf(page).then((s) => s.length)).toBe(1);

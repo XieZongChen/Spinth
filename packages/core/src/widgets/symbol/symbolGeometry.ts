@@ -26,16 +26,17 @@ export const SYMBOL_LABEL_FONT_SIZE = 16;
 export const SYMBOL_LABEL_LINE_HEIGHT = 24;
 /** 标签带高度（恒定，空标签也保留） */
 export const SYMBOL_LABEL_BAND = 24;
-/** 图形区与标签带间距（2026-11-21 用户实测反馈 8→4：标签观感离图标偏远；
- *  默认高 128 不变 = 100 图形 + 4 间距 + 24 标签带，标签带位置不动） */
-export const SYMBOL_LABEL_GAP = 4;
+/** 图形区与标签带间距（两轮用户实测反馈：8→4 仍偏远——盒模型 4 但 contain
+ *  在 96×100 图形区画 96×96、上下各留 2，可见 6；终值 2 + 默认尺寸 100×126
+ *  = 图形区 100×100 铺满零留白，盒模型间距 = 可见间距 = 2px） */
+export const SYMBOL_LABEL_GAP = 2;
 /** 单击创建默认宽 */
-export const SYMBOL_DEFAULT_WIDTH = 96;
-/** 单击创建默认高（100 图形 + 4 间距 + 24 标签带） */
-export const SYMBOL_DEFAULT_HEIGHT = 128;
+export const SYMBOL_DEFAULT_WIDTH = 100;
+/** 单击创建默认高（100 图形 + 2 间距 + 24 标签带——图形区正方形铺满） */
+export const SYMBOL_DEFAULT_HEIGHT = 126;
 /** 拖拽创建草稿软下限（再低只退化不禁止，§3.3） */
 export const SYMBOL_MIN_WIDTH = 48;
-export const SYMBOL_MIN_HEIGHT = 56;
+export const SYMBOL_MIN_HEIGHT = 56; // 30 图形 + 26（BAND+GAP）
 /** 标签落库截断上限（字素级） */
 export const SYMBOL_LABEL_MAX_CHARS = 64;
 /** 标签左右内边距（渲染与编辑同源） */

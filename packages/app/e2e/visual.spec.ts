@@ -537,10 +537,10 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
     type: 'SYMBOL',
     symbol,
     label,
-    x: cx - 48,
-    y: cy - 64,
-    width: 96,
-    height: 128,
+    x: cx - 50,
+    y: cy - 63,
+    width: 100,
+    height: 126,
     ...(color ? { color } : {}),
   });
   await page.evaluate(

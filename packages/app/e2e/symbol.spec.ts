@@ -64,11 +64,11 @@ test('S-1 工具坞选符号 → 单击创建默认服务器，工具保持可�
   await expect.poll(() => modelCount(page)).toBe(1);
   let syms = await symbols(page);
   expect(syms[0]!.symbol).toBe('net-server');
-  // 默认尺寸 96×128，以点击点（世界 300,300）为中心
-  expect(syms[0]!.width).toBe(96);
-  expect(syms[0]!.height).toBe(128);
-  expect(Math.abs(syms[0]!.x - (300 - 48))).toBeLessThan(1);
-  expect(Math.abs(syms[0]!.y - (300 - 64))).toBeLessThan(1);
+  // 默认尺寸 100×126，以点击点（世界 300,300）为中心
+  expect(syms[0]!.width).toBe(100);
+  expect(syms[0]!.height).toBe(126);
+  expect(Math.abs(syms[0]!.x - (300 - 50))).toBeLessThan(1);
+  expect(Math.abs(syms[0]!.y - (300 - 63))).toBeLessThan(1);
   // 单击创建：不选中、工具保持（连击放第二个）
   expect(await cursorMode(page)).toBe('symbol');
   await page.mouse.click(450, 300 + TOP_BAR);
@@ -108,8 +108,8 @@ test('S-2 拖拽创建尺寸跟手、松手选中回选择工具；<10px 滑移�
   await page.mouse.up();
   await expect.poll(() => modelCount(page)).toBe(2);
   syms = await symbols(page);
-  expect(syms[1]!.width).toBe(96);
-  expect(syms[1]!.height).toBe(128);
+  expect(syms[1]!.width).toBe(100);
+  expect(syms[1]!.height).toBe(126);
   expect(await cursorMode(page)).toBe('symbol');
 });
 
@@ -165,24 +165,24 @@ test('S-4 编辑框在标签带中心：宽随控件、缩窄后仍贴带', asyn
       ).__spinthDebug.__debug;
       d.engine.getModelById(symId).updateRect(rect);
     },
-    { symId: s.id, rect: { x: s.x, y: s.y, width: 60, height: 128 } },
+    { symId: s.id, rect: { x: s.x, y: s.y, width: 60, height: 126 } },
   );
   await page.mouse.dblclick(300, 280 + TOP_BAR);
   await expect(EDITOR).toBeVisible();
   const frame2 = (await EDITOR.boundingBox())!;
-  expect(Math.abs(frame2.y + frame2.height / 2 - (s.y + 128 - 12 + TOP_BAR))).toBeLessThan(2);
+  expect(Math.abs(frame2.y + frame2.height / 2 - (s.y + 126 - 12 + TOP_BAR))).toBeLessThan(2);
   expect(Math.abs(frame2.width - (60 - 8))).toBeLessThan(2);
 });
 
 test('S-5 连线端点吸附图形区边（不进标签带），移动符号线跟随', async ({ page }) => {
   // 并排两个符号：A(300,300) B(600,300) 中心水平拉线——ELBOWED 避障绕下方
   // 走廊、实测从底边进入；断言按契约口径写：端点落在 B 图形区四边之一
-  // （y ≤ 图形区底 = b.y+h-32），不进标签带（标签带在图形区底之下 24px）
+  // （y ≤ 图形区底 = b.y+h-26），不进标签带（标签带在图形区底之下 24px）
   await pickSymbolTool(page);
   await page.mouse.click(300, 300 + TOP_BAR);
   await page.mouse.click(600, 300 + TOP_BAR);
   await expect.poll(() => modelCount(page)).toBe(2);
-  const b = (await symbols(page)).find((s) => Math.abs(s.x - 552) < 1)!;
+  const b = (await symbols(page)).find((s) => Math.abs(s.x - 550) < 1)!;
 
   await page.keyboard.press('l');
   await expect.poll(() => cursorMode(page)).toBe('line');
@@ -193,7 +193,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   await expect.poll(async () => (await probe(page)).line !== null).toBe(true);
   // 端点在图形区矩形边界上（四边之一）且不在图形区外（含标签带）
   const onGlyphEdge = (s: SymState, pt: [number, number]) => {
-    const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 28, 0) };
+    const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 26, 0) };
     const insideX = pt[0] >= g.x - 1.5 && pt[0] <= g.x + g.w + 1.5;
     const insideY = pt[1] >= g.y - 1.5 && pt[1] <= g.y + g.h + 1.5;
     const onEdge =
@@ -206,7 +206,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   let line = (await probe(page)).line!;
   let end = line.points[line.points.length - 1]!;
   expect(onGlyphEdge(b, end)).toBe(true); // 吸在图形区某条边上
-  expect(end[1]).toBeLessThan(b.y + b.height - 28 + 1.5); // 不进标签带
+  expect(end[1]).toBeLessThan(b.y + b.height - 26 + 1.5); // 不进标签带
 
   // 移动 B：线跟随（端点随 B 新几何重锚，仍贴图形区边）
   await page.keyboard.press('v');
@@ -219,7 +219,7 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
   line = (await probe(page)).line!;
   end = line.points[line.points.length - 1]!;
   expect(onGlyphEdge(bAfter, end)).toBe(true);
-  expect(end[1]).toBeLessThan(bAfter.y + bAfter.height - 28 + 1.5);
+  expect(end[1]).toBeLessThan(bAfter.y + bAfter.height - 26 + 1.5);
 });
 
 test('S-6 ActionBar 切种类：几何与标签不变、图形更换', async ({ page }) => {
@@ -309,8 +309,8 @@ test('S-8 只读跟随：符号工具禁用、双击不进编辑', async ({ page
       label: '只读符号',
       x: 200,
       y: 200,
-      width: 96,
-      height: 128,
+      width: 100,
+      height: 126,
     } as never);
   });
   await expect.poll(() => modelCount(page)).toBe(1);
@@ -343,7 +343,7 @@ test('S-8 只读跟随：符号工具禁用、双击不进编辑', async ({ page
         };
       }
     ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'SYMBOL')!;
-    return { x: sym.x + sym.width / 2, y: sym.y + (sym.height - 28) / 2 };
+    return { x: sym.x + sym.width / 2, y: sym.y + (sym.height - 26) / 2 };
   });
   await pageB.mouse.dblclick(center.x, center.y + TOP_BAR);
   await pageB.waitForTimeout(300);

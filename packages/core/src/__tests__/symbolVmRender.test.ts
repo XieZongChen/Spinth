@@ -14,7 +14,7 @@ const state = {
   x: 0,
   y: 0,
   width: 96,
-  height: 128,
+  height: 126,
 };
 const state2 = { ...state, label: '核心路由器', x: 10 };
 
