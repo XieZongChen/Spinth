@@ -308,6 +308,9 @@ test('视觉快照 @visual：矩形旋转 45°（pivot 渲染——已旋转旧�
 test('视觉快照 @visual：流程图样本（S1 白底黑框 + 回边 + 线上标签，specs/flowchart-closeout §18.2）', async ({
   page,
 }) => {
+  // 容器慢机实测 25s+（darwin 24.6s 贴线）——30s 全局超时在 linux 容器两连
+  // 溢出（4.3 批实证）；场景级提到 60s，超时保护仍在
+  test.setTimeout(60_000);
   const docId = `e2e-vis-flowchart-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);
@@ -503,6 +506,155 @@ test('视觉快照 @visual：脑图竖向样本（同树切上下——转置镜
   await buildMindSample(page, true);
   await expect(page).toHaveScreenshot('mind-vertical.png', {
     clip: { x: 300, y: 80, width: 860, height: 660 },
+  });
+});
+
+/** 网络拓扑基线样本（specs/network-diagram §12.2，4.3）：
+ *  云区域（无填充虚线框 + 标题）+ 10 设备（含防火墙着色）+ 正交避障链路 +
+ *  线上标签。设备/区域批量走 dev engine（bench 先例）；线一律 UI 拉线
+ *  （锚定/避障语义必须走真实手势，裸 add 不触发 reattach——network.spec
+ *  前置实证）；标签经 model.update 直写 text。清选区后 clip 到内容截图。 */
+test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交链路 + 线上标签，specs/network-diagram §12.2）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-net-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+
+  // 10 设备 + 区域（无填充虚线）+ 标题（specs/network-diagram §4/§5.1）
+  const sym = (
+    id: string,
+    symbol: string,
+    label: string,
+    cx: number,
+    cy: number,
+    color?: string,
+  ) => ({
+    id,
+    type: 'SYMBOL',
+    symbol,
+    label,
+    x: cx - 48,
+    y: cy - 64,
+    width: 96,
+    height: 128,
+    ...(color ? { color } : {}),
+  });
+  await page.evaluate(
+    (ws) => {
+      const d = (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              engine: {
+                transact(fn: () => void): void;
+                add(w: unknown): void;
+                genInitialOrder(): string;
+              };
+            };
+          };
+        }
+      ).__spinthDebug.__debug;
+      d.engine.transact(() => {
+        for (const w of ws) d.engine.add({ zOrder: d.engine.genInitialOrder(), ...w });
+      });
+    },
+    [
+      sym('v-internet', 'net-internet', 'Internet', 160, 160),
+      sym('v-user', 'net-user', '办公网用户', 160, 360),
+      sym('v-fw', 'net-firewall', 'DMZ 防火墙', 340, 160, '#dc2626'),
+      sym('v-lb', 'net-load-balancer', 'LB-01', 340, 360),
+      sym('v-cloud', 'net-cloud', '公有云', 480, 360),
+      {
+        id: 'v-zone',
+        type: 'SHAPE',
+        shapeType: 'rect',
+        color: '#e8f0fb',
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        fill: 'none',
+        autoHeight: false,
+        x: 560,
+        y: 60,
+        width: 520,
+        height: 460,
+      },
+      {
+        id: 'v-zone-title',
+        type: 'TEXT',
+        text: '<p>生产 VPC</p>',
+        x: 572,
+        y: 68,
+        width: 160,
+        height: 40,
+      },
+      sym('v-router', 'net-router', '核心路由', 620, 160),
+      sym('v-switch', 'net-switch', '接入交换', 780, 160),
+      sym('v-db', 'net-database', '主库', 940, 160),
+      sym('v-web1', 'net-server', 'Web-01', 620, 340),
+      sym('v-storage', 'net-storage', '对象存储', 940, 340),
+    ],
+  );
+  await page.waitForTimeout(500);
+
+  // 9 条链路（UI 拉线；两端世界中心 → 屏幕 +44）
+  await page.keyboard.press('l');
+  const LINKS: Array<[number, number, number, number, string | null]> = [
+    [160, 160, 340, 160, '<p>HTTPS 443</p>'], // 互联网→防火墙
+    [160, 360, 340, 160, null], // 用户→防火墙
+    [340, 160, 340, 360, null], // 防火墙→负载均衡
+    [340, 360, 480, 360, null], // 负载均衡→云
+    [480, 360, 620, 160, null], // 云→路由器（穿区域框——无填充豁免）
+    [620, 160, 780, 160, null], // 路由器→交换机
+    [780, 160, 620, 340, null], // 交换机→Web-01
+    [780, 160, 940, 160, '<p>3306</p>'], // 交换机→数据库
+    [940, 160, 940, 340, '<p>同步</p>'], // 数据库→存储
+  ];
+  for (const [x1, y1, x2, y2] of LINKS) {
+    await page.mouse.move(x1, y1 + 44);
+    await page.mouse.down();
+    await page.mouse.move(x2, y2 + 44, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(160);
+  }
+  // 线上标签：按拉线顺序读线 id，model.update 直写 text（textRatio 缺省 0.5）
+  await page.evaluate(
+    (labels) => {
+      const d = (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              vmStates: Array<{ id: string; type: string }>;
+              engine: { getModelById(id: string): { update(p: unknown): void } };
+            };
+          };
+        }
+      ).__spinthDebug.__debug;
+      const lineIds = d.vmStates.filter((s) => s.type === 'LINE').map((s) => s.id);
+      for (const [i, text] of labels) d.engine.getModelById(lineIds[i]!)!.update({ text });
+    },
+    LINKS.map((l, i) => [i, l[4]]).filter(([, t]) => t !== null),
+  );
+  await page.waitForTimeout(400);
+
+  // fail-fast 数据断言（基线静默缺件比截图diff更早暴露）
+  const census = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
+    const c = (t: string) => d.vmStates.filter((s) => s.type === t).length;
+    return { sym: c('SYMBOL'), line: c('LINE'), shape: c('SHAPE'), text: c('TEXT') };
+  });
+  expect(census).toEqual({ sym: 10, line: 9, shape: 1, text: 1 });
+  await page.keyboard.press('Escape'); // 退出连线工具
+  await page.keyboard.press('Escape'); // 清选区/收 ActionBar
+  await page.waitForTimeout(200);
+
+  // 内容 bbox = x 112..1080 / y 60..520，外扩 24
+  await expect(page).toHaveScreenshot('network-sample.png', {
+    clip: { x: 88, y: 80, width: 1016, height: 508 },
   });
 });
 
