@@ -190,7 +190,7 @@ test('N-1 工具坞连放 10 设备：计数/类型正确，连击不退工具�
   }
 });
 
-test('N-2 命名：回车落库、Esc 不落库；缩窄后标签数据完整', async ({ page }) => {
+test('N-2 命名：回车/Esc 均落库（flush 语义）、清空合法；缩窄后标签数据完整', async ({ page }) => {
   await engineAdd(page, [
     {
       id: 'n2a',
@@ -538,4 +538,355 @@ test('N-6 无填充区域不挡线：线从区域框上穿过、框不入障碍�
     (p, i) => i + 1 < line.points.length && segCrossRect(p, line.points[i + 1]!, zoneRect),
   );
   expect(crossing, '线应穿过无填充区域框（不绕行）').toBe(true);
+});
+
+test('N-7 同边多线：两条线默认重叠，拖端点分开后各自落库', async ({ page }) => {
+  await engineAdd(page, [
+    {
+      id: 'n7a',
+      type: 'SYMBOL',
+      symbol: 'net-server',
+      label: 'A',
+      x: 252,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+    {
+      id: 'n7b',
+      type: 'SYMBOL',
+      symbol: 'net-switch',
+      label: 'B',
+      x: 652,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+  ]);
+  await activateLineTool(page);
+  await drawLine(page, 300, 300 + TOP_BAR, 700, 300 + TOP_BAR); // 线 1
+  await drawLine(page, 300, 300 + TOP_BAR, 700, 300 + TOP_BAR); // 线 2（同手势）
+  const lines = async () =>
+    (
+      (await vmStates(page)).filter((s) => s.type === 'LINE') as unknown as Array<{
+        points: Pt[];
+        endNodeId: string | null;
+        endPort?: number | null;
+      }>
+    ).sort((a, b) => a.points[0]![0] - b.points[0]![0]);
+  // 默认重叠：同边 0.5 单点——两线起点相同（docs/08 §3）
+  let ls = await lines();
+  expect(ls).toHaveLength(2);
+  expect(Math.abs(ls[0]!.points[0]![0] - ls[1]!.points[0]![0])).toBeLessThan(1.5);
+  expect(Math.abs(ls[0]!.points[0]![1] - ls[1]!.points[0]![1])).toBeLessThan(1.5);
+
+  // 选中一条（点重叠路径中段——命中 z 序最上者），拖**选中那条**的终点手柄
+  // （点击命中的不一定是排序 ls[1]——手柄坐标必须按 selectedIds 重读）
+  await page.keyboard.press('v');
+  const anyPts = ls[1]!.points;
+  const mid = Math.floor(anyPts.length / 2);
+  await page.mouse.click(
+    (anyPts[mid - 1]![0] + anyPts[mid]![0]) / 2,
+    (anyPts[mid - 1]![1] + anyPts[mid]![1]) / 2 + TOP_BAR,
+  );
+  await page.waitForTimeout(250);
+  const selId = await page.evaluate(
+    () =>
+      (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } }).__spinthDebug
+        .__debug.selectedIds[0],
+  );
+  expect(selId).toBeTruthy();
+  const selPts = ((await vmStates(page)).find((v) => v.id === selId) as unknown as { points: Pt[] })
+    .points;
+  const endPt = selPts[selPts.length - 1]!;
+  await page.mouse.move(endPt[0], endPt[1] + TOP_BAR);
+  await page.mouse.down();
+  // B 顶边非中点（t≈0.21）——拖到边中点 = 显式 port 0.5 = 默认同位（不分开）
+  await page.mouse.move(672, 236 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  // 分开后各自落库：两线终点分开（欧氏距离——同边不同锚点 x 可能相同、差在 y）
+  ls = await lines();
+  const e0 = ls[0]!.points.at(-1)!;
+  const e1 = ls[1]!.points.at(-1)!;
+  expect(Math.hypot(e0[0] - e1[0], e0[1] - e1[1])).toBeGreaterThan(10);
+  expect(ls.every((l) => l.endNodeId === 'n7b')).toBe(true);
+});
+
+test('N-8 撤销/重做：删除、移动、建组各一步，创建再一步（四个独立撤销步）', async ({ page }) => {
+  await engineAdd(page, [
+    {
+      id: 'n8z',
+      type: 'SHAPE',
+      shapeType: 'rect',
+      color: '#e8f0fb',
+      borderStyle: 'dashed',
+      borderWidth: 1,
+      fill: 'none',
+      autoHeight: false,
+      x: 100,
+      y: 100,
+      width: 400,
+      height: 300,
+    },
+    {
+      id: 'n8a',
+      type: 'SYMBOL',
+      symbol: 'net-server',
+      label: 'A',
+      x: 150,
+      y: 200,
+      width: 96,
+      height: 128,
+    },
+    {
+      id: 'n8b',
+      type: 'SYMBOL',
+      symbol: 'net-database',
+      label: 'B',
+      x: 300,
+      y: 200,
+      width: 96,
+      height: 128,
+    },
+  ]);
+  await page.waitForTimeout(700); // 出创建捕获窗：建组独立成步
+  // 建组（框选三件）
+  await page.mouse.move(80, 80 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(520, 430 + TOP_BAR, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.press('ControlOrMeta+g');
+  await page.waitForTimeout(700);
+  const groupOf = async () => {
+    const st = await vmStates(page);
+    return (st.find((s) => s.id === 'n8a') as { groupId?: string })?.groupId ?? null;
+  };
+  expect(await groupOf()).toBeTruthy();
+  // 移动组（拖 A 中心）
+  await page.mouse.move(198, 264 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(278, 304 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  const movedX = async () => (await vmStates(page)).find((s) => s.id === 'n8a')!.x;
+  const afterMove = await movedX();
+  // 删除组（选中态即整组）
+  await page.keyboard.press('Delete'); // edit.delete = delete,backspace（无修饰）
+  await page.waitForTimeout(700);
+  await expect.poll(async () => (await vmStates(page)).length).toBe(0);
+
+  // undo 1：删除回退（三件回来）
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => (await vmStates(page)).length).toBe(3);
+  // undo 2：移动回退
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => movedX()).not.toBe(afterMove);
+  // undo 3：建组回退（groupId 清除）
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => groupOf()).toBe(null);
+  // undo 4：创建回退（全删）
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => (await vmStates(page)).length).toBe(0);
+  // 重放（每次等模型恢复再按——redo 背靠背会丢拍，symbol S-7 同坑）：
+  // redo1=创建（件回）、redo2=建组（groupId 回）→ 中间态断点；redo3=移动、
+  // redo4=删除——**redo 全链终态 = 删除后**（与 undo 前一致）
+  for (let i = 0; i < 2; i++) {
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await page.waitForTimeout(300);
+  }
+  await expect.poll(async () => (await vmStates(page)).length).toBe(3);
+  expect(await groupOf()).toBeTruthy();
+  for (let i = 0; i < 2; i++) {
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await page.waitForTimeout(300);
+  }
+  await expect.poll(async () => (await vmStates(page)).length).toBe(0);
+});
+
+test('N-9 持久化：刷新后设备/标签/颜色/组/线全部保真', async ({ page }) => {
+  await engineAdd(page, [
+    {
+      id: 'n9a',
+      type: 'SYMBOL',
+      symbol: 'net-firewall',
+      label: 'DMZ 防火墙',
+      color: '#dc2626',
+      groupId: 'g-net',
+      x: 252,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+    {
+      id: 'n9b',
+      type: 'SYMBOL',
+      symbol: 'net-internet',
+      label: 'Internet',
+      groupId: 'g-net',
+      x: 552,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+  ]);
+  await activateLineTool(page);
+  await drawLine(page, 300, 300 + TOP_BAR, 600, 300 + TOP_BAR);
+  const lineBefore = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as {
+    points: Pt[];
+    startNodeId: string;
+    endNodeId: string;
+  };
+  // 刷新（先等防抖持久化落盘——S-7 教训）
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as { __spinth: { persistState$: { getValue(): string } } }
+      ).__spinth.persistState$.getValue() === 'saved',
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.reload();
+  await waitForSynced(page);
+  // IndexedDB 存 Yjs 增量日志：恢复时创建事务先到、标签/颜色事务后到——poll 等
+  await expect
+    .poll(async () => (await symbolsOf(page)).find((s) => s.id === 'n9a')?.label)
+    .toBe('DMZ 防火墙');
+  const a = (await symbolsOf(page)).find((s) => s.id === 'n9a')!;
+  expect(a.color).toBe('#dc2626');
+  expect(a.groupId).toBe('g-net');
+  const b = (await symbolsOf(page)).find((s) => s.id === 'n9b')!;
+  expect(b.groupId).toBe('g-net');
+  await expect
+    .poll(async () => {
+      const l = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as
+        { points: Pt[] } | undefined;
+      return l?.points?.at(-1)?.[1];
+    })
+    .toBeLessThan(236 + 128); // 线回来了且终点在 B 的 bbox 上方（图形区边）
+  const lineAfter = (await vmStates(page)).find((s) => s.type === 'LINE') as unknown as {
+    startNodeId: string;
+    endNodeId: string;
+  };
+  expect(lineAfter.startNodeId).toBe(lineBefore.startNodeId);
+  expect(lineAfter.endNodeId).toBe(lineBefore.endNodeId);
+});
+
+test('N-10 项目文件往返 + PNG 导出：设备/标签/组/线在新文档恢复', async ({ page }) => {
+  await engineAdd(page, [
+    {
+      id: 'n10a',
+      type: 'SYMBOL',
+      symbol: 'net-load-balancer',
+      label: 'LB-01',
+      groupId: 'g-rt',
+      x: 252,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+    {
+      id: 'n10b',
+      type: 'SYMBOL',
+      symbol: 'net-storage',
+      label: '对象存储',
+      groupId: 'g-rt',
+      x: 552,
+      y: 236,
+      width: 96,
+      height: 128,
+    },
+  ]);
+  await activateLineTool(page);
+  await drawLine(page, 300, 300 + TOP_BAR, 600, 300 + TOP_BAR);
+
+  // 导出 .spinth.zip（符号零资产条目——zip 内无 assets/ 之外的内容变动）
+  // 导入导航等待必须先等 URL 切走（helper 注释的坑：只等 synced 会撞在途导航）
+  const { exportViaMenu, importViaInput, waitForImportedNav } =
+    await import('./helpers/projectFileE2e');
+  const docBefore = (await page.url().match(/doc=([^&]+)/))![1]!;
+  const { fileName, path } = await exportViaMenu(page);
+  expect(fileName).toMatch(/^spinth-e2e-net-\d+-\d{8}-\d{6}\.spinth\.zip$/);
+  const { unzipSync } = await import('fflate');
+  const zip = unzipSync(new Uint8Array((await import('node:fs')).readFileSync(path)));
+  expect(zip['manifest.json']).toBeTruthy();
+  expect(zip['document.yjs']).toBeTruthy();
+
+  // 导入为新文档 → 全量恢复
+  await importViaInput(page, path);
+  await waitForImportedNav(page, docBefore);
+  await expect
+    .poll(async () => (await symbolsOf(page)).find((s) => s.id === 'n10a')?.label)
+    .toBe('LB-01');
+  const a = (await symbolsOf(page)).find((s) => s.id === 'n10a')!;
+  expect(a.groupId).toBe('g-rt');
+  const b = (await symbolsOf(page)).find((s) => s.id === 'n10b')!;
+  expect(b.symbol).toBe('net-storage');
+  await expect
+    .poll(async () => (await vmStates(page)).filter((s) => s.type === 'LINE').length)
+    .toBe(1);
+
+  // PNG 导出（右键菜单整画布）
+  await page.mouse.click(200, 500, { button: 'right' });
+  const menu = page.locator('[data-spinth-context-menu]');
+  await expect(menu).toBeVisible();
+  const dl = page.waitForEvent('download', { timeout: 10_000 });
+  await menu.getByRole('menuitem', { name: '导出画布 PNG' }).click();
+  const download = await dl;
+  expect(download.suggestedFilename()).toBe('spinth-board.png');
+  const pngPath = await download.path();
+  expect((await import('node:fs')).statSync(pngPath!).size).toBeGreaterThan(1000);
+});
+
+test('N-11 只读：工具禁用、双击不进编辑、ActionBar 不出现', async ({ page, context }) => {
+  const docId = (await page.url().match(/doc=([^&]+)/))![1]!;
+  await engineAdd(page, [
+    {
+      id: 'n11a',
+      type: 'SYMBOL',
+      symbol: 'net-router',
+      label: '核心路由',
+      x: 200,
+      y: 200,
+      width: 96,
+      height: 128,
+    },
+  ]);
+  await expect.poll(() => symbolsOf(page).then((s) => s.length)).toBe(1);
+
+  const pageB = await context.newPage();
+  await pageB.goto(`/?doc=${docId}`);
+  await waitForSynced(pageB);
+  await pageB.waitForFunction(
+    (r) =>
+      document.querySelector('[data-spinth-tab-role]')?.getAttribute('data-spinth-tab-role') === r,
+    'follower',
+    { timeout: 20_000 },
+  );
+  await expect.poll(() => symbolsOf(pageB).then((s) => s.length)).toBe(1);
+
+  // 工具禁用（符号/形状/连线）
+  const bar = pageB.getByRole('toolbar', { name: '画板工具' });
+  await expect(bar.getByRole('button', { name: '符号 (N)' })).toBeDisabled();
+  await expect(bar.getByRole('button', { name: /\(R\)$/ })).toBeDisabled();
+  await expect(bar.getByRole('button', { name: /连线/ })).toBeDisabled();
+
+  // 双击设备图形区中心不进编辑
+  await pageB.mouse.dblclick(248, 248 + TOP_BAR);
+  await pageB.waitForTimeout(300);
+  await expect(pageB.locator('#spinth-text-layer [contenteditable="true"]')).toBeHidden();
+
+  // 只读不建选区 → ActionBar 不出现（multiTabReadonly 口径）
+  await pageB.mouse.click(248, 248 + TOP_BAR);
+  await pageB.waitForTimeout(300);
+  await expect(
+    await pageB.evaluate(
+      () =>
+        (
+          window as unknown as { __spinth: { selected$: { getValue(): string[] } } }
+        ).__spinth.selected$.getValue().length,
+    ),
+  ).toBe(0);
+  await expect(pageB.locator('[data-spinth-action-bar]')).toHaveCount(0);
 });
