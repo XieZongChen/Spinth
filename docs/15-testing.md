@@ -17,18 +17,20 @@
   （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 5 / symbolEdit 8 /
   symbolColor 5 / symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget
   §9.1）。
-- E2E：55 个 spec（主配置 54 + pwa 1）、305 例 = 主配置 298（--list 实测，
-  含 @visual 8）+ pwa 7。非 visual 全量 290 = 288 通过 + 2 跳过（旋转手柄
+- E2E：56 个 spec（主配置 55 + pwa 1）、317 例 = 主配置 310（--list 实测，
+  含 @visual 9）+ pwa 7。非 visual 全量 301 = 299 通过 + 2 跳过（旋转手柄
   用例暂跳，specs/rotate-hide）——实测 0 failed。树形图族 +19 例
   （treeCollapse 6 / mindVertical 3 / treeTool 5 / orgChart 4 / debugSurface
   +1 公开面 71，specs/tree-diagrams §14.2）；符号控件 +9 例
-  （symbol.spec S-1..S-9，specs/symbol-widget §9.2）。分层对账 = 主配置 298 −
-  @visual 8 − @timing/@bench 5 = fast 285 + pwa 7 = CI gate 292；
-  四层全量 305（gate 292 + nightly @visual 8 + @timing/@bench 5）；
+  （symbol.spec S-1..S-9，specs/symbol-widget §9.2）；网络拓扑 +11 例
+  （network.spec N-1..N-11，specs/network-diagram §12.1）。分层对账 = 主配置
+  310 − @visual 9 − @timing/@bench 5 = fast 296 + pwa 7 = CI gate 303；
+  四层全量 317（gate 303 + nightly @visual 9 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
-- 视觉：6/6（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 9 张齐全
-  （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3）；
-  flowchart-sample 为流程图收口样本，specs/flowchart-closeout）。
+- 视觉：7/7（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 10 张齐全
+  （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；
+  flowchart-sample 为流程图收口样本，specs/flowchart-closeout；
+  network-sample 为网络拓扑样本，specs/network-diagram §12.2）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
