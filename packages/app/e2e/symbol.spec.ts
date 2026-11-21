@@ -174,9 +174,10 @@ test('S-4 编辑框在标签带中心：宽随控件、缩窄后仍贴带', asyn
   expect(Math.abs(frame2.width - (60 - 8))).toBeLessThan(2);
 });
 
-test('S-5 连线端点吸附图形区边（≠bbox 边中点），移动符号线跟随', async ({ page }) => {
-  // 并排两个符号：A(300,300) B(600,300) 中心——水平拉线无遮挡，端点应吸
-  // B 图形区左边中点 (x=552, y=b.y+48)；bbox 左中点是 b.y+64（差 16 可区分）
+test('S-5 连线端点吸附图形区边（不进标签带），移动符号线跟随', async ({ page }) => {
+  // 并排两个符号：A(300,300) B(600,300) 中心水平拉线——ELBOWED 避障绕下方
+  // 走廊、实测从底边进入；断言按契约口径写：端点落在 B 图形区四边之一
+  // （y ≤ 图形区底 = b.y+h-32），不进标签带（标签带在图形区底之下 24px）
   await pickSymbolTool(page);
   await page.mouse.click(300, 300 + TOP_BAR);
   await page.mouse.click(600, 300 + TOP_BAR);
@@ -190,16 +191,24 @@ test('S-5 连线端点吸附图形区边（≠bbox 边中点），移动符号�
   await page.mouse.move(648, 364 + TOP_BAR, { steps: 10 });
   await page.mouse.up();
   await expect.poll(async () => (await probe(page)).line !== null).toBe(true);
-  // ELBOWED 避障走下方走廊进入 B 底边：端点 = 图形区底边中点
-  // ((b.x+48, b.y+h-32)），绝不是 bbox 底边中点 (b.y+h)
-  const glyphBottomMidOf = (s: SymState) => ({ x: s.x + 48, y: s.y + s.height - 32 });
+  // 端点在图形区矩形边界上（四边之一）且不在图形区外（含标签带）
+  const onGlyphEdge = (s: SymState, pt: [number, number]) => {
+    const g = { x: s.x, y: s.y, w: s.width, h: Math.max(s.height - 32, 0) };
+    const insideX = pt[0] >= g.x - 1.5 && pt[0] <= g.x + g.w + 1.5;
+    const insideY = pt[1] >= g.y - 1.5 && pt[1] <= g.y + g.h + 1.5;
+    const onEdge =
+      Math.abs(pt[0] - g.x) < 1.5 ||
+      Math.abs(pt[0] - (g.x + g.w)) < 1.5 ||
+      Math.abs(pt[1] - g.y) < 1.5 ||
+      Math.abs(pt[1] - (g.y + g.h)) < 1.5;
+    return insideX && insideY && onEdge;
+  };
   let line = (await probe(page)).line!;
   let end = line.points[line.points.length - 1]!;
-  expect(Math.abs(end[0] - glyphBottomMidOf(b).x)).toBeLessThan(1.5);
-  expect(Math.abs(end[1] - glyphBottomMidOf(b).y)).toBeLessThan(1.5);
-  expect(Math.abs(end[1] - (b.y + b.height))).toBeGreaterThan(20);
+  expect(onGlyphEdge(b, end)).toBe(true); // 吸在图形区某条边上
+  expect(end[1]).toBeLessThan(b.y + b.height - 32 + 1.5); // 不进标签带
 
-  // 移动 B：线跟随（端点随 B 新几何重锚到新图形区左中）
+  // 移动 B：线跟随（端点随 B 新几何重锚，仍贴图形区边）
   await page.keyboard.press('v');
   await page.mouse.move(648, 364 + TOP_BAR);
   await page.mouse.down();
@@ -209,8 +218,8 @@ test('S-5 连线端点吸附图形区边（≠bbox 边中点），移动符号�
   const bAfter = (await symbols(page)).find((s) => s.id === b.id)!;
   line = (await probe(page)).line!;
   end = line.points[line.points.length - 1]!;
-  expect(Math.abs(end[0] - glyphBottomMidOf(bAfter).x)).toBeLessThan(1.5);
-  expect(Math.abs(end[1] - glyphBottomMidOf(bAfter).y)).toBeLessThan(1.5);
+  expect(onGlyphEdge(bAfter, end)).toBe(true);
+  expect(end[1]).toBeLessThan(bAfter.y + bAfter.height - 32 + 1.5);
 });
 
 test('S-6 ActionBar 切种类：几何与标签不变、图形更换', async ({ page }) => {
@@ -252,17 +261,17 @@ test('S-7 创建与命名各为独立撤销步；刷新恢复', async ({ page })
   await page.waitForTimeout(700);
 
   // undo 1：命名回退（label 清空、控件还在）
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(async () => (await symbols(page))[0]!.label).toBe('');
   expect(await modelCount(page)).toBe(1);
   // undo 2：创建回退（控件删除）
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => modelCount(page)).toBe(0);
   // redo ×2：控件与名字都回来（两 redo 之间等模型恢复，高负载下背靠背会丢拍）
-  await page.keyboard.press('Meta+Shift+z');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect.poll(() => modelCount(page)).toBe(1);
   await page.waitForTimeout(300);
-  await page.keyboard.press('Meta+Shift+z');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect.poll(async () => (await symbols(page))[0]!.label).toBe('持久验证');
 
   // 刷新恢复（IndexedDB）——先等防抖持久化落盘（persistState$ 'saved'），
@@ -323,10 +332,25 @@ test('S-8 只读跟随：符号工具禁用、双击不进编辑', async ({ page
   await expect(symbolBtn).toBeDisabled();
   await pageB.keyboard.press('n');
   await expect.poll(() => cursorMode(pageB)).toBe('cursor');
-  // 双击符号不进编辑
-  await pageB.mouse.dblclick(248, 180 + TOP_BAR);
+  // 双击符号图形区中心不进编辑（中心从 pageB 自己的 vm 几何现算，不硬编码）
+  const center = await pageB.evaluate(() => {
+    const sym = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            vmStates: Array<{ type: string; x: number; y: number; width: number; height: number }>;
+          };
+        };
+      }
+    ).__spinthDebug.__debug.vmStates.find((v) => v.type === 'SYMBOL')!;
+    return { x: sym.x + sym.width / 2, y: sym.y + (sym.height - 32) / 2 };
+  });
+  await pageB.mouse.dblclick(center.x, center.y + TOP_BAR);
   await pageB.waitForTimeout(300);
   await expect(pageB.locator('#spinth-text-layer [contenteditable="true"]')).toBeHidden();
+  // 对照：写者页双击同一符号可进编辑（证明 S-8 的「无编辑器」是只读闸门而非坐标落空）
+  await page.mouse.dblclick(center.x, center.y + TOP_BAR);
+  await expect(page.locator('#spinth-text-layer [contenteditable="true"]')).toBeVisible();
 });
 
 test('S-9 着色：ActionBar 选色落库、撤销回主题色、刷新保真', async ({ page }) => {
@@ -344,11 +368,11 @@ test('S-9 着色：ActionBar 选色落库、撤销回主题色、刷新保真', 
   await page.waitForTimeout(700); // 出捕获窗：选色独立成撤销项
 
   // 撤销一步：回到主题色（color 字段消失 = 缺省）
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(async () => (await symbols(page))[0]!.color).toBe(undefined);
   // 重做 + 刷新：显式色保真
   await page.waitForTimeout(300);
-  await page.keyboard.press('Meta+Shift+z');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect.poll(async () => (await symbols(page))[0]!.color).toBe('#dc2626');
   await page.waitForFunction(
     () =>
