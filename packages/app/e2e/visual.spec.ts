@@ -520,6 +520,9 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
   const docId = `e2e-vis-net-${Date.now()}`;
   await page.goto(`/?doc=${docId}`);
   await ready(page);
+  // 搭建含 9 次 v→l 清态切换 + 逐条拉线，darwin ~23s、容器慢机超 30s 全局线
+  // （flowchart-sample 同款处置）；场景搭建批量化降时后回落
+  test.setTimeout(60_000);
 
   // 10 设备 + 区域（无填充虚线）+ 标题（specs/network-diagram §4/§5.1）
   const sym = (
@@ -562,7 +565,7 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
     [
       sym('v-internet', 'net-internet', 'Internet', 160, 160),
       sym('v-user', 'net-user', '办公网用户', 160, 360),
-      sym('v-fw', 'net-firewall', 'DMZ 防火墙', 340, 160, '#dc2626'),
+      sym('v-fw', 'net-firewall', '防火墙', 340, 160, '#dc2626'), // 短标签：96px 带宽下 darwin/linux 字体度量差异会把「DMZ 防火墙」截成两截
       sym('v-lb', 'net-load-balancer', 'LB-01', 340, 360),
       sym('v-cloud', 'net-cloud', '公有云', 480, 360),
       {
@@ -597,7 +600,9 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
   );
   await page.waitForTimeout(500);
 
-  // 9 条链路（UI 拉线；两端世界中心 → 屏幕 +44）
+  // 9 条链路（UI 拉线）。起止点沿 A→B 方向各从中心偏移 40px——指针落在
+  // 图形区内但不在正中心（nearestJoin 对 dx=dy=0 恒落 top，中心拉线会绕到
+  // 图形上方穿过标题/标签，与 spec §14「侧上方进入」口径相反——审查返工）
   await page.keyboard.press('l');
   const LINKS: Array<[number, number, number, number, string | null]> = [
     [160, 160, 340, 160, '<p>HTTPS 443</p>'], // 互联网→防火墙
@@ -610,7 +615,26 @@ test('视觉快照 @visual：网络拓扑样本（云区域 + 10 设备 + 正交
     [780, 160, 940, 160, '<p>3306</p>'], // 交换机→数据库
     [940, 160, 940, 340, '<p>同步</p>'], // 数据库→存储
   ];
-  for (const [x1, y1, x2, y2] of LINKS) {
+  const edgePoints = (
+    a: [number, number],
+    b: [number, number],
+  ): [number, number, number, number] => {
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const ux = (b[0] - a[0]) / d;
+    const uy = (b[1] - a[1]) / d;
+    const off = Math.min(40, d / 2 - 10);
+    return [a[0] + ux * off, a[1] + uy * off, b[0] - ux * off, b[1] - uy * off];
+  };
+  for (let li = 0; li < LINKS.length; li++) {
+    const [ax, ay, bx, by] = LINKS[li]!;
+    // 上条线的选中/hover 态（ActionBar、宿主 quickDots）会让下一条的 down 被吞
+    // （Esc 会退出连线工具——用 v→l 切换清态，实测连拉 9 条稳定）
+    if (li > 0) {
+      await page.keyboard.press('v');
+      await page.keyboard.press('l');
+      await page.waitForTimeout(120);
+    }
+    const [x1, y1, x2, y2] = edgePoints([ax, ay], [bx, by]);
     await page.mouse.move(x1, y1 + 44);
     await page.mouse.down();
     await page.mouse.move(x2, y2 + 44, { steps: 6 });
