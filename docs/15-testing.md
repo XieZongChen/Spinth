@@ -13,8 +13,8 @@
 
 ## 2. 当前基线
 
-- 单测：1381 passed（core 1264 + react 79 + app 38）。符号控件 +46
-  （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 5 / symbolEdit 8 /
+- 单测：1382 passed（core 1265 + react 79 + app 38）。符号控件 +46
+  （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 6 / symbolEdit 8 /
   symbolColor 5 / symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget
   §9.1；避障豁免 +1 lineRoute，specs/network-diagram §5.2）。
 - E2E：56 个 spec（主配置 55 + pwa 1）、317 例 = 主配置 310（--list 实测，

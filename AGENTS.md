@@ -301,7 +301,7 @@ golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标�
 菜单/kind 记忆/M/O 直达）；公开面新增 getTreeAddButtons/toggleTreeCollapse/
 setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
 
-当前实测基线：`pnpm verify` 通过；1381 单测（core 1264 + react 79 + app 38）；
+当前实测基线：`pnpm verify` 通过；1382 单测（core 1265 + react 79 + app 38）；
 E2E 56 spec / 317 例（主配置 310 --list 实测：非 visual 301 = 299 通过 +
 2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 9；pwa 7 独立配置；
 全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
