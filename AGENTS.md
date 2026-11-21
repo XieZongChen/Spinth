@@ -122,7 +122,9 @@ Node >= 24，pnpm 11.28.5。
 
 ## 当前状态
 
-单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图、多选/编组/对齐/
+单机基线已完成：画布、形状/文本/便签/连线/画笔/图片/脑图/**符号控件**（图标+
+外置标签，specs/symbol-widget）、**网络拓扑 4.3**（避障豁免/区域近似/N-1..N-11/
+network-sample 基线，specs/network-diagram）、多选/编组/对齐/
 参考线（旋转手柄入口暂隐藏——rotation 数据能力全保留，specs/rotate-hide）、富文本/排版/橡皮、撤销/重做、IndexedDB 持久化、本地资产库、移动端工具菜单、
 项目文件导出/导入（`.spinth.zip`，docs/20）、存储状态面板（docs/02 §6.1）、
 多标签单写者/只读跟随（docs/21）、资产/图片生命周期（加载会话/纹理共享/
@@ -299,27 +301,25 @@ golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标�
 菜单/kind 记忆/M/O 直达）；公开面新增 getTreeAddButtons/toggleTreeCollapse/
 setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
 
-当前实测基线：`pnpm verify` 通过；1333 单测（core 1216 + react 79 + app 38）；
-E2E 54 spec / 296 例（主配置 289 --list 实测：非 visual 281 = 279 通过 +
-2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 8；pwa 7 独立配置；
-全量实测 0 failed；树形图族 +19 例 treeCollapse 6/mindVertical 3/
-treeTool 5/orgChart 4/debugSurface 71；rotate 3 通过 + 2 跳过含
-入口隐藏锁、rotateAnchor 2/2；flowchart 15 例；edgeAutoScroll 11/11 含 E-6
-culling 复核、E-7 外沿慢速与框选 M-1..M-4；refline 8/8 含 C 粘滞落库、D/E
-端部间隙链与中心链、F 中置中心正中、等间距让位网格标记；clickCreateSlip
-2/2；视觉 6/6 双平台（9 张基线含 flowchart-sample S1、mind 横/竖、org-sample
-含折叠分支）；图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard
-12/12；a11yLayout 10/10；textScale 6/6；touchPen 3/3；debugSurface 3/3；
+当前实测基线：`pnpm verify` 通过；1381 单测（core 1264 + react 79 + app 38）；
+E2E 56 spec / 317 例（主配置 310 --list 实测：非 visual 301 = 299 通过 +
+2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 9；pwa 7 独立配置；
+全量实测 0 failed；符号控件 +13 例 symbol 9 + clipboardSymbol 1 + 生成器
+负向夹具等；网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
+多线/项目文件往返+PNG/只读；树形图族 19 例；flowchart 15 例；
+视觉 9/9 双平台（10 张基线含 network-sample 网络拓扑样本——4.3 交付）；
+图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard 12/12；
+a11yLayout 10/10；textScale 6/6；touchPen 3/3；debugSurface 3/3；
 pwa 7/7 含 P7 零探针 + dev 不注册 1）。
 
 发布状态：当前版本 `1.0.1` 已发布（tag `v1.0.1` + GitHub Release）；仓库
 public，线上地址 `https://xiezongchen.github.io/Spinth/`，`main` 的 required
 check 为 `gate`。
 
-下一阶段：常见图能力续批（docs/13 阶段 4，按 网络拓扑 / 架构图 → 跨职能 /
-泳道 → UML 时序 → UML 类图 / ER → BPMN 顺序；标准流程图与树形图族
-——脑图竖向 + 折叠 + 组织架构——已完成，Phase 4 可选增强见
-specs/tree-diagrams §13）→ 协同最后（docs/10，不进入默认启动路径）；
+下一阶段：常见图能力续批（docs/13 阶段 4，按 跨职能 / 泳道 → UML 时序 →
+UML 类图 / ER → BPMN 顺序；标准流程图、树形图族、网络拓扑 4.3 已完成，
+Phase 4 可选增强见 specs/tree-diagrams §13）→ 协同最后（docs/10，
+不进入默认启动路径）；
 1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
 
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
