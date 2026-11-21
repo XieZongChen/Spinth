@@ -304,8 +304,8 @@ setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
 当前实测基线：`pnpm verify` 通过；1381 单测（core 1264 + react 79 + app 38）；
 E2E 56 spec / 317 例（主配置 310 --list 实测：非 visual 301 = 299 通过 +
 2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 9；pwa 7 独立配置；
-全量实测 0 failed；符号控件 +13 例 symbol 9 + clipboardSymbol 1 + 生成器
-负向夹具等；网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
+全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
+网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
 多线/项目文件往返+PNG/只读；树形图族 19 例；flowchart 15 例；
 视觉 9/9 双平台（10 张基线含 network-sample 网络拓扑样本——4.3 交付）；
 图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard 12/12；

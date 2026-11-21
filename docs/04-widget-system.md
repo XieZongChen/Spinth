@@ -212,8 +212,8 @@ VmEngine.initialize():
   ≤64 字素，空串只画图标）、`color`（逐实例着色，缺省随主题墨色
   `resolveSymbolColor` 单源——图标与标签同色、写入即固定不随主题反转）、
   `groupId`；几何走独立 rect（SHAPE 同一扁平化路径）。
-- 两段几何（`symbolGeometry.ts` 单源）：图形区 + 恒 24 标签带（间距 4，
-  计入 bbox；命中/框选/对齐/导出按整 bbox）；默认 96×128；图标 contain
+- 两段几何（`symbolGeometry.ts` 单源）：图形区 + 恒 24 标签带（间距 2，
+  计入 bbox；命中/框选/对齐/导出按整 bbox）；默认 100×126；图标 contain
   适配不拉伸；锚点只贴图形区四边（`t∈[0,1]`），标签带不参与锚定。
 - 资产：`widgets/symbol/assets/*.svg` 自绘单色线稿（48 viewBox / 2px 描边 /
   currentColor），`scripts/build-symbol-glyphs.mjs` 构建期内联为

@@ -210,7 +210,7 @@ labelRect = {
 - 高度 < 26 时图形区高度 ≤ 0：**不画图标**，仅标签（标签带贴底）；高度 < 24 时标签带被压扁，
   **不画标签**（只剩空白框，仍可选中与缩放）。
   不额外加硬下限（缩放基座是通用 RectEditor，不为单一类型开特例）；编辑框仍可用。
-- 默认尺寸 96×128；拖拽创建沿用 `DRAG_TRACTION_SCREEN = 10` 屏幕 px 的单击 / 拖拽分界，
+- 默认尺寸 100×126；拖拽创建沿用 `DRAG_TRACTION_SCREEN = 10` 屏幕 px 的单击 / 拖拽分界，
   草稿钳制到 `SYMBOL_MIN_*`（与形状 / 便签同一基类语义）。
 
 ### 3.4 锚点
@@ -402,7 +402,7 @@ gradient / mask / transform / polyline / polygon`（一期不做变换与渐变�
 
 - `CursorMode` 增 `'symbol'`（公开联合类型增量；`setCursorMode` 的只读钳制自动覆盖）。
 - `SymbolService extends DragCreateServiceBase`：`scope = 'symbol'`，
-  `defaultSize = { width: 96, height: 128 }`，`minDraftSize = { width: 48, height: 56 }`。
+  `defaultSize = { width: 100, height: 126 }`，`minDraftSize = { width: 48, height: 56 }`。
 - 单击：默认尺寸、以按下点为中心、工具保持可连击（与形状一致）；拖拽：跟手草稿、
   松手选中并回选择工具；网格吸附经 `bindGridSnap` 接线（起止角量化）。
 - 创建写 `{ type: 'SYMBOL', symbol: 当前种类, label: '', zOrder, ...rect }`，一次事务。
@@ -495,7 +495,7 @@ root (pivot = 中心，applyRootTransform(x, y, w, h, 0))
 
 ### 9.1 单测
 
-- `symbolGeometry.test.ts`：默认 96×128 的图形区 / 标签带；h 缩小时图形区归零；
+- `symbolGeometry.test.ts`：默认 100×126 的图形区 / 标签带；h 缩小时图形区归零；
   contain 适配的留白；四边锚点在 `t = 0 / 0.5 / 1` 的坐标；标签带不参与锚点。
 - `symbolLabel.test.ts`：超宽标签截断到单行 + 省略号；加宽后恢复；空标签不渲染。
 - `symbolGlyphs.test.ts`：`SYMBOL_KINDS` 与 `SYMBOL_GLYPHS` 一一对应；
