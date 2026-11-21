@@ -114,15 +114,17 @@ referenceable / erasable`
 | TEXT      | —†   | ✓    | ✓    | ✓      | ✓      | —    |
 | STICKY    | —†   | ✓    | ✓    | ✓      | ✓      | —    |
 | IMAGE     | —†   | ✓    | ✓    | —      | ✓      | —    |
+| SYMBOL    | —    | ✓    | ✓    | ✓      | ✓      | —    |
 | LINE      | —    | ✓*   | —    | —      | —      | —    |
 | PEN       | —    | ✓    | ✓    | —      | —      | ✓    |
 | MIND_MAP  | —    | —    | —    | —      | —      | —    |
 | ORG_CHART | —    | —    | —    | —      | —      | —    |
 
 - LINE 类型级可组，锚定态由 `groupOps` 运行时判定。
-- † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。rect 四类支持
-  rotation 数据，入口暂时隐藏而置 false；渲染/命中/缩放/锚定等数据能力保留，
-  恢复 = 四类改回 true（docs/05 §8）。
+- † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。SHAPE/TEXT/
+  STICKY/IMAGE 四类支持 rotation 数据，入口暂时隐藏而置 false；渲染/命中/缩放/
+  锚定等数据能力保留，恢复 = 四类改回 true（docs/05 §8）。SYMBOL 无 rotation 字段、
+  能力位恒 false，不属于上述四类。
 
 ## 5. BaseVm / VmEngine
 
