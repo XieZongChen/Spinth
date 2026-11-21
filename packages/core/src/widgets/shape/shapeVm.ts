@@ -310,6 +310,13 @@ export class ShapeVm extends BaseWidgetVm<ShapeData & IRect> {
     return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
   }
 
+  /** 避障豁免（specs/network-diagram §5.2）：无填充（fill 'none'）= 只描边
+   *  的标注/区域框，不入 collectRouteObstacles；缺省/实填充 = 障碍。读
+   *  state 直判（undefined = 缺省填充），与 resolveShapeStyle 同口径 */
+  isRouteObstacle(): boolean {
+    return this.state.fill !== 'none';
+  }
+
   /** 手动缩放解除 autoHeight（docs/17 §6 四点拍板：参考惯例 + 既有设计同款）：
    *  宽/高任一被用户改变即关——此后形状高度恒用户控制（reflowHeight 闸门拦下）。
    *  仅平移（对齐/拖拽走 commitDrag）不解除。updateRect 与 update 背靠背两事务

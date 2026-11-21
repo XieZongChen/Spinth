@@ -443,6 +443,33 @@ describe('全局避障：第三方障碍只进穿模过滤', () => {
 });
 
 describe('collectRouteObstacles 收集（G-06 单源）', () => {
+  it('无填充 SHAPE 豁免（specs/network-diagram §5.2）：isRouteObstacle false 不入，缺省仍入', async () => {
+    const { collectRouteObstacles } = await import('../widgets/line/lineRoute');
+    const rect = (x: number, y: number, fillNone = false) => ({
+      id: `v${x}_${y}`,
+      type: 'SHAPE',
+      getHostGeom: () => ({ rect: { x, y, width: 40, height: 40 }, rotation: 0 }),
+      // 无该方法的桩（undefined 探针）= 缺省障碍；fillNone 桩显式豁免
+      ...(fillNone ? { isRouteObstacle: () => false } : {}),
+    });
+    const vms = [
+      rect(160, 0), // 缺省（实填充/无探针）——入
+      rect(240, 0, true), // 无填充标注框——不入
+      rect(320, 0, true), // 无填充区域框——不入
+      rect(400, 0), // 缺省——入
+    ];
+    const out = collectRouteObstacles(
+      { getVmsInRect: () => vms } as never,
+      { x: 200, y: 60 },
+      { x: 300, y: 60 },
+      'v1_1',
+      null,
+    );
+    expect(out).toHaveLength(2);
+    expect(out[0]).toEqual({ x: 160, y: 0, width: 40, height: 40 });
+    expect(out[1]).toEqual({ x: 400, y: 0, width: 40, height: 40 });
+  });
+
   it('排除两端节点/LINE/PEN，按距离升序、截断 MAX_OBSTACLES', async () => {
     const { collectRouteObstacles, MAX_OBSTACLES } = await import('../widgets/line/lineRoute');
     const rect = (

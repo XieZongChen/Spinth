@@ -78,8 +78,11 @@ routeElbow(start, startJoin, end, endJoin, startNode?, endNode?, obstacles?):
 ```
 
 - **全局避障**：`collectRouteObstacles`（lineRoute.ts 单源）取两端点外扩
-  `OBSTACLE_PAD=120` 包围盒内候选 → 排除 LINE/PEN 与两端节点 → 旋转件保守
-  外接（rotatedRectBounds）→ 按中心距升序取前 `MAX_OBSTACLES=32`。五路共用：
+  `OBSTACLE_PAD=120` 包围盒内候选 → 排除 LINE/PEN 与两端节点 →
+  **无填充 SHAPE 豁免**（`fill:'none'` 标注/区域框不入障碍，线从框上穿过
+  是预期——`IObstacleVmSource.isRouteObstacle?()` 可选探针，缺省视为障碍；
+  specs/network-diagram §5.2）→ 旋转件保守外接（rotatedRectBounds）→
+  按中心距升序取前 `MAX_OBSTACLES=32`。五路共用：
   reattach / previewFollow / rerouteLine / 拉线预览 / 端点拖拽；pinned 分支
   不避障（用户手滑优先）。dev 探针 `lastRouteObstacles` 记录最近一次集合。
 - 同向对开（top→top 等）中线必须钳制到两侧走廊点之外，避免重影路由。

@@ -301,6 +301,10 @@ interface IObstacleVmSource {
     id: string;
     type: string;
     getHostGeom(): { rect: IRect; rotation: number };
+    /** 避障豁免探针（specs/network-diagram §5.2）：false = 不入障碍集合
+     *  （无填充标注/区域框）；缺省 = 视为障碍。读 vm state，不碰 model
+     *  投影——本函数在拖拽/重排热路径按线×候选逐帧调用 */
+    isRouteObstacle?(): boolean;
   }>;
 }
 
@@ -331,6 +335,9 @@ export function collectRouteObstacles(
   for (const vm of vmEngine.getVmsInRect(box)) {
     if (vm.type === 'LINE' || vm.type === 'PEN') continue;
     if (vm.id === startId || vm.id === endId) continue;
+    // 无填充 SHAPE 豁免（specs/network-diagram §5.2）：只描边无遮挡实体，
+    // 线从标注/区域框上穿过比绕行更符合直觉；缺省（无该探针）视为障碍
+    if (vm.isRouteObstacle?.() === false) continue;
     const g = vm.getHostGeom();
     const rect = rotatedRectBounds(g.rect, g.rotation);
     cands.push({
