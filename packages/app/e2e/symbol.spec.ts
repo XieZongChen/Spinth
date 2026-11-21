@@ -186,9 +186,13 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
 
   await page.keyboard.press('l');
   await expect.poll(() => cursorMode(page)).toBe('line');
-  await page.mouse.move(348, 364 + TOP_BAR); // A 中心 (348,364)
+  // 起止点从 vm 几何现算（A/B 图形区中心——硬编码坐标随默认尺寸漂移过两次）
+  const centers = await symbols(page);
+  const ca = { x: centers[0]!.x + centers[0]!.width / 2, y: centers[0]!.y + 50 };
+  const cb = { x: centers[1]!.x + centers[1]!.width / 2, y: centers[1]!.y + 50 };
+  await page.mouse.move(ca.x, ca.y + TOP_BAR);
   await page.mouse.down();
-  await page.mouse.move(648, 364 + TOP_BAR, { steps: 10 });
+  await page.mouse.move(cb.x, cb.y + TOP_BAR, { steps: 10 });
   await page.mouse.up();
   await expect.poll(async () => (await probe(page)).line !== null).toBe(true);
   // 端点在图形区矩形边界上（四边之一）且不在图形区外（含标签带）
@@ -210,9 +214,9 @@ test('S-5 连线端点吸附图形区边（不进标签带），移动符号线�
 
   // 移动 B：线跟随（端点随 B 新几何重锚，仍贴图形区边）
   await page.keyboard.press('v');
-  await page.mouse.move(648, 364 + TOP_BAR);
+  await page.mouse.move(cb.x, cb.y + TOP_BAR);
   await page.mouse.down();
-  await page.mouse.move(748, 264 + TOP_BAR, { steps: 8 });
+  await page.mouse.move(cb.x + 100, cb.y - 100 + TOP_BAR, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(300);
   const bAfter = (await symbols(page)).find((s) => s.id === b.id)!;

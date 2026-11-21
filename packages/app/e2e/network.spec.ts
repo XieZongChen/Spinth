@@ -295,7 +295,7 @@ test('N-3 锚点：从设备底边拉线——起点贴 A 图形区底（≠bbox
   const end = line.points[line.points.length - 1]!;
   // 起点贴 A 图形区底边（y = 237 + 100 = 337），不是 bbox 底（363）
   expect(Math.abs(start[1] - 337)).toBeLessThan(1.5);
-  expect(Math.abs(start[1] - 364)).toBeGreaterThan(20);
+  expect(Math.abs(start[1] - 363)).toBeGreaterThan(20);
   // 端点在 B 图形区四边之一、不进标签带（symbol S-5 口径）
   const b = (await symbolsOf(page)).find((s) => s.id === 'n3b')!;
   expect(onGlyphEdge(b, end)).toBe(true);
