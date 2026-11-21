@@ -13,10 +13,10 @@
 
 ## 2. 当前基线
 
-- 单测：1380 passed（core 1263 + react 79 + app 38）。符号控件 +45
+- 单测：1381 passed（core 1264 + react 79 + app 38）。符号控件 +46
   （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 5 / symbolEdit 8 /
   symbolColor 5 / symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget
-  §9.1）。
+  §9.1；避障豁免 +1 lineRoute，specs/network-diagram §5.2）。
 - E2E：56 个 spec（主配置 55 + pwa 1）、317 例 = 主配置 310（--list 实测，
   含 @visual 9）+ pwa 7。非 visual 全量 301 = 299 通过 + 2 跳过（旋转手柄
   用例暂跳，specs/rotate-hide）——实测 0 failed。树形图族 +19 例
@@ -27,7 +27,7 @@
   310 − @visual 9 − @timing/@bench 5 = fast 296 + pwa 7 = CI gate 303；
   四层全量 317（gate 303 + nightly @visual 9 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
-- 视觉：7/7（darwin 系统 Chrome / linux 容器 Chromium，双平台基线 10 张齐全
+- 视觉：9/9（主配置 @visual 9 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 10 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；
   flowchart-sample 为流程图收口样本，specs/flowchart-closeout；
   network-sample 为网络拓扑样本，specs/network-diagram §12.2）。

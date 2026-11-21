@@ -1,9 +1,9 @@
 # 网络拓扑 / 架构图（Network Topology / Architecture）功能规格
 
-> 状态：**底座已落地，剩余图种实施**。本文件是 docs/13 阶段 4「常见图能力」第 3 项；
-> 前置底座 SYMBOL 控件已按 `specs/symbol-widget.md` 全量交付（13 图标 / 两段几何 /
-> 标签编辑 / 逐实例着色 / 工具入口 / E2E 绿，4.7 BPMN 复用）。本文剩余：区域近似、
-> 避障豁免前置改、网络样本、N-1..N-11 与视觉基线。
+> 状态：**已完成（2026-11-21）**。本文件是 docs/13 阶段 4「常见图能力」第 3 项；
+> 前置底座 SYMBOL 控件按 `specs/symbol-widget.md` 全量交付（4.7 BPMN 复用）。
+> 本项交付：无填充避障豁免（§5.2）、区域近似、网络样本、network.spec N-1..N-11、
+> `network-sample` 双平台基线（`--stability` 双跑全等）、连线侧向进出口径。
 >
 > 已拍板（用户决策，不再重开）：
 >
@@ -326,15 +326,18 @@ FRAME 控件到位后，区域 = FRAME（标题 / 背景 / 子元素归属 / 裁
 - `pnpm verify` 全绿；`pnpm test:e2e`（含新 spec）全绿；视觉基线入库并由
   `check-visual-baselines` 守护。
 
-## 13. 实施顺序
+## 13. 实施记录（已完成）
 
-1. **前置小改**：`collectRouteObstacles` 跳过无填充 SHAPE + 单测（本项唯一 core 改动；
-   实现契约见 §5.2，独立可回退）；
-2. **网络样本**：区域写法、10 设备布局、链路与标签；
-3. **E2E / 视觉**：N-1..N-11、`network-sample` 双平台基线；
-4. **docs 同步**：docs/04（控件表 / 符号一节）、docs/05（选择与拖拽基线）、docs/07（标签）、
-   docs/08（避障口径）、docs/09（快捷键 N）、docs/12（工具坞）、docs/15（计数）、
-   docs/17（编辑 profile）、docs/19 / docs/20（项目文件无资产）、docs/13（4.3 完成）。
+1. **前置小改**（`aa128cf`）：`collectRouteObstacles` 跳过无填充 SHAPE
+   （`IObstacleVmSource.isRouteObstacle?()` 探针，实现契约见 §5.2）+ 单测；
+2. **E2E**（`ccf5954`/`d994d44`）：network.spec N-1..N-11 全绿（连拉线态残留用
+   v→l 清态；Esc=保存退出语义勘误）；
+3. **网络样本与视觉**（`41eb755` + 审查返工 `ec3efba`）：10 设备 + 云区域 +
+   正交链路 + 线上标签；连线侧向进出（edgePoints 偏移——中心拉线
+   nearestJoin 恒落 top 绕行穿标题）；双平台基线 `--stability` 全等；
+   darwin theme 双态基线强制重生成（符号按钮入镜的双平台漂移，`b5b17e9`）；
+   标签-图标间距 8→4（用户实测反馈，`ec54d10`，specs/symbol-widget §3 勘误）；
+4. **docs 同步**（`5a2d5ac` 等）：docs/08 避障口径、docs/15 计数、docs/13 完成。
 
 ## 14. 风险与挂账
 
