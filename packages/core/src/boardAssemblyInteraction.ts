@@ -137,6 +137,9 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.selector.onActivate = (id, type, world) => {
     if (type === 'TEXT' || type === 'STICKY' || type === 'SHAPE' || type === 'SYMBOL')
       sdk.textService?.enterEdit(id);
+    // 容器：再点一次已选中（点标题带）→ 进标题 plain 编辑
+    //（specs/container-frame §4.10——不走 TYPES_WHERE('editable') 富文本通道）
+    else if (type === 'FRAME') sdk.frame?.enterTitleEdit(id);
     // 脑图：再点一次已选中 → 按点击位置命中节点进节点编辑（既有设计同款）
     else if (isTreeWidgetType(type) && world) sdk.treeService?.enterNodeEditAt(id, world);
   };

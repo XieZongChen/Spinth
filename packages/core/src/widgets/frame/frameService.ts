@@ -18,6 +18,7 @@ import {
   mergeFramesIntoSelection,
   resolveParentUpdate,
 } from './frameOps';
+import { FrameTitleEditor } from './frameTitleEditor';
 
 /** model.toJSON() 的宽松读取形状（几何摊平 + 归属/锚定字段；Record 兜其余键） */
 type FrameWidgetSnapshot = {
@@ -50,6 +51,8 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
   /** 基类 history/selector 是 private——本类命令路径要直用，显式持引用 */
   private readonly historyRef: IHistoryService;
   private readonly selectorRef: ISelectorService;
+  /** 标题编辑协作者（§4.10，treeNodeEditor 同款拆分） */
+  private readonly titleEditor: FrameTitleEditor | null;
 
   /** 基类构造是 protected（模板基类不直接实例化）——子类显式公开（SymbolService 同款） */
   constructor(
@@ -63,6 +66,7 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     super(viewport, engine, history, selector);
     this.historyRef = history;
     this.selectorRef = selector;
+    this.titleEditor = new FrameTitleEditor(viewport, engine, vmEngine, history, editingService);
   }
 
   override initialize(): void {
@@ -257,6 +261,12 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
       const d = this.widgetData(id);
       return d !== undefined && d.parentId !== undefined;
     });
+  }
+
+  /** 标题编辑入口（§4.10：单击已选中容器经 onActivate 分派至此；只读早退在
+   *  协作者内）。editor 未组装（editingService null）时静默 no-op */
+  enterTitleEdit(id: string): boolean {
+    return this.titleEditor?.enterTitleEdit(id) ?? false;
   }
 
   // ---------- 读取工具 ----------
