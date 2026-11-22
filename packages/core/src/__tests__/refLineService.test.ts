@@ -30,7 +30,11 @@ function createService(stubVms: StubVm[], selected: string[] = []) {
     vpScale$,
     vpBounds$,
   };
-  const selector = { selected$: new BehaviorSubject<string[]>(selected) };
+  const selector = {
+    selected$: new BehaviorSubject<string[]>(selected),
+    /** 拖拽预览集（specs/container-frame §4.4 排除面；测试可改写） */
+    previewIds: [] as readonly string[],
+  };
   const engine = {
     onModelCreated$: new Subject<IBaseModel>(),
     onModelRemoved$: new Subject<string[]>(),
@@ -57,12 +61,14 @@ function createService(stubVms: StubVm[], selected: string[] = []) {
     engine as never,
   );
   svc.initialize();
-  return svc;
+  return { svc, selector };
 }
 
 /** 参照物在 (100,100) 50×50；拖拽矩形从 (0,0) 50×50 位移 dx=96 → 左边 96 vs 参照左边 100，阈值内应吸附到 100 */
 function snappedDxFor(type: string): number | null {
-  const svc = createService([{ id: 'ref', type, rect: { x: 100, y: 100, width: 50, height: 50 } }]);
+  const { svc } = createService([
+    { id: 'ref', type, rect: { x: 100, y: 100, width: 50, height: 50 } },
+  ]);
   const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
   svc.dispose();
   return r.matchedV.length > 0 ? r.dx : null;
@@ -70,7 +76,7 @@ function snappedDxFor(type: string): number | null {
 
 describe('refLineService 深缩放保护（A2，docs/06 §3）', () => {
   it('zoom 8x（阈值 0.75 < 1 世界单位）跳过吸附', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
     ]);
     // stub vpScale$ 初始 1 → 先切 8
@@ -86,7 +92,7 @@ describe('refLineService 深缩放保护（A2，docs/06 §3）', () => {
 
 describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
   it('engage → 过线拉回 → 越阈释放；hideMatches 后新拖拽不回吸（A3 保持）', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'ref', type: 'SHAPE', rect: { x: 300, y: 300, width: 100, height: 50 } },
     ]);
     const rect = { x: 0, y: 0, width: 50, height: 50 };
@@ -106,7 +112,7 @@ describe('refLineService 粘滞生命周期（docs/06 §3）', () => {
   });
 
   it('深缩放跳过吸附时清粘滞', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'ref', type: 'SHAPE', rect: { x: 300, y: 300, width: 100, height: 50 } },
     ]);
     const rect = { x: 0, y: 0, width: 50, height: 50 };
@@ -135,7 +141,7 @@ describe('refLineService 对齐/等距同轴竞争（docs/06 §7 偏差最小者
   }
 
   it('等距偏差更小：等距胜（对齐不再无条件截胡）', () => {
-    const svc = competingService();
+    const { svc } = competingService();
     // dx=7 → A 右缘 349 距 M 左缘 355 为 6（对齐偏差 6）；等距解偏差 1
     const r = svc.snapForDrag({ x: 292, y: 100, width: 50, height: 50 }, 7, 0);
     svc.dispose();
@@ -145,7 +151,7 @@ describe('refLineService 对齐/等距同轴竞争（docs/06 §7 偏差最小者
   });
 
   it('对齐偏差更小：对齐胜', () => {
-    const svc = competingService();
+    const { svc } = competingService();
     // dx=12.8 → A 右缘 354.8 距 M 左缘 355 为 0.2（对齐偏差 0.2）；等距解偏差 4.8
     const r = svc.snapForDrag({ x: 292, y: 100, width: 50, height: 50 }, 12.8, 0);
     svc.dispose();
@@ -159,7 +165,7 @@ describe('refLineService 端部链式等距（docs/06 §7）', () => {
   beforeAll(stubPixiCanvasDocument); // 链式命中画徽标（PIXI Text 测量）
 
   it('拖一排左端件：与最近邻间隙吸附到「最近邻与次邻间隙」，探针两段等值', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'A', type: 'SHAPE', rect: { x: 100, y: 100, width: 100, height: 100 } },
       { id: 'B', type: 'SHAPE', rect: { x: 300, y: 100, width: 100, height: 100 } },
       { id: 'C', type: 'SHAPE', rect: { x: 500, y: 100, width: 100, height: 100 } },
@@ -184,7 +190,7 @@ describe('refLineService 参照物类型矩阵', () => {
   });
 
   it('选中集从参照物中剔除', () => {
-    const svc = createService(
+    const { svc } = createService(
       [{ id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } }],
       ['ref'],
     );
@@ -195,7 +201,7 @@ describe('refLineService 参照物类型矩阵', () => {
   });
 
   it('视口外的参照物不参与', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'far', type: 'STICKY', rect: { x: 5000, y: 5000, width: 50, height: 50 } },
     ]);
     const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
@@ -210,7 +216,7 @@ describe('refLineService 等间距让位标记（specs/flowchart-closeout §9.2�
   it('等间距命中轴：matchedV 空但 spacingV=true——网格量化凭此让位', () => {
     // 两参照 x=0/150（50 宽，间隙 100）；拖拽矩形 60 拖 dx=15 → x=75，
     // 两侧间隙各 25 等距（偏差 0）——纯等距解、无对齐线
-    const svc = createService([
+    const { svc } = createService([
       { id: 'a', type: 'SHAPE', rect: { x: 0, y: 100, width: 50, height: 50 } },
       { id: 'b', type: 'SHAPE', rect: { x: 150, y: 100, width: 50, height: 50 } },
     ]);
@@ -223,12 +229,38 @@ describe('refLineService 等间距让位标记（specs/flowchart-closeout §9.2�
   });
 
   it('纯对齐命中：spacingV 不置位（网格量化路径不受扰）', () => {
-    const svc = createService([
+    const { svc } = createService([
       { id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
     ]);
     const r = svc.snapForDrag({ x: 0, y: 0, width: 50, height: 50 }, 96, 0);
     svc.dispose();
     expect(r.matchedV.length).toBeGreaterThan(0);
     expect(r.spacingV ?? false).toBe(false);
+  });
+});
+
+describe('参照物排除面 = selected$ ∪ previewIds（specs/container-frame §4.4）', () => {
+  it('拖容器时子元素不在选区却在预览集——不进参照物（容器不吸自己的子元素）', () => {
+    const { svc, selector } = createService([
+      { id: 'c1', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+      { id: 'z9', type: 'SHAPE', rect: { x: 300, y: 100, width: 50, height: 50 } },
+    ]);
+    // 拖容器 f1（选中 ['f1']）、子元素 c1 被携带（previewIds 含展开集）
+    selector.selected$.next(['f1']);
+    (selector as unknown as { previewIds: readonly string[] }).previewIds = ['f1', 'c1'];
+    // 拖拽矩形从 (0,100) 位移 dx=96：若 c1 是参照物会吸到 x=100
+    const r = svc.snapForDrag({ x: 0, y: 100, width: 50, height: 50 }, 96, 0);
+    svc.dispose();
+    expect(r.matchedV).toHaveLength(0); // c1 被排除——无吸附
+    expect(r.dx).toBe(96);
+
+    // 对照：无预览集时 c1 照常是参照物（回归确认排除面只扩未缩）
+    const svc2 = createService([
+      { id: 'c1', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+    ]);
+    const r2 = svc2.svc.snapForDrag({ x: 0, y: 100, width: 50, height: 50 }, 96, 0);
+    svc2.svc.dispose();
+    expect(r2.matchedV.length).toBeGreaterThan(0);
+    expect(r2.dx).toBe(100);
   });
 });

@@ -226,7 +226,50 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
   });
 });
 
-describe('clampFrame / detachSelection（I3/§5.3）', () => {
+describe('clampFrame / computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
+  it('computeLayerClamps：变更后表中容器在子之上 → 返回钳制写入（多容器顺序）', () => {
+    const env = makeEnv([
+      W('x', 'SHAPE', 'a0', [0, 0, 10, 10]),
+      W('c1', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }),
+      W('c2', 'SHAPE', 'a2', [10, 10, 50, 50], { parentId: 'f2' }),
+      W('f1', 'FRAME', 'a3', [0, 0, 300, 300]),
+      W('f2', 'FRAME', 'a4', [500, 0, 300, 300]),
+    ]);
+    // 图层「置顶 f1/f2」后的变更后表：两容器都被抬到全部子之上
+    // （fractional-indexing 合法键：generateKeyBetween 序列）
+    const gk = (prev: string) => {
+      // 生成 prev 之后的合法键（顺序单调即可——本测试只需字典序语义）
+      return prev + '5';
+    };
+    const f1Top = gk('a2'); // > a2
+    const f2Top = gk(f1Top); // > f1Top
+    const post = [
+      { id: 'x', zOrder: 'a0' },
+      { id: 'c1', zOrder: 'a1' },
+      { id: 'c2', zOrder: 'a2' },
+      { id: 'f1', zOrder: f1Top },
+      { id: 'f2', zOrder: f2Top },
+    ];
+    const clamps = env.svc.computeLayerClamps(post);
+    const byId = new Map(clamps.map((c) => [c.id, c.zOrder]));
+    expect(byId.get('f1')).toBeDefined();
+    expect(byId.get('f1')! < 'a1').toBe(true); // f1 压回 c1 之下
+    expect(byId.get('f2')).toBeDefined();
+    expect(byId.get('f2')! < 'a2').toBe(true); // f2 压回 c2 之下
+  });
+
+  it('computeLayerClamps：无需钳制返回空数组', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('c1', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }),
+    ]);
+    expect(
+      env.svc.computeLayerClamps([
+        { id: 'f1', zOrder: 'a0' },
+        { id: 'c1', zOrder: 'a1' },
+      ]),
+    ).toEqual([]);
+  });
   it('clampFrame：容器 key 在子之上时钳回子之下并 stopCapturing', () => {
     const env = makeEnv([
       W('c1', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }),

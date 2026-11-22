@@ -177,6 +177,26 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     this.historyRef.stopCapturing();
   }
 
+  /** 图层命令的容器额外钳制（§4.8）：post = 调用方叠加 delta 后的 zOrder 表；
+   *  多容器顺序钳制（前一容器的落位进表再算下一个，防同区间 key 冲突）。
+   *  平台层（layerService）经 IFrameLookup 消费——platform 不 import widgets */
+  computeLayerClamps(
+    post: ReadonlyArray<{ id: string; zOrder: string }>,
+  ): Array<{ id: string; zOrder: string }> {
+    const table = new Map(post.map((p) => [p.id, p.zOrder] as const));
+    const out: Array<{ id: string; zOrder: string }> = [];
+    for (const vm of this.vmEngine.getAllVms()) {
+      if (vm.type !== 'FRAME') continue;
+      const items = [...table].map(([id, zOrder]) => ({ id, zOrder }));
+      const key = clampFrameZOrder(items, vm.id, this.childIds(vm.id));
+      if (key !== null) {
+        out.push({ id: vm.id, zOrder: key });
+        table.set(vm.id, key);
+      }
+    }
+    return out;
+  }
+
   /** 右键「移出容器」（§5.3）：选中集里有 parentId 的全部清父，单事务一步 undo */
   detachSelection(): void {
     if (!this.viewport.editable$.value) return;

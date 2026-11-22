@@ -91,7 +91,14 @@ export function assembleInteraction(sdk: BoardSDK): void {
     sdk.refLine!,
   );
   sdk.rectEditor.initialize();
-  sdk.layer = new LayerService(sdk.engine!, sdk.vmEngine!, sdk.selector!, sdk.history!);
+  sdk.layer = new LayerService(
+    sdk.engine!,
+    sdk.vmEngine!,
+    sdk.selector!,
+    sdk.history!,
+    // 容器钳制惰性解环（specs/container-frame §4.8）：sdk.frame 后构造
+    () => sdk.frame,
+  );
   // 统一编辑会话（docs/17 批 1：TEXT/STICKY 先接入；LINE 批 2、mind 批 3）
   sdk.editingService = new EditingService(sdk.viewport!, sdk.engine!, sdk.selector!, sdk.history!);
   // 编辑会话闸门（specs/edge-auto-scroll S7）：进会话即停滚屏（订阅随服务

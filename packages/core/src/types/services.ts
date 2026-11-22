@@ -228,6 +228,14 @@ export interface IFrameLookup {
    *  （I6：归属写与触发操作同一事务）；rectOf 事务内不许读 vm（§6.6-1——
    *  state 是微任务合批旧值，必须算术或 model.toJSON()） */
   reconcileParents(ids: string[], rectOf: (id: string) => IRect): void;
+  /** 图层命令落地前的容器钳制（specs/container-frame §4.8）：输入「变更后
+   *  zOrder 表」（调用方对 delta 算术叠加），返回容器需要的额外 zOrder 写入
+   *  （可能为空，多容器顺序钳制防 key 冲突）。平台层（layerService）经本
+   *  接口消费——不得 import widgets/frame（platform → widgets 零先例） */
+  computeLayerClamps(post: ReadonlyArray<{ id: string; zOrder: string }>): Array<{
+    id: string;
+    zOrder: string;
+  }>;
 }
 
 export interface ISelectorService {

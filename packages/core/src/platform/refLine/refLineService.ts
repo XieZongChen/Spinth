@@ -170,7 +170,11 @@ export class RefLineService extends Disposable {
     if (!this.dirty) return;
     this.dirty = false;
     const bounds = this.viewport.vpBounds$.value;
-    const selected = new Set(this.getSelector().selected$.value);
+    // 排除面 = 选中集 ∪ 拖拽预览集（specs/container-frame §4.4）：拖容器时
+    // 子元素不在选区却跟着动——只排 selected$ 会把它们当参照物，容器吸到
+    // 自己的子元素上。previewIds 在拖拽期间恒为展开集（框选/脑图恒空数组）
+    const sel = this.getSelector();
+    const selected = new Set<string>([...sel.selected$.value, ...(sel.previewIds ?? [])]);
     const rects: IRect[] = [];
     for (const vm of this.vmEngine.getVmsInRect(bounds)) {
       if (selected.has(vm.id)) continue;

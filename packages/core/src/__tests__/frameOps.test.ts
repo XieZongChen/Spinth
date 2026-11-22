@@ -125,6 +125,7 @@ describe('expandContainers 去重保序（§4.4/§6.6-7）', () => {
     childIds: (fid) => children[fid] ?? [],
     expandForCascade: (ids) => ids,
     reconcileParents: () => {},
+    computeLayerClamps: () => [],
   });
 
   it('容器 → 并入全部子元素；重复 id 去重；插入序保持', () => {
