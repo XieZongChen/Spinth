@@ -95,19 +95,7 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
 - 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。
 - 树节点拖拽走独立通道（kind 落点策略 + 落点预览，docs/11/22）。
 
-#### 4.3a 容器拖拽带子（specs/container-frame §4.4）
-
-- 拖拽会话 ids = 容器级联展开后全集（容器 + 全部存活子元素，Set 去重保序），
-  预览/落库/取消作用于全集；`selectedIds` 保持展开前选区（归属判定只对
-  用户选中的件判父，被携带的子元素不参与改判）。
-- 落库同一 transact 内跑归属三态判定（全含→设父/相交→保持/完全离开→清父，
-  specs §2.4；世界 AABB 判据，中心点不作数）；rectOf 全算术或 model 读
-  （事务内 vm state 是微任务合批旧值——§6.6 陷阱）。
-- 删除/复制/剪切同款展开（连子删/带子复制）；缩放只写容器 rect，子元素
-  不缩放不挪位；参考线参照物排除面 = `selected$ ∪ previewIds`
-  （拖容器时子元素不在选区却跟着动）。
-
-## 4.4 交互几何 per-type 契约
+### 4.4 交互几何 per-type 契约
 
 拖拽/缩放的「视觉预览 + 松手落库」是 `IBaseWidgetVm` 的四个可覆写方法；
 selector/rectEditor 禁止直接改 root 或 `updateRect`。
@@ -165,6 +153,18 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 - 实现位置：`platform/viewport/edgeScrollMath.ts`（纯函数）+
   `edgeAutoScrollService.ts`（帧循环，独占 rAF）；`SelectorService` 仅在
   move/up/cancel 处上报指针位置与起停。
+
+### 4.6 容器拖拽带子（specs/container-frame §4.4）
+
+- 拖拽会话 ids = 容器级联展开后全集（容器 + 全部存活子元素，Set 去重保序），
+  预览/落库/取消作用于全集；`selectedIds` 保持展开前选区（归属判定只对
+  用户选中的件判父，被携带的子元素不参与改判）。
+- 落库同一 transact 内跑归属三态判定（全含→设父/相交→保持/完全离开→清父，
+  specs §2.4；世界 AABB 判据，中心点不作数）；rectOf 全算术或 model 读
+  （事务内 vm state 是微任务合批旧值——§6.6 陷阱）。
+- 删除/复制/剪切同款展开（连子删/带子复制）；缩放只写容器 rect，子元素
+  不缩放不挪位；参考线参照物排除面 = `selected$ ∪ previewIds`
+  （拖容器时子元素不在选区却跟着动）。
 
 ## 5. 高频合并策略
 

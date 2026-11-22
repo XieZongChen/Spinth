@@ -873,3 +873,21 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
 - ⑧ **E2E 桩口径**：engine.add 不生成 id（data.id 直用）——页内生成；不包
   外层 transact（外层事务内创建后紧接的归属写对 mid-transaction 挂上的 vm
   观察者不可见，vm.state 丢 parentId——生产路径无此外来事务）。
+
+**审查返工（2026-11-22 第二轮审查，全部收口 fdfaea0..6156ba3）**
+
+- P1：归属写入后未钳制 zOrder（I3 拖入路径缺位——先有内容后画泳道再拖入时
+  白底盖住子元素）。修法：`reconcileOne` 设父分支同事务内联 `clampFrameInTx`
+  （不走 `clampFrame()`——它自开事务 + stopCapturing 会裂 undo 项）；单测先红
+  后绿 + C-10 补 zOrder 断言与拖入钳制场景。
+- C-7 缺失补齐（缩放手柄外扩 → 子 rect 逐值不变）；darwin theme 双态基线
+  陈旧（工具坞 10 钮）删文件强制重生成（2% 容差会吞掉少一个按钮的漂移）。
+- I2 口径改「运行时排除」（写侧拒绝 + 读取侧过滤；转锚定不清字段——stale
+  parentId 惰性），`detachSelection`/`canDetachSelection` 同款拒绝锚定线。
+- 400 行：boardActionBar 435 → 383（FRAME 五项抽 `frameActionBar.ts`）；
+  selectorService 432 → 398（树按下门 `selectorTreeGate.ts`、框选闭包构建
+  `buildFrameMarqueeFilter`、选区框同步 `syncSelectionFrame` 三刀拆出，逻辑
+  逐字搬移零行为漂移——60 项 selector/mind 单测全绿）。
+- 文档订正：AGENTS 计数（1468 单测 / 57 spec 331 例）与「八条解读」、
+  docs/05 标题层级（4.4 复位 h3、容器拖拽带子改挂 §4.6）、docs/15 明细账
+  （clipboardFrame 4 + selectorMarquee +1）。

@@ -302,7 +302,7 @@ golden 布局夹具）；折叠（collapsed 入文档、ActionBar/Cmd+. 徽标�
 setTreeOrientation（旧 mind 名称全保留，68→71 成员）。
 
 容器 / Frame 底座已落地（docs/13 阶段 4.4 容器底座，specs/container-frame，
-含实施记录与四处解读回填 §16）：FRAME 控件（标题带 + 背景 + 边框；命中 =
+含实施记录与八条解读回填 §16）：FRAME 控件（标题带 + 背景 + 边框；命中 =
 标题带 ∪ 边框环，边框环屏幕 px 折算 8/vpScale 上限 32——内部空白不命中）；
 子元素 `parentId` 归属（自由七类 optional 字段，锚定线运行时排除；判据世界
 AABB 三态带滞回：全含设父/相交保持/完全离开清父，FrameService 唯一写入口
@@ -319,15 +319,20 @@ selectedIds 单独保持，归属只判用户选中件）；缩放不缩放子�
 E2E container.spec C-1..C-13 + 视觉 container-sample 双平台基线
 （--stability 11 张逐字节全等）；老文档零迁移、老客户端开新文档 FRAME 隔离
 
-- parentId 未知键保留。
+- parentId 未知键保留。审查返工已收口：归属写入同事务钳制容器 zOrder（拖入
+  路径 I3 补全 + C-7/C-10 补强 + darwin theme 基线强制重生成 + I2 口径改
+  「运行时排除」+ ActionBar/selector 拆分全部 <400 行，specs/container-frame §16）。
 
-当前实测基线：`pnpm verify` 通过；1382 单测（core 1265 + react 79 + app 38）；
-E2E 56 spec / 317 例（主配置 310 --list 实测：非 visual 301 = 299 通过 +
-2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 9；pwa 7 独立配置；
+当前实测基线：`pnpm verify` 通过；1468 单测（core 1351 + react 79 + app 38）；
+E2E 57 spec / 331 例（主配置 324 --list 实测：非 visual 312 = 310 通过 +
+2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 10；pwa 7 独立配置；
 全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
 网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
-多线/项目文件往返+PNG/只读；树形图族 19 例；flowchart 15 例；
-视觉 9/9 双平台（10 张基线含 network-sample 网络拓扑样本——4.3 交付）；
+多线/项目文件往返+PNG/只读；容器底座 +13 例 container.spec C-1..C-13 +
+单测 +86（specs/container-frame §8）；树形图族 19 例；flowchart 15 例；
+视觉 10/10 双平台（11 张基线含 network-sample 网络拓扑样本——4.3 交付、
+container-sample 三泳道样本——4.4 交付；darwin theme 双态随工具坞容器钮
+重生成）；
 图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard 12/12；
 a11yLayout 10/10；textScale 6/6；touchPen 3/3；debugSurface 3/3；
 pwa 7/7 含 P7 零探针 + dev 不注册 1）。

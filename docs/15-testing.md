@@ -13,24 +13,25 @@
 
 ## 2. 当前基线
 
-- 单测：1465 passed（core 1348 + react 79 + app 38）。容器控件 +83
+- 单测：1468 passed（core 1351 + react 79 + app 38）。容器控件 +86
   （frameGeometry 15 / frameSchema 5 / frameVmRender 8 / frameOps 19 /
-  frameService 13 / frameTitleEditor 7 / clipboardFrame 5 / shapeContrast +2 /
-  selectorDrag +5 / alignCommand +3 / refLineService +1，
-  specs/container-frame §8.1）。符号控件 +46（symbolGeometry 16 /
+  frameService 16 / frameTitleEditor 7 / clipboardFrame 4 / shapeContrast +2 /
+  selectorDrag +5 / alignCommand +3 / refLineService +1 / selectorMarquee +1，
+  specs/container-frame §8.1 与审查返工）。符号控件 +46（symbolGeometry 16 /
   symbolSchema 5 / symbolGlyphs 6 / symbolEdit 8 / symbolColor 5 /
   symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget §9.1；
   避障豁免 +1 lineRoute，specs/network-diagram §5.2）。
-- E2E：57 个 spec（主配置 56 + pwa 1）、330 例 = 主配置 323（--list 实测，
-  含 @visual 10）+ pwa 7。非 visual 全量 313 = 311 通过 + 2 跳过（旋转手柄
+- E2E：57 个 spec（主配置 56 + pwa 1）、331 例 = 主配置 324（--list 实测，
+  含 @visual 10）+ pwa 7。非 visual 全量 314 = 312 通过 + 2 跳过（旋转手柄
   用例暂跳，specs/rotate-hide）——实测 0 failed。容器控件 +13 例
-  （container.spec C-1..C-13，specs/container-frame §8.2）；树形图族 +19 例
+  （container.spec C-1..C-13——C-7 缩放不缩放子与 C-10 zOrder 断言为审查
+  返工补强，specs/container-frame §8.2）；树形图族 +19 例
   （treeCollapse 6 / mindVertical 3 / treeTool 5 / orgChart 4 / debugSurface
   +1 公开面 71，specs/tree-diagrams §14.2）；符号控件 +9 例
   （symbol.spec S-1..S-9，specs/symbol-widget §9.2）；网络拓扑 +11 例
   （network.spec N-1..N-11，specs/network-diagram §12.1）。分层对账 = 主配置
-  323 − @visual 10 − @timing/@bench 5 = fast 308 + pwa 7 = CI gate 315；
-  四层全量 330（gate 315 + nightly @visual 10 + @timing/@bench 5）；
+  324 − @visual 10 − @timing/@bench 5 = fast 309 + pwa 7 = CI gate 316；
+  四层全量 331（gate 316 + nightly @visual 10 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：10/10（主配置 @visual 10 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 11 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；
