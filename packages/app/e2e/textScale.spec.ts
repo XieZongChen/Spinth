@@ -205,10 +205,11 @@ test('T5 200% 键盘打开：Shift+F10 不滚屏、焦点在菜单、Esc 归还 
   await expect(stage).toBeFocused();
 });
 
-test('T6 200% 元素菜单：6 项菜单实测 432×468、行不重叠、在视口内', async ({ page }) => {
+test('T6 200% 元素菜单：7 项菜单实测 432×536、行不重叠、在视口内', async ({ page }) => {
   await openBoard(page, `e2e-ts6-${Date.now()}`);
   await setRootFontSize(page, 32);
-  // 选中态 → Shift+F10 开元素菜单（最长菜单：6 项 + 2 分隔，实测尺寸 236→468 修正最大）
+  // 选中态 → Shift+F10 开元素菜单（最长菜单：7 项 + 2 分隔——容器批加「移出容器」，
+  // specs/container-frame §5.3；实测尺寸 236→468→536 修正最大）
   await drawShape(page);
   await page.locator('#stage-container').focus();
   await page.keyboard.press('Shift+F10');
@@ -216,11 +217,11 @@ test('T6 200% 元素菜单：6 项菜单实测 432×468、行不重叠、在视�
   await expect(menu).toBeVisible();
   await expect(menu).toHaveAttribute('aria-label', '元素操作');
   const items = menu.locator('[role="menuitem"]');
-  await expect(items).toHaveCount(6);
+  await expect(items).toHaveCount(7);
   const box = await boxWithin(menu, VP, 8);
   expect(box.width, `元素菜单宽应为 13.5rem=432（实际 ${box.width}）`).toBeCloseTo(432, 0);
-  // 6×68（min-h 2.125rem）+ 2×17（my-1 + 1px）+ 24（py-1.5）+ 2（边框）
-  expect(box.height, `元素菜单高应为 468（实际 ${box.height}）`).toBeCloseTo(468, 0);
+  // 7×68（min-h 2.125rem）+ 2×17（my-1 + 1px）+ 24（py-1.5）+ 2（边框）
+  expect(box.height, `元素菜单高应为 536（实际 ${box.height}）`).toBeCloseTo(536, 0);
   await assertRowsDisjoint(items);
   const rowH = await items.first().evaluate((el) => el.getBoundingClientRect().height);
   expect(rowH, `行高应为 68（实际 ${rowH}）`).toBeCloseTo(68, 0);

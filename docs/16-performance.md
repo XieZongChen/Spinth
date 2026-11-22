@@ -26,6 +26,8 @@ P3  TextVm.render 全量重建（平移复用已落地）
 - 拖拽预览例外：预览只改 root、不改数据，索引仍是拖拽前旧几何——对预览中的
   id（selector `previewIds`）用实时 `getBounds()` 复核，边缘滚屏推远视口
   不误剔指针下的被拖元素。
+- 容器（FRAME，specs/container-frame §7）无特殊处理：普通 widget 按_bounds_
+  入索引进 culling；子元素不是容器的子树，越界照常绘制（不裁剪）。
 - 单测：格分配/跨界多格/增删一致性/culling diff。
 
 ## 2. pen points 增量写

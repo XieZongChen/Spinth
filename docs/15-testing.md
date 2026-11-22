@@ -13,24 +13,30 @@
 
 ## 2. 当前基线
 
-- 单测：1382 passed（core 1265 + react 79 + app 38）。符号控件 +46
-  （symbolGeometry 16 / symbolSchema 5 / symbolGlyphs 6 / symbolEdit 8 /
-  symbolColor 5 / symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget
-  §9.1；避障豁免 +1 lineRoute，specs/network-diagram §5.2）。
-- E2E：56 个 spec（主配置 55 + pwa 1）、317 例 = 主配置 310（--list 实测，
-  含 @visual 9）+ pwa 7。非 visual 全量 301 = 299 通过 + 2 跳过（旋转手柄
-  用例暂跳，specs/rotate-hide）——实测 0 failed。树形图族 +19 例
+- 单测：1465 passed（core 1348 + react 79 + app 38）。容器控件 +83
+  （frameGeometry 15 / frameSchema 5 / frameVmRender 8 / frameOps 19 /
+  frameService 13 / frameTitleEditor 7 / clipboardFrame 5 / shapeContrast +2 /
+  selectorDrag +5 / alignCommand +3 / refLineService +1，
+  specs/container-frame §8.1）。符号控件 +46（symbolGeometry 16 /
+  symbolSchema 5 / symbolGlyphs 6 / symbolEdit 8 / symbolColor 5 /
+  symbolVmRender 5 / clipboardSymbol 1，specs/symbol-widget §9.1；
+  避障豁免 +1 lineRoute，specs/network-diagram §5.2）。
+- E2E：57 个 spec（主配置 56 + pwa 1）、330 例 = 主配置 323（--list 实测，
+  含 @visual 10）+ pwa 7。非 visual 全量 313 = 311 通过 + 2 跳过（旋转手柄
+  用例暂跳，specs/rotate-hide）——实测 0 failed。容器控件 +13 例
+  （container.spec C-1..C-13，specs/container-frame §8.2）；树形图族 +19 例
   （treeCollapse 6 / mindVertical 3 / treeTool 5 / orgChart 4 / debugSurface
   +1 公开面 71，specs/tree-diagrams §14.2）；符号控件 +9 例
   （symbol.spec S-1..S-9，specs/symbol-widget §9.2）；网络拓扑 +11 例
   （network.spec N-1..N-11，specs/network-diagram §12.1）。分层对账 = 主配置
-  310 − @visual 9 − @timing/@bench 5 = fast 296 + pwa 7 = CI gate 303；
-  四层全量 317（gate 303 + nightly @visual 9 + @timing/@bench 5）；
+  323 − @visual 10 − @timing/@bench 5 = fast 308 + pwa 7 = CI gate 315；
+  四层全量 330（gate 315 + nightly @visual 10 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
-- 视觉：9/9（主配置 @visual 9 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 10 张齐全
+- 视觉：10/10（主配置 @visual 10 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 11 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；
   flowchart-sample 为流程图收口样本，specs/flowchart-closeout；
-  network-sample 为网络拓扑样本，specs/network-diagram §12.2）。
+  network-sample 为网络拓扑样本，specs/network-diagram §12.2；
+  container-sample 为容器三泳道样本，specs/container-frame §8.3）。
 - 可访问性专项：a11y.spec 6 例（对比度护栏：21 组令牌配对 × 浅/深 + 实际元素
   （激活工具钮/flyout 选中项/菜单 kbd/删除项）——从浏览器计算样式取色，不在测试里
   持有颜色字面量；错误态 ×2：IndexedDB 注入 → role=alert/标题聚焦/390 无横滚/两主题
@@ -44,7 +50,8 @@
 - 文本缩放专项（specs/rem-typography）：textScale.spec 6 例（1440×900，根字号 16→32px）——
   T1/T2 迁移文本的计算字号与行高、右键菜单宽逐值精确（1x 与迁移前一致、200% 全部 ×2）；
   T3 右键菜单实测尺寸翻转夹取、行不重叠、行高 68、矮视口过高内滚；T4 项目菜单与存储
-  面板与悬停提示；T5 Shift+F10 不滚屏、Esc 归还焦点；T6 元素菜单（6 项）实测 432×468、
+  面板与悬停提示；T5 Shift+F10 不滚屏、Esc 归还焦点；T6 元素菜单（7 项，容器批加
+  「移出容器」specs/container-frame §5.3）实测 432×536、
   行高 68 与行不重叠。横幅主配置不可达，字号断言在 pwa P5。
 - 移动端布局专项：mobile.spec 9 例（390×844 九面矩阵 M1–M9：壳层截断/工具坞 40×40
   内滚/二级菜单/缩放胶囊防重叠/项目菜单双高度/右键边缘翻转/操作栏与 Popover/

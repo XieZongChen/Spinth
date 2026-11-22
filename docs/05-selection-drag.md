@@ -45,6 +45,12 @@ pointerup
   shift 以组为单位切换；框选整组全入框才选整组。
 - 脑图节点级选中：选中集仍是 widget id（树图不拆——MIND_MAP/ORG_CHART），节点语义由 TreeService
   焦点承载；框选时对命中的 MIND_MAP 委托 `focusFromMarquee`。
+- 容器命中口径（specs/container-frame §3.3）：FRAME 只在**标题带 ∪ 边框环**命中
+  （边框环宽按屏幕 px 折算 `8 / vpScale`，世界值上限 32）；点内部空白 = 清选区，
+  不被大容器吃掉。子元素是独立顶层 widget（zOrder 更高），直选子元素本身、
+  无需 Alt 进容器；再点已选中的容器标题带 → 进标题 plain 编辑。
+  框选：容器**全含才入选**（半含剔除），入选容器的子元素从结果剔除
+  （组过滤之后并列归并，specs §4.3）。
 - RectEditor 手柄/旋转手势在 down 时置单击激活抑制，并捕获手势指针
   （`setPointerCapture`——支持 capture 的环境下移出视口/窗口松开 up 仍送达；
   捕获异常丢失由 `lostpointercapture` 收口）。手势终止 = 匹配指针的 window
@@ -89,7 +95,19 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
 - 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。
 - 树节点拖拽走独立通道（kind 落点策略 + 落点预览，docs/11/22）。
 
-### 4.4 交互几何 per-type 契约
+#### 4.3a 容器拖拽带子（specs/container-frame §4.4）
+
+- 拖拽会话 ids = 容器级联展开后全集（容器 + 全部存活子元素，Set 去重保序），
+  预览/落库/取消作用于全集；`selectedIds` 保持展开前选区（归属判定只对
+  用户选中的件判父，被携带的子元素不参与改判）。
+- 落库同一 transact 内跑归属三态判定（全含→设父/相交→保持/完全离开→清父，
+  specs §2.4；世界 AABB 判据，中心点不作数）；rectOf 全算术或 model 读
+  （事务内 vm state 是微任务合批旧值——§6.6 陷阱）。
+- 删除/复制/剪切同款展开（连子删/带子复制）；缩放只写容器 rect，子元素
+  不缩放不挪位；参考线参照物排除面 = `selected$ ∪ previewIds`
+  （拖容器时子元素不在选区却跟着动）。
+
+## 4.4 交互几何 per-type 契约
 
 拖拽/缩放的「视觉预览 + 松手落库」是 `IBaseWidgetVm` 的四个可覆写方法；
 selector/rectEditor 禁止直接改 root 或 `updateRect`。
@@ -158,8 +176,9 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 
 ## 6. 键盘微移与删除
 
-- 方向键：1px 微移（Shift = 10px）；支持八向组合。
-- Delete/Backspace：删除选中；脑图走焦点删除规则。
+- 方向键：1px 微移（Shift = 10px）；支持八向组合；选中容器时级联展开带子
+  （同事务归属判定，specs/container-frame §4.5）。
+- Delete/Backspace：删除选中；脑图走焦点删除规则；容器连子删（单事务一步 undo）。
 - Esc：清空选中 / 退出编辑态 / 取消工具。
 
 ## 7. 多选几何命令：对齐/分布
@@ -170,7 +189,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 - 分布两向：沿轴排序后等距化相邻间隙；两端不动，中间重排；总宽不足时间隙为负照算。
 - 以选中集最小包围盒为基准；对齐后重叠/贴边不做特殊处理。
 - rect 型、PEN、MIND_MAP 按刚体参与；自由线走 points 平移；锚定线不直接移动、
-  不计入基准，宿主移动时自动重路由。
+  不计入基准，宿主移动时自动重路由。容器（FRAME）同款剔除不参与——delta 只
+  移容器、子元素留原地，「容器子集移动」接进 delta 分摊是后置能力；单选容器
+  时六向对齐/两向分布按钮禁用（参与数不足）。容器内的元素照常按普通参与者
+  处理。
 - 落库：一个 `engine.transact` 完成全部位移；随后对每个移动过的宿主急切 reattach；
   `stopCapturing()` = 一次撤销。
 - 算法：`alignOps.ts` 的纯函数 `computeAlignDeltas` /

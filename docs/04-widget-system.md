@@ -115,12 +115,16 @@ referenceable / erasable`
 | STICKY    | —†   | ✓    | ✓    | ✓      | ✓      | —    |
 | IMAGE     | —†   | ✓    | ✓    | —      | ✓      | —    |
 | SYMBOL    | —    | ✓    | ✓    | ✓      | ✓      | —    |
+| FRAME     | —    | —    | ✓    | —*     | ✓      | —    |
 | LINE      | —    | ✓*   | —    | —      | —      | —    |
 | PEN       | —    | ✓    | ✓    | —      | —      | ✓    |
 | MIND_MAP  | —    | —    | —    | —      | —      | —    |
 | ORG_CHART | —    | —    | —    | —      | —      | —    |
 
 - LINE 类型级可组，锚定态由 `groupOps` 运行时判定。
+- FRAME（specs/container-frame）：不可编组（几何归属与选择聚合两套语义不混用）；
+  标题走自有 plain 内核会话（`editable: false`，同 LINE 线上文字先例——不走
+  统一编辑会话通道）；命中 = 标题带 ∪ 边框环（内部空白不命中，docs/05 §3）。
 - † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。SHAPE/TEXT/
   STICKY/IMAGE 四类支持 rotation 数据，入口暂时隐藏而置 false；渲染/命中/缩放/
   锚定等数据能力保留，恢复 = 四类改回 true（docs/05 §8）。SYMBOL 无 rotation 字段、
@@ -157,18 +161,19 @@ VmEngine.initialize():
 
 ## 8. 控件清单
 
-| 控件      | 说明                                                           |
-| --------- | -------------------------------------------------------------- |
-| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect           |
-| STICKY    | 便签，共享文本测量/渲染管线                                    |
-| TEXT      | 富文本，三态模型（docs/07）                                    |
-| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08）     |
-| PEN       | 画笔，60ms 采样，points 增量写                                 |
-| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）              |
-| SYMBOL    | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget） |
-| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                    |
-| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）              |
-| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）              |
+| 控件      | 说明                                                                           |
+| --------- | ------------------------------------------------------------------------------ |
+| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect                           |
+| STICKY    | 便签，共享文本测量/渲染管线                                                    |
+| TEXT      | 富文本，三态模型（docs/07）                                                    |
+| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08）                     |
+| PEN       | 画笔，60ms 采样，points 增量写                                                 |
+| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）                              |
+| SYMBOL    | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget）                 |
+| FRAME     | 容器：标题带 + 背景 + 边框，子元素 parentId 归属/级联（specs/container-frame） |
+| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                                    |
+| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）                              |
+| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）                              |
 
 ### 8.1 橡皮
 

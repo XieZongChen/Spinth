@@ -20,11 +20,24 @@
 rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 
 // TEXT/STICKY/LINE/SHAPE：排版 override 平铺在主 Y.Map（TypoFields，docs/17 §4）
+// 自由七类（SHAPE/TEXT/STICKY/IMAGE/PEN/SYMBOL/LINE）：可选 parentId 容器归属
+//   标记（specs/container-frame §2.2——optional 无 default，旧文档零迁移；
+//   锚定线运行时排除，FRAME/树控件不带该字段）
 // MIND_MAP：root（Y.Map）+ 节点 children（Y.Array）递归树（docs/11）
 ```
 
 几何与属性分离的原因：高频位移与低频属性分开，撤销粒度可控，样式修改不会和连续
 位移混在同一栈帧。
+
+### 容器归属不变量（specs/container-frame §2.3）
+
+- 单层：parentId 只指向存活的 FRAME；FRAME 自身无 parentId（嵌套不做）。
+- 归属写唯一入口 FrameService：创建时全含 / 拖放落点三态（全含设父、相交
+  保持、完全离开清父——世界 AABB 判据带滞回）/ 右键「移出容器」；与触发
+  操作同一事务（一次 undo 回退到底）。
+- 容器 zOrder 恒小于其全部子元素（归属/图层/粘贴三处钳制单源）；孤儿
+  parentId（父被删）读取侧按顶层处理、不改写数据（undo 恢复后归属复活）。
+- 老客户端打开新文档：FRAME 进未知类型隔离、parentId 作为未知键保留。
 
 ### zOrder：fractional indexing
 

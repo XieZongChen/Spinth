@@ -26,6 +26,12 @@
 - 粘贴落点 = 视口中心（`vpBounds` 中心）；相对布局保持；换 id；
   修正连线 `startNodeId/endNodeId` 引用（同批 idMap 映射，批外解绑 null）；
   粘贴件 zOrder = `genInitialOrder`（置顶）。
+- 容器带子复制（specs/container-frame §4.7）：复制/剪切快照前级联展开
+  （容器并入全部存活子元素）；粘贴 `parentId` 按桶重映射（同批旧父 → 新容器
+  id，一拷贝一容器；批外父置空落为顶层——否则副本被原容器级联带走）；粘贴后
+  容器 zOrder 钳回子元素之下（I3）。右键菜单「移出容器」= 选中集清 parentId
+  （经 `updateSelectedStyle({parentId: undefined})` 通用通道分流
+  FrameService.detachSelection，I5 唯一写入口）。
 - 落点超出视口 → `zoomFromClipboard` 平移找回。
 - 通道：
   - 快捷键：document 原生 copy/paste/cut 事件（可读 Files）；
@@ -58,6 +64,7 @@ interface IShortcutDef {
 | --------------------- | ------------------------------------------------------------------------------------ |
 | v / h                 | 选择 / 抓手                                                                          |
 | r / n / t / l / p / s | 形状 / 符号 / 文本 / 连线 / 画笔 / 便签（脑图 m、组织架构 o；橡皮 e）                |
+| c                     | 容器（specs/container-frame；f 已被「适应屏幕」占用）                                |
 | ] / [                 | 橡皮增大 / 减小（步进 4 屏幕 px，4~40 钳制；仅 eraser 模式）                         |
 | space（按住）         | 临时抓手                                                                             |
 | cmd/ctrl+z            | 撤销；shift+cmd/ctrl+z 重做                                                          |
