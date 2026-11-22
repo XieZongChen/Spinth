@@ -232,7 +232,47 @@ test('C-6 删除级联：删容器连子删；undo 一步全回（含 parentId�
   expect(childBack.parentId).toBe(frame.id);
 });
 
-test('C-10 容器在子之下：置顶后点子元素命中子元素', async ({ page }) => {
+test('C-7 缩放不缩放子：拖角外扩只改容器 rect，子元素逐值不变', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child0 = (await shapesOf(page)).find((s) => s.x === 150)!;
+
+  // 选中容器（点标题带）→ 拖东南角手柄外扩（F-6d 同款角点手势）
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  await page.waitForTimeout(250); // 等 RectEditor 手柄挂载
+  const c = await page.evaluate(() => {
+    const r = document.querySelector('canvas')!.getBoundingClientRect();
+    return { left: r.left, top: r.top };
+  });
+  const corner = { x: frame.x + frame.width + c.left, y: frame.y + frame.height + c.top };
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.down();
+  await page.mouse.move(corner.x + 60, corner.y + 40, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  // 容器外扩生效；子元素 rect 逐值不变（不缩放、不挪位）
+  const frame1 = (await framesOf(page)).find((s) => s.id === frame.id)!;
+  expect(frame1.width).toBeGreaterThan(frame.width);
+  expect(frame1.height).toBeGreaterThan(frame.height);
+  const child1 = (await shapesOf(page)).find((s) => s.id === child0.id)!;
+  expect([child1.x, child1.y, child1.width, child1.height]).toEqual([
+    child0.x,
+    child0.y,
+    child0.width,
+    child0.height,
+  ]);
+  // 归属不受缩放影响（子仍在容器内）
+  expect(child1.parentId).toBe(frame.id);
+});
+
+test('C-10 容器在子之下：置顶后点子元素命中子元素 + zOrder 断言', async ({ page }) => {
   const frame = await addFrame(page, 100, 100, 400, 300);
   await page.getByRole('button', { name: /矩形/ }).click();
   await page.mouse.move(150, 150 + TOP_BAR);
@@ -250,9 +290,45 @@ test('C-10 容器在子之下：置顶后点子元素命中子元素', async ({ 
     pub.bringToFront();
   });
   await page.waitForTimeout(300);
+  // 层级断言（审查返工强化）：置顶后容器 key 仍小于全部子元素
+  let pair = await vmStates(page);
+  const fTop = pair.find((s) => s.id === frame.id)!;
+  const cTop = pair.find((s) => s.id === child.id)!;
+  expect((fTop.zOrder as string) < (cTop.zOrder as string)).toBe(true);
   // 点子元素中心：命中子元素（不是盖在上面的容器）
   await page.mouse.click(180, 180 + TOP_BAR);
   await expect.poll(() => selectedIds(page)).toEqual([child.id]);
+
+  // 审查返工 P1 场景：先有形状（低 zOrder）、后画容器（高 zOrder 盖住形状）、
+  // 再把形状拖进容器——归属写入同事务把容器钳到子之下（否则白底盖住形状）
+  //（ids 顺序 = 入参顺序：先 shape 后 frame——shapeId 取第一个）
+  const [shapeId] = await engineAdd(page, [
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 1200,
+      y: 100,
+      width: 60,
+      height: 60,
+    },
+    { type: 'FRAME', color: '#ffffff', x: 600, y: 60, width: 400, height: 200 }, // 后画：zOrder 更高
+  ]);
+  const lateFrame = (await framesOf(page)).find((s) => s.x === 600)!;
+  pair = await vmStates(page);
+  // 前置确认：容器确实盖在形状上（倒置存在，钳制有活干）
+  expect(
+    (lateFrame.zOrder as string) > (pair.find((s) => s.id === shapeId)!.zOrder as string),
+  ).toBe(true);
+  // 真实拖拽形状入晚画容器（中心 1230,130 → 680,130：全含于晚容器、
+  // 不含于第一个容器——x 650 > 500）
+  await dragFrom(page, 1230, 130, -550, 0);
+  pair = await vmStates(page);
+  const movedShape = pair.find((s) => s.id === shapeId)!;
+  const clampedFrame = pair.find((s) => s.id === lateFrame.id)!;
+  expect(movedShape.parentId).toBe(lateFrame.id);
+  expect((clampedFrame.zOrder as string) < (movedShape.zOrder as string)).toBe(true);
 });
 
 /** 合成剪贴板事件（clipboard.spec 同款：DataTransfer 直通，绕 headless 权限） */
