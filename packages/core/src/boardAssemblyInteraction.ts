@@ -8,6 +8,7 @@ import { LayerService } from './platform/layer/layerService';
 import { GroupService } from './platform/selector/groupService';
 import { ShapeService } from './widgets/shape/shapeService';
 import { SymbolService } from './widgets/symbol/symbolService';
+import { FrameService } from './widgets/frame/frameService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
@@ -63,6 +64,9 @@ export function assembleInteraction(sdk: BoardSDK): void {
     () => sdk.refLine!,
     () => sdk.group!,
     sdk.edgeScroll,
+    // 容器归属惰性解环（specs/container-frame §6.5，getGroups 同款）：sdk.frame
+    // 在下方 editingService 之后才构造，调用时已就绪
+    () => sdk.frame,
   );
   // 编组（docs/18）：选择聚合层服务——点击扩展/框选口径/建组解组命令
   sdk.group = new GroupService(sdk.engine!, sdk.vmEngine!, sdk.selector!, sdk.history!);
@@ -93,6 +97,18 @@ export function assembleInteraction(sdk: BoardSDK): void {
   // 编辑会话闸门（specs/edge-auto-scroll S7）：进会话即停滚屏（订阅随服务
   // 生命周期，同下方 toolOption/resizeMove 订阅先例）
   sdk.editingService.session$.subscribe(() => sdk.edgeScroll?.stop());
+  // 容器工具与归属服务（specs/container-frame §6.5）：editingService 之后
+  // （标题 plain 内核）；onModelCreated$ 订阅建在 initialize——晚于
+  // engine.initialize（恢复的存量件不触发创建即归属，§4.2 注）
+  sdk.frame = new FrameService(
+    sdk.viewport!,
+    sdk.engine!,
+    sdk.vmEngine!,
+    sdk.selector!,
+    sdk.history!,
+    sdk.editingService!,
+  );
+  sdk.frame.initialize();
   sdk.textService = new TextService(
     sdk.viewport!,
     sdk.engine!,
@@ -130,6 +146,7 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.rectEditor.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
   sdk.shapeService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
   sdk.symbolService.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
+  sdk.frame?.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
   sdk.lineService.gridSnapOn = () => sdk.gridSnap?.enabled ?? false;
 
   sdk.lineService.defaultLineType$.subscribe((v) => sdk.syncToolOption('line', 'type', v));

@@ -15,7 +15,11 @@ import type { SelectionVm } from '../selection/selectionVm';
 import type { RefLineService } from '../refLine/refLineService';
 export interface DragState {
   startWorld: Point;
+  /** 拖拽会话的全量 id（容器级联展开后——预览/落库/取消都作用于它） */
   ids: string[];
+  /** **展开前**选区（specs/container-frame §4.4：落库归属判定只对用户选中的
+   *  件判父；被携带的子元素不参与改判，避免拖容器时子元素被重新归属） */
+  selectedIds: string[];
   /** 按下时元素是否已在选区（未拖动松手 = 单击已选中 → 激活编辑，docs/05 §3） */
   wasSelected: boolean;
   initial: Map<string, IRect>;
@@ -42,6 +46,10 @@ export interface ISelectorDragContext {
   syncSelectionVm(): void;
   /** 网格吸附开关读取（specs/flowchart-closeout §9.2；组合根注入 gridSnap 服务） */
   gridSnapOn(): boolean;
+  /** 容器归属钩子（specs/container-frame §4.4/I6）：**在 commitDrag 的 transact
+   *  内**调用（与移动同一事务，一次 undo 回退到底）；ids = 展开前选区。
+   *  缺省 = 无容器语义（老桩零改动） */
+  reconcileParents?: (ids: string[], rectOf: (id: string) => IRect) => void;
 }
 
 /** 拖拽态创建（selector.onPointerDown 命中分支尾段）：
@@ -58,6 +66,8 @@ export function createDragState(
   ids: string[],
   e: IPointerEventInfo,
   wasSelected: boolean,
+  /** 展开前选区（specs/container-frame §4.4；缺省 = ids，老调用零改动） */
+  selectedIds?: string[],
 ): DragState | null {
   if (ids.length > 0 && ids.every((id) => ctx.vmEngine.getVmById(id)?.type === 'LINE')) {
     return null; // 纯线选区：空操作会话只带来 ActionBar 停隐副作用，不建
@@ -76,6 +86,7 @@ export function createDragState(
   return {
     startWorld: e.world.clone(),
     ids,
+    selectedIds: selectedIds ?? ids,
     wasSelected,
     initial,
     initialUnion,
@@ -155,6 +166,25 @@ export function commitDrag(ctx: ISelectorDragContext, state: DragState): void {
       if (init && vm) {
         vm.commitDrag(init, dx, dy);
       }
+    }
+    // 容器归属回写（specs/container-frame §4.2/I6）：与移动同一事务——归属写
+    // 在事务外会裂成第二个 undo 项。rectOf 全算术/model 读（§6.6-1 事务内
+    // vm state 是微任务合批旧值）：本次拖动的件 = 初值 + 末帧位移；未动的
+    // 件（含父容器恰在选区时已被 initial 覆盖）同理兜到 model 权威值
+    if (ctx.reconcileParents) {
+      const rectOf = (id: string): IRect => {
+        const init = d.initial.get(id);
+        if (init) return { ...init, x: init.x + dx, y: init.y + dy };
+        const data = ctx.engine.getModelById(id)?.toJSON() as
+          { x: number; y: number; width: number; height: number } | undefined;
+        return {
+          x: data?.x ?? 0,
+          y: data?.y ?? 0,
+          width: data?.width ?? 0,
+          height: data?.height ?? 0,
+        };
+      };
+      ctx.reconcileParents(d.selectedIds, rectOf);
     }
   });
   // 锚定线急切重路由钩子（组合根注入，docs/05 §4.3/§7）：必须夹在 transact

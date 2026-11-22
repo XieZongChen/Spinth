@@ -344,3 +344,256 @@ describe('createDragState 纯线选区不建会话（2026-11 三轮审查下沉�
     expect(createDragState(ctx, ['s1', 'l1'], EVT, true)).not.toBeNull();
   });
 });
+
+describe('容器拖拽带子（specs/container-frame §4.4）', () => {
+  function createFrameHarness() {
+    const mk = (id: string, type: string, x: number, y: number, w = 50, h = 50) => ({
+      id,
+      type,
+      rect: { x, y, width: w, height: h },
+      getBounds() {
+        return { ...this.rect };
+      },
+      getLocalRect() {
+        return { ...this.rect };
+      },
+      applyDragPreview: vi.fn(),
+      commitDrag: vi.fn(),
+      onSelected$: new BehaviorSubject(false),
+      onStateChanged$: new Subject(),
+    });
+    const frameVm = mk('f1', 'FRAME', 0, 0, 300, 200);
+    const childVm = mk('c1', 'SHAPE', 10, 40);
+    const otherVm = mk('z1', 'SHAPE', 500, 500);
+    const vms = [frameVm, childVm, otherVm];
+
+    const framesLookup = {
+      isFrame: (id: string) => id === 'f1',
+      childIds: (fid: string) => (fid === 'f1' ? ['c1'] : []),
+      expandForCascade: (ids: string[]) => {
+        const out: string[] = [];
+        for (const id of ids) {
+          out.push(id);
+          if (id === 'f1') out.push('c1');
+        }
+        return out;
+      },
+      reconcileParents: vi.fn(),
+    };
+
+    let handlers: Record<string, ((e: unknown) => void) | undefined> = {};
+    const transact = vi.fn((fn: () => void) => fn());
+    const removeByIds = vi.fn();
+    const reconcileCalls: Array<{ ids: string[]; rectOf: (id: string) => unknown; when: string }> =
+      [];
+
+    const selector = new SelectorService(
+      {
+        optionLayer: { addChild: () => {} },
+        vpScale$: { value: 1 },
+        registerGlobalEventListener: (_mode: string, h: Record<string, (e: unknown) => void>) => {
+          handlers = h;
+        },
+      } as never,
+      {
+        getAllVms: () => vms,
+        getVmById: (id: string) => vms.find((v) => v.id === id),
+        getVmByPoint: (world: { x: number; y: number }) =>
+          // 标题带命中容器（y < 28 内）；否则命中 child；再否则 other
+          world.y < 28 && world.x < 300 ? [frameVm] : world.x < 300 ? [childVm] : [otherVm],
+        getVmByRect: () => vms,
+      } as never,
+      {
+        onModelCreated$: new Subject(),
+        onModelRemoved$: new Subject(),
+        transact,
+        removeByIds,
+        getModelById: (id: string) => ({
+          toJSON: () =>
+            id === 'f1'
+              ? { id, type: 'FRAME', x: 0, y: 0, width: 300, height: 200 }
+              : id === 'c1'
+                ? { id, type: 'SHAPE', x: 10, y: 40, width: 50, height: 50, parentId: 'f1' }
+                : { id, type: 'SHAPE', x: 500, y: 500, width: 50, height: 50 },
+        }),
+      } as never,
+      { stopCapturing: vi.fn() } as never,
+      () =>
+        ({
+          snapForDrag: vi.fn((_r: unknown, dx: number, dy: number) => ({
+            dx,
+            dy,
+            matchedV: [],
+            matchedH: [],
+          })),
+          hideMatches: vi.fn(),
+        }) as never,
+      () => null,
+      null,
+      () => framesLookup,
+    );
+    selector.initialize();
+    // dragCtx 的 reconcileParents 闭包转发到 framesLookup（构造后注入探针顺序）
+    (framesLookup.reconcileParents as ReturnType<typeof vi.fn>).mockImplementation(
+      (ids: string[], rectOf: (id: string) => unknown) => {
+        reconcileCalls.push({ ids, rectOf, when: transact.mock.calls.length > 0 ? 'in' : 'out' });
+      },
+    );
+
+    const evt = (x: number, y: number): unknown => ({
+      world: { x, y, clone: () => ({ x, y }) },
+      screen: { x, y },
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      raw: { x, y },
+    });
+    return {
+      vms,
+      frameVm,
+      childVm,
+      otherVm,
+      framesLookup,
+      selector,
+      transact,
+      removeByIds,
+      reconcileCalls,
+      evt,
+      handlers: () => handlers,
+    };
+  }
+
+  it('拖容器：会话展开带子（预览/落库都作用于子）、selectedIds 保持展开前', () => {
+    const h = createFrameHarness();
+    h.selector.setSelected(['f1']);
+    // 点标题带 (150, 10) → down/move(+80,+40)/up
+    h.handlers().onPointerDown?.(h.evt(150, 10));
+    h.handlers().onPointerMove?.(h.evt(230, 50));
+    h.handlers().onPointerUp?.(h.evt(230, 50));
+    // 预览与落库都作用于展开集（容器+子）
+    expect(h.frameVm.applyDragPreview).toHaveBeenCalled();
+    expect(h.childVm.applyDragPreview).toHaveBeenCalled();
+    expect(h.frameVm.commitDrag).toHaveBeenCalledTimes(1);
+    expect(h.childVm.commitDrag).toHaveBeenCalledTimes(1);
+    expect(h.otherVm.commitDrag).not.toHaveBeenCalled();
+    // 归属判定只对展开前选区
+    expect(h.reconcileCalls).toHaveLength(1);
+    expect(h.reconcileCalls[0]!.ids).toEqual(['f1']);
+  });
+
+  it('归属回写在事务内（I6）且 rectOf 是算术（init + 末帧位移）', () => {
+    const h = createFrameHarness();
+    h.selector.setSelected(['c1']);
+    h.handlers().onPointerDown?.(h.evt(30, 60));
+    h.handlers().onPointerMove?.(h.evt(110, 100)); // (+80, +40)
+    h.handlers().onPointerUp?.(h.evt(110, 100));
+    const call = h.reconcileCalls[0]!;
+    expect(call.when).toBe('in'); // transact 内（transact 已被调用且未返回——桩内同步判定）
+    // c1 被拖动：rectOf = 初值 + 位移（10+80, 40+40）
+    expect(call.rectOf('c1')).toEqual({ x: 90, y: 80, width: 50, height: 50 });
+    // 父容器未被拖动：rectOf 走 model 权威值
+    expect(call.rectOf('f1')).toEqual({ x: 0, y: 0, width: 300, height: 200 });
+  });
+
+  it('removeSelected 级联：删除集 = 展开后全集（容器连子删）', () => {
+    const h = createFrameHarness();
+    h.selector.setSelected(['f1']);
+    h.selector.removeSelected();
+    expect(h.removeByIds).toHaveBeenCalledWith(['f1', 'c1']);
+    expect(h.selector.selected$.value).toEqual([]);
+  });
+
+  it('取消（pointercancel）：展开集全部预览复位', () => {
+    const h = createFrameHarness();
+    h.selector.setSelected(['f1']);
+    h.handlers().onPointerDown?.(h.evt(150, 10));
+    h.handlers().onPointerMove?.(h.evt(230, 50));
+    h.handlers().onPointerCancel?.(h.evt(230, 50));
+    // 复位调用：末次 applyDragPreview 是 (init, 0, 0)
+    const frameReset = h.frameVm.applyDragPreview.mock.calls.at(-1) as unknown[];
+    const childReset = h.childVm.applyDragPreview.mock.calls.at(-1) as unknown[];
+    expect(frameReset![1]).toBe(0);
+    expect(frameReset![2]).toBe(0);
+    expect(childReset![1]).toBe(0);
+    expect(childReset![2]).toBe(0);
+    expect(h.frameVm.commitDrag).not.toHaveBeenCalled();
+  });
+
+  it('无容器语义（getFrames null）：老行为零漂移——不展开、不判父', () => {
+    const frameVm = {
+      id: 'f1',
+      type: 'FRAME',
+      rect: { x: 0, y: 0, width: 300, height: 200 },
+      getBounds() {
+        return { ...this.rect };
+      },
+      getLocalRect() {
+        return { ...this.rect };
+      },
+      applyDragPreview: vi.fn(),
+      commitDrag: vi.fn(),
+      onSelected$: new BehaviorSubject(false),
+      onStateChanged$: new Subject(),
+    };
+    let handlers: Record<string, ((e: unknown) => void) | undefined> = {};
+    const selector = new SelectorService(
+      {
+        optionLayer: { addChild: () => {} },
+        vpScale$: { value: 1 },
+        registerGlobalEventListener: (_m: string, h: Record<string, (e: unknown) => void>) => {
+          handlers = h;
+        },
+      } as never,
+      {
+        getAllVms: () => [frameVm],
+        getVmById: () => frameVm,
+        getVmByPoint: () => [frameVm],
+        getVmByRect: () => [frameVm],
+      } as never,
+      {
+        onModelCreated$: new Subject(),
+        onModelRemoved$: new Subject(),
+        transact: (fn: () => void) => fn(),
+        removeByIds: vi.fn(),
+      } as never,
+      { stopCapturing: vi.fn() } as never,
+      () =>
+        ({
+          snapForDrag: vi.fn((_r: unknown, dx: number, dy: number) => ({
+            dx,
+            dy,
+            matchedV: [],
+            matchedH: [],
+          })),
+          hideMatches: vi.fn(),
+        }) as never,
+    );
+    selector.initialize();
+    selector.setSelected(['f1']);
+    handlers.onPointerDown?.({
+      world: { x: 150, y: 10, clone: () => ({ x: 150, y: 10 }) },
+      screen: { x: 150, y: 10 },
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      raw: { x: 0, y: 0 },
+    });
+    handlers.onPointerMove?.({
+      world: { x: 230, y: 50, clone: () => ({ x: 230, y: 50 }) },
+      screen: { x: 230, y: 50 },
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      raw: { x: 0, y: 0 },
+    });
+    handlers.onPointerUp?.({
+      world: { x: 230, y: 50, clone: () => ({ x: 230, y: 50 }) },
+      screen: { x: 230, y: 50 },
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      raw: { x: 0, y: 0 },
+    });
+    expect(frameVm.commitDrag).toHaveBeenCalledTimes(1); // 只有容器自身
+  });
+});

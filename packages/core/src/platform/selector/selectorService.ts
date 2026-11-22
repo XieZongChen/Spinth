@@ -7,6 +7,7 @@ import type { IPoint, IRect } from '../../common/geometry';
 import type {
   IDataEngineService,
   IEdgeAutoScrollService,
+  IFrameLookup,
   IHistoryService,
   ITreeDragDelegate,
   IPointerEventInfo,
@@ -71,6 +72,9 @@ export class SelectorService extends Disposable implements ISelectorService {
     /** 编组服务惰性获取（docs/18 §4）：null = 无组语义（单测桩环境老行为） */
     getGroups: () => GroupService | null = () => null,
     private edgeScroll: IEdgeAutoScrollService | null = null,
+    /** 容器归属查询惰性获取（specs/container-frame §6.4，getGroups 同款解环）：
+     *  null = 无容器语义（拖拽/删除不级联、落库不判父——既有单测桩零改动） */
+    private getFrames: () => IFrameLookup | null = () => null,
   ) {
     super();
     this.getGroups = getGroups;
@@ -96,6 +100,8 @@ export class SelectorService extends Disposable implements ISelectorService {
       getRefLine: () => this.getRefLine(),
       syncSelectionVm: () => this.syncSelectionVm(),
       onDragCommitted: (ids, dx, dy) => this.onDragCommitted?.(ids, dx, dy),
+      // 容器归属（specs/container-frame §4.4）：commitDrag 事务内回写（I6）
+      reconcileParents: (ids, rectOf) => this.getFrames()?.reconcileParents(ids, rectOf),
     };
     this.marqueeCtx = {
       vmEngine: this.vmEngine,
@@ -169,7 +175,11 @@ export class SelectorService extends Disposable implements ISelectorService {
   removeSelected(): void {
     const ids = this.selected$.value;
     if (ids.length === 0) return;
-    this.engine.removeByIds(ids);
+    // 容器连子删（specs/container-frame §4.6）：单事务一步 undo；被删容器的
+    // 子元素不在选区——expandForCascade 展开后整批 removeByIds
+    const frames = this.getFrames();
+    const all = frames ? frames.expandForCascade(ids) : ids;
+    this.engine.removeByIds(all);
     this.setSelected([]);
   }
 
@@ -255,11 +265,16 @@ export class SelectorService extends Disposable implements ISelectorService {
         ids = groups ? groups.expandIds([top.id]) : [top.id];
         this.setSelected(ids);
       }
+      // 容器级联展开（specs/container-frame §4.4）：会话 ids = 展开后全集（预览/
+      //  落库/取消带子），selectedIds 保持展开前（归属判定只对用户选中的件）；
+      //  纯线选区 + 容器混拖照常（展开集里有非线件）
+      const frames = this.getFrames();
+      const sessionIds = frames ? frames.expandForCascade(ids) : ids;
       // initial（per-id）= getLocalRect（commitDrag/预览的输入语义——数据矩形）；
       // initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）。
       // 纯线选区在 createDragState 内部拒绝（空操作会话的 ActionBar 停隐
       // 副作用——完整因果见 selectorDragOps 注释，2026-11 三轮审查下沉）
-      const dragState = createDragState(this.dragCtx, ids, e, wasSelected);
+      const dragState = createDragState(this.dragCtx, sessionIds, e, wasSelected, ids);
       if (dragState) this.dragState = dragState;
     } else {
       if (!e.shiftKey && this.selected$.value.length > 0) {

@@ -84,6 +84,7 @@ function runMove(ctx: ISelectorDragContext): { dx: number; dy: number } {
   const state: DragState = {
     startWorld: { x: 0, y: 0 } as never, // applyDragMove 只读 x/y
     ids: ['drag'],
+    selectedIds: ['drag'], // 无容器语义（specs/container-frame §4.4 缺省 = ids）
     wasSelected: true,
     initial: new Map([['drag', { x: 60, y: 100, width: 50, height: 50 }]]),
     initialUnion: { x: 60, y: 100, width: 50, height: 50 },
