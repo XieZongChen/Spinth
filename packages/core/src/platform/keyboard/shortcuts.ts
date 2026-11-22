@@ -62,6 +62,9 @@ export const DEFAULT_SHORTCUTS: IShortcutDef[] = [
   { id: 'tool.sticky', keys: 's', description: '便签工具' },
   { id: 'tool.mind', keys: 'm', description: '脑图工具' },
   { id: 'tool.org', keys: 'o', description: '组织架构图工具' },
+  // 容器工具（specs/container-frame §4.12）：用 C 不用 F——F 已被 view.zoomFit
+  // 「适应屏幕」占用（右键菜单 hint 即 F），抢键破坏既有习惯
+  { id: 'tool.frame', keys: 'c', description: '容器工具' },
   // 视图
   { id: 'view.zoomIn', keys: 'cmd+=', description: '放大', allowInReadonly: true },
   {

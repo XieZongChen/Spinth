@@ -3,6 +3,7 @@ import {
   Triangle,
   Database,
   Download,
+  Frame,
   File,
   Folder,
   Hexagon,
@@ -80,6 +81,7 @@ export type IconName =
   | 'expand'
   | 'tree'
   | 'orgchart' // 脑图
+  | 'frame' // 容器
   | 'undo'
   | 'redo'
   | 'trash'
@@ -223,6 +225,7 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   collapse: ChevronsDownUp,
   expand: ChevronsUpDown,
   tree: ListTree,
+  frame: Frame,
   orgchart: Network,
   undo: Undo2,
   redo: Redo2,

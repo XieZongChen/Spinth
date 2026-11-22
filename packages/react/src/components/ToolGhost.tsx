@@ -35,6 +35,8 @@ const GHOST_TOOLS: Partial<Record<string, GhostToolDef>> = {
   shape: { icon: 'shape', tone: 'text-tool-shape' }, // icon 被动态覆盖（见 def 计算）
   // 符号（specs/symbol-widget §6.5）：静态「符号」图标（DOM 侧不渲染具体 SVG）
   symbol: { icon: 'symbol', tone: 'text-tool-shape' },
+  // 容器（specs/container-frame §4.12）：shape 主题色槽位（Toolbar 同源）
+  frame: { icon: 'frame', tone: 'text-tool-shape' },
   text: { icon: 'text', tone: 'text-tool-text' },
   line: { icon: 'connector', tone: 'text-tool-line' },
   pen: { icon: 'pen', tone: 'text-tool-pen' },

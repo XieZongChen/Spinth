@@ -178,6 +178,15 @@ export function Toolbar() {
     tone: 'shape',
     subMenuGroups: [{ key: 'kind', options: SYMBOL_OPTIONS }],
   };
+  // 容器条目（specs/container-frame §5.1）：单一按钮、无二级菜单；主题色
+  // shape 槽位（symbol 同款——不新增 tool-frame-* 安全类，避免对比度护栏扩散）
+  const frameDef: ToolDef = {
+    id: 'frame',
+    mode: 'frame',
+    icon: 'frame',
+    title: '容器 (C)',
+    tone: 'shape',
+  };
   // 树形图单入口（specs/tree-diagrams §10.1，Phase 3c）：不再有独立 org 按钮——
   // 图标/标题/aria 随当前 kind；二级菜单 = 类型组（切换保持激活）；kind 记忆
   // 随 M/O 直达更新（bridge 镜像）。标题含当前 kind 名，脑图态保留「脑图」字样
@@ -204,6 +213,7 @@ export function Toolbar() {
     ...BASE_TOOLS.slice(0, SHAPE_SLOT),
     shapeDef,
     symbolDef,
+    frameDef,
     ...BASE_TOOLS.slice(SHAPE_SLOT),
     treeDef,
   ];
