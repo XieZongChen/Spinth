@@ -23,6 +23,7 @@ import {
   typoItems,
 } from './actionBarOptions';
 import { darkenHex, numToHex } from './common/color';
+import { FRAME_DEFAULT_BORDER } from './widgets/frame/frameGeometry';
 
 /**
  * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
@@ -200,6 +201,62 @@ export function buildActionBarSchema(
           // 图形内文字排版（docs/17 §6）：def.align 传 center——形状文字默认居中，
           // 触发钮显示正确档位；字号/行高档后 reflowHeight 经 autoHeight 重排
           ...typoItems(data, { fontSize: 16, align: 'center', lineHeight: 1.5 }, true, true),
+        ],
+      };
+    case 'FRAME':
+      return {
+        type: vm.type,
+        items: [
+          // 容器样式五项（specs/container-frame §5.2）：id 全部与 schema 字段
+          // 同名——走 updateSelectedStyle 通用通道（color 'none' → fill:'none'
+          // 分流在 styleCommands 前置，SHAPE 同款自动继承）
+          {
+            id: 'color',
+            kind: 'popover',
+            label: '背景色',
+            value: data.fill === 'none' ? 'none' : String(data.color ?? ''),
+            options: [
+              ...swatches(SHAPE_PALETTE),
+              { id: 'none', label: '无填充', icon: 'border-none' },
+            ],
+          },
+          {
+            id: 'borderColor',
+            kind: 'popover',
+            label: '边框色',
+            value: String(data.borderColor ?? ''),
+            // 未写过 = 常量缺省（§2.1 写死不自适应——非 SHAPE 的填充派生口径）
+            ...(data.borderColor ? {} : { displaySwatch: FRAME_DEFAULT_BORDER }),
+            options: swatches(SHAPE_BORDER_PALETTE),
+          },
+          {
+            id: 'borderStyle',
+            kind: 'popover',
+            label: '边框线型',
+            value: String(data.borderStyle ?? 'solid'),
+            options: [
+              { id: 'solid', label: '实线', icon: 'border-solid' },
+              { id: 'dashed', label: '虚线', icon: 'border-dashed' },
+              { id: 'none', label: '无边框', icon: 'border-none' },
+            ],
+          },
+          {
+            id: 'borderWidth',
+            kind: 'popover',
+            label: '边框宽',
+            value: String(data.borderWidth ?? 1),
+            options: SHAPE_BORDER_WIDTH_OPTIONS,
+          },
+          {
+            id: 'headerSide',
+            kind: 'popover',
+            label: '标题位置',
+            value: String(data.headerSide ?? 'top'),
+            options: [
+              { id: 'top', label: '顶部' },
+              { id: 'left', label: '左侧' },
+            ],
+          },
         ],
       };
     case 'LINE':

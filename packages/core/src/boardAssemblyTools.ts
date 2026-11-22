@@ -61,6 +61,8 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
         getAllVms: () => sdk.vmEngine?.getAllVms() ?? [],
         getModelById: (id) => sdk.engine?.getModelById(id),
       }),
+    // 「移出容器」可用判定（specs/container-frame §5.3）
+    () => sdk.frame?.canDetachSelection() ?? false,
   );
   sdk.contextMenu.initialize();
   // 物理断网守卫（docs/10 §4 两态拆分：editBlocked 与 wsState 无关）。

@@ -5,7 +5,8 @@
  *  C-1；子元素形状用真实矩形工具路径（创建即归属必须走真实手势）。 */
 import { expect, test, type Page } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
-import { modelCount } from './helpers/projectFileE2e';
+import { modelCount, ready } from './helpers/projectFileE2e';
+import { waitRole } from './helpers/multiTabE2e';
 
 const TOP_BAR = 44;
 
@@ -370,4 +371,104 @@ test('C-9 框选口径：全含容器入选且子元素剔除；半含容器不�
   await page.waitForTimeout(300);
   sel = await selectedIds(page);
   expect(sel).toEqual([f2]);
+});
+
+test('C-1 拖拽创建与标题编辑：落库选中回 cursor；标题一步 undo 回空', async ({ page }) => {
+  // 工具快捷键 C（specs/container-frame §4.12）
+  await page.keyboard.press('c');
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __spinth: { cursorMode$: { getValue(): string } } }
+        ).__spinth.cursorMode$.getValue(),
+      ),
+    )
+    .toBe('frame');
+  // 拖拽画容器（世界 100,100 → 500,400）
+  await page.mouse.move(100, 100 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(500, 400 + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(1);
+  const frame = (await framesOf(page))[0]!;
+  expect([frame.x, frame.y, frame.width, frame.height]).toEqual([100, 100, 400, 300]);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]); // 松手选中
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __spinth: { cursorMode$: { getValue(): string } } }
+        ).__spinth.cursorMode$.getValue(),
+      ),
+    )
+    .toBe('cursor'); // 拖拽创建回选择工具
+
+  // 标题编辑：再点已选中的标题带 → textarea；输入 + Enter 落库
+  await page.mouse.click(200, 112 + TOP_BAR);
+  const ta = page.locator('textarea');
+  await expect(ta).toBeVisible();
+  await ta.fill('审批泳道');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => framesOf(page).then((fs) => fs[0]!.title ?? '')).toBe('审批泳道');
+  // 一步 undo：标题回空（容器仍在——空标题 keep 不删容器）
+  await page.keyboard.press('Meta+z');
+  await expect.poll(() => framesOf(page).then((fs) => fs[0]!.title ?? '')).toBe('');
+  expect(await modelCount(page)).toBe(1);
+});
+
+test('C-11 只读：按 C 不出工具、拖动不写、标题不进编辑、右键无「移出容器」', async ({
+  page,
+  context,
+}) => {
+  const docId = `e2e-c11-${Date.now()}`;
+  await page.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(page);
+  await waitRole(page, 'leader');
+  // leader 建容器；follower 只读断言
+  await addFrame(page, 100, 100, 400, 300);
+  const pageB = await context.newPage();
+  await pageB.goto(`/?doc=${docId}&assetMaint=0`);
+  await ready(pageB);
+  await waitRole(pageB, 'follower');
+
+  // 按 C：钳成 cursor（工具不出）
+  await pageB.keyboard.press('c');
+  await expect
+    .poll(() =>
+      pageB.evaluate(() =>
+        (
+          window as unknown as { __spinth: { cursorMode$: { getValue(): string } } }
+        ).__spinth.cursorMode$.getValue(),
+      ),
+    )
+    .toBe('cursor');
+
+  // 拖容器标题带：零写（modelCount 恒 1）
+  await pageB.mouse.move(200, 112 + TOP_BAR);
+  await pageB.mouse.down();
+  await pageB.mouse.move(280, 152 + TOP_BAR, { steps: 6 });
+  await pageB.mouse.up();
+  await pageB.waitForTimeout(400);
+  expect(await modelCount(pageB)).toBe(1);
+  const framePos = await pageB.evaluate(() => {
+    const f = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug.vmStates.find((s) => s.type === 'FRAME');
+    return { x: f?.x as number, y: f?.y as number };
+  });
+  expect([framePos.x, framePos.y]).toEqual([100, 100]); // 未被拖动
+
+  // 标题不进编辑（无 textarea 出现）
+  await pageB.mouse.click(200, 112 + TOP_BAR);
+  await pageB.mouse.click(200, 112 + TOP_BAR);
+  await pageB.waitForTimeout(300);
+  await expect(pageB.locator('textarea')).toHaveCount(0);
+
+  // 右键：只读降级画布菜单，无「移出容器」
+  await pageB.mouse.click(200, 112 + TOP_BAR, { button: 'right' });
+  await expect(pageB.locator('[data-spinth-context-menu]')).toBeVisible();
+  await expect(pageB.getByText('移出容器')).toHaveCount(0);
 });

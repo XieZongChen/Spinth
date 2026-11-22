@@ -46,6 +46,7 @@ describe('ContextMenuService 只读语义', () => {
       onWidget: false,
       canPaste: false,
       canPrune: false,
+      canDetach: false,
     });
     svc.dispose();
   });
@@ -61,6 +62,7 @@ describe('ContextMenuService 只读语义', () => {
       onWidget: true,
       canPaste: true,
       canPrune: false,
+      canDetach: false,
     });
     svc.dispose();
   });

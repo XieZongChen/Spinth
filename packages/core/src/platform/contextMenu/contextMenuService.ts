@@ -16,6 +16,9 @@ export interface IContextMenuState {
   /** 「清理悬空连线」可用（specs/flowchart-closeout §7.6）：有断头线才亮；
    *  只读分支恒 false（写命令菜单项禁用，命令层另有一层守卫） */
   canPrune: boolean;
+  /** 「移出容器」可用（specs/container-frame §5.3）：选中集存在 parentId；
+   *  只读分支恒 false（detachSelection 命令层另有 editable$ 守卫） */
+  canDetach: boolean;
 }
 
 /**
@@ -30,6 +33,7 @@ export class ContextMenuService extends Disposable {
     onWidget: false,
     canPaste: false,
     canPrune: false,
+    canDetach: false,
   });
 
   constructor(
@@ -45,6 +49,9 @@ export class ContextMenuService extends Disposable {
     /** 断头线计数（specs/flowchart-closeout §7.6）：菜单项禁用态判定——
      *  组合根注入 countDanglingLines(vm+engine 扫描)；缺省 0 = 恒禁用 */
     private countDangling: () => number = () => 0,
+    /** 「移出容器」可用判定（specs/container-frame §5.3）：组合根注入
+     *  frame.canDetachSelection；缺省 false = 恒禁用（桩环境零行为差） */
+    private canDetachSelection: () => boolean = () => false,
   ) {
     super();
   }
@@ -71,6 +78,7 @@ export class ContextMenuService extends Disposable {
           onWidget: false,
           canPaste: false,
           canPrune: false, // 写命令菜单项禁用（命令层另有一层守卫）
+          canDetach: false,
         });
         return;
       }
@@ -100,6 +108,7 @@ export class ContextMenuService extends Disposable {
         onWidget: hit,
         canPaste: this.hasClipboard(),
         canPrune: this.countDangling() > 0,
+        canDetach: this.canDetachSelection(),
       });
     };
     const onClose = (e: PointerEvent): void => {
@@ -158,6 +167,7 @@ export class ContextMenuService extends Disposable {
         onWidget: false,
         canPaste: false,
         canPrune: false,
+        canDetach: false,
       });
       return;
     }
@@ -179,6 +189,7 @@ export class ContextMenuService extends Disposable {
           onWidget: true,
           canPaste: this.hasClipboard(),
           canPrune: false, // 元素菜单不出清理项（画布级命令）
+          canDetach: this.canDetachSelection(),
         });
         return;
       }
@@ -191,6 +202,7 @@ export class ContextMenuService extends Disposable {
       onWidget: false,
       canPaste: this.hasClipboard(),
       canPrune: this.countDangling() > 0,
+      canDetach: false, // 画布菜单无选中集，不出移出项
     });
   }
 

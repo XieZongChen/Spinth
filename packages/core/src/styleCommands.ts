@@ -24,6 +24,12 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
     ctx.treeService?.setOrientation(ids[0]!, patch.treeOrientation);
     return;
   }
+  // 容器归属清父（specs/container-frame §5.3）：右键「移出容器」经通用样式
+  // 通道分流到 FrameService——I5 归属写唯一入口（同 treeCollapsed 分流先例）
+  if ('parentId' in patch && patch.parentId === undefined) {
+    ctx.frame?.detachSelection();
+    return;
+  }
   // 4.9：脑图节点级选中的样式写入分流（分支色走 TreeService 落节点，
   // 不经 widget 级 update——MIND_MAP schema 对树内字段是放行的 z.unknown）
   if (ids.length === 1 && typeof patch.lineColor === 'string' && patch.lineColor.startsWith('#')) {

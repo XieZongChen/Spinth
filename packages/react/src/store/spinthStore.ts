@@ -48,6 +48,7 @@ export interface SpinthUiState {
     onWidget: boolean;
     canPaste: boolean;
     canPrune: boolean;
+    canDetach: boolean;
   };
   /** 选中浮动操作栏（docs/12 §4）：schema + 屏幕坐标外接矩形；拖拽中 bounds 置 null 隐藏 */
   actionBar: {
@@ -83,7 +84,15 @@ export const useSpinthStore = create<SpinthUiState>(() => ({
   selectedCount: 0,
   canUndo: false,
   canRedo: false,
-  contextMenu: { show: false, x: 0, y: 0, onWidget: false, canPaste: false, canPrune: false },
+  contextMenu: {
+    show: false,
+    x: 0,
+    y: 0,
+    onWidget: false,
+    canPaste: false,
+    canPrune: false,
+    canDetach: false,
+  },
   actionBar: { schema: null, bounds: null },
   treeAddButtons: null,
   gridSnap: false,

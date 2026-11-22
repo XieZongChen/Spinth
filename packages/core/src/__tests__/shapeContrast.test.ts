@@ -77,3 +77,29 @@ describe('文字色板可达性（TEXT_COLOR_PALETTE）', () => {
     expect(TEXT_COLOR_PALETTE).toContain('#f9fafb');
   });
 });
+
+describe('容器标题缺省色 vs 带底色（specs/container-frame §5.4 双态护栏）', () => {
+  it('填充色板每色：标题缺省色对比度 ≥ 4.5:1（白底深字/深底浅字自适应）', async () => {
+    const { resolveFrameTitleColor } = await import('../widgets/frame/frameVm');
+    for (const fill of SHAPE_PALETTE) {
+      const title = resolveFrameTitleColor({ color: fill });
+      const ratio = contrastRatio(title, fill);
+      expect(
+        ratio,
+        `标题缺省色 ${title} on ${fill} = ${ratio}:1（应 ≥4.5）`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('无填充对画布走主题墨色：dark 主题下 #ededf2 on #1b1b22 ≥ 4.5:1', async () => {
+    const { resolveFrameTitleColor } = await import('../widgets/frame/frameVm');
+    expect(resolveFrameTitleColor({ fill: 'none', color: '#ffffff' })).toBe('#333333'); // light
+    setTextTheme('dark');
+    try {
+      expect(resolveFrameTitleColor({ fill: 'none', color: '#ffffff' })).toBe('#ededf2');
+      expect(contrastRatio('#ededf2', '#1b1b22')).toBeGreaterThanOrEqual(4.5);
+    } finally {
+      setTextTheme('light');
+    }
+  });
+});

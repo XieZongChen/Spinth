@@ -58,6 +58,7 @@ describe('ContextMenuService.openFromKeyboard（specs/a11y-closeout §5.6）', (
       onWidget: false,
       canPaste: false,
       canPrune: false,
+      canDetach: false,
     });
     svc.dispose();
   });
@@ -81,6 +82,7 @@ describe('ContextMenuService.openFromKeyboard（specs/a11y-closeout §5.6）', (
       onWidget: true,
       canPaste: true,
       canPrune: false,
+      canDetach: false,
     });
     svc.dispose();
   });

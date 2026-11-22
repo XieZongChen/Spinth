@@ -14,6 +14,9 @@ interface IMenuPanelOptions {
   canPaste: boolean;
   /** 「清理悬空连线」可用（specs/flowchart-closeout §7.6） */
   canPrune: boolean;
+  /** 「移出容器」可用（specs/container-frame §5.3）：选中集存在 parentId；
+   *  只读态恒 false（detachSelection 命令层另有 editable$ 守卫） */
+  canDetach: boolean;
 }
 
 /** 右键菜单（docs/12 §4）：contextMenuOptions$ 驱动，翻转 + 四面夹取防溢出。
@@ -148,6 +151,17 @@ function ContextMenuPanel({
       hint: '⌘⌥[',
       action: () => {
         spinthCommands.sendToBack();
+        close();
+      },
+    },
+    {
+      // 移出容器（specs/container-frame §5.3）：清选中集 parentId（经通用样式
+      // 通道分流 FrameService.detachSelection——I5 唯一写入口）；无归属禁用
+      label: '移出容器',
+      icon: 'frame',
+      disabled: !options.canDetach,
+      action: () => {
+        spinthCommands.updateSelectedStyle({ parentId: undefined });
         close();
       },
     },
