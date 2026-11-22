@@ -106,6 +106,7 @@ export type BoardInternalMember =
   | 'selector'
   | 'shapeService'
   | 'symbolService'
+  | 'frame'
   | 'rectEditor'
   | 'refLine'
   | 'layer'

@@ -16,6 +16,7 @@ import { KeyboardService } from './platform/keyboard/keyboardService';
 import { ClipboardService } from './platform/clipboard/clipboardService';
 import { ShapeService } from './widgets/shape/shapeService';
 import { SymbolService } from './widgets/symbol/symbolService';
+import { FrameService } from './widgets/frame/frameService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
@@ -101,6 +102,8 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   selector: ISelectorService | null = null;
   shapeService: ShapeService | null = null;
   symbolService: SymbolService | null = null;
+  /** 容器工具与归属服务（specs/container-frame）：交互装配阶段构造 */
+  frame: FrameService | null = null;
   rectEditor: RectEditorService | null = null;
   refLine: RefLineService | null = null;
   layer: LayerService | null = null;
