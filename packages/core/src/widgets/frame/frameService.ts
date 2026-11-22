@@ -12,7 +12,12 @@ import type {
 } from '../../types';
 import type { IRect } from '../../common/geometry';
 import { FRAME_DEFAULT_COLOR, FRAME_DEFAULT_SIZE, FRAME_MIN_SIZE } from './frameGeometry';
-import { clampFrameZOrder, expandContainers, resolveParentUpdate } from './frameOps';
+import {
+  clampFrameZOrder,
+  expandContainers,
+  mergeFramesIntoSelection,
+  resolveParentUpdate,
+} from './frameOps';
 
 /** model.toJSON() 的宽松读取形状（几何摊平 + 归属/锚定字段；Record 兜其余键） */
 type FrameWidgetSnapshot = {
@@ -195,6 +200,38 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
       }
     }
     return out;
+  }
+
+  /** 框选容器归并闭包（§4.3）：容器清单/子表按手势快照一次（拖框期间文档
+   *  不变——groupFilter 同款口径）；无容器返回 null。组互斥（不拆组）经
+   *  groups 投影现算命中集涉及的组 */
+  createMarqueeFrameFilter(
+    groups: {
+      groupOf(id: string): string | undefined;
+      membersOf(groupId: string): string[];
+    } | null,
+  ): ((hitIds: string[], marquee: IRect) => string[]) | null {
+    const frameList = this.liveFrames().map((f) => ({ id: f.id, rect: f.rect }));
+    if (frameList.length === 0) return null;
+    return (hitIds: string[], marquee: IRect): string[] => {
+      // 本次结果涉及的、存活成员 ≥2 的组的全部成员（§4.3 第 2 步）
+      const groupedIds = new Set<string>();
+      if (groups) {
+        for (const id of hitIds) {
+          const g = groups.groupOf(id);
+          if (!g) continue;
+          const members = groups.membersOf(g);
+          if (members.length >= 2) for (const m of members) groupedIds.add(m);
+        }
+      }
+      return mergeFramesIntoSelection({
+        ids: hitIds,
+        marquee,
+        frames: frameList,
+        childIdsOf: (fid) => this.childIds(fid),
+        groupedIds,
+      });
+    };
   }
 
   /** 右键「移出容器」（§5.3）：选中集里有 parentId 的全部清父，单事务一步 undo */

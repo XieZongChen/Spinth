@@ -306,3 +306,68 @@ test('C-8 复制粘贴：带子快照、parentId 桶映射指向新容器；拖�
   expect(Math.abs(o1.x - o0.x)).toBeLessThan(1e-6); // 原容器不动
   expect(Math.abs(oc1.x - oc0.x)).toBeLessThan(1e-6); // 原子不动
 });
+
+test('C-9 框选口径：全含容器入选且子元素剔除；半含容器不入选', async ({ page }) => {
+  // 布局：f1(100,100,400,300) 内 c1；f2(700,100,300,200) 内 c2；独立 z1
+  //（ids 顺序 = 入参顺序：f1, c1, f2, c2, z1——跳位解构）
+  const [f1, , f2] = await engineAdd(page, [
+    { type: 'FRAME', color: '#ffffff', x: 100, y: 100, width: 400, height: 300 },
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 150,
+      y: 150,
+      width: 60,
+      height: 60,
+    },
+    { type: 'FRAME', color: '#ffffff', x: 700, y: 100, width: 300, height: 200 },
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 750,
+      y: 150,
+      width: 60,
+      height: 60,
+    },
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 1100,
+      y: 150,
+      width: 60,
+      height: 60,
+    },
+  ]);
+  await expect.poll(() => modelCount(page)).toBe(5);
+
+  // 框 1：全含 f1（含子）、只含 f2 左半——f1 入选、c1 剔除、f2 剔除；
+  // c2 完整落在框内且 f2 未入选（§4.3 只剔「入选容器」的子）→ c2 保留可选
+  // 框矩形世界 (90,90)→(900,450)：f1(100..500) 全含；f2(700..1000) 半含；z1(1100..) 框外
+  await page.mouse.move(90, 90 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(900, 450 + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  let sel = await selectedIds(page);
+  expect(sel).toContain(f1);
+  expect(sel).not.toContain(f2); // 半含剔除
+  const c1Id = (await shapesOf(page)).find((s) => s.x === 150)!.id;
+  const c2Id = (await shapesOf(page)).find((s) => s.x === 750)!.id;
+  expect(sel).not.toContain(c1Id); // 子随容器走，不单独入选
+  expect(sel.sort()).toEqual([f1, c2Id].sort());
+
+  // 框 2：全含 f2 与 c2——f2 入选、c2 剔除
+  await page.mouse.move(690, 90 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(1020, 320 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  sel = await selectedIds(page);
+  expect(sel).toEqual([f2]);
+});

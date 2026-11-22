@@ -236,6 +236,16 @@ export interface IFrameLookup {
     id: string;
     zOrder: string;
   }>;
+  /** 框选容器归并闭包（specs/container-frame §4.3）：手势级快照（容器清单/
+   *  子表/组互斥判定内置）；无容器返回 null（零开销直通）。groups 是
+   *  GroupService 的 groupOf/membersOf 投影（不拆组判定用），平台层经本
+   *  接口消费——同上不 import widgets/frame */
+  createMarqueeFrameFilter(
+    groups: {
+      groupOf(id: string): string | undefined;
+      membersOf(groupId: string): string[];
+    } | null,
+  ): ((hitIds: string[], marquee: IRect) => string[]) | null;
 }
 
 export interface ISelectorService {

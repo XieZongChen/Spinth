@@ -125,6 +125,7 @@ describe('expandContainers 去重保序（§4.4/§6.6-7）', () => {
     childIds: (fid) => children[fid] ?? [],
     expandForCascade: (ids) => ids,
     reconcileParents: () => {},
+    createMarqueeFrameFilter: () => null,
     computeLayerClamps: () => [],
   });
 

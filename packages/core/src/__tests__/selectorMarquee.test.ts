@@ -36,6 +36,7 @@ function createHarness(opts: { types?: Record<string, string>; groups?: unknown 
 
   return {
     make,
+    ctx,
     setHits: (next: string[]) => (hits = next),
     setSelected,
     selectorVm,
@@ -145,5 +146,30 @@ describe('MarqueeSession（specs/marquee-auto-scroll T1-T8）', () => {
     gm.move(new Point(30, 0), screen(30, 0));
     expect(filter).toHaveBeenCalledTimes(1);
     expect(g.setSelected).toHaveBeenCalledWith(['g1']);
+  });
+
+  it('T9 容器归并闭包：groupFilter 之后并列调用（specs/container-frame §4.3）', () => {
+    const order: string[] = [];
+    const groupFilter = vi.fn((hitIds: string[]) => {
+      order.push('group');
+      return hitIds;
+    });
+    const frameFilter = vi.fn((hitIds: string[], rect: IRect) => {
+      order.push('frame');
+      expect(rect).toBeDefined();
+      return hitIds.filter((id) => id !== 'drop-me');
+    });
+    const h = createHarness({ groups: { createMarqueeFilter: () => groupFilter } });
+    h.setHits(['w1', 'drop-me', 'w2']);
+    const m = new MarqueeSession(
+      h.ctx,
+      new Point(0, 0),
+      screen(0, 0),
+      { createMarqueeFilter: () => groupFilter } as never,
+      frameFilter,
+    );
+    m.move(new Point(50, 0), screen(50, 0));
+    expect(order).toEqual(['group', 'frame']); // 顺序固定：组先、容器后
+    expect(h.setSelected).toHaveBeenCalledWith(['w1', 'w2']);
   });
 });

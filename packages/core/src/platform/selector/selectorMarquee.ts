@@ -30,6 +30,10 @@ export interface IMarqueeContext {
 export class MarqueeSession {
   private readonly state: MarqueeState;
   private readonly groupFilter: ((hitIds: string[], rect: IRect) => string[]) | null;
+  /** 容器归并闭包（specs/container-frame §4.3，groupFilter 同款手势级快照；
+   *  由 SelectorService 经 IFrameLookup.createMarqueeFrameFilter 构建——平台层
+   *  不 import widgets/frame） */
+  private readonly frameFilter: ((hitIds: string[], rect: IRect) => string[]) | null;
   /** 按下时的屏幕坐标（判据基准，永不更新——滚动改变世界坐标但不改变它） */
   private readonly startScreen: IPoint;
   private movedFlag = false;
@@ -42,11 +46,13 @@ export class MarqueeSession {
     start: Point,
     startScreen: IPoint,
     groups: GroupService | null,
+    frameFilter: ((hitIds: string[], rect: IRect) => string[]) | null = null,
   ) {
     this.state = { start: start.clone(), cur: start.clone() };
     this.startScreen = { x: startScreen.x, y: startScreen.y };
     // 组索引快照按手势建一次（docs/18 §4.3：拖框期间组籍/成员不变）
     this.groupFilter = groups?.createMarqueeFilter() ?? null;
+    this.frameFilter = frameFilter;
     ctx.selectorVm.show(marqueeRectOf(this.state));
   }
 
@@ -74,6 +80,11 @@ export class MarqueeSession {
     if (this.groupFilter) {
       // 整组全入框口径（docs/18 §4.3）：过程即最终结果，不闪变
       hitIds = this.groupFilter(hitIds, rect);
+    }
+    if (this.frameFilter) {
+      // 容器归并（specs/container-frame §4.3）：与组过滤并列，顺序固定——
+      // 组先（整组全入）、容器后（全含才入选 + 子剔除 + 不拆组）
+      hitIds = this.frameFilter(hitIds, rect);
     }
     // setSelected 是 O(全部 vm) + 重订阅（specs §2.3-④）：滚屏稳态命中集不变，
     // 逐帧照调 = 与输入无关的固定 fan-out——与上次写入序列相同则跳过。

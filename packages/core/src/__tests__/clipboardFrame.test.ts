@@ -39,6 +39,7 @@ function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
       return out;
     },
     reconcileParents: () => {},
+    createMarqueeFrameFilter: () => null,
     computeLayerClamps: vi.fn((post: ReadonlyArray<{ id: string; zOrder: string }>) =>
       // 桩语义：批内（新 id 不在 byId——从粘贴 add 捕获里认类型）每容器
       // key ≥ 其批内最小子 key 时给一个更低的 key

@@ -280,7 +280,16 @@ export class SelectorService extends Disposable implements ISelectorService {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);
       }
-      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, e.screen, this.getGroups());
+      // 容器归并闭包按手势建一次（specs/container-frame §4.3；groups 投影供
+      // 不拆组判定——经 IFrameLookup 构建，平台层不 import widgets/frame）
+      const groups = this.getGroups();
+      const frameFilter =
+        this.getFrames()?.createMarqueeFrameFilter(
+          groups
+            ? { groupOf: (id) => groups.groupOf(id), membersOf: (g) => groups.membersOf(g) }
+            : null,
+        ) ?? null;
+      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, e.screen, groups, frameFilter);
     }
   }
 
