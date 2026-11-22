@@ -30,6 +30,8 @@ import { ImageModel } from './widgets/image/imageModel';
 import { ImageVm } from './widgets/image/imageVm';
 import { SymbolModel } from './widgets/symbol/symbolModel';
 import { SymbolVm } from './widgets/symbol/symbolVm';
+import { FrameModel } from './widgets/frame/frameModel';
+import { FrameVm } from './widgets/frame/frameVm';
 import { MindMapModel, OrgChartModel } from './widgets/tree/model/treeMapModel';
 import { MindMapVm, OrgChartVm } from './widgets/tree/vm/treeMapVm';
 
@@ -75,6 +77,15 @@ export const WIDGET_RUNTIME = {
     vmToken: token<IBaseWidgetVm>('SymbolVm'),
     createModel: (r: ServiceRegistry) => new SymbolModel(r.resolve(Tokens.DataProcessor)),
     createVm: (r: ServiceRegistry) => new SymbolVm(r.resolve(Tokens.TextRender)),
+  },
+  FRAME: {
+    modelToken: token<IBaseModel>('FrameModel'),
+    vmToken: token<IBaseWidgetVm>('FrameVm'),
+    createModel: (r: ServiceRegistry) => new FrameModel(r.resolve(Tokens.DataProcessor)),
+    // 命中环宽按屏幕 px 折算需要 vpScale（specs/container-frame §3.3）——
+    // Tokens.ViewportService 在 boardAssemblyCore 注册 singleton
+    createVm: (r: ServiceRegistry) =>
+      new FrameVm(() => r.resolve(Tokens.ViewportService).vpScale$.value),
   },
   MIND_MAP: {
     modelToken: token<IBaseModel>('MindMapModel'),

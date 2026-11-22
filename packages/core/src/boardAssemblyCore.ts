@@ -55,7 +55,9 @@ export function assembleCore(sdk: BoardSDK): void {
   sdk.textRender = new TextRenderService(sdk.viewport);
   sdk.registry
     .registerSingleton(Tokens.DataProcessor, () => sdk.engine!.processor)
-    .registerSingleton(Tokens.TextRender, () => sdk.textRender!);
+    .registerSingleton(Tokens.TextRender, () => sdk.textRender!)
+    // FrameVm 命中环宽折算用（specs/container-frame §3.3）：vpScale 惰性解析
+    .registerSingleton(Tokens.ViewportService, () => sdk.viewport!);
   for (const entry of Object.values(WIDGET_RUNTIME)) {
     sdk.registry
       .register(entry.modelToken, entry.createModel)

@@ -445,6 +445,26 @@ export const WIDGET_REGISTRY = {
       erasable: false,
     },
   },
+  FRAME: {
+    family: 'widget',
+    schema: FrameSchema,
+    capabilities: {
+      // 不旋转（specs/container-frame §2.6：旋转变换与子元素坐标无解）
+      rotatable: false,
+      // 容器与组互斥（§4.13：几何归属 vs 选择聚合，两套语义不混用）
+      groupable: false,
+      resizable: true,
+      movable: true,
+      selectable: true,
+      keepRatio: false,
+      // 标题走自有 plain 内核会话（§4.10，同 LINE 线上文字先例——不走
+      // TYPES_WHERE('editable') 的富文本通道，那条通道写 text 字段）
+      editable: false,
+      // 参考线可吸附容器边（泳道对齐刚需，§2.6）
+      referenceable: true,
+      erasable: false,
+    },
+  },
 } as const satisfies Record<
   string,
   { family: WidgetFamily; schema: z.ZodType; capabilities: IWidgetCapabilities }

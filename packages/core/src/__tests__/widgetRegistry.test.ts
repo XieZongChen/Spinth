@@ -17,8 +17,9 @@ import type { IRect } from '../common/geometry';
  * 任一侧加字段/加类型未同步即此处编译红/测红（防两套真相漂移）。
  */
 describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
-  it('注册表覆盖全部九类型', () => {
+  it('注册表覆盖全部十类型', () => {
     expect(Object.keys(WIDGET_REGISTRY).sort()).toEqual([
+      'FRAME',
       'IMAGE',
       'LINE',
       'MIND_MAP',
@@ -45,10 +46,11 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     }
   });
 
-  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照五类/可擦一类', async () => {
+  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照六类（含 FRAME）/可擦一类', async () => {
     const { TYPES_WHERE } = await import('../types/widget');
     expect(TYPES_WHERE('editable').sort()).toEqual(['SHAPE', 'STICKY', 'SYMBOL', 'TEXT']);
     expect(TYPES_WHERE('referenceable').sort()).toEqual([
+      'FRAME',
       'IMAGE',
       'SHAPE',
       'STICKY',
@@ -77,6 +79,16 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     expect(WIDGET_REGISTRY.MIND_MAP.capabilities.groupable).toBe(false);
     expect(WIDGET_REGISTRY.LINE.capabilities.resizable).toBe(false);
     expect(WIDGET_REGISTRY.PEN.capabilities.resizable).toBe(true);
+    // FRAME（specs/container-frame §2.6）：不旋转、不编组、标题不走富文本通道、
+    // 参考线可吸附（泳道对齐刚需）
+    expect(WIDGET_REGISTRY.FRAME.capabilities).toMatchObject({
+      rotatable: false,
+      groupable: false,
+      resizable: true,
+      editable: false,
+      referenceable: true,
+      erasable: false,
+    });
   });
 
   it('discriminatedUnion 按 type 分派 parse（抽样 SHAPE/未知拒绝）', () => {
