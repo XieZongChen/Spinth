@@ -253,7 +253,7 @@ export const FrameSchema = z.object({
   color: z.string().default('#ffffff'),
   /** 填充态：'solid'（缺省）= 填充 color；'none' = 无底只有边框 */
   fill: z.enum(['solid', 'none']).optional(),
-  /** 边框：未写 borderColor = 派生暗色（与 SHAPE 同口径：写死不自适应） */
+  /** 边框：未写 borderColor = 缺省常量 #94a3b8（写死不自适应，frameVm 单源） */
   borderColor: z.string().optional(),
   borderWidth: z.number().optional(),
   borderStyle: z.enum(['solid', 'dashed', 'none']).default('solid'),

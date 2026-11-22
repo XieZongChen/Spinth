@@ -252,13 +252,12 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     };
   }
 
-  /** 右键「移出容器」（§5.3）：选中集里有 parentId 的全部清父，单事务一步 undo */
+  /** 右键「移出容器」（§5.3）：选中集里有 parentId 的全部清父，单事务一步
+   *  undo。锚定线拒绝（I2）：清一个任何路径都不读的 stale 字段只会产出
+   *  无意义 undo 项 */
   detachSelection(): void {
     if (!this.viewport.editable$.value) return;
-    const ids = this.selectorRef.selected$.value.filter((id) => {
-      const d = this.widgetData(id);
-      return d !== undefined && 'parentId' in d && d.parentId !== undefined;
-    });
+    const ids = this.selectorRef.selected$.value.filter((id) => this.detachable(id));
     if (ids.length === 0) return;
     this.engine.transact(() => {
       for (const id of ids) {
@@ -268,13 +267,17 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     this.historyRef.stopCapturing();
   }
 
-  /** 「移出容器」可用态（菜单禁用判定）：选中集存在 parentId 且可写 */
+  /** 可移出判定：持有 parentId 且非锚定线（I2 写侧拒绝同款） */
+  private detachable(id: string): boolean {
+    const d = this.widgetData(id);
+    if (d === undefined || d.parentId === undefined) return false;
+    return !(d.type === 'LINE' && (d.startNodeId || d.endNodeId));
+  }
+
+  /** 「移出容器」可用态（菜单禁用判定）：选中集存在可移出件且可写 */
   canDetachSelection(): boolean {
     if (!this.viewport.editable$.value) return false;
-    return this.selectorRef.selected$.value.some((id) => {
-      const d = this.widgetData(id);
-      return d !== undefined && d.parentId !== undefined;
-    });
+    return this.selectorRef.selected$.value.some((id) => this.detachable(id));
   }
 
   /** 标题编辑入口（§4.10：单击已选中容器经 onActivate 分派至此；只读早退在

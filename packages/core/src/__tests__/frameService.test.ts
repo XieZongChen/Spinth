@@ -360,4 +360,20 @@ describe('clampFrame / computeLayerClamps / detachSelection（I3/§4.8/§5.3）'
     env.svc.detachSelection();
     expect(env.updates).toEqual([]);
   });
+
+  it('detachSelection：锚定线拒绝（I2 写侧）——清 stale 字段只产出无意义 undo 项', () => {
+    const env = makeEnv(
+      [
+        W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+        W('anchored', 'LINE', 'a1', [10, 10, 60, 60], {
+          parentId: 'f1', // 自由期归属后转锚定的 stale 字段
+          startNodeId: 'host',
+        }),
+      ],
+      { selected: ['anchored'] },
+    );
+    expect(env.svc.canDetachSelection()).toBe(false); // 惰性数据：不可移出
+    env.svc.detachSelection();
+    expect(env.updates).toEqual([]); // 零写零事务
+  });
 });
