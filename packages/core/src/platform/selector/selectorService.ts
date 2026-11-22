@@ -1,4 +1,3 @@
-import { Point } from 'pixi.js';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
 import { isTreeWidgetType } from '../../types';
@@ -15,8 +14,9 @@ import type {
   IViewportService,
   IVmEngineService,
 } from '../../types';
-import { SelectorVm } from './selectorVm';
-import { MarqueeSession, type IMarqueeContext } from './selectorMarquee';
+import { SelectorVm, syncSelectionFrame } from './selectorVm';
+import { buildFrameMarqueeFilter, MarqueeSession, type IMarqueeContext } from './selectorMarquee';
+import { treePointerDown } from './selectorTreeGate';
 import { SelectionVm } from '../selection/selectionVm';
 import {
   applyDragMove,
@@ -208,38 +208,23 @@ export class SelectorService extends Disposable implements ISelectorService {
     const hits = this.vmEngine.getVmByPoint(e.world);
     const top = hits[0];
     // 脑图节点级拖拽优先于整图拖拽（docs/11 §6）：按下在非根节点 → MindService
-    // 接管本次指针序列；根节点/未命中节点落回下方通用路径（整图拖拽/框选）
+    // 接管本次指针序列；根节点/未命中节点落回下方通用路径（整图拖拽/框选）。
+    // 判定体拆至 selectorTreeGate（审查返工 400 行拆分，逻辑逐字搬移）
     if (top && isTreeWidgetType(top.type) && this.treeDragDelegate) {
-      // 折叠徽标优先于节点拖拽（specs/tree-diagrams §8.4）：命中 → 建选区/节点
-      // 焦点、执行展开、消费本次按下（不建拖拽会话）；未命中才走 startDrag。
-      // 只读态指针分发整条丢弃（不会到达此处），徽标不可操作由该闸门保证
-      const toggleId = this.treeDragDelegate.hitToggle?.(top.id, e.world);
-      if (toggleId) {
-        this.treeDragDelegate.focusNode?.(top.id, toggleId);
-        this.setSelected([top.id]);
-        this.treeDragDelegate.toggleCollapseAt?.(top.id, toggleId);
-        return;
-      }
-      const node = (
-        top as unknown as {
-          hitNode(p: Point): { model: { id: string } } | null;
-        }
-      ).hitNode(e.world);
-      // 按下时该脑图是否已在选区（松手未拖动 = 再点已选中 → 激活编辑，同通用路径）
-      this.treeDragWasSelected = this.selected$.value.includes(top.id);
-      if (node && this.treeDragDelegate.startDrag(top.id, node.model.id, e.world)) {
-        // 按下即建立节点级选中态（先于 setSelected：选区框同步时 isNodeSelected
-        // 已可判定，整树框不闪现——松手 click 分支的焦点覆写同值幂等）
-        this.treeDragDelegate.focusNode?.(top.id, node.model.id);
-        this.setSelected([top.id]);
+      const gate = treePointerDown(
+        this.treeDragDelegate,
+        top,
+        e,
+        (id) => this.selected$.value.includes(id),
+        (ids) => this.setSelected(ids),
+      );
+      if (gate.kind === 'consumed') return;
+      if (gate.kind === 'dragging') {
+        this.treeDragWasSelected = gate.wasSelected;
         this.treeDragging = true;
         return;
       }
-      // 4.9 点根 = 整图选中 + 焦点重置根（selected$ 订阅对同图旧焦点不重置，
-      // 此处精确通知——既有设计点根即选整图的语义）
-      if (node) {
-        this.treeDragDelegate.focusRoot?.(top.id);
-      }
+      // focus-root / pass：落回通用路径（选整图 / 框选）
     }
     if (top) {
       const wasSelected = !e.shiftKey && this.selected$.value.includes(top.id);
@@ -280,16 +265,16 @@ export class SelectorService extends Disposable implements ISelectorService {
       if (!e.shiftKey && this.selected$.value.length > 0) {
         this.setSelected([]);
       }
-      // 容器归并闭包按手势建一次（specs/container-frame §4.3；groups 投影供
-      // 不拆组判定——经 IFrameLookup 构建，平台层不 import widgets/frame）
+      // 容器归并闭包按手势建一次（specs/container-frame §4.3；构建拆至
+      // buildFrameMarqueeFilter——平台层不 import widgets/frame）
       const groups = this.getGroups();
-      const frameFilter =
-        this.getFrames()?.createMarqueeFrameFilter(
-          groups
-            ? { groupOf: (id) => groups.groupOf(id), membersOf: (g) => groups.membersOf(g) }
-            : null,
-        ) ?? null;
-      this.marquee = new MarqueeSession(this.marqueeCtx, e.world, e.screen, groups, frameFilter);
+      this.marquee = new MarqueeSession(
+        this.marqueeCtx,
+        e.world,
+        e.screen,
+        groups,
+        buildFrameMarqueeFilter(this.getFrames(), groups),
+      );
     }
   }
 
@@ -395,33 +380,14 @@ export class SelectorService extends Disposable implements ISelectorService {
   private singleClickActivate = true;
 
   private syncSelectionVm(): void {
-    const ids = this.selected$.value;
-    if (ids.length === 0 || this.dragState?.moved) {
-      this.selectionVm.hide();
-      return;
-    }
-    // 脑图焦点节点（根或子节点）：选区框画在**节点本体**上——既有设计点任意
-    // MIND_NODE 都是这个视觉（框整棵树是 spinth 早期形态；只给根画框则子节点
-    // 看起来「没有选中态」）
-    if (ids.length === 1) {
-      const focusFrame = this.treeDragDelegate?.getFocusFrame?.();
-      if (focusFrame) {
-        this.selectionVm.showBounds([focusFrame]);
-        return;
-      }
-      // 单选连线不画 bbox 框（批次 3.6）：points bbox 对 U 形线会补出第四边。
-      // 线选中态 = 线本体 + 端点圆/段条手柄（refreshHandles）；ActionBar 定位
-      // 走独立 getSelectionBounds。多选含线仍画 union 框（组语义）。
-      const only = this.vmEngine.getVmById(ids[0]!);
-      if (only?.type === 'LINE') {
-        this.selectionVm.hide();
-        return;
-      }
-    }
-    const bounds = ids
-      .map((id) => this.vmEngine.getVmById(id)?.getBounds())
-      .filter((b): b is IRect => !!b);
-    this.selectionVm.showBounds(bounds);
+    // 同步逻辑拆至 syncSelectionFrame（审查返工 400 行拆分，语义逐字搬移）
+    syncSelectionFrame({
+      selectionVm: this.selectionVm,
+      ids: this.selected$.value,
+      getVmById: (id) => this.vmEngine.getVmById(id),
+      getFocusFrame: () => this.treeDragDelegate?.getFocusFrame?.(),
+      dragMoved: !!this.dragState?.moved,
+    });
   }
 
   /** 公开重画入口：脑图焦点变化（Tab 建子/方向键导航）不改 selected$，由组合根

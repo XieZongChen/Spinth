@@ -1,9 +1,27 @@
 import { Point, Rectangle } from 'pixi.js';
 import type { IPoint, IRect } from '../../common/geometry';
-import type { ITreeDragDelegate, IVmEngineService } from '../../types';
+import type { IFrameLookup, ITreeDragDelegate, IVmEngineService } from '../../types';
 import { marqueeRectOf, type MarqueeState } from './selectorVm';
 import { DRAG_TRACTION_SCREEN } from '../../common/interaction';
 import type { GroupService } from './groupService';
+
+/**
+ * 容器归并闭包构建（specs/container-frame §4.3，自 selectorService 拆出）：
+ * groups 投影供不拆组判定；经 IFrameLookup 构建（平台层不 import widgets/
+ * frame）。无容器服务返回 null（零容器语义零开销）
+ */
+export function buildFrameMarqueeFilter(
+  frames: IFrameLookup | null,
+  groups: GroupService | null,
+): ((hitIds: string[], marquee: IRect) => string[]) | null {
+  return (
+    frames?.createMarqueeFrameFilter(
+      groups
+        ? { groupOf: (id) => groups.groupOf(id), membersOf: (g) => groups.membersOf(g) }
+        : null,
+    ) ?? null
+  );
+}
 
 /**
  * 框选会话（specs/marquee-auto-scroll §5）：down 建 / move 逐帧 / up·cancel 收。
