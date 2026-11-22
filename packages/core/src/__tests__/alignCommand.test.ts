@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { BoardSDK } from '../app';
+import { nudgeSelected } from '../alignCommands';
 
 /**
  * 对齐/分布命令层守卫（docs/05 §7；2026-10-10 审计补测——此前仅 E2E 护栏）：
@@ -238,5 +239,120 @@ describe('BoardSDK 对齐/分布命令层（编排桩）', () => {
       0,
     );
     expect(h.commitDrag.get('C')).not.toHaveBeenCalled(); // 不在集不被带动
+  });
+
+  it('容器剔除参与集（specs/container-frame §4.9）：FRAME 返 null，剩 1 参与者整体 no-op', () => {
+    const h = harness(['F', 'A']);
+    const ACommit = vi.fn();
+    // 覆写 vm 表：F = 容器（resolver 剔除）、A = 唯一普通参与者 → 参与数 <2 no-op
+    (h.sdk as unknown as Record<string, unknown>).vmEngine = {
+      getVmById: (id: string) =>
+        ({
+          F: {
+            id: 'F',
+            type: 'FRAME',
+            getBounds: () => ({ x: 0, y: 0, width: 400, height: 300 }),
+            getLocalRect: () => ({ x: 0, y: 0, width: 400, height: 300 }),
+            getRotation: () => 0,
+          },
+          A: {
+            id: 'A',
+            type: 'SHAPE',
+            getBounds: () => ({ x: 100, y: 100, width: 50, height: 50 }),
+            getLocalRect: () => ({ x: 100, y: 100, width: 50, height: 50 }),
+            getRotation: () => 0,
+            commitDrag: ACommit,
+          },
+        })[id],
+    };
+    h.sdk.alignSelection('left');
+    expect(h.transact).not.toHaveBeenCalled(); // 剔除后仅剩 A——no-op
+    expect(ACommit).not.toHaveBeenCalled();
+  });
+});
+
+describe('nudgeSelected 容器级联与事务内归属（specs/container-frame §4.5）', () => {
+  it('微移展开带子：容器与子各自位移，同事务内对展开前选区判父', () => {
+    const order: string[] = [];
+    const commitDrag = new Map<string, ReturnType<typeof vi.fn>>();
+    const mk = (id: string, type: string, r: Rect) => {
+      commitDrag.set(
+        id,
+        vi.fn(() => order.push(`commitDrag:${id}`)),
+      );
+      return {
+        id,
+        type,
+        getBounds: () => ({ ...r }),
+        getLocalRect: () => ({ ...r }),
+        getRotation: () => 0,
+        commitDrag: commitDrag.get(id),
+      };
+    };
+    const frameR = { x: 0, y: 0, width: 400, height: 300 };
+    const childR = { x: 10, y: 40, width: 50, height: 50 };
+    const vms: Record<string, unknown> = {
+      F: mk('F', 'FRAME', frameR),
+      C: mk('C', 'SHAPE', childR),
+    };
+    const models: Record<string, unknown> = {
+      F: { toJSON: () => ({ id: 'F', type: 'FRAME', ...frameR }) },
+      C: { toJSON: () => ({ id: 'C', type: 'SHAPE', ...childR, parentId: 'F' }) },
+    };
+    const transact = vi.fn((fn: () => void) => {
+      order.push('transact:enter');
+      fn();
+      order.push('transact:exit');
+    });
+    const reconcileParents = vi.fn((ids: string[], rectOf: (id: string) => Rect) => {
+      order.push(`reconcile:${ids.join(',')}`);
+      order.push(`rectOfF:${JSON.stringify(rectOf('F'))}`);
+    });
+    const sdk = new BoardSDK();
+    const w = sdk as unknown as Record<string, unknown>;
+    w.viewport = { editable$: new BehaviorSubject(true) };
+    w.selector = { selected$: new BehaviorSubject(['F']) };
+    w.vmEngine = { getVmById: (id: string) => vms[id] };
+    w.engine = { transact, getModelById: (id: string) => models[id] };
+    w.history = { stopCapturing: vi.fn() };
+    w.frame = {
+      isFrame: (id: string) => id === 'F',
+      childIds: () => ['C'],
+      expandForCascade: (ids: string[]) => ids.flatMap((i) => (i === 'F' ? ['F', 'C'] : [i])),
+      reconcileParents,
+    };
+
+    nudgeSelected(sdk as never, 10, 0, false);
+    // 展开：容器与子各 commitDrag（dx=10）；归属判定对展开前 ['F']
+    expect(commitDrag.get('F')).toHaveBeenCalledWith(frameR, 10, 0);
+    expect(commitDrag.get('C')).toHaveBeenCalledWith(childR, 10, 0);
+    expect(reconcileParents).toHaveBeenCalledTimes(1);
+    expect(order[0]).toBe('transact:enter');
+    expect(order.at(-1)).toBe('transact:exit'); // 归属在事务内（stopCapturing 之前）
+    // rectOf('F') = localRect(0,0,400,300) + (10,0)——事务内 state 是位移前值
+    expect(order).toContain('rectOfF:{"x":10,"y":0,"width":400,"height":300}');
+  });
+
+  it('无 frame 服务（老桩）：行为零漂移——只移选中件、不判父', () => {
+    const commitDrag = vi.fn();
+    const vms = {
+      A: {
+        id: 'A',
+        type: 'SHAPE',
+        getBounds: () => ({ x: 0, y: 0, width: 10, height: 10 }),
+        getLocalRect: () => ({ x: 0, y: 0, width: 10, height: 10 }),
+        getRotation: () => 0,
+        commitDrag,
+      },
+    };
+    const sdk = new BoardSDK();
+    const w = sdk as unknown as Record<string, unknown>;
+    w.viewport = { editable$: new BehaviorSubject(true) };
+    w.selector = { selected$: new BehaviorSubject(['A']) };
+    w.vmEngine = { getVmById: (id: string) => vms[id as keyof typeof vms] };
+    w.engine = { transact: (fn: () => void) => fn(), getModelById: () => undefined };
+    w.history = { stopCapturing: vi.fn() };
+    nudgeSelected(sdk as never, 1, 0, false);
+    expect(commitDrag).toHaveBeenCalledTimes(1);
   });
 });

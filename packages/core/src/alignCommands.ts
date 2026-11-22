@@ -29,7 +29,10 @@ export interface IAlignParticipant {
 }
 
 /** 键盘微移（docs/09 §2）：一个事务合并本次所有选中元素的位移。
- *  走交互几何契约（docs/05 §4.4）：rect 型平移 x/y，points 型（LINE/PEN）平移 points。 */
+ *  走交互几何契约（docs/05 §4.4）：rect 型平移 x/y，points 型（LINE/PEN）平移 points。
+ *  容器级联（specs/container-frame §4.5）：展开后逐件位移，同事务内跑归属
+ *  判定（ids = 展开前选区）——rectOf = getLocalRect() + 位移（事务内 state
+ *  是位移前值，加 delta 即落点；未移动的父容器 localRect 即权威值）。 */
 export function nudgeSelected(
   ctx: IBoardCommandHost,
   dx: number,
@@ -39,12 +42,28 @@ export function nudgeSelected(
   if (!ctx.viewport?.editable$.value) return;
   const ids = ctx.selector?.selected$.value ?? [];
   if (ids.length === 0) return;
+  const frames = ctx.frame;
+  const expanded = frames ? frames.expandForCascade(ids) : ids;
   ctx.engine!.transact(() => {
-    for (const id of ids) {
+    for (const id of expanded) {
       const vm = ctx.vmEngine?.getVmById(id);
       if (vm) {
         vm.commitDrag(vm.getLocalRect(), dx, dy);
       }
+    }
+    if (frames) {
+      const moved = new Set(expanded);
+      frames.reconcileParents(ids, (id) => {
+        const lr = ctx.vmEngine?.getVmById(id)?.getLocalRect() ?? {
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+        };
+        return moved.has(id)
+          ? { x: lr.x + dx, y: lr.y + dy, width: lr.width, height: lr.height }
+          : lr;
+      });
     }
   });
   // 撤销项切分（Batch 1 · 1.11①）：按住方向键 key-repeat（几十 ms 间隔）在
@@ -116,6 +135,10 @@ export function collectCollapsedParticipants(
 function resolveAlignParticipant(ctx: IBoardCommandHost, id: string): IAlignParticipant | null {
   const vm = ctx.vmEngine?.getVmById(id);
   if (!vm) return null;
+  // 容器不参与对齐/分布（specs/container-frame §4.9，锚定线同款剔除）：
+  // delta 只移动容器、子元素留在原地——「容器子集移动」接进 delta 分摊是
+  // 后置能力；剔除后参与数不足时六向对齐/两向分布按钮各自禁用（既有逻辑）
+  if (vm.type === 'FRAME') return null;
   if (vm.type === 'LINE') {
     const data = ctx.engine?.getModelById(id)?.toJSON() as unknown as
       | {
