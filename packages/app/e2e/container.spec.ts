@@ -1,0 +1,244 @@
+/** 容器 / Frame E2E（specs/container-frame §8.2）：创建即归属/拖动带子/拖出
+ *  脱离/拖入归属/删除级联/容器在子之下。断言走 __spinthDebug.__debug 探针
+ *  （世界坐标）；指针坐标 = 世界 + 顶栏 44。容器经 dev 注入 engine.add 搭建
+ *  （network.spec 先例）——容器工具快捷键 C 与拖拽创建在 P3 批接入后另补
+ *  C-1；子元素形状用真实矩形工具路径（创建即归属必须走真实手势）。 */
+import { expect, test, type Page } from '@playwright/test';
+import { openBoardDoc } from './helpers/boardE2e';
+import { modelCount } from './helpers/projectFileE2e';
+
+const TOP_BAR = 44;
+
+interface Snap {
+  id: string;
+  type: string;
+  title?: string;
+  headerSide?: string;
+  parentId?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+async function vmStates(page: Page): Promise<Snap[]> {
+  return page.evaluate(() =>
+    (
+      window as unknown as { __spinthDebug: { __debug: { vmStates: unknown[] } } }
+    ).__spinthDebug.__debug.vmStates.slice() as Snap[],
+  );
+}
+
+async function framesOf(page: Page): Promise<Snap[]> {
+  return (await vmStates(page)).filter((s) => s.type === 'FRAME');
+}
+
+async function shapesOf(page: Page): Promise<Snap[]> {
+  return (await vmStates(page)).filter((s) => s.type === 'SHAPE');
+}
+
+async function selectedIds(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } }
+      ).__spinthDebug.__debug.selectedIds,
+  );
+}
+
+/** 批量建件（engine.add，bench/network 先例）。两个坑：
+ *  ① engine.add 不生成 id（data.id 直用）——缺 id 落成空串坏数据，页内生成；
+ *  ② 不包外层 transact——外层事务内「创建后紧接的归属写」对 mid-transaction
+ *    才挂上的 vm 观察者不可见（vm.state 丢 parentId；生产路径创建从无外来
+ *    外层事务，粘贴批的 parentId 走创建数据自带）。逐件独立 add 与生产同构 */
+async function engineAdd(page: Page, widgets: Array<Record<string, unknown>>): Promise<string[]> {
+  const ids = await page.evaluate((ws) => {
+    const eng = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: { engine: { add(w: unknown): void; genInitialOrder(): string } };
+        };
+      }
+    ).__spinthDebug.__debug.engine;
+    const generated: string[] = [];
+    for (const w of ws) {
+      const id = `e2e-${Math.random().toString(36).slice(2, 10)}`;
+      generated.push(id);
+      eng.add({ id, zOrder: eng.genInitialOrder(), ...w });
+    }
+    return generated;
+  }, widgets);
+  await page.waitForTimeout(400);
+  return ids;
+}
+
+/** 建一个容器，返回 {id, x, y, w, h} 快照 */
+async function addFrame(
+  page: Page,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  extra: Record<string, unknown> = {},
+): Promise<Snap> {
+  const [id] = await engineAdd(page, [{ type: 'FRAME', color: '#ffffff', x, y, width: w, height: h, ...extra }]);
+  const f = (await framesOf(page)).find((s) => s.id === id)!;
+  return f;
+}
+
+/** 按住世界坐标 (wx, wy) 拖动 (dx, dy) */
+async function dragFrom(page: Page, wx: number, wy: number, dx: number, dy: number): Promise<void> {
+  await page.mouse.move(wx, wy + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(wx + dx, wy + dy + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+
+test.beforeEach(async ({ page }) => {
+  await openBoardDoc(page, `e2e-container-${Date.now()}`);
+});
+
+test('C-2 创建即归属：容器内画形状 → parentId 落库；容器外画不归属', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  // 容器内画矩形（真实工具路径：草稿建立即触发 adoptOnCreate）
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR); // 世界 150,150
+  await page.mouse.down();
+  await page.mouse.move(260, 260 + TOP_BAR, { steps: 6 }); // 世界 260,260
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  let inside = (await shapesOf(page)).find((s) => s.x === 150);
+  expect(inside).toBeDefined();
+  expect(inside!.parentId).toBe(frame.id);
+
+  // 容器外画矩形：无 parentId
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(700, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(790, 240 + TOP_BAR, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(3);
+  const outside = (await shapesOf(page)).find((s) => s.x === 700);
+  expect(outside).toBeDefined();
+  expect('parentId' in outside!).toBe(false);
+});
+
+test('C-3 拖动带子：容器位移 = 子位移；undo 一步全回', async ({ page }) => {
+  const [frameId] = await engineAdd(page, [
+    { type: 'FRAME', color: '#ffffff', x: 100, y: 100, width: 400, height: 300 },
+    { type: 'SHAPE', color: '#e8f0fb', shapeType: 'rect', text: '', x: 150, y: 150, width: 60, height: 60 },
+  ]);
+  await page.waitForTimeout(100);
+  const frame = (await framesOf(page)).find((s) => s.id === frameId)!;
+  let child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frame.id); // 创建即归属（engine.add 同流触发）
+
+  const f0 = { x: frame.x, y: frame.y };
+  const c0 = { x: child.x, y: child.y };
+  // 抓标题带（世界 200, 112——带高 28 内）拖 (+80, +40)
+  await dragFrom(page, 200, 112, 80, 40);
+  const f1 = (await framesOf(page)).find((s) => s.id === frameId)!;
+  const c1 = (await shapesOf(page)).find((s) => s.x === c0.x + (f1.x - f0.x))!;
+  // 子元素同步位移（吸附修正对两者同值）
+  expect(c1.x - c0.x).toBe(f1.x - f0.x);
+  expect(c1.y - c0.y).toBe(f1.y - f0.y);
+  // 选区 = 容器自身（子不在选区）
+  expect(await selectedIds(page)).toEqual([frameId]);
+
+  // undo 一步全回（含位移）
+  await page.keyboard.press('Meta+z');
+  await page.waitForTimeout(300);
+  const f2 = (await framesOf(page)).find((s) => s.id === frameId)!;
+  const c2 = (await shapesOf(page)).find((s) => s.id === child.id)!;
+  expect(Math.abs(f2.x - f0.x)).toBeLessThan(1e-6);
+  expect(Math.abs(c2.x - c0.x)).toBeLessThan(1e-6);
+});
+
+test('C-4 拖出脱离：完全离开清父；相交不全含保持', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  // 容器内画子形状（创建即归属）
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  let child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frame.id);
+
+  // 相交不全含（子右缘越容器右缘 500）：保持父
+  await dragFrom(page, 180, 180, 300, 0); // 子中心 180,180 → 右缘 210+300=510 > 500
+  child = (await shapesOf(page)).find((s) => s.id === child.id)!;
+  expect(child.parentId).toBe(frame.id);
+  expect(Math.abs(child.x - 450)).toBeLessThan(6); // 150+300（吸附容差）
+
+  // 完全离开（拖到容器右/下界外）：清父
+  await dragFrom(page, child.x + 30, child.y + 30, 200, 150);
+  child = (await shapesOf(page)).find((s) => s.id === child.id)!;
+  expect('parentId' in child).toBe(false);
+});
+
+test('C-5 拖入归属：外部形状完全拖进 → parentId 写入', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(700, 120 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(760, 180 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  let shape = (await shapesOf(page)).find((s) => s.x === 700)!;
+  expect('parentId' in shape).toBe(false);
+
+  // 完全拖进容器（中心 730,150 → 200,200：rect (170,170,60,60) 全含）
+  await dragFrom(page, 730, 150, -530, 50);
+  shape = (await shapesOf(page)).find((s) => s.id === shape.id)!;
+  expect(shape.parentId).toBe(frame.id);
+});
+
+test('C-6 删除级联：删容器连子删；undo 一步全回（含 parentId）', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frame.id);
+
+  // 选中容器（点标题带）→ Delete：容器与子都消失
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  await page.keyboard.press('Delete');
+  await expect.poll(() => modelCount(page)).toBe(0);
+
+  // undo 一步全回（parentId 随 Y.Map 回滚）
+  await page.keyboard.press('Meta+z');
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const childBack = (await shapesOf(page)).find((s) => s.id === child.id)!;
+  expect(childBack.parentId).toBe(frame.id);
+});
+
+test('C-10 容器在子之下：置顶后点子元素命中子元素', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+
+  // 选中容器并置顶（I3 钳制：容器仍压回子之下）
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  await page.evaluate(() => {
+    const pub = (window as unknown as { __spinth: { bringToFront(): void } }).__spinth;
+    pub.bringToFront();
+  });
+  await page.waitForTimeout(300);
+  // 点子元素中心：命中子元素（不是盖在上面的容器）
+  await page.mouse.click(180, 180 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([child.id]);
+});
