@@ -792,3 +792,100 @@ test('视觉快照 @visual：组织架构样本（层级对齐 + 正交总线 + 
     clip: { x: 200, y: 150, width: 1000, height: 520 },
   });
 });
+
+/** 容器三泳道基线样本（specs/container-frame §8.3，4.4 交付）：
+ *  3 个 headerSide:'left' 容器（左表头列）× 每行 2 任务 + 跨行正交连线。 */
+test('视觉快照 @visual：容器三泳道样本（左表头 + 任务 + 跨行连线，specs/container-frame §8.3）', async ({
+  page,
+}) => {
+  const docId = `e2e-vis-frame-${Date.now()}`;
+  await page.goto(`/?doc=${docId}`);
+  await ready(page);
+
+  const ROWS = [
+    { y: 100, name: '申请' },
+    { y: 260, name: '审批' },
+    { y: 420, name: '归档' },
+  ];
+  const widgets: Array<Record<string, unknown>> = [];
+  for (const r of ROWS) {
+    widgets.push({
+      type: 'FRAME',
+      color: '#ffffff',
+      title: r.name,
+      headerSide: 'left',
+      x: 100,
+      y: r.y,
+      width: 600,
+      height: 140,
+    });
+    widgets.push({
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 200,
+      y: r.y + 40,
+      width: 120,
+      height: 60,
+    });
+    widgets.push({
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 380,
+      y: r.y + 40,
+      width: 120,
+      height: 60,
+    });
+  }
+  await page.evaluate((ws) => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: {
+            engine: {
+              add(w: unknown): void;
+              genInitialOrder(): string;
+            };
+          };
+        };
+      }
+    ).__spinthDebug.__debug;
+    // engine.add 不生成 id（data.id 直用）——缺 id 落成空串坏数据，页内生成
+    let seq = 0;
+    for (const w of ws) {
+      d.engine.add({ id: `vis-frame-${seq++}`, zOrder: d.engine.genInitialOrder(), ...w });
+    }
+  }, widgets);
+  await page.waitForTimeout(500);
+
+  // 跨行正交连线（行 1 首任务 → 行 2 首任务；连线工具默认 ELBOWED）
+  await page.keyboard.press('l');
+  await page.mouse.move(260, 170 + 44);
+  await page.mouse.down();
+  await page.mouse.move(260, 330 + 44, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  // fail-fast 数据断言（基线静默缺件比截图 diff 更早暴露）
+  const census = await page.evaluate(() => {
+    const d = (
+      window as unknown as {
+        __spinthDebug: { __debug: { vmStates: Array<Record<string, unknown>> } };
+      }
+    ).__spinthDebug.__debug;
+    const c = (t: string) => d.vmStates.filter((s) => s.type === t).length;
+    return { frame: c('FRAME'), shape: c('SHAPE'), line: c('LINE') };
+  });
+  expect(census).toEqual({ frame: 3, shape: 6, line: 1 });
+  await page.keyboard.press('Escape'); // 退连线工具
+  await page.keyboard.press('Escape'); // 清选区/收 ActionBar
+  await page.waitForTimeout(200);
+
+  // 内容 bbox = x 100..700 / y 100..560，外扩 24（页坐标 y = 世界 + 顶栏 44）
+  await expect(page).toHaveScreenshot('container-sample.png', {
+    clip: { x: 76, y: 120, width: 648, height: 508 },
+  });
+});

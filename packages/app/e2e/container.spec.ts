@@ -472,3 +472,150 @@ test('C-11 只读：按 C 不出工具、拖动不写、标题不进编辑、右
   await expect(pageB.locator('[data-spinth-context-menu]')).toBeVisible();
   await expect(pageB.getByText('移出容器')).toHaveCount(0);
 });
+
+test('C-12 项目文件往返：容器/标题/parentId/headerSide 全部恢复', async ({ page }) => {
+  const [frameId] = await engineAdd(page, [
+    {
+      type: 'FRAME',
+      color: '#ffffff',
+      x: 100,
+      y: 100,
+      width: 400,
+      height: 300,
+      title: '审批',
+      headerSide: 'left',
+    },
+  ]);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frameId);
+
+  // 导出 → 导入新文档（N-10 同款：等 URL 切走再等 synced）
+  const { exportViaMenu, importViaInput, waitForImportedNav } =
+    await import('./helpers/projectFileE2e');
+  const docBefore = (await page.url().match(/doc=([^&]+)/))![1]!;
+  const { fileName, path } = await exportViaMenu(page);
+  expect(fileName).toMatch(/\.spinth\.zip$/);
+  await importViaInput(page, path);
+  await waitForImportedNav(page, docBefore);
+
+  // 全量恢复：容器四要素 + 归属
+  await expect.poll(() => framesOf(page).then((fs) => fs.length)).toBe(1);
+  const frame = (await framesOf(page))[0]!;
+  expect(frame.title).toBe('审批');
+  expect(frame.headerSide).toBe('left');
+  expect([frame.x, frame.y, frame.width, frame.height]).toEqual([100, 100, 400, 300]);
+  const child2 = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child2.parentId).toBe(frame.id);
+});
+
+test('C-13 三泳道样本：left 表头 3 容器 × 每行 2 任务 + 跨行正交连线；移行动跟随；导出 PNG', async ({
+  page,
+}) => {
+  // 3 行泳道（headerSide left：左侧 112 表头列）+ 每行 2 任务（矩形）
+  const ROWS = [
+    { y: 100, name: '申请' },
+    { y: 260, name: '审批' },
+    { y: 420, name: '归档' },
+  ];
+  const widgets: Array<Record<string, unknown>> = [];
+  for (const r of ROWS) {
+    widgets.push({
+      type: 'FRAME',
+      color: '#ffffff',
+      title: r.name,
+      headerSide: 'left',
+      x: 100,
+      y: r.y,
+      width: 600,
+      height: 140,
+    });
+    widgets.push({
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 200,
+      y: r.y + 40,
+      width: 120,
+      height: 60,
+    });
+    widgets.push({
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 380,
+      y: r.y + 40,
+      width: 120,
+      height: 60,
+    });
+  }
+  const ids = await engineAdd(page, widgets);
+  await expect.poll(() => modelCount(page)).toBe(9);
+  // 每行任务归属对应泳道（创建即归属：engine.add 同流）
+  const frames = await framesOf(page);
+  const shapes = await shapesOf(page);
+  for (const f of frames) {
+    const own = shapes.filter((s) => s.y > f.y && s.y < f.y + 140);
+    expect(own).toHaveLength(2);
+    for (const s of own) expect(s.parentId).toBe(f.id);
+  }
+
+  // 跨行正交连线：行 1 首任务 → 行 2 首任务（连线工具，默认 ELBOWED）
+  await page.keyboard.press('l');
+  await page.mouse.move(260, 170 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(260, 330 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await expect
+    .poll(() => vmStates(page).then((vs) => vs.filter((s) => s.type === 'LINE').length))
+    .toBe(1);
+
+  // 移动第 2 行（抓左表头列）：该行任务跟随、他行不动
+  // （先回选择工具——线工具下 down 是拉新手势不是移动）
+  await page.keyboard.press('v');
+  const row2Frame = frames.find((f) => f.y === 260)!;
+  const row2Tasks = shapes.filter((s) => s.y === 300);
+  const row1Frame = frames.find((f) => f.y === 100)!;
+  const row1Tasks = shapes.filter((s) => s.y === 140);
+  const before = {
+    r2f: { ...row2Frame },
+    r2t: row2Tasks.map((t) => ({ ...t })),
+    r1f: { ...row1Frame },
+    r1t: row1Tasks.map((t) => ({ ...t })),
+  };
+  await page.mouse.move(150, 330 + TOP_BAR); // 行 2 左表头列内
+  await page.mouse.down();
+  await page.mouse.move(230, 370 + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const after = await vmStates(page);
+  const moved = (id: string) => after.find((s) => s.id === id)!;
+  const dxF = moved(row2Frame.id).x - before.r2f.x;
+  const dyF = moved(row2Frame.id).y - before.r2f.y;
+  expect(Math.abs(dxF)).toBeGreaterThan(5); // 确有位移
+  for (const t of before.r2t) {
+    expect(moved(t.id).x - t.x).toBe(dxF); // 任务与容器同位移
+    expect(moved(t.id).y - t.y).toBe(dyF);
+  }
+  expect(moved(row1Frame.id).x).toBe(before.r1f.x); // 他行不动
+  for (const t of before.r1t) expect(moved(t.id).x).toBe(t.x);
+
+  // 导出 PNG（右键画布菜单——点行 3 下方的空白画布，元素菜单无导出项）
+  await page.mouse.click(400, 640 + TOP_BAR, { button: 'right' });
+  const menu = page.locator('[data-spinth-context-menu]');
+  await expect(menu).toBeVisible();
+  const dl = page.waitForEvent('download', { timeout: 10_000 });
+  await menu.getByRole('menuitem', { name: '导出画布 PNG' }).click();
+  const download = await dl;
+  expect(download.suggestedFilename()).toBe('spinth-board.png');
+  expect((await import('node:fs')).statSync((await download.path())!).size).toBeGreaterThan(1000);
+  void ids;
+});
