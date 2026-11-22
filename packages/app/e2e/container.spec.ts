@@ -22,10 +22,11 @@ interface Snap {
 }
 
 async function vmStates(page: Page): Promise<Snap[]> {
-  return page.evaluate(() =>
-    (
-      window as unknown as { __spinthDebug: { __debug: { vmStates: unknown[] } } }
-    ).__spinthDebug.__debug.vmStates.slice() as Snap[],
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as { __spinthDebug: { __debug: { vmStates: unknown[] } } }
+      ).__spinthDebug.__debug.vmStates.slice() as Snap[],
   );
 }
 
@@ -40,9 +41,8 @@ async function shapesOf(page: Page): Promise<Snap[]> {
 async function selectedIds(page: Page): Promise<string[]> {
   return page.evaluate(
     () =>
-      (
-        window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } }
-      ).__spinthDebug.__debug.selectedIds,
+      (window as unknown as { __spinthDebug: { __debug: { selectedIds: string[] } } }).__spinthDebug
+        .__debug.selectedIds,
   );
 }
 
@@ -81,7 +81,9 @@ async function addFrame(
   h: number,
   extra: Record<string, unknown> = {},
 ): Promise<Snap> {
-  const [id] = await engineAdd(page, [{ type: 'FRAME', color: '#ffffff', x, y, width: w, height: h, ...extra }]);
+  const [id] = await engineAdd(page, [
+    { type: 'FRAME', color: '#ffffff', x, y, width: w, height: h, ...extra },
+  ]);
   const f = (await framesOf(page)).find((s) => s.id === id)!;
   return f;
 }
@@ -108,7 +110,7 @@ test('C-2 创建即归属：容器内画形状 → parentId 落库；容器外�
   await page.mouse.move(260, 260 + TOP_BAR, { steps: 6 }); // 世界 260,260
   await page.mouse.up();
   await expect.poll(() => modelCount(page)).toBe(2);
-  let inside = (await shapesOf(page)).find((s) => s.x === 150);
+  const inside = (await shapesOf(page)).find((s) => s.x === 150);
   expect(inside).toBeDefined();
   expect(inside!.parentId).toBe(frame.id);
 
@@ -127,11 +129,20 @@ test('C-2 创建即归属：容器内画形状 → parentId 落库；容器外�
 test('C-3 拖动带子：容器位移 = 子位移；undo 一步全回', async ({ page }) => {
   const [frameId] = await engineAdd(page, [
     { type: 'FRAME', color: '#ffffff', x: 100, y: 100, width: 400, height: 300 },
-    { type: 'SHAPE', color: '#e8f0fb', shapeType: 'rect', text: '', x: 150, y: 150, width: 60, height: 60 },
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 150,
+      y: 150,
+      width: 60,
+      height: 60,
+    },
   ]);
   await page.waitForTimeout(100);
   const frame = (await framesOf(page)).find((s) => s.id === frameId)!;
-  let child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
   expect(child.parentId).toBe(frame.id); // 创建即归属（engine.add 同流触发）
 
   const f0 = { x: frame.x, y: frame.y };
@@ -241,4 +252,57 @@ test('C-10 容器在子之下：置顶后点子元素命中子元素', async ({ 
   // 点子元素中心：命中子元素（不是盖在上面的容器）
   await page.mouse.click(180, 180 + TOP_BAR);
   await expect.poll(() => selectedIds(page)).toEqual([child.id]);
+});
+
+/** 合成剪贴板事件（clipboard.spec 同款：DataTransfer 直通，绕 headless 权限） */
+async function fireClipboard(page: Page, kind: 'copy' | 'paste', plain?: string): Promise<string> {
+  return page.evaluate(
+    ({ kind, plain }) => {
+      const dt = new DataTransfer();
+      if (plain !== undefined) dt.setData('text/plain', plain);
+      document.dispatchEvent(
+        new ClipboardEvent(kind, { clipboardData: dt, bubbles: true, cancelable: true }),
+      );
+      return dt.getData('text/plain');
+    },
+    { kind, plain },
+  );
+}
+
+test('C-8 复制粘贴：带子快照、parentId 桶映射指向新容器；拖新容器原件不动', async ({ page }) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frame.id);
+
+  // 单选容器复制 → 粘贴（快照展开带子；落视口中心）
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  const plain = await fireClipboard(page, 'copy');
+  const snaps = JSON.parse(plain) as Array<{ data: { type: string } }>;
+  expect(snaps.map((s) => s.data.type).sort()).toEqual(['FRAME', 'SHAPE']); // 展开带子
+  await fireClipboard(page, 'paste', plain);
+  await expect.poll(() => modelCount(page)).toBe(4);
+
+  const frames = await framesOf(page);
+  const shapes = await shapesOf(page);
+  expect(frames).toHaveLength(2);
+  expect(shapes).toHaveLength(2);
+  const newFrame = frames.find((f) => f.id !== frame.id)!;
+  const newChild = shapes.find((s) => s.id !== child.id)!;
+  expect(newChild.parentId).toBe(newFrame.id); // 桶映射：指向新容器（非原容器）
+
+  // 拖新容器：新子跟随、原件与原子不动
+  const o0 = { x: frame.x, y: frame.y };
+  const oc0 = { x: child.x, y: child.y };
+  await dragFrom(page, newFrame.x + 100, newFrame.y + 14, 60, 30);
+  const o1 = (await framesOf(page)).find((f) => f.id === frame.id)!;
+  const oc1 = (await shapesOf(page)).find((s) => s.id === child.id)!;
+  expect(Math.abs(o1.x - o0.x)).toBeLessThan(1e-6); // 原容器不动
+  expect(Math.abs(oc1.x - oc0.x)).toBeLessThan(1e-6); // 原子不动
 });

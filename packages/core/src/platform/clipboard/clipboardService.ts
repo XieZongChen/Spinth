@@ -3,6 +3,7 @@ import { genId } from '../../utils/id';
 import { unionRects, type IRect } from '../../common/geometry';
 import type {
   IDataEngineService,
+  IFrameLookup,
   IHistoryService,
   ISelectorService,
   IViewportService,
@@ -31,8 +32,18 @@ export class ClipboardService extends Disposable {
     private selector: ISelectorService,
     private viewport: IViewportService,
     private history: IHistoryService,
+    /** 容器归属惰性获取（specs/container-frame §4.7）：null = 无容器语义
+     *  （复制不展开、粘贴不重映射不钳制——既有单测桩零改动） */
+    private getFrames: () => IFrameLookup | null = () => null,
   ) {
     super();
+  }
+
+  /** 复制/剪切展开（§4.7）：选中集里的容器并入全部存活子元素（带子复制；
+   *  剪切按展开集删除 = 连子删同款口径） */
+  private expandForCopy(ids: string[]): string[] {
+    const frames = this.getFrames();
+    return frames ? frames.expandForCascade(ids) : ids;
   }
 
   initialize(): void {
@@ -56,7 +67,7 @@ export class ClipboardService extends Disposable {
     // 控件整个 removeByIds（键盘层 hotkeys.filter 早有同款闸门，document 级
     // 剪贴板通道漏配即本缺口）
     if (isEditableTarget(e.target)) return;
-    const ids = this.selector.selected$.value;
+    const ids = this.expandForCopy(this.selector.selected$.value);
     if (ids.length === 0) return;
     e.preventDefault();
     const snapshots: IWidgetSnapshot[] = [];
@@ -154,12 +165,25 @@ export class ClipboardService extends Disposable {
       return { data, id };
     });
     const newIds: string[] = [];
+    // 新件 zOrder 表（粘贴后钳制用）：genInitialOrder 递增，批内后入批者恒更高
+    const zTable: Array<{ id: string; zOrder: string }> = [];
+    // 容器归属桶重映射（specs/container-frame §4.7，groupIdMap 同款内联）：
+    // 批内父 → 该容器的新 id（一拷贝一容器）；批外父（复制了子没复制容器）
+    // → undefined 落为顶层——否则粘贴体指向原容器，拖原件会带走副本。
+    // idMap 此刻已全量（prepared 循环完成）
+    const parentIdOf = new Map<string, string | undefined>();
+    for (const { data } of snapshots) {
+      const srcParent = (data as { parentId?: string }).parentId;
+      if (srcParent === undefined) continue;
+      parentIdOf.set(idMap.get(data.id)!, idMap.get(srcParent));
+    }
     this.engine.transact(() => {
       for (const { data, id } of prepared) {
+        const zOrder = this.engine.genInitialOrder();
         const moved: IWidgetData = {
           ...data,
           id,
-          zOrder: this.engine.genInitialOrder(),
+          zOrder,
           x: data.x + dx,
           y: data.y + dy,
         } as IWidgetData;
@@ -183,8 +207,24 @@ export class ClipboardService extends Disposable {
         const srcGroup = (data as { groupId?: string }).groupId;
         if (srcGroup) movedRec.groupId = groupIdMap.get(srcGroup);
         else delete movedRec.groupId;
+        // 容器归属重映射（§4.7）：桶内父 → 新容器 id；批外父显式清键——
+        // 快照 parentId 指向的是**原**容器，不清则副本被原容器级联带走
+        const movedRecP = moved as unknown as { parentId?: string };
+        const srcParent = (data as { parentId?: string }).parentId;
+        if (srcParent !== undefined) movedRecP.parentId = parentIdOf.get(id);
+        else delete movedRecP.parentId;
         this.engine.add(moved);
         newIds.push(id);
+        zTable.push({ id, zOrder });
+      }
+      // 粘贴后钳制（§4.7/I3）：新容器 zOrder 在顶部，若批内子先于容器入批则
+      // 容器高于子——压回子之下。经 IFrameLookup（platform 不 import widgets）；
+      // 表只含本批新件——非本批容器无子在此表，computeLayerClamps 自然跳过
+      const frames = this.getFrames();
+      if (frames && snapshots.some((s) => s.data.type === 'FRAME')) {
+        for (const c of frames.computeLayerClamps(zTable)) {
+          this.engine.getModelById(c.id)?.update({ zOrder: c.zOrder } as never);
+        }
       }
     });
     this.history.stopCapturing();
@@ -194,7 +234,7 @@ export class ClipboardService extends Disposable {
   /** 程序化复制（右键菜单用）：建内部缓冲 + 尽力写系统剪贴板 */
   async copySelected(isCut = false): Promise<void> {
     if (!this.viewport.editable$.value) return;
-    const ids = this.selector.selected$.value;
+    const ids = this.expandForCopy(this.selector.selected$.value);
     if (ids.length === 0) return;
     const snapshots: IWidgetSnapshot[] = [];
     for (const id of ids) {

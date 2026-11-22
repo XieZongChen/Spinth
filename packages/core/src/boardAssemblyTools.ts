@@ -129,6 +129,8 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.selector!,
     sdk.viewport!,
     sdk.history!,
+    // 容器复制带子/粘贴重映射惰性解环（specs/container-frame §4.7）
+    () => sdk.frame,
   );
   sdk.clipboard.initialize();
   sdk.clipboard.onPasteImage = (blob) => sdk.imageService?.pasteImage(blob);
