@@ -60,6 +60,13 @@ export const GroupIdField = {
   groupId: z.string().optional(),
 } as const;
 
+/** 容器归属标记（specs/container-frame §2.2）：optional 无 default——旧文档
+ *  零迁移，字段不存在即顶层。仅自由七类引入（锚定线持 parentId 由 FrameService
+ *  运行时排除——同 LINE 锚定态不编组先例）；FRAME/树控件不带该字段 */
+export const ParentIdField = {
+  parentId: z.string().optional(),
+} as const;
+
 export const ShapeSchema = z.object({
   id: z.string(),
   type: z.literal('SHAPE'),
@@ -87,6 +94,7 @@ export const ShapeSchema = z.object({
   ...TypoFields,
   ...RotationField,
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type ShapeData = z.infer<typeof ShapeSchema>;
 
@@ -99,6 +107,7 @@ export const TextSchema = z.object({
   ...TypoFields,
   ...RotationField,
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type TextData = z.infer<typeof TextSchema>;
 
@@ -140,6 +149,7 @@ export const LineSchema = z.object({
   fontSize: TypoFields.fontSize,
   textColor: TypoFields.textColor,
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type LineData = z.infer<typeof LineSchema>;
 
@@ -152,6 +162,7 @@ export const PenSchema = z.object({
   color: z.string().default('#1f2937'),
   strokeWidth: z.number().default(4), // 笔宽（线宽笔宽批 3→4：默认档入表 2/4/8/12；旧文档显式值不动）
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type PenData = z.infer<typeof PenSchema>;
 
@@ -166,6 +177,7 @@ export const StickySchema = z.object({
   ...TypoFields,
   ...RotationField,
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type StickyData = z.infer<typeof StickySchema>;
 
@@ -205,6 +217,7 @@ export const ImageSchema = z.object({
   src: z.string().default(''),
   ...RotationField,
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type ImageData = z.infer<typeof ImageSchema>;
 
@@ -223,8 +236,35 @@ export const SymbolSchema = z.object({
    *  图标与标签同色；写入即固定不随主题反转（同 textColor 实例数据语义） */
   color: z.string().optional(),
   ...GroupIdField,
+  ...ParentIdField,
 });
 export type SymbolData = z.infer<typeof SymbolSchema>;
+
+/** 容器（specs/container-frame §2.1）：标题带 + 背景 + 边框，内部不承载文字；
+ *  子元素归属是扁平文档上的 parentId 标记（容器不存 childIds）。optional 无
+ *  default 的字段一律「缺省由消费侧常量兜底」，旧文档零迁移 */
+export const FrameSchema = z.object({
+  id: z.string(),
+  type: z.literal('FRAME'),
+  zOrder: z.string(),
+  /** 标题（纯文本单行，非 HTML——plain 内核编辑；空串 = 只有带、无文字） */
+  title: z.string().default(''),
+  /** 背景色（hex）；fill 'none' 时不画底 */
+  color: z.string().default('#ffffff'),
+  /** 填充态：'solid'（缺省）= 填充 color；'none' = 无底只有边框 */
+  fill: z.enum(['solid', 'none']).optional(),
+  /** 边框：未写 borderColor = 派生暗色（与 SHAPE 同口径：写死不自适应） */
+  borderColor: z.string().optional(),
+  borderWidth: z.number().optional(),
+  borderStyle: z.enum(['solid', 'dashed', 'none']).default('solid'),
+  /** 标题带位置：top（缺省，标题条在上）/ left（行泳道，左侧表头列） */
+  headerSide: z.enum(['top', 'left']).optional(),
+  /** 标题文字色；缺省随带底自适应（specs/container-frame §5.4 双态护栏：
+   *  白底深字/深底浅字，defaultTextColorForFill 同源——「主题墨色」仅在
+   *  无填充对画布时成立） */
+  titleColor: z.string().optional(),
+});
+export type FrameData = z.infer<typeof FrameSchema>;
 
 /** 控件实现族（specs/tree-diagrams D1）：family 是引擎层的唯一判据——
  *  `family: 'tree'` 的唯一含义是「节点不是 widget、几何由树布局派生、

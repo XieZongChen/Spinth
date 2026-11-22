@@ -19,7 +19,8 @@ export type CursorMode =
   | 'line'
   | 'eraser'
   | 'mind'
-  | 'org';
+  | 'org'
+  | 'frame';
 
 export type DocState = 'idle' | 'loading' | 'synced';
 
@@ -211,6 +212,22 @@ export interface ITreeDragDelegate {
   hitToggle?(mapId: string, world: IPoint): string | null;
   /** 点击徽标 = 展开该节点（selector 展开分支调用；先退出编辑会话再写） */
   toggleCollapseAt?(mapId: string, nodeId: string): void;
+}
+
+/** 容器归属查询/级联接口（specs/container-frame §6.4）：平台层（selector/
+ *  clipboard/layer/alignCommands）只依赖此接口，不 import widgets/frame——
+ *  分层纪律同 ITreeDragDelegate 先例；实现是 FrameService（组合根晚绑定注入） */
+export interface IFrameLookup {
+  isFrame(id: string): boolean;
+  /** 容器的全部存活子元素（保持 zOrder 升序；无子 = []）。锚定线运行时排除
+   *  （specs/container-frame I2——位置由锚定系统拥有，归属无意义） */
+  childIds(frameId: string): string[];
+  /** 容器 → 并入全部存活子元素（Set 去重保序；非容器原样保留） */
+  expandForCascade(ids: string[]): string[];
+  /** 归属三态判定并落库（specs/container-frame §2.4）。**只在事务内调用**
+   *  （I6：归属写与触发操作同一事务）；rectOf 事务内不许读 vm（§6.6-1——
+   *  state 是微任务合批旧值，必须算术或 model.toJSON()） */
+  reconcileParents(ids: string[], rectOf: (id: string) => IRect): void;
 }
 
 export interface ISelectorService {
