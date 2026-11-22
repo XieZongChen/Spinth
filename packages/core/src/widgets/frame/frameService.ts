@@ -168,13 +168,18 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     });
     if (update === null) return;
     this.engine.getModelById(id)?.update({ parentId: update } as never);
+    // I3 钳制（审查返工 P1）：设父后容器必须在子之下——否则「先有内容、后画
+    // 泳道、再拖入」时容器 zOrder 更高、白底不透明盖住子元素。同事务内联写
+    // （clampFrame 会自开事务 + stopCapturing，把一次拖拽裂成两个 undo 项）；
+    // 清父分支（undefined）不钳——已与该容器无父子关系
+    if (typeof update === 'string') this.clampFrameInTx(update);
   }
 
   // ---------- 图层钳制（I3）与移出 ----------
 
   /** 容器 zOrder 钳到其全部子元素之下：读 model 现算，单事务 + 独立撤销项
-   *  （归属/图层/粘贴三处钳制的单源；粘贴路径在自身事务内直接调
-   *  clampFrameZOrder 纯函数，不走本方法避免嵌套事务） */
+   *  （归属路径在 reconcileOne 事务内走 clampFrameInTx；粘贴走纯函数——
+   *  均不经本方法。key 在事务外算好：无需调整零事务零写） */
   clampFrame(frameId: string): void {
     if (!this.isFrame(frameId)) return;
     const items = this.allZOrders();
@@ -184,6 +189,15 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
       this.engine.getModelById(frameId)?.update({ zOrder: key } as never);
     });
     this.historyRef.stopCapturing();
+  }
+
+  /** 事务内钳制（不开事务、不 stopCapturing）：归属写入（reconcileOne）与
+   *  clampFrame 共用；读 model 现算（§6.6-1——vm root 是合批旧值） */
+  private clampFrameInTx(frameId: string): void {
+    const items = this.allZOrders();
+    const key = clampFrameZOrder(items, frameId, this.childIds(frameId));
+    if (key === null) return;
+    this.engine.getModelById(frameId)?.update({ zOrder: key } as never);
   }
 
   /** 图层命令的容器额外钳制（§4.8）：post = 调用方叠加 delta 后的 zOrder 表；

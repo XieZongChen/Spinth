@@ -187,15 +187,48 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
       W('f2', 'FRAME', 'a2', [400, 400, 500, 500]),
       W('ln', 'LINE', 'a3', [10, 10, 60, 60], { startNodeId: 's1' }),
     ]);
-    // 外部形状拖进 f2
+    // 外部形状拖进 f2：设父 + f2 钳到子之下（f2 'a2' > s1 'a1' 倒置 → 钳制写）
     env.svc.reconcileParents(['s1'], (id) =>
       id === 's1' ? { x: 450, y: 450, width: 50, height: 50 } : env.widget(id)!,
     );
-    expect(env.updates).toEqual([{ id: 's1', patch: { parentId: 'f2' } }]);
+    const parentWrite = env.updates.find((u) => u.id === 's1')!;
+    expect(parentWrite.patch).toEqual({ parentId: 'f2' });
+    const clampWrite = env.updates.find((u) => u.id === 'f2');
+    expect(clampWrite).toBeDefined();
+    expect((clampWrite!.patch.zOrder as string) < 'a1').toBe(true); // I3：容器压回子之下
     // 容器自身 / 锚定线：零写
     env.updates.length = 0;
     env.svc.reconcileParents(['f2', 'ln'], (id) => env.widget(id)!);
     expect(env.updates).toEqual([]);
+  });
+
+  it('REVIEW 返工（P1）：拖入归属后容器必须在子之下——先内容后画容器的场景', () => {
+    // 场景：先有形状（zOrder 低）、后画泳道（zOrder 高、白底盖住形状）、
+    // 再把形状拖进泳道——parentId 写入的同时容器必须钳到形状之下，
+    // 否则形状被容器底色盖住「看不见」（数据在、可命中）
+    const env = makeEnv([
+      W('s1', 'SHAPE', 'a0', [500, 100, 50, 50]),
+      W('f1', 'FRAME', 'a1', [100, 100, 400, 300]), // zOrder 高于 s1（后画）
+    ]);
+    env.svc.reconcileParents(['s1'], (id) =>
+      id === 's1' ? { x: 150, y: 150, width: 50, height: 50 } : env.widget(id)!,
+    );
+    expect(env.updates.some((u) => u.id === 's1' && u.patch.parentId === 'f1')).toBe(true);
+    const clamp = env.updates.find((u) => u.id === 'f1');
+    expect(clamp, '归属写入必须同事务钳制容器 zOrder').toBeDefined();
+    expect((clamp!.patch.zOrder as string) < 'a0').toBe(true); // f1 压到 s1 之下
+  });
+
+  it('清父分支零钳制写（脱离容器不动 zOrder）', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a1', [0, 0, 100, 100]), // 容器本来倒置（高于子）
+      W('s1', 'SHAPE', 'a0', [10, 10, 50, 50], { parentId: 'f1' }),
+    ]);
+    // 完全拖出 → 清父；不触发钳制（与该容器已无父子关系）
+    env.svc.reconcileParents(['s1'], (id) =>
+      id === 's1' ? { x: 500, y: 500, width: 50, height: 50 } : env.widget(id)!,
+    );
+    expect(env.updates).toEqual([{ id: 's1', patch: { parentId: undefined } }]);
   });
 
   it('父也在移动集：parentRect 走 rectOf（含位移），不读 model 旧值', () => {
