@@ -41,7 +41,8 @@ type FrameWidgetSnapshot = {
  * - 归属（I5 唯一写入口）：创建即归属（onModelCreated$ 订阅——只服务工具在
  *   事务外新建的无父件，粘贴批/undo·redo 恢复不重判）、拖放/微移落点
  *   （reconcileParents——只在事务内调用，I6）、右键移出（detachSelection）；
- * - 级联：expandForCascade（拖拽/删除/复制带子）+ clampFrame（I3 容器在子之下）。
+ * - 级联：expandForCascade（拖拽/删除/复制带子）；设父同事务钳制容器到子
+ *   之下（I3——图层/粘贴另经 computeLayerClamps 与 clampFrameZOrder 纯函数）。
  * 事务内禁读 vm 几何/zOrder（§6.6-1）——一律 model.toJSON()（权威同步值）。
  */
 export class FrameService extends DragCreateServiceBase implements IFrameLookup {
@@ -198,35 +199,20 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     });
     if (update === null) return;
     this.engine.getModelById(id)?.update({ parentId: update } as never);
-    // I3 钳制（审查返工 P1）：设父后容器必须在子之下——否则「先有内容、后画
-    // 泳道、再拖入」时容器 zOrder 更高、白底不透明盖住子元素。同事务内联写
-    // （clampFrame 会自开事务 + stopCapturing，把一次拖拽裂成两个 undo 项）；
-    // 清父分支（undefined）不钳——已与该容器无父子关系
-    if (typeof update === 'string') this.clampFrameInTx(update);
+    // I3 钳制（审查返工 P1）：清父分支（undefined）不钳——已与该容器无父子关系
+    if (typeof update === 'string') this.clampFrameBelowChildren(update);
   }
 
   // ---------- 图层钳制（I3）与移出 ----------
 
-  /** 容器 zOrder 钳到其全部子元素之下：读 model 现算，单事务 + 独立撤销项
-   *  （归属路径在 reconcileOne 事务内走 clampFrameInTx；粘贴走纯函数——
-   *  均不经本方法。key 在事务外算好：无需调整零事务零写） */
-  clampFrame(frameId: string): void {
-    if (!this.isFrame(frameId)) return;
-    const items = this.allZOrders();
-    const key = clampFrameZOrder(items, frameId, this.childIds(frameId));
-    if (key === null) return;
-    this.engine.transact(() => {
-      this.engine.getModelById(frameId)?.update({ zOrder: key } as never);
-    });
-    this.historyRef.stopCapturing();
-  }
-
-  /** 事务内钳制（不开事务、不 stopCapturing）：归属写入（reconcileOne）与
-   *  clampFrame 共用；读 model 现算（§6.6-1——vm root 是合批旧值） */
-  private clampFrameInTx(frameId: string): void {
-    const items = this.allZOrders();
-    const key = clampFrameZOrder(items, frameId, this.childIds(frameId));
-    if (key === null) return;
+  /** 归属钳制（审查返工 P1）：设父后容器必须在子之下——否则「先有内容、后画
+   *  泳道、再拖入」时容器 zOrder 更高、白底不透明盖住子元素。只在调用方的
+   *  事务内使用（不开事务、不 stopCapturing——自开会把一次拖拽裂成两个 undo
+   *  项）；读 model 现算（§6.6-1——vm root 是合批旧值）。图层命令与粘贴另有
+   *  各自的钳制入口（computeLayerClamps / clampFrameZOrder 纯函数） */
+  private clampFrameBelowChildren(frameId: string): void {
+    const key = clampFrameZOrder(this.allZOrders(), frameId, this.childIds(frameId));
+    if (key === null) return; // 容器已在全部子之下——零写
     this.engine.getModelById(frameId)?.update({ zOrder: key } as never);
   }
 

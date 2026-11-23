@@ -217,6 +217,8 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     const clamp = env.updates.find((u) => u.id === 'f1');
     expect(clamp, '归属写入必须同事务钳制容器 zOrder').toBeDefined();
     expect((clamp!.patch.zOrder as string) < 'a0').toBe(true); // f1 压到 s1 之下
+    // 钳制不切撤销窗（I6）：归属 + 钳制留在调用方的事务内，由调用方收口
+    expect(env.history.stopCapturing).not.toHaveBeenCalled();
   });
 
   it('清父分支零钳制写（脱离容器不动 zOrder）', () => {
@@ -277,7 +279,7 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
   });
 });
 
-describe('clampFrame / computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
+describe('computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
   it('computeLayerClamps：变更后表中容器在子之上 → 返回钳制写入（多容器顺序）', () => {
     const env = makeEnv([
       W('x', 'SHAPE', 'a0', [0, 0, 10, 10]),
@@ -321,27 +323,17 @@ describe('clampFrame / computeLayerClamps / detachSelection（I3/§4.8/§5.3）'
       ]),
     ).toEqual([]);
   });
-  it('clampFrame：容器 key 在子之上时钳回子之下并 stopCapturing', () => {
-    const env = makeEnv([
-      W('c1', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }),
-      W('f1', 'FRAME', 'b0', [0, 0, 300, 300]),
-    ]);
-    env.svc.clampFrame('f1');
-    const patch = env.updates.find((u) => u.id === 'f1');
-    expect(patch).toBeDefined();
-    const newZ = patch!.patch.zOrder as string;
-    expect(newZ < 'a1').toBe(true);
-    expect(env.history.stopCapturing).toHaveBeenCalled();
-  });
-
-  it('clampFrame：无需调整时零写零事务', () => {
+  it('设父钳制：容器已在全部子之下时零钳制写（只写 parentId）', () => {
+    // 归属钳制的唯一生产入口是 reconcileParents 的设父分支（独立钳制入口已删——
+    // 图层/粘贴各走 computeLayerClamps 与 clampFrameZOrder 纯函数）
     const env = makeEnv([
       W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
-      W('c1', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }),
+      W('s1', 'SHAPE', 'a1', [500, 500, 50, 50]),
     ]);
-    env.svc.clampFrame('f1');
-    expect(env.updates).toEqual([]);
-    expect(env.transactCount).toBe(0);
+    env.svc.reconcileParents(['s1'], (id) =>
+      id === 's1' ? { x: 10, y: 10, width: 50, height: 50 } : env.widget(id)!,
+    );
+    expect(env.updates).toEqual([{ id: 's1', patch: { parentId: 'f1' } }]);
   });
 
   it('detachSelection：选中集中有父的清父（单事务）；无父零动作', () => {
