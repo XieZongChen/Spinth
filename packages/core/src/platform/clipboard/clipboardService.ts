@@ -33,7 +33,7 @@ export class ClipboardService extends Disposable {
     private viewport: IViewportService,
     private history: IHistoryService,
     /** 容器归属惰性获取（specs/container-frame §4.7）：null = 无容器语义
-     *  （复制不展开、粘贴不重映射不钳制——既有单测桩零改动） */
+     *  （复制不展开、粘贴不重映射——既有单测桩零改动） */
     private getFrames: () => IFrameLookup | null = () => null,
   ) {
     super();
@@ -146,7 +146,8 @@ export class ClipboardService extends Disposable {
     return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, width: 0, height: 0 };
   }
 
-  /** 粘贴：相对布局保持 → 换 id（连线引用同批修正）→ 递增 zOrder → 一个事务 → 重新选中 */
+  /** 粘贴：相对布局保持 → 换 id（连线引用同批修正）→ 容器先入批 + 递增 zOrder
+   *  → 一个事务 → 重新选中 */
   private pasteSnapshots(snapshots: IWidgetSnapshot[], target: { x: number; y: number }): void {
     const anchor = unionRects(snapshots.map((s) => s.bounds));
     if (!anchor) return;
@@ -165,8 +166,15 @@ export class ClipboardService extends Disposable {
       return { data, id };
     });
     const newIds: string[] = [];
-    // 新件 zOrder 表（粘贴后钳制用）：genInitialOrder 递增，批内后入批者恒更高
-    const zTable: Array<{ id: string; zOrder: string }> = [];
+    // 容器先入批（specs/container-frame §4.7/I3）：新件 zOrder 按入批序递增生成，
+    // 容器副本的 key 必然低于批内全部子元素——层级在创建数据里即正确。不能改成
+    // 「全部 add 后再 update 钳制」：外层事务内紧随创建的写入对刚挂上的 vm 观察者
+    // 不可见（yjs 不为本事务新建的类型登记变更），结果是文档钳了、root.zOrder
+    // 没动——白底容器盖住子副本直到刷新（E2E container C-16）
+    const ordered = [
+      ...prepared.filter((p) => p.data.type === 'FRAME'),
+      ...prepared.filter((p) => p.data.type !== 'FRAME'),
+    ];
     // 容器归属桶重映射（specs/container-frame §4.7，groupIdMap 同款内联）：
     // 批内父 → 该容器的新 id（一拷贝一容器）；批外父（复制了子没复制容器）
     // → undefined 落为顶层——否则粘贴体指向原容器，拖原件会带走副本。
@@ -178,7 +186,7 @@ export class ClipboardService extends Disposable {
       parentIdOf.set(idMap.get(data.id)!, idMap.get(srcParent));
     }
     this.engine.transact(() => {
-      for (const { data, id } of prepared) {
+      for (const { data, id } of ordered) {
         const zOrder = this.engine.genInitialOrder();
         const moved: IWidgetData = {
           ...data,
@@ -215,16 +223,6 @@ export class ClipboardService extends Disposable {
         else delete movedRecP.parentId;
         this.engine.add(moved);
         newIds.push(id);
-        zTable.push({ id, zOrder });
-      }
-      // 粘贴后钳制（§4.7/I3）：新容器 zOrder 在顶部，若批内子先于容器入批则
-      // 容器高于子——压回子之下。经 IFrameLookup（platform 不 import widgets）；
-      // 表只含本批新件——非本批容器无子在此表，computeLayerClamps 自然跳过
-      const frames = this.getFrames();
-      if (frames && snapshots.some((s) => s.data.type === 'FRAME')) {
-        for (const c of frames.computeLayerClamps(zTable)) {
-          this.engine.getModelById(c.id)?.update({ zOrder: c.zOrder } as never);
-        }
       }
     });
     this.history.stopCapturing();

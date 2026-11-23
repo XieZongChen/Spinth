@@ -5,8 +5,9 @@ import type { IFrameLookup } from '../types';
 
 /**
  * 容器 + 子元素复制粘贴（specs/container-frame §4.7）：快照展开带子、
- * parentId 桶映射（批内父 → 新容器 id / 批外父置空）、粘贴后 zOrder 钳制。
- * ClipboardService 级桩测（clipboardSymbol 同款；JS 环境——内部 buffer 路径）。
+ * parentId 桶映射（批内父 → 新容器 id / 批外父置空）、容器先入批（I3 层级在
+ * 创建数据里即正确）。ClipboardService 级桩测（clipboardSymbol 同款；JS
+ * 环境——内部 buffer 路径）。
  */
 
 interface Widget {
@@ -40,20 +41,8 @@ function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
     },
     reconcileParents: () => {},
     createMarqueeFrameFilter: () => null,
-    computeLayerClamps: vi.fn((post: ReadonlyArray<{ id: string; zOrder: string }>) =>
-      // 桩语义：批内（新 id 不在 byId——从粘贴 add 捕获里认类型）每容器
-      // key ≥ 其批内最小子 key 时给一个更低的 key
-      post
-        .filter((p) => added.find((a) => a.id === p.id && a.type === 'FRAME'))
-        .flatMap((f) => {
-          const childZs = post
-            .filter((p) => added.find((a) => a.id === p.id && a.parentId === f.id))
-            .map((p) => p.zOrder);
-          if (childZs.length === 0) return [];
-          const minChild = childZs.reduce((a, b) => (a < b ? a : b));
-          return f.zOrder < minChild ? [] : [{ id: f.id, zOrder: minChild + '0' }];
-        }),
-    ),
+    // 粘贴路径不再调（容器先入批后无钳制可做）——保留桩只为断言「零调用」
+    computeLayerClamps: vi.fn(() => []),
   };
   let zSeq = 0;
   const svc = new ClipboardService(
@@ -121,17 +110,22 @@ describe('容器复制粘贴（specs/container-frame §4.7）', () => {
     expect(pasted.parentId).toBeUndefined();
   });
 
-  it('粘贴后钳制：容器 zOrder 压回批内子之下（I3）', async () => {
-    // 快照序子在前、容器在后（source 排序天然如此时）——粘贴序子先入批
-    const fixture = FIXTURE();
-    // 人为让选中集 = [c1, c2, f1]（子在前）：粘贴批内容器最后入批 = key 最高
-    const h = makeHarness(fixture, { selected: ['c1', 'c2', 'f1'] });
+  it('容器先入批：选区序子在前时，副本容器 zOrder 仍低于批内全部子（I3）——零事后钳制写', async () => {
+    // 人为让选中集 = [c1, c2, f1]（子在前）：若按快照序入批，容器最后入批 =
+    // key 最高、盖住子。容器改排到批首——层级在创建数据里即正确
+    const h = makeHarness(FIXTURE(), { selected: ['c1', 'c2', 'f1'] });
     await h.svc.copySelected();
     h.svc.pasteAt({ x: 600, y: 400 });
-    // 钳制桩被调用且产出了写入
-    expect(h.framesLookup.computeLayerClamps).toHaveBeenCalled();
-    const clamp = h.updateLog.find((u) => 'zOrder' in u.patch);
-    expect(clamp).toBeDefined();
+    expect(h.added.map((w) => w.type)).toEqual(['FRAME', 'SHAPE', 'SHAPE']);
+    const frame = h.added.find((w) => w.type === 'FRAME')!;
+    for (const c of h.added.filter((w) => w.type === 'SHAPE')) {
+      expect(c.parentId).toBe(frame.id); // 桶映射不随入批序改变
+      expect(String(frame.zOrder) < String(c.zOrder)).toBe(true);
+    }
+    // 不得退回「全部 add 后再 update 钳制」：同事务内该写入对刚建 vm 的观察者
+    // 不可见（yjs 不为本事务新建的类型登记变更）——文档钳了、root.zOrder 没动
+    expect(h.framesLookup.computeLayerClamps).not.toHaveBeenCalled();
+    expect(h.updateLog).toHaveLength(0);
   });
 
   it('无容器批零钳制开销（computeLayerClamps 不调）', async () => {

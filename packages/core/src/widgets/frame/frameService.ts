@@ -42,7 +42,8 @@ type FrameWidgetSnapshot = {
  *   事务外新建的无父件，粘贴批/undo·redo 恢复不重判）、拖放/微移落点
  *   （reconcileParents——只在事务内调用，I6）、右键移出（detachSelection）；
  * - 级联：expandForCascade（拖拽/删除/复制带子）；设父同事务钳制容器到子
- *   之下（I3——图层/粘贴另经 computeLayerClamps 与 clampFrameZOrder 纯函数）。
+ *   之下（I3——图层命令另经 computeLayerClamps；粘贴靠容器先入批，创建数据
+ *   即正确）。
  * 事务内禁读 vm 几何/zOrder（§6.6-1）——一律 model.toJSON()（权威同步值）。
  */
 export class FrameService extends DragCreateServiceBase implements IFrameLookup {
@@ -171,7 +172,8 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
    *  - 批量上下文（粘贴批 / undo·redo 恢复 / replay·远端）：复制或恢复的是
    *    既有状态，parentId 已由粘贴桶映射或快照给足（§4.7「批外父落为顶层」
    *    同理——粘贴不替用户新做归属决定，I5 三条写路径不含粘贴）；
-   *  - 已带 parentId 的新件（含同批尚未建出的容器——粘贴批 [子, 容器] 序）。
+   *  - 已带 parentId 的新件（含同批尚未建出的容器——程序化批量建件不保证
+   *    容器先于子；归属是既定事实，不由创建路径重判）。
    *  拖动/微移落点不经此处，仍是 §2.4 三态滞回 */
   adoptOnCreate(id: string): void {
     if (!this.viewport.editable$.value) return;
@@ -208,8 +210,9 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
   /** 归属钳制（审查返工 P1）：设父后容器必须在子之下——否则「先有内容、后画
    *  泳道、再拖入」时容器 zOrder 更高、白底不透明盖住子元素。只在调用方的
    *  事务内使用（不开事务、不 stopCapturing——自开会把一次拖拽裂成两个 undo
-   *  项）；读 model 现算（§6.6-1——vm root 是合批旧值）。图层命令与粘贴另有
-   *  各自的钳制入口（computeLayerClamps / clampFrameZOrder 纯函数） */
+   *  项）；读 model 现算（§6.6-1——vm root 是合批旧值）。图层命令另有钳制入口
+   *  （computeLayerClamps）；粘贴不做事后钳制而是容器先入批——同事务内紧随
+   *  创建的写入对刚建 vm 的观察者不可见（yjs 不为本事务新建的类型登记变更） */
   private clampFrameBelowChildren(frameId: string): void {
     const key = clampFrameZOrder(this.allZOrders(), frameId, this.childIds(frameId));
     if (key === null) return; // 容器已在全部子之下——零写

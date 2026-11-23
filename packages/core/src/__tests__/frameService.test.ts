@@ -269,7 +269,7 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     ]);
     env.svc.adoptOnCreate('c2');
     expect(env.updates).toEqual([]); // 曾写 { parentId: undefined }
-    // 父指向尚不存在的容器（粘贴批 [子, 容器] 序：子先建）同样不动
+    // 父指向尚不存在的容器（程序化批量建件 [子, 容器] 序：子先建）同样不动
     const env2 = makeEnv([
       W('c3', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'not-yet' }),
       W('f9', 'FRAME', 'a2', [0, 0, 300, 300]), // 别的容器全含它——不得改挂
@@ -325,7 +325,7 @@ describe('computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
   });
   it('设父钳制：容器已在全部子之下时零钳制写（只写 parentId）', () => {
     // 归属钳制的唯一生产入口是 reconcileParents 的设父分支（独立钳制入口已删——
-    // 图层/粘贴各走 computeLayerClamps 与 clampFrameZOrder 纯函数）
+    // 图层命令走 computeLayerClamps，粘贴靠容器先入批无需事后钳制）
     const env = makeEnv([
       W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
       W('s1', 'SHAPE', 'a1', [500, 500, 50, 50]),

@@ -57,6 +57,19 @@ async function modelOf(page: Page, id: string): Promise<Snap | null> {
   }, id);
 }
 
+/** 真渲染层级（root.zOrder——viewport 排序依据；vm.state.zOrder 只是投影） */
+async function renderZOrderOf(page: Page, id: string): Promise<string | undefined> {
+  return page.evaluate(
+    (widgetId) =>
+      (
+        window as unknown as {
+          __spinthDebug: { __debug: { vmPositions: Array<{ id: string; zOrder?: string }> } };
+        }
+      ).__spinthDebug.__debug.vmPositions.find((v) => v.id === widgetId)?.zOrder,
+    id,
+  );
+}
+
 async function selectedIds(page: Page): Promise<string[]> {
   return page.evaluate(
     () =>
@@ -887,4 +900,54 @@ test('C-15 粘贴保真：复制「容器 + 框外子」→ 副本子仍归属�
   expect(copy.y).toBeGreaterThanOrEqual(pad.y);
   expect(copy.y + copy.height).toBeLessThanOrEqual(pad.y + pad.height);
   expect('parentId' in (await modelOf(page, copy.id))!).toBe(false); // 仍是顶层（文档真值）
+});
+
+test('C-16 粘贴层级：子先于容器入批（选区序 [子, 容器]）→ 副本容器在文档与渲染两层都在副本子之下', async ({
+  page,
+}) => {
+  // 粘贴批按选区序入批：子在前 → 子副本的 zOrder 先生成（更低）、容器副本后
+  // 生成（更高）——白底容器会盖住子。§4.7 钳制必须同时落到文档（model）与
+  // 渲染（root.zOrder）：批内写入对刚建 vm 的观察者不可见，只写文档不生效
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page))[0]!;
+  expect(child.parentId).toBe(frame.id);
+
+  // 选区序 [子, 容器]：先点子，再 Shift 点容器标题带。修饰键须显式按住——
+  // mouse.click 的 modifiers 选项在本应用不产生 shiftKey（实测选区被替换）
+  await page.mouse.click(180, 180 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([child.id]);
+  await page.keyboard.down('Shift');
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await page.keyboard.up('Shift');
+  await expect.poll(() => selectedIds(page)).toEqual([child.id, frame.id]);
+
+  const plain = await fireClipboard(page, 'copy');
+  await fireClipboard(page, 'paste', plain);
+  await expect.poll(() => modelCount(page)).toBe(4);
+  const newFrame = (await framesOf(page)).find((s) => s.id !== frame.id)!;
+  const newChild = (await shapesOf(page)).find((s) => s.id !== child.id)!;
+  expect((await modelOf(page, newChild.id))!.parentId).toBe(newFrame.id);
+  // 文档层：容器副本 zOrder < 子副本 zOrder
+  const frameDoc = (await modelOf(page, newFrame.id))!.zOrder!;
+  const childDoc = (await modelOf(page, newChild.id))!.zOrder!;
+  expect(frameDoc < childDoc).toBe(true);
+  // 渲染层：root.zOrder（viewport 排序依据）同样压在子之下
+  const frameZ = await renderZOrderOf(page, newFrame.id);
+  const childZ = await renderZOrderOf(page, newChild.id);
+  expect(frameZ).toBeDefined();
+  expect(childZ).toBeDefined();
+  expect(frameZ! < childZ!).toBe(true);
+  // 行为：点子副本中心命中的是子副本（被容器盖住时命中的是容器）
+  await page.keyboard.press('Escape');
+  await page.mouse.click(
+    newChild.x + newChild.width / 2,
+    newChild.y + newChild.height / 2 + TOP_BAR,
+  );
+  await expect.poll(() => selectedIds(page)).toEqual([newChild.id]);
 });
