@@ -43,6 +43,11 @@ export const LINE_PALETTE: readonly string[] = PEN_COLOR_PALETTE;
  *  白线在白画布不可见，文字底则是形状填充色） */
 export const TEXT_COLOR_PALETTE: readonly string[] = [...PEN_COLOR_PALETTE, '#ffffff', '#f9fafb'];
 
+/** 色板 → 色块选项（id/label/swatch 同值）：各类型 ActionBar 的 popover 色板
+ *  统一经此生成（SHAPE/LINE/TEXT 与容器共用，specs/container-frame 审查三轮） */
+export const swatches = (palette: readonly string[]): IActionBarOption[] =>
+  palette.map((hex) => ({ id: hex, label: hex, swatch: hex }));
+
 /** 连线箭头选项（起点/终点两个字段共用；icon = @spinth/react Icon 语义名） */
 export const ARROW_BAR_OPTIONS: IActionBarOption[] = [
   { id: 'none', label: '无箭头', icon: 'arrow-none' },

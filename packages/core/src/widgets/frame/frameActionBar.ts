@@ -9,13 +9,9 @@ import {
   SHAPE_BORDER_WIDTH_OPTIONS,
   SHAPE_PALETTE,
   SHAPE_BORDER_PALETTE,
+  swatches,
 } from '../../actionBarOptions';
 import { FRAME_DEFAULT_BORDER } from './frameGeometry';
-
-/** swatches helper（boardActionBar 同款口径；抽离后两处各自持有） */
-function swatches(palette: readonly string[]) {
-  return palette.map((hex) => ({ id: hex, label: hex, swatch: hex }));
-}
 
 export function frameActionBarItems(data: Record<string, unknown>): IActionBarItem[] {
   return [

@@ -20,6 +20,7 @@ import {
   SHAPE_PALETTE,
   SHAPE_BORDER_PALETTE,
   SHAPE_BORDER_WIDTH_OPTIONS,
+  swatches,
   typoItems,
 } from './actionBarOptions';
 import { darkenHex, numToHex } from './common/color';
@@ -126,8 +127,6 @@ export function buildActionBarSchema(
   const model = vm ? host.engine?.getModelById(vm.id) : undefined;
   if (!vm || !model) return null;
   const data = model.toJSON() as unknown as Record<string, unknown>;
-  const swatches = (palette: readonly string[]): IActionBarOption[] =>
-    palette.map((hex) => ({ id: hex, label: hex, swatch: hex }));
   switch (vm.type) {
     case 'SHAPE':
       return {
