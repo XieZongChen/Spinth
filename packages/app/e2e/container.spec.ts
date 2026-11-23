@@ -16,6 +16,7 @@ interface Snap {
   title?: string;
   headerSide?: string;
   parentId?: string;
+  zOrder?: string;
   x: number;
   y: number;
   width: number;
@@ -37,6 +38,23 @@ async function framesOf(page: Page): Promise<Snap[]> {
 
 async function shapesOf(page: Page): Promise<Snap[]> {
   return (await vmStates(page)).filter((s) => s.type === 'SHAPE');
+}
+
+/** 文档真值（model.toJSON）。批量路径（粘贴批 / undo·redo 恢复）里紧随创建的
+ *  写入对 mid-transaction 才挂上的 vm 观察者不可见——vmStates 会停在创建时的
+ *  值（实测：旧归属重判把文档清成无父，vm.state 仍显示归属）。归属类断言在
+ *  这些路径上必须读文档，否则是假绿 */
+async function modelOf(page: Page, id: string): Promise<Snap | null> {
+  return page.evaluate((widgetId) => {
+    const eng = (
+      window as unknown as {
+        __spinthDebug: {
+          __debug: { engine: { getModelById(id: string): { toJSON(): unknown } | undefined } };
+        };
+      }
+    ).__spinthDebug.__debug.engine;
+    return (eng.getModelById(widgetId)?.toJSON() as Snap | undefined) ?? null;
+  }, id);
 }
 
 async function selectedIds(page: Page): Promise<string[]> {
@@ -94,6 +112,18 @@ async function dragFrom(page: Page, wx: number, wy: number, dx: number, dy: numb
   await page.mouse.move(wx, wy + TOP_BAR);
   await page.mouse.down();
   await page.mouse.move(wx + dx, wy + dy + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+
+/** 已选中的容器：抓住西边不可见热区（边线中点，10 屏幕 px 厚）拖到 toX——
+ *  缩小容器。缩放不重判归属，是把子元素变成「完全在父框外却仍持有 parentId」
+ *  的唯一途径（拖动会按三态脱离） */
+async function dragWestEdgeTo(page: Page, frame: Snap, toX: number): Promise<void> {
+  const y = frame.y + frame.height / 2;
+  await page.mouse.move(frame.x, y + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(toX, y + TOP_BAR, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(300);
 }
@@ -322,13 +352,24 @@ test('C-10 容器在子之下：置顶后点子元素命中子元素 + zOrder �
     (lateFrame.zOrder as string) > (pair.find((s) => s.id === shapeId)!.zOrder as string),
   ).toBe(true);
   // 真实拖拽形状入晚画容器（中心 1230,130 → 680,130：全含于晚容器、
-  // 不含于第一个容器——x 650 > 500）
+  // 不含于第一个容器——x 650 > 500）。先过 captureTimeout：拖拽是独立撤销项
+  // （上方 engineAdd 的建件写入没有 stopCapturing，窗口内会并项）
+  await page.waitForTimeout(650);
   await dragFrom(page, 1230, 130, -550, 0);
   pair = await vmStates(page);
   const movedShape = pair.find((s) => s.id === shapeId)!;
   const clampedFrame = pair.find((s) => s.id === lateFrame.id)!;
   expect(movedShape.parentId).toBe(lateFrame.id);
-  expect((clampedFrame.zOrder as string) < (movedShape.zOrder as string)).toBe(true);
+  expect(clampedFrame.zOrder! < movedShape.zOrder!).toBe(true);
+  // 一步 undo：位移 + 设父 + 钳制同事务（I6）——三者一并回退，不多不少
+  await page.keyboard.press('Meta+z');
+  await expect.poll(async () => (await vmStates(page)).find((s) => s.id === shapeId)!.x).toBe(1200);
+  pair = await vmStates(page);
+  const undoneShape = pair.find((s) => s.id === shapeId)!;
+  const undoneFrame = pair.find((s) => s.id === lateFrame.id)!;
+  expect('parentId' in undoneShape).toBe(false); // 设父回退
+  expect(undoneFrame.zOrder! > undoneShape.zOrder!).toBe(true); // 钳制回退（容器回到形状之上）
+  expect(await modelCount(page)).toBe(4); // 建件未被牵连
 });
 
 /** 合成剪贴板事件（clipboard.spec 同款：DataTransfer 直通，绕 headless 权限） */
@@ -694,4 +735,156 @@ test('C-13 三泳道样本：left 表头 3 容器 × 每行 2 任务 + 跨行正
   expect(download.suggestedFilename()).toBe('spinth-board.png');
   expect((await import('node:fs')).statSync((await download.path())!).size).toBeGreaterThan(1000);
   void ids;
+});
+
+test('C-14 恢复保真：框外子随容器删除后 undo 仍归属且无幻影撤销项；先画后框的形状 undo 仍是顶层', async ({
+  page,
+}) => {
+  // ── 场景 A：缩小容器 → 子元素完全在父框外、却仍持有 parentId ──
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  expect(child.parentId).toBe(frame.id);
+
+  await page.mouse.click(200, 112 + TOP_BAR); // 标题带：首次点击只选中
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  await page.waitForTimeout(250); // 等 RectEditor 边热区挂载
+  await dragWestEdgeTo(page, frame, 300); // 容器缩到 300..500；子在 150..210
+  let f = (await framesOf(page))[0]!;
+  expect(Math.abs(f.x - 300)).toBeLessThan(1.5);
+  expect((await shapesOf(page))[0]!.parentId).toBe(frame.id); // 缩放不重判归属
+
+  // 删容器（连子删）。容器仍选中——不再点标题带：点已选中的件会进标题编辑
+  await page.keyboard.press('Delete');
+  await expect.poll(() => modelCount(page)).toBe(0);
+  // 过 captureTimeout：恢复若偷写归属，会成为独立撤销项而不会并入旧项
+  await page.waitForTimeout(700);
+  await page.keyboard.press('Meta+z');
+  await expect.poll(() => modelCount(page)).toBe(2);
+  f = (await framesOf(page))[0]!;
+  // 读文档真值：恢复批里紧随创建的重判写入对 vm 观察者不可见——vmStates 会
+  // 停在创建时的值而掩盖「文档被清父」（修前实测：文档无父、vm.state 仍归属）
+  expect((await modelOf(page, child.id))!.parentId).toBe(frame.id); // 曾被清成 undefined
+  expect(Math.abs(f.x - 300)).toBeLessThan(1.5); // 这一步只回退了删除
+  // 再 undo = 回退缩放：恢复没有留下幻影撤销项
+  await page.keyboard.press('Meta+z');
+  await expect.poll(async () => Math.abs((await framesOf(page))[0]!.x - 100) < 0.01).toBe(true);
+
+  // ── 场景 B：先画形状、后画容器（建容器不收养）——形状是顶层件 ──
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(700, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(760, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(3);
+  await engineAdd(page, [
+    { type: 'FRAME', color: '#ffffff', x: 600, y: 100, width: 400, height: 300 },
+  ]);
+  await expect.poll(() => modelCount(page)).toBe(4);
+  const top = (await shapesOf(page)).find((s) => s.x === 700)!;
+  expect('parentId' in top).toBe(false); // 建容器不收养既有元素
+  expect(await selectedIds(page)).toEqual([top.id]); // 拖拽创建选中新件
+  await page.waitForTimeout(650); // 建件写入没有 stopCapturing：过窗口再删
+  await page.keyboard.press('Delete');
+  await expect.poll(() => modelCount(page)).toBe(3);
+  await page.waitForTimeout(700);
+  await page.keyboard.press('Meta+z');
+  await expect.poll(() => modelCount(page)).toBe(4);
+  const back = (await modelOf(page, top.id))!; // 文档真值（同场景 A）
+  expect('parentId' in back).toBe(false); // 曾被收养进后画的容器
+  expect([back.x, back.y, back.width, back.height]).toEqual([700, 150, 60, 60]);
+});
+
+test('C-15 粘贴保真：复制「容器 + 框外子」→ 副本子仍归属副本容器；顶层件的副本落进容器内仍是顶层', async ({
+  page,
+}) => {
+  const frame = await addFrame(page, 100, 100, 400, 300);
+  await page.getByRole('button', { name: /矩形/ }).click();
+  await page.mouse.move(150, 150 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(210, 210 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(() => modelCount(page)).toBe(2);
+  const child = (await shapesOf(page)).find((s) => s.x === 150)!;
+  await page.mouse.click(200, 112 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([frame.id]);
+  await page.waitForTimeout(250);
+  await dragWestEdgeTo(page, frame, 300); // 子成了「框外子」
+
+  // 复制「容器 + 框外子」→ 粘贴（落视口中心）：副本子的 parentId 由粘贴桶映射
+  // 给足，创建路径不得重判（曾按 rule 3 清成 undefined——副本与原件分叉）
+  const plain = await fireClipboard(page, 'copy');
+  await fireClipboard(page, 'paste', plain);
+  await expect.poll(() => modelCount(page)).toBe(4);
+  const newFrame = (await framesOf(page)).find((s) => s.id !== frame.id)!;
+  const newChild = (await shapesOf(page)).find((s) => s.id !== child.id)!;
+  expect(newFrame.width).toBeCloseTo(200, 1); // 副本保持缩小后的几何
+  // 读文档真值：粘贴批在事务内，紧随创建的重判写入对 vm 观察者不可见
+  // （修前实测：文档清成无父、vm.state 仍显示归属——vmStates 断言假绿）
+  expect((await modelOf(page, newChild.id))!.parentId).toBe(newFrame.id);
+
+  // 顶层件的副本落进容器内：粘贴是复制既有状态，不替用户新做归属决定
+  // （I5 三条写路径不含粘贴；要归属就拖一下——C-5 拖入归属）
+  // 粘贴落点 = 视口中心（快照包络左上角落定）——围绕中心显式放一个容器，
+  // 保证副本确实落在某个存活容器内（否则这条断言是空过）
+  const vp = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              viewport: {
+                vpBounds$: { value: { x: number; y: number; width: number; height: number } };
+              };
+            };
+          };
+        }
+      ).__spinthDebug.__debug.viewport.vpBounds$.value,
+  );
+  const center = { x: vp.x + vp.width / 2, y: vp.y + vp.height / 2 };
+  const [padId] = await engineAdd(page, [
+    {
+      type: 'FRAME',
+      color: '#ffffff',
+      x: center.x - 40,
+      y: center.y - 40,
+      width: 300,
+      height: 300,
+    },
+  ]);
+  const [topId] = await engineAdd(page, [
+    {
+      type: 'SHAPE',
+      color: '#e8f0fb',
+      shapeType: 'rect',
+      text: '',
+      x: 1200,
+      y: 100,
+      width: 60,
+      height: 60,
+    },
+  ]);
+  expect('parentId' in (await shapesOf(page)).find((s) => s.id === topId)!).toBe(false);
+  await page.mouse.click(1230, 130 + TOP_BAR);
+  await expect.poll(() => selectedIds(page)).toEqual([topId]);
+  const plain2 = await fireClipboard(page, 'copy');
+  await fireClipboard(page, 'paste', plain2);
+  await expect.poll(() => modelCount(page)).toBe(7); // 4 + 容器 + 顶层件 + 它的副本
+  const copy = (await shapesOf(page)).find(
+    (s) => s.id !== topId && s.id !== child.id && s.id !== newChild.id,
+  )!;
+  const pad = (await framesOf(page)).find((s) => s.id === padId)!;
+  // 前置：副本落在视口中心、完全在那个容器内
+  expect(Math.abs(copy.x - center.x)).toBeLessThan(0.01);
+  expect(Math.abs(copy.y - center.y)).toBeLessThan(0.01);
+  expect(copy.x).toBeGreaterThanOrEqual(pad.x);
+  expect(copy.x + copy.width).toBeLessThanOrEqual(pad.x + pad.width);
+  expect(copy.y).toBeGreaterThanOrEqual(pad.y);
+  expect(copy.y + copy.height).toBeLessThanOrEqual(pad.y + pad.height);
+  expect('parentId' in (await modelOf(page, copy.id))!).toBe(false); // 仍是顶层（文档真值）
 });
