@@ -28,9 +28,11 @@
   粘贴件 zOrder = `genInitialOrder`（置顶）。
 - 容器带子复制（specs/container-frame §4.7）：复制/剪切快照前级联展开
   （容器并入全部存活子元素）；粘贴 `parentId` 按桶重映射（同批旧父 → 新容器
-  id，一拷贝一容器；批外父置空落为顶层——否则副本被原容器级联带走）；粘贴后
-  容器 zOrder 钳回子元素之下（I3）。右键菜单「移出容器」= 选中集清 parentId
-  （经 `updateSelectedStyle({parentId: undefined})` 通用通道分流
+  id，一拷贝一容器；批外父置空落为顶层——否则副本被原容器级联带走）；粘贴批
+  **容器先入批**——zOrder 按入批序递增生成，副本容器天然在批内子元素之下
+  （I3；不做事后钳制写入，见 docs/02 容器归属不变量末条）；粘贴不触发「创建
+  即归属」，无父件的副本落进容器内仍是顶层。右键菜单「移出容器」= 选中集清
+  parentId（经 `updateSelectedStyle({parentId: undefined})` 通用通道分流
   FrameService.detachSelection，I5 唯一写入口）。
 - 落点超出视口 → `zoomFromClipboard` 平移找回。
 - 通道：

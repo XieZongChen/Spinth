@@ -162,9 +162,9 @@ spread 进 **SHAPE / TEXT / STICKY / IMAGE / PEN / SYMBOL / LINE** 七个 schema
 | ---- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | I1   | 单层：`parentId` 只能指向 `type === 'FRAME'` 的存活控件；FRAME 自身无 parentId | 命令层（写入口只有 `FrameService`）+ 读取侧「孤儿即顶层」降级                                                                                                    |
 | I2   | 锚定线（任一端有 `startNodeId/endNodeId`）运行时排除出归属体系                 | 写入侧拒绝（FrameService）；读取侧排除（`childIds`/`expandForCascade` 过滤）。转锚定不清字段——stale `parentId` 为惰性数据（任何归属/级联/移出路径不读它，§16 ②） |
-| I3   | 容器的 `zOrder` 恒小于其全部子元素的 `zOrder`                                  | 归属写入后钳制 + 图层命令后钳制 + 粘贴后钳制（`clampFrameZOrder` 单源）                                                                                          |
+| I3   | 容器的 `zOrder` 恒小于其全部子元素的 `zOrder`                                  | 归属写入后钳制 + 图层命令后钳制（`clampFrameZOrder` 单源）+ 粘贴容器先入批（§4.7）                                                                               |
 | I4   | 子元素的 `parentId` 指向的容器被删时，字段不自动清理（孤儿即顶层）             | 与 group「组消解不清理字段」同款：undo 恢复后归属自动复活                                                                                                        |
-| I5   | 归属只由三条路径写入：创建时全含、拖放落点全含/完全离开、右键显式菜单          | `FrameService` 之外无写入口                                                                                                                                      |
+| I5   | 归属只由三条路径写入：创建时全含、拖放落点全含/完全离开、右键显式菜单          | `FrameService` 之外无写入口；粘贴批与 undo·redo 恢复是既有状态的复制，不重判（§4.2）                                                                             |
 | I6   | 归属写入与触发操作同一事务（一次 undo 回退到底）                               | `commitDrag` 的 transact 内、`nudgeSelected` 的 transact 内                                                                                                      |
 
 ### 2.4 归属判据（几何三态）
@@ -330,13 +330,27 @@ export function frameHitTest(
 
 | 触发             | 时机                                         | 事务                                                                |
 | ---------------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| 创建时全含       | `createWidget` 返回后立即                    | 与创建同一 undo 单元（拖拽创建与单击创建都以 `stopCapturing` 收口） |
+| 创建时全含       | `onModelCreated$` 订阅（`adoptOnCreate`）    | 与创建同一 undo 单元（拖拽创建与单击创建都以 `stopCapturing` 收口） |
 | 拖放全含 / 全离  | `commitDrag` 的 transact **内**，写 x/y 之后 | 与移动同一事务（I6）                                                |
 | 微移全含 / 全离  | `nudgeSelected` 的 transact 内               | 同上                                                                |
 | 右键「移出容器」 | 菜单命令                                     | 单独事务 + `stopCapturing`                                          |
 
 拖放归属只对**展开前选区**（`DragState.selectedIds`）判定，且剔除其中的 FRAME 自身；
 子元素跟着移动不打标，避免它们被重新判父。
+
+**「创建时全含」只服务工具在事务外新建的无父件**，两类新建不重判：
+
+- 批量上下文（粘贴批 / undo·redo 恢复 / replay·远端插入）：复制或恢复的是既有状态，
+  `parentId` 已由粘贴桶映射或快照给足（I5 三条写路径不含粘贴）。重判会让副本、恢复件
+  与原状态分叉——「缩小容器」产生的框外子（仍持有 `parentId`，缩放不重判）在粘贴或
+  恢复时被三态判据按「完全离开」清父。
+- 已带 `parentId` 的新件（归属是既定事实；含同批尚未建出的容器）。
+
+实现：`FrameService` 监听 `yDoc` 的 `beforeAllTransactions` / `afterAllTransactions`
+置批量上下文标记——工具的 `engine.add` 在事务外调用，其内层事务收尾之后才发
+`onModelCreated$`；粘贴批发在事务体内，恢复批发在观察者相。判定依赖 Yjs 事务生命周期
+时序，桩测不出，真引擎回归在 `frameAdoptionFidelity.test.ts`。橡皮拆段在事务内新建
+笔迹段，同批继承 `parentId`（不走创建归属，漏带即脱容器）。
 
 ### 4.3 框选口径
 
@@ -416,8 +430,11 @@ const rectOf = (id: string): IRect => {
   - `idMap` 既有；
   - `parentId` 按**桶映射**（同 `groupIdMap` 先例）：批内首次见到的旧 parentId → 新 id；
     批外父（复制了子元素但没复制容器）→ `undefined`（落为顶层）；
-  - 顺序：先全部 `engine.add`，再对批内容器逐个 `clampFrameZOrder`（新 zOrder 在顶部，
-    必须压回子元素之下），同一事务。
+  - 顺序：**容器先入批**——快照按「FRAME 在前、其余保持原序」重排后逐个 `engine.add`，
+    同一事务。新件 zOrder 按入批序递增生成，副本容器的 key 必然低于批内全部子元素（I3）。
+  - **不做事后钳制写入**：外层事务内紧随创建的写入对刚挂上的 vm 观察者不可见
+    （§6.6 陷阱 11）——文档钳了、`root.zOrder` 没动，白底容器盖住子副本直到刷新。
+- 粘贴不触发创建归属（§4.2）：无父件的副本落进任何容器内仍是顶层，要归属就拖一下。
 - **跨表粘贴**：来源是非本页 JSON 时同样走桶映射（idMap 只有本批，批外一律置空）。
 
 ### 4.8 图层命令
@@ -548,7 +565,7 @@ const rectOf = (id: string): IRect => {
 | 12  | platform/refLine/refLineService.ts                                 | 参照物排除 `previewIds`                                                                                 |
 | 13  | alignCommands.ts                                                   | `resolveAlignParticipant` 剔 FRAME                                                                      |
 | 14  | platform/layer/layerService.ts                                     | 落地前 `clampFrameZOrder`                                                                               |
-| 15  | platform/clipboard/clipboardService.ts                             | 展开 + parentId 桶映射 + 粘贴后钳制                                                                     |
+| 15  | platform/clipboard/clipboardService.ts                             | 展开 + parentId 桶映射 + 容器先入批                                                                     |
 | 16  | platform/contextMenu/contextMenuService.ts                         | `canDetach` 计算                                                                                        |
 | 17  | boardActionBar.ts                                                  | `case 'FRAME'`                                                                                          |
 | 18  | boardAssemblyInteraction.ts                                        | `sdk.frame` 装配 + `onActivate` 分支 + `selector.onDragCommitted` 不变                                  |
@@ -576,6 +593,15 @@ export interface IFrameLookup {
   expandForCascade(ids: string[]): string[];
   /** 归属三态判定并落库。**只在事务内调用**；rectOf 见 §4.4（事务内不许读 vm） */
   reconcileParents(ids: string[], rectOf: (id: string) => IRect): void;
+  /** 图层命令落地前的容器额外钳制（§4.8，§16 ③）：post = 叠加 delta 后的 zOrder 表 */
+  computeLayerClamps(post: ReadonlyArray<{ id: string; zOrder: string }>): Array<{
+    id: string;
+    zOrder: string;
+  }>;
+  /** 框选容器归并闭包（§4.3）；无容器返回 null */
+  createMarqueeFrameFilter(
+    groups: { groupOf(id: string): string | undefined; membersOf(groupId: string): string[] } | null,
+  ): ((hitIds: string[], marquee: IRect) => string[]) | null;
 }
 
 // ---- widgets/frame/frameOps.ts：纯逻辑 ----
@@ -605,12 +631,11 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
   isFrame(id: string): boolean;
   childIds(frameId: string): string[];
   expandForCascade(ids: string[]): string[]; // = expandContainers
-  adoptOnCreate(id: string): void; // 创建即归属（单事务）
+  adoptOnCreate(id: string): void; // 创建即归属：只服务工具在事务外新建的无父件（§4.2）
   reconcileParents(ids: string[], rectOf: (id: string) => IRect): void; // 只在事务内调用
-  clampFrame(frameId: string): void; // 读 model 现算，单事务
   detachSelection(): void; // 右键「移出容器」
   canDetachSelection(): boolean;
-  enterTitleEdit(id: string): void;
+  enterTitleEdit(id: string): boolean; // false = 只读 / 非容器 / 未组装
 }
 
 // ---- selector（可选尾参，既有测试零改动；类型面只认接口）----
@@ -631,18 +656,19 @@ export interface ISelectorDragContext {
 
 ### 6.6 必须避开的陷阱（逐条对账）
 
-| #   | 陷阱                                         | 正确做法                                                      |
-| --- | -------------------------------------------- | ------------------------------------------------------------- |
-| 1   | 事务内读 `vm.getBounds()` / `vm.root.zOrder` | 都是微任务合批后的旧值；用算术或 `model.toJSON()`             |
-| 2   | 归属写放在 transact 外                       | undo 裂项；必须在 `commitDrag` / `nudge` 的 transact 内（I6） |
-| 3   | 参考线参照物只排除 `selected$`               | 拖容器时子元素不在选区却被当参照物 → 追加排除 `previewIds`    |
-| 4   | 容器进对齐参与集                             | delta 只移动容器、子元素留在原地；必须返回 null               |
-| 5   | 粘贴不做 parentId 桶映射                     | 粘贴体指向**原**容器，拖原件会带走副本                        |
-| 6   | 建容器顺手收养既有元素                       | §12 已否决                                                    |
-| 7   | 展开时不去重/丢序                            | 用 Set 保插入序；`[frame, child, child]` 不得重复 commit      |
-| 8   | 标题编辑走 `TYPES_WHERE('editable')`         | 那条通道写 `text` 字段；容器用自有 plain 会话                 |
-| 9   | 命中区域用整块矩形                           | 会吃掉内部点击；必须标题带 ∪ 边框环                           |
-| 10  | 徽标/选中态订阅漏容器                        | `onSelected$` 由 `setSelected` 统一派发，无需额外接线         |
+| #   | 陷阱                                         | 正确做法                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 事务内读 `vm.getBounds()` / `vm.root.zOrder` | 都是微任务合批后的旧值；用算术或 `model.toJSON()`                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2   | 归属写放在 transact 外                       | undo 裂项；必须在 `commitDrag` / `nudge` 的 transact 内（I6）                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 3   | 参考线参照物只排除 `selected$`               | 拖容器时子元素不在选区却被当参照物 → 追加排除 `previewIds`                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 4   | 容器进对齐参与集                             | delta 只移动容器、子元素留在原地；必须返回 null                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 5   | 粘贴不做 parentId 桶映射                     | 粘贴体指向**原**容器，拖原件会带走副本                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 6   | 建容器顺手收养既有元素                       | §12 已否决                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 7   | 展开时不去重/丢序                            | 用 Set 保插入序；`[frame, child, child]` 不得重复 commit                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 8   | 标题编辑走 `TYPES_WHERE('editable')`         | 那条通道写 `text` 字段；容器用自有 plain 会话                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 9   | 命中区域用整块矩形                           | 会吃掉内部点击；必须标题带 ∪ 边框环                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 10  | 徽标/选中态订阅漏容器                        | `onSelected$` 由 `setSelected` 统一派发，无需额外接线                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 11  | 同一事务内「创建新件后紧接 update」新件      | 粘贴批（同一外层事务内）：yjs 不为本事务新建的类型登记变更（`addChangedTypeToTransaction` 要求类型的 item 早于本事务且未删除），观察者不触发。恢复批（观察者相里的新事务）：观察者照常触发，但 `BaseWidgetVm.setState` 的 diff 对尚未应用微任务合批的旧 state 计算，同 tick 内「创建快照含值 → 写回初值」的 partial 被判同值丢弃。表现：vm.state / `root.zOrder` 停在创建值而文档已变。新件的事实写进创建数据（粘贴容器先入批、橡皮拆段带 `parentId`），或移到事务外写 |
 
 ## 7. 性能
 
@@ -660,7 +686,8 @@ export interface ISelectorDragContext {
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | frameGeometry.test.ts              | 标题带 top/left 几何、退化不抛、命中（带内/环内/内部空白/环外）、`truncateTitle`                                                                                                                                         |
 | frameOps.test.ts                   | `resolveParentUpdate` 四态与判定顺序、多容器取最上、`expandContainers` 去重保序、`clampFrameZOrder`（含 prev=null 边界）、`remapParentIds`（桶映射/批外置空）、`mergeFramesIntoSelection`（全含/半含/不拆组/子元素剔除） |
-| frameService.test.ts               | 创建即归属同事务、删容器连子、微移展开、图层钳制、`detachSelection`、只读早退、一次 undo                                                                                                                                 |
+| frameService.test.ts               | 创建即归属同事务、已有父/批量上下文不重判、删容器连子、微移展开、设父同事务钳制与零钳制写、图层钳制、`detachSelection`、只读早退、一次 undo                                                                              |
+| frameAdoptionFidelity.test.ts      | 真 Y.Doc + 真 DataEngine + 真 HistoryService：工具创建归属；粘贴批 / undo·redo 恢复不重判（已有父不清、无父不收养）、无幻影撤销项、标记不粘连（§4.2）                                                                    |
 | frameTitleEditor.test.ts           | 提交/同值不写/空标题 keep/Enter 提交/Esc 丢弃/只读早退                                                                                                                                                                   |
 | selectorDrag.test.ts（扩）         | 拖容器：展开 ids、`selectedIds` 未展开、预览/取消/提交各分支                                                                                                                                                             |
 | selectorMarquee.test.ts（扩）      | 容器全含入选、半含剔除、组在容器内不拆组                                                                                                                                                                                 |
@@ -670,21 +697,24 @@ export interface ISelectorDragContext {
 
 ### 8.2 E2E（`container.spec.ts`）
 
-| 用例              | 断言（探针 = `__spinthDebug.__debug.vmStates`）                                                                 |
-| ----------------- | --------------------------------------------------------------------------------------------------------------- |
-| C-1 创建与标题    | 拖拽画容器 → 选中；改标题 → `title` 落库；一步 undo 回空标题                                                    |
-| C-2 创建即归属    | 容器内画形状 → 该形状 `parentId === frame.id`                                                                   |
-| C-3 拖动带子      | 拖容器 (+80,+40) → 子元素 x/y 同步位移；undo 一步全回                                                           |
-| C-4 拖出脱离      | 子元素完全拖出 → `parentId` 消失；只相交（部分在外）时不变                                                      |
-| C-5 拖入归属      | 外部形状完全拖进 → `parentId` 写入                                                                              |
-| C-6 删除级联      | 删容器 → 容器与子元素都消失；undo 一步全回（含 parentId）                                                       |
-| C-7 缩放不缩放子  | 拖角放大容器 → 子元素 rect 逐值不变                                                                             |
-| C-8 复制粘贴      | 复制容器 → 粘贴：新容器 + 新子元素，`parentId` 指向新容器；拖新容器，原件不动                                   |
-| C-9 框选口径      | 全含容器入选且子元素不并入；半含容器不入选                                                                      |
-| C-10 容器在子之下 | 容器置顶（Cmd+Alt+]）→ 点其子元素命中子元素（`getVmByPoint` 首项）                                              |
-| C-11 只读         | 只读态按 C 不出工具、拖动不写、标题不进编辑、右键无「移出容器」                                                 |
-| C-12 项目文件     | 导出 → 导入：容器/标题/`parentId`/headerSide 全部往返                                                           |
-| C-13 三泳道样本   | 3 个 `headerSide:'left'` 容器 + 每行 2 任务 + 跨行正交连线；移动第 2 行 → 该行任务跟随、他行不动；导出 PNG 成功 |
+| 用例              | 断言（探针 = `__spinthDebug.__debug.vmStates`；批量路径的归属断言读 `model.toJSON()` 文档真值——vm 状态在粘贴批 / 恢复批后可能陈旧，§6.6 陷阱 11） |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C-1 创建与标题    | 拖拽画容器 → 选中；改标题 → `title` 落库；一步 undo 回空标题                                                                                      |
+| C-2 创建即归属    | 容器内画形状 → 该形状 `parentId === frame.id`                                                                                                     |
+| C-3 拖动带子      | 拖容器 (+80,+40) → 子元素 x/y 同步位移；undo 一步全回                                                                                             |
+| C-4 拖出脱离      | 子元素完全拖出 → `parentId` 消失；只相交（部分在外）时不变                                                                                        |
+| C-5 拖入归属      | 外部形状完全拖进 → `parentId` 写入                                                                                                                |
+| C-6 删除级联      | 删容器 → 容器与子元素都消失；undo 一步全回（含 parentId）                                                                                         |
+| C-7 缩放不缩放子  | 拖角放大容器 → 子元素 rect 逐值不变                                                                                                               |
+| C-8 复制粘贴      | 复制容器 → 粘贴：新容器 + 新子元素，`parentId` 指向新容器；拖新容器，原件不动                                                                     |
+| C-9 框选口径      | 全含容器入选且子元素不并入；半含容器不入选                                                                                                        |
+| C-10 容器在子之下 | 容器置顶（Cmd+Alt+]）→ 点其子元素命中子元素（`getVmByPoint` 首项）                                                                                |
+| C-11 只读         | 只读态按 C 不出工具、拖动不写、标题不进编辑、右键无「移出容器」                                                                                   |
+| C-12 项目文件     | 导出 → 导入：容器/标题/`parentId`/headerSide 全部往返                                                                                             |
+| C-13 三泳道样本   | 3 个 `headerSide:'left'` 容器 + 每行 2 任务 + 跨行正交连线；移动第 2 行 → 该行任务跟随、他行不动；导出 PNG 成功                                   |
+| C-14 恢复保真     | 框外子随容器删除后 undo：文档 `parentId` 仍是原容器、容器几何只回退删除、再 undo 回退缩放（无幻影撤销项）；先画后框的形状 undo 后仍是顶层         |
+| C-15 粘贴保真     | 复制「容器 + 框外子」→ 副本子 `parentId` 指向副本容器（文档真值）；顶层件的副本落进容器内仍是顶层（前置断言副本确在容器内）                       |
+| C-16 粘贴层级     | 选区序 [子, 容器] 粘贴：副本容器 zOrder 在文档层与渲染层（`vmPositions` 的 `root.zOrder`）都低于副本子；点子副本中心命中子副本                    |
 
 E2E 辅助：在 `e2e/helpers/widgetProbeE2e.ts` 加 `createFrameByDrag(page, rect)`（按 C、拖框、Esc 回 cursor），
 C-1..C-13 共用，避免 13 份手写手势。
@@ -779,6 +809,18 @@ C-1..C-13 共用，避免 13 份手写手势。
 - 嵌套容器、容器内自动布局、容器收养既有元素、容器旋转。
 - BPMN 池/泳道语义（4.7 另立 spec）。
 
+**待人类确认（三轮审查的实施决策，依据 I5 与 §4.7，未经拍板）**
+
+- **粘贴快照不触发创建归属**：无父件的副本落进任何容器内仍是顶层（要归属就拖一下）。
+  审查建议的修法（已有父则返回）只盖住「已有父被清」；批量上下文一并抑制后，无父
+  副本不再被收养——与「建容器不收养既有元素」（已拍板 1）同向，但属新增口径。
+  纯文本/图片粘贴走事务外 `engine.add`，仍按创建归属。
+
+**挂账（审查清单外、本批未改）**
+
+- `BaseWidgetVm.setState` 同 tick「创建快照含值 → 写回初值」丢写——VM 基类既有
+  缺陷（全部控件共用渲染管线，须单独立项；复现与修法见 §16 三轮返工记录）。
+
 ## 13. 设计自审（铁律对账）
 
 | 铁律           | 落点                                                                                                           |
@@ -826,7 +868,7 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
 4. 事务内没有 vm 读取（搜 `getBounds()` / `root.zOrder` 出现在 commit 路径）。
 5. 参考线参照物已排除 `previewIds`。
 6. 删除/复制/剪切/微移四路都走 `expandForCascade`。
-7. 粘贴 `parentId` 桶映射 + 批外置空 + 粘贴后钳制。
+7. 粘贴 `parentId` 桶映射 + 批外置空 + 容器先入批（§4.7）。
 8. 图层命令后容器仍在其子之下（C-10）。
 9. 对齐/分布参与集不含容器（按钮禁用态正确）。
 10. 只读四闸门（工具/指针/命令/标题编辑）都在。
@@ -859,9 +901,10 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
   其余逐字一致。
 - ④ **drag/微移 rectOf**：commitDrag transact 内联闭包（initial+末帧位移，
   未动件 fallback model）；nudgeSelected 同款（getLocalRect+位移）。
-- ⑤ **粘贴钳制**：批内容器经 `computeLayerClamps(zTable)`（zTable 只含本批
-  新件——非本批容器无子在此表自然跳过）；批内父先于容器入批时天然满足 I3
-  （genInitialOrder 递增），钳制为防御性收口。
+- ⑤ **粘贴层级**：容器快照排到批首，zOrder 按入批序递增生成，副本容器 key
+  必然低于批内全部子元素（genInitialOrder 递增）。初版按本节原文「全部 add 后再
+  对批内容器 `clampFrameZOrder`」落地，三轮审查实测该写入不达渲染层——同事务内
+  紧随创建的写入对刚挂上的 vm 观察者不可见（§6.6 陷阱 11），改为容器先入批。
 - ⑥ **右键「移出容器」命令通道**：公开面 71 不变——经
   `updateSelectedStyle({parentId: undefined})` 通用通道在 styleCommands 分流
   到 `FrameService.detachSelection`（treeCollapsed/treeOrientation 同款分流
@@ -871,8 +914,10 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
   填充实色随带底自适应 #333/#fff（SHAPE defaultTextColorForFill 同款判据）；
   无填充对画布走主题墨色）；护栏测试在 shapeContrast.test。
 - ⑧ **E2E 桩口径**：engine.add 不生成 id（data.id 直用）——页内生成；不包
-  外层 transact（外层事务内创建后紧接的归属写对 mid-transaction 挂上的 vm
-  观察者不可见，vm.state 丢 parentId——生产路径无此外来事务）。
+  外层 transact（外层事务内创建后紧接的写入对 mid-transaction 挂上的 vm 观察者
+  不可见，vm.state 停在创建值——生产路径的工具创建无此外来事务）。批量路径
+  （粘贴批 / 恢复批）的归属断言一律读 `model.toJSON()` 文档真值（C-14/C-15），
+  层级断言另读 `vmPositions` 的 `root.zOrder`（C-16）。
 
 **审查返工（2026-11-22 第二轮审查，全部收口 fdfaea0..6156ba3）**
 
@@ -891,3 +936,47 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
 - 文档订正：AGENTS 计数（1468 单测 / 57 spec 331 例）与「八条解读」、
   docs/05 标题层级（4.4 复位 h3、容器拖拽带子改挂 §4.6）、docs/15 明细账
   （clipboardFrame 4 + selectorMarquee +1）。
+
+**审查返工（2026-11-24 第三轮审查，全部收口 4a992e5..ed22b7b 及文档同步提交）**
+
+- P2 `adoptOnCreate` 重判既有归属：审查给出的场景是「缩小容器产生的框外子在粘贴时
+  被三态判据按完全离开清父」。读码发现面更大——undo·redo 恢复（观察者相重建模型
+  → 同一创建事件）同样重判，且无父件被收养（先画后框的形状删后 undo 进了后画的
+  容器；粘贴的无父件落进容器也被收养）。审查建议的「parentId 已指向存活 FRAME 则
+  返回」只盖住前一半：恢复批里容器与子同批重建，顺序不保证子建时容器已存活。
+  修法两道守卫——① 批量上下文不重判（`yDoc` 的 `beforeAllTransactions` /
+  `afterAllTransactions` 置标记；工具创建在事务外，`DataEngineService.add` 的内层
+  事务收尾之后才发 `onModelCreated$`）；② 已带 `parentId` 不重判。§4.2 同步。
+- 连带：橡皮拆段在事务内新建笔迹段，此前靠「碰巧重判」兜底归属——批量上下文抑制
+  后会永久脱容器，改为创建数据继承 `parentId`（单测补齐）。
+- 真引擎集成测试 `frameAdoptionFidelity.test.ts`（真 Y.Doc + 真 DataEngine + 真
+  HistoryService）：修前 5 红 1 绿，修后 6 绿。桩测的 vmEngine 即时一致，测不出
+  「同批容器尚未建出」的时序。
+- **E2E 假绿**（补审查建议的 E2E 锁时发现）：C-14/C-15 初版读 `vmStates`，修前实现
+  下照常通过。探针实证旧代码确实写了清父值、文档已无父，但 `vm.state` 仍显示归属
+  ——批量路径中紧随创建的写入不达 vm 状态（§6.6 陷阱 11 两个原因）。即旧 bug 的真实表现是「文档丢归属、界面照旧」，刷新后子件变顶层、拖容器
+  不带它。C-14/C-15 改读 `model.toJSON()`，修前实现下两例均红。
+- **粘贴层级不达渲染层**（由上一条延伸发现，审查清单外）：选区序 [子, 容器]
+  （先点子再 Shift 点容器）时粘贴批子先入批，容器副本 zOrder 更高；原
+  `computeLayerClamps(zTable)` 的事后钳制与创建同事务——文档钳了、`root.zOrder`
+  没动，白底容器盖住子副本直到刷新（C-16 文档层通过、渲染层先红）。修法：容器
+  先入批（§4.7 / §16 ⑤）。原单测只断言「有一次 zOrder 写入」、桩返回的甚至不是
+  更低的 key，改为断言入批序与 key 关系。
+- 行为决策（超出审查清单）：粘贴快照不触发创建归属——无父件的副本落进容器内仍是
+  顶层（I5 三条写路径不含粘贴；要归属就拖一下）。纯文本/图片粘贴走事务外
+  `engine.add`，仍按创建处理。
+- P3：`clampFrame()` 生产零调用已删（归属钳制唯一入口 = `reconcileOne` 设父分支
+  `clampFrameBelowChildren`，即二轮的 `clampFrameInTx`；图层命令走
+  `computeLayerClamps`）；`swatches` 提至 `actionBarOptions` 单源（boardActionBar
+  / frameActionBar 共用）；C-10 拖入钳制补 undo 断言（位移 + 设父 + 钳制同事务
+  一并回退）。
+- 实证方法备忘：Shift 加选在 E2E 里必须 `keyboard.down('Shift')` 显式按住——
+  `mouse.click` 的 `modifiers` 选项在本应用不产生 shiftKey（实测选区被替换）。
+- 全仓扫描：生产代码里「事务内 add 后紧接 update」只有橡皮拆段一处，且对新段只走
+  创建数据——陷阱 11 在本批无其他实例。
+- 挂账（审查清单外、本批未改）：`BaseWidgetVm.setState` 的 diff 对尚未应用微任务
+  合批的旧 state 计算——同一 tick 内「`setModel` 快照含某键 → 写回初值」的第二条
+  partial 被判同值丢弃，vm.state 与文档分叉（独立单测复现：真 Y.Doc + VM 子类，
+  `setModel` 后同 tick 清键，文档无键而 state 留旧值）。它是本轮 E2E 假绿的直接
+  原因；新代码在容器路径上无同 tick 写回，故未触发。建议修法：diff 对
+  `{ ...state, ...batchState }` 计算——改的是全部控件共用的渲染管线，单独立项。

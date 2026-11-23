@@ -35,8 +35,17 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 - 归属写唯一入口 FrameService：创建时全含 / 拖放落点三态（全含设父、相交
   保持、完全离开清父——世界 AABB 判据带滞回）/ 右键「移出容器」；与触发
   操作同一事务（一次 undo 回退到底）。
-- 容器 zOrder 恒小于其全部子元素（归属/图层/粘贴三处钳制单源）；孤儿
-  parentId（父被删）读取侧按顶层处理、不改写数据（undo 恢复后归属复活）。
+- 「创建时全含」只服务工具在事务外新建的无父件；粘贴批与 undo·redo 恢复是
+  既有状态的复制，不重判（parentId 由粘贴桶映射或快照给足），已带 parentId 的
+  新件同样不重判。橡皮拆段在事务内新建笔迹段，创建数据继承 parentId。
+- 容器 zOrder 恒小于其全部子元素：归属写入与图层命令后钳制（clampFrameZOrder
+  单源），粘贴靠容器先入批；孤儿 parentId（父被删）读取侧按顶层处理、不改写
+  数据（undo 恢复后归属复活）。
+- 批量路径（粘贴批 / undo·redo 恢复）中紧随创建的写入不达 vm 状态，文档与
+  vm.state 分叉——两个原因：① 同一外层事务内，Yjs 不为本事务新建的类型登记变更，
+  观察者不触发；② 观察者相里的新事务观察者照常触发，但 `BaseWidgetVm.setState`
+  的 diff 对尚未应用微任务合批的旧 state 计算，同一 tick 内「创建快照含值 → 写回
+  初值」的 partial 被判同值丢弃。新件的事实必须写进创建数据，或移到事务外写。
 - 老客户端打开新文档：FRAME 进未知类型隔离、parentId 作为未知键保留。
 
 ### zOrder：fractional indexing
