@@ -176,6 +176,7 @@ export class EraserService extends Disposable {
       color: string;
       strokeWidth: number;
       groupId?: string;
+      parentId?: string;
     }> = [];
     for (const vm of candidates) {
       const model = this.engine.getModelById(vm.id);
@@ -185,12 +186,15 @@ export class EraserService extends Disposable {
         color: string;
         strokeWidth: number;
         groupId?: string;
+        parentId?: string;
       };
       const runs = eraseStrokeAgainstSweep(data.points, p, { x: curX, y: curY }, r);
       if (runs === null) continue; // 粗筛命中但精判未覆盖（bbox 冗余部分）
       if (runs.length === 0) removeIds.push(vm.id);
       else if (runs.length === 1) single.push({ id: vm.id, points: runs[0]! });
-      // groupId 同源带出（Batch 1 · 1.11③）：编组笔被擦断不脱组
+      // groupId 同源带出（Batch 1 · 1.11③）：编组笔被擦断不脱组；
+      // parentId 同理（specs/container-frame）——新段在事务内创建，不走
+      // 「创建即归属」（批量上下文不重判），漏带即脱容器
       else
         multi.push({
           id: vm.id,
@@ -198,6 +202,7 @@ export class EraserService extends Disposable {
           color: data.color,
           strokeWidth: data.strokeWidth,
           groupId: data.groupId,
+          parentId: data.parentId,
         });
     }
     if (removeIds.length === 0 && single.length === 0 && multi.length === 0) return;
@@ -221,6 +226,7 @@ export class EraserService extends Disposable {
             // 切割新段继承原件编组（Batch 1 · 1.11③）——groupId 是编组语义
             // 关键字段（剪贴板复制已专门重映射），漏带即脱组
             ...(m.groupId ? { groupId: m.groupId } : {}),
+            ...(m.parentId ? { parentId: m.parentId } : {}),
           } as never);
         }
       }

@@ -11,7 +11,14 @@ import { EraserService } from '../widgets/eraser/eraserService';
  * 桩法照 penService.test 先例（捕获 handlers + engine/history stub）。
  */
 
-function makeHarness(strokes: Array<{ id: string; points: Array<[number, number]> }>) {
+function makeHarness(
+  strokes: Array<{
+    id: string;
+    points: Array<[number, number]>;
+    groupId?: string;
+    parentId?: string;
+  }>,
+) {
   const handlers: Record<string, ((e?: { world: { x: number; y: number } }) => void) | undefined> =
     {};
   const removed: string[][] = [];
@@ -22,7 +29,15 @@ function makeHarness(strokes: Array<{ id: string; points: Array<[number, number]
   models['shape1'] = { capabilities: { erasable: false }, toJSON: () => ({}), update: shapeUpdate }; // SHAPE 不可擦
   for (const s of strokes) {
     const calls: Array<Record<string, unknown>> = [];
-    const store = { data: { points: s.points, color: '#111111', strokeWidth: 3 } };
+    const store = {
+      data: {
+        points: s.points,
+        color: '#111111',
+        strokeWidth: 3,
+        ...(s.groupId ? { groupId: s.groupId } : {}),
+        ...(s.parentId ? { parentId: s.parentId } : {}),
+      },
+    };
     models[s.id] = {
       capabilities: { erasable: true }, // 第五刀：能力位判定（strokes 全是 PEN）
       toJSON: () => store.data,
@@ -128,6 +143,40 @@ describe('eraserService 落库三分支（一次扫掠一个事务）', () => {
     expect(newPts[0]![0]).toBeCloseTo(60, 3);
     expect(newPts.at(-1)).toEqual([100, 0]);
     expect(h.removed).toHaveLength(0);
+  });
+
+  it('多段新建继承 groupId 与 parentId（编组笔/容器内笔被擦断：不脱组、不脱容器）', () => {
+    // parentId 继承（specs/container-frame）：新段在 engine.transact 内创建，
+    // 不走「创建即归属」（批量上下文不重判）——漏带即永久脱容器
+    const h = makeHarness([
+      {
+        id: 'p1',
+        points: [
+          [0, 0],
+          [100, 0],
+        ],
+        groupId: 'g1',
+        parentId: 'f1',
+      },
+    ]);
+    h.handlers.onPointerDown!(h.at(50, 0)); // 中段被切走 → 两段
+    h.handlers.onPointerUp!();
+    expect(h.added).toHaveLength(1);
+    expect(h.added[0]).toMatchObject({ type: 'PEN', groupId: 'g1', parentId: 'f1' });
+    // 无组无容器的笔：新段不带这两个键（不凭空造出归属）
+    const bare = makeHarness([
+      {
+        id: 'p1',
+        points: [
+          [0, 0],
+          [100, 0],
+        ],
+      },
+    ]);
+    bare.handlers.onPointerDown!(bare.at(50, 0));
+    bare.handlers.onPointerUp!();
+    expect('groupId' in bare.added[0]!).toBe(false);
+    expect('parentId' in bare.added[0]!).toBe(false);
   });
 
   it('粗筛未覆盖（bbox 相交但笔画不在胶囊内）→ 零写', () => {

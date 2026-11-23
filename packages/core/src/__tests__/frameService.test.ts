@@ -257,6 +257,24 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     env.svc.adoptOnCreate('s1');
     expect(env.updates).toEqual([]); // 只读早退
   });
+
+  it('adoptOnCreate：已有父的件不重判（审查三轮 P2 红探针）——即使完全在父容器外', () => {
+    // 「缩小容器」会让子元素完全落在父框外而仍持有 parentId（缩放不重判）；
+    // 粘贴/恢复带着这个 parentId 重建模型时，创建路径不得按 rule 3 清父
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [200, 0, 100, 300]), // f1: 200..300
+      W('c2', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }), // 框外
+    ]);
+    env.svc.adoptOnCreate('c2');
+    expect(env.updates).toEqual([]); // 曾写 { parentId: undefined }
+    // 父指向尚不存在的容器（粘贴批 [子, 容器] 序：子先建）同样不动
+    const env2 = makeEnv([
+      W('c3', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'not-yet' }),
+      W('f9', 'FRAME', 'a2', [0, 0, 300, 300]), // 别的容器全含它——不得改挂
+    ]);
+    env2.svc.adoptOnCreate('c3');
+    expect(env2.updates).toEqual([]);
+  });
 });
 
 describe('clampFrame / computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {

@@ -38,7 +38,8 @@ type FrameWidgetSnapshot = {
  * 容器工具与归属服务（specs/container-frame §4.1/§4.2/§6.4）：
  * - 创建：DragCreateServiceBase 模板（单击默认尺寸按下点居中/拖拽跟手/网格吸附），
  *   不收养既有元素（§0.2 拍板）；
- * - 归属（I5 唯一写入口）：创建即归属（onModelCreated$ 订阅）、拖放/微移落点
+ * - 归属（I5 唯一写入口）：创建即归属（onModelCreated$ 订阅——只服务工具在
+ *   事务外新建的无父件，粘贴批/undo·redo 恢复不重判）、拖放/微移落点
  *   （reconcileParents——只在事务内调用，I6）、右键移出（detachSelection）；
  * - 级联：expandForCascade（拖拽/删除/复制带子）+ clampFrame（I3 容器在子之下）。
  * 事务内禁读 vm 几何/zOrder（§6.6-1）——一律 model.toJSON()（权威同步值）。
@@ -53,6 +54,17 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
   private readonly selectorRef: ISelectorService;
   /** 标题编辑协作者（§4.10，treeNodeEditor 同款拆分） */
   private readonly titleEditor: FrameTitleEditor | null;
+  /** 批量上下文标记：Y.Doc 顶层事务进行中（粘贴批 / undo·redo 恢复 / replay·
+   *  远端插入）。工具创建（DragCreate 与各 service 的 add）在事务外——add 的
+   *  内层事务收尾之后才发 onModelCreated$；批量路径则发在事务体或观察者相里。
+   *  beforeAll/afterAll 严格配对，观察者派生的嵌套事务并入同一次收尾 */
+  private inBatchTransaction = false;
+  private readonly beginBatch = (): void => {
+    this.inBatchTransaction = true;
+  };
+  private readonly endBatch = (): void => {
+    this.inBatchTransaction = false;
+  };
 
   /** 基类构造是 protected（模板基类不直接实例化）——子类显式公开（SymbolService 同款） */
   constructor(
@@ -71,11 +83,20 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
 
   override initialize(): void {
     super.initialize();
-    // 创建即归属（§4.2）：任意工具新建控件落入容器 → 写 parentId。与创建同一
-    // undo 捕获窗（创建工具在 up 才 stopCapturing）——一次 undo 回退到底。
-    // 粘贴/导入/undo 恢复同流触发：§2.4 规则 1「仍全含于当前父 → null」保证
-    // 对已正确归属的批量恢复零多余写；FRAME/树/锚定线在 reconcileOne 拒绝。
-    this.addDisposable(this.engine.onModelCreated$.subscribe((m) => this.adoptOnCreate(m.id)));
+    // 批量上下文标记（HistoryService 监听 yDoc 事件同款先例，不改引擎/历史）
+    const doc = this.engine.yDoc;
+    doc.on('beforeAllTransactions', this.beginBatch);
+    doc.on('afterAllTransactions', this.endBatch);
+    this.addDisposable(
+      () => {
+        doc.off('beforeAllTransactions', this.beginBatch);
+        doc.off('afterAllTransactions', this.endBatch);
+      },
+      // 创建即归属（§4.2）：工具新建控件落入容器 → 写 parentId。与创建同一
+      // undo 捕获窗（创建工具在 up 才 stopCapturing）——一次 undo 回退到底。
+      // FRAME/树/锚定线在 reconcileOne 拒绝
+      this.engine.onModelCreated$.subscribe((m) => this.adoptOnCreate(m.id)),
+    );
   }
 
   override createWidget(x: number, y: number, width: number, height: number): string {
@@ -143,9 +164,18 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     for (const id of ids) this.reconcileOne(id, rectOf);
   }
 
-  /** 创建即归属（§4.2）：矩形 = 落库值直读 model。只读宿主（恢复/导入）不写 */
+  /** 创建即归属（§4.2）：只服务「工具在事务外新建的无父件」；矩形 = 落库值
+   *  直读 model。只读宿主不写。两类新建**不重判**——重判会让副本、恢复件与
+   *  原状态分叉（审查三轮 P2；真引擎回归 frameAdoptionFidelity.test）：
+   *  - 批量上下文（粘贴批 / undo·redo 恢复 / replay·远端）：复制或恢复的是
+   *    既有状态，parentId 已由粘贴桶映射或快照给足（§4.7「批外父落为顶层」
+   *    同理——粘贴不替用户新做归属决定，I5 三条写路径不含粘贴）；
+   *  - 已带 parentId 的新件（含同批尚未建出的容器——粘贴批 [子, 容器] 序）。
+   *  拖动/微移落点不经此处，仍是 §2.4 三态滞回 */
   adoptOnCreate(id: string): void {
     if (!this.viewport.editable$.value) return;
+    if (this.inBatchTransaction) return;
+    if (this.widgetData(id)?.parentId !== undefined) return;
     this.reconcileOne(id, (x) => this.modelRectOf(x));
   }
 
