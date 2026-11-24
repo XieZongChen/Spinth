@@ -5,10 +5,20 @@
  */
 import { generateKeyBetween } from 'fractional-indexing';
 import { rectsIntersect, type IRect } from '../../common/geometry';
-import type { IFrameLookup } from '../../types';
+import { isTreeWidgetType, type IFrameLookup } from '../../types';
 
 /** 归属判定结果：string = 设父；undefined = 清父；null = 不改（§2.4） */
 export type ParentUpdate = string | undefined | null;
+
+/**
+ * 自动归属（创建 / 粘贴落点）的参与资格（§4.2）。容器与树自身不归属（I1/§0.3）；
+ * 画笔与连线不参与——两类落笔即建件，几何在 points、模型矩形是占位值
+ * {0,0,100,100}，按矩形判会被盖住左上角的容器误收。要归属可拖入：拖放判定走
+ * getLocalRect（两类即真实包围盒），不经此函数
+ */
+export function isAutoAdoptableType(type: string): boolean {
+  return type !== 'FRAME' && type !== 'PEN' && type !== 'LINE' && !isTreeWidgetType(type);
+}
 
 /** 全含判据：inner 的 AABB 完全落在 outer 的 AABB 内（等值边界算含） */
 export function fullyContains(outer: IRect, inner: IRect): boolean {

@@ -338,13 +338,17 @@ export function frameHitTest(
 拖放归属只对**展开前选区**（`DragState.selectedIds`）判定，且剔除其中的 FRAME 自身；
 子元素跟着移动不打标，避免它们被重新判父。
 
-**「创建时全含」只服务工具在事务外新建的无父件**，两类新建不重判：
+**「创建时全含」只服务工具在事务外新建的无父件**，三类新建不重判：
 
 - 批量上下文（粘贴批 / undo·redo 恢复 / replay·远端插入）：复制或恢复的是既有状态，
-  `parentId` 已由粘贴桶映射或快照给足（I5 三条写路径不含粘贴）。重判会让副本、恢复件
-  与原状态分叉——「缩小容器」产生的框外子（仍持有 `parentId`，缩放不重判）在粘贴或
-  恢复时被三态判据按「完全离开」清父。
+  `parentId` 已由粘贴桶映射或快照给足。重判会让副本、恢复件与原状态分叉——
+  「缩小容器」产生的框外子（仍持有 `parentId`，缩放不重判）在恢复时被三态判据按
+  「完全离开」清父。
 - 已带 `parentId` 的新件（归属是既定事实；含同批尚未建出的容器）。
+- 画笔与连线（`isAutoAdoptableType`，§12 已拍板）：两类落笔即建件，几何在 `points`、
+  模型矩形是占位值 `{0,0,100,100}`——按矩形判会被盖住左上角的容器误收，画在别处
+  容器里的也不会归属。不参与自动归属；要归属可拖入（拖放判定走 `getLocalRect`，
+  两类即真实包围盒）。
 
 实现：`FrameService` 监听 `yDoc` 的 `beforeAllTransactions` / `afterAllTransactions`
 置批量上下文标记——工具的 `engine.add` 在事务外调用，其内层事务收尾之后才发
@@ -686,7 +690,7 @@ export interface ISelectorDragContext {
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | frameGeometry.test.ts              | 标题带 top/left 几何、退化不抛、命中（带内/环内/内部空白/环外）、`truncateTitle`                                                                                                                                         |
 | frameOps.test.ts                   | `resolveParentUpdate` 四态与判定顺序、多容器取最上、`expandContainers` 去重保序、`clampFrameZOrder`（含 prev=null 边界）、`remapParentIds`（桶映射/批外置空）、`mergeFramesIntoSelection`（全含/半含/不拆组/子元素剔除） |
-| frameService.test.ts               | 创建即归属同事务、已有父/批量上下文不重判、删容器连子、微移展开、设父同事务钳制与零钳制写、图层钳制、`detachSelection`、只读早退、一次 undo                                                                              |
+| frameService.test.ts               | 创建即归属同事务、已有父/批量上下文不重判、画笔与连线不参与、删容器连子、微移展开、设父同事务钳制与零钳制写、图层钳制、`detachSelection`、只读早退、一次 undo                                                            |
 | frameAdoptionFidelity.test.ts      | 真 Y.Doc + 真 DataEngine + 真 HistoryService：工具创建归属；粘贴批 / undo·redo 恢复不重判（已有父不清、无父不收养）、无幻影撤销项、标记不粘连（§4.2）                                                                    |
 | frameTitleEditor.test.ts           | 提交/同值不写/空标题 keep/Enter 提交/Esc 丢弃/只读早退                                                                                                                                                                   |
 | selectorDrag.test.ts（扩）         | 拖容器：展开 ids、`selectedIds` 未展开、预览/取消/提交各分支                                                                                                                                                             |
@@ -715,6 +719,7 @@ export interface ISelectorDragContext {
 | C-14 恢复保真     | 框外子随容器删除后 undo：文档 `parentId` 仍是原容器、容器几何只回退删除、再 undo 回退缩放（无幻影撤销项）；先画后框的形状 undo 后仍是顶层         |
 | C-15 粘贴保真     | 复制「容器 + 框外子」→ 副本子 `parentId` 指向副本容器（文档真值）；顶层件的副本落进容器内仍是顶层（前置断言副本确在容器内）                       |
 | C-16 粘贴层级     | 选区序 [子, 容器] 粘贴：副本容器 zOrder 在文档层与渲染层（`vmPositions` 的 `root.zOrder`）都低于副本子；点子副本中心命中子副本                    |
+| C-17 不误收画笔   | 左上角有容器时，在别处画一笔画笔、拉一条自由线：两者文档均无 `parentId`（前置断言占位矩形确在容器内、线确为自由线）                               |
 
 E2E 辅助：在 `e2e/helpers/widgetProbeE2e.ts` 加 `createFrameByDrag(page, rect)`（按 C、拖框、Esc 回 cursor），
 C-1..C-13 共用，避免 13 份手写手势。
@@ -808,6 +813,8 @@ C-1..C-13 共用，避免 13 份手写手势。
 - SWIMLANE 专属控件（车道增删/排序/合并、右侧提示列）——二期 `specs/swimlane.md`。
 - 嵌套容器、容器内自动布局、容器收养既有元素、容器旋转。
 - BPMN 池/泳道语义（4.7 另立 spec）。
+- 自由线拖端点后不重判归属（端点拖拽不经 `reconcileParents`；画笔与连线已不参与自动
+  归属，此缺口只影响「拖入过容器的自由线再把端点拖出容器」）。
 
 **待人类确认（三轮审查的实施决策，依据 I5 与 §4.7，未经拍板）**
 
@@ -978,3 +985,14 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
   （`base/baseWidgetVm.ts`）；锁在 `renderSync.test.ts` 两条（直接写回 / `setModel`
   后同 tick 清键，修前均红）。全仓 14 处 `engine.add` 之后紧接写入的只有 1 处且
   写的是另一个模型——修复前无已知触发路径，属预防性修复。
+
+**后续实施（2026-11-24，人类拍板后）**
+
+- **VM 基类丢写已修**：`BaseWidgetVm.setState` 的 diff 基准改为「已应用 state + 待合批
+  partial」（见上文「VM 基类既有缺陷」）。`renderSync.test.ts` 两条锁修前均红。
+- **画笔与连线的创建归属**（规划修复时的核查发现，人类拍板「只堵错误归属」）：两类
+  落笔即建件，建件数据不含矩形，模型矩形取默认占位值 `{0,0,100,100}` 且从不随
+  `points` 更新；创建归属却按模型矩形判定。实测（E2E C-17 修前）：左上角画一个
+  容器，在 (600..720, 400..440) 画一笔，笔画的 `parentId` 等于该容器。修法：
+  `frameOps.isAutoAdoptableType` 单源判定参与资格，`adoptOnCreate` 守卫。不做收笔后
+  按整笔全含的补判——画在容器里的笔画保持顶层，要归属拖入。

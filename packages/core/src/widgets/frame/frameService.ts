@@ -15,6 +15,7 @@ import { FRAME_DEFAULT_COLOR, FRAME_DEFAULT_SIZE, FRAME_MIN_SIZE } from './frame
 import {
   clampFrameZOrder,
   expandContainers,
+  isAutoAdoptableType,
   mergeFramesIntoSelection,
   resolveParentUpdate,
 } from './frameOps';
@@ -173,12 +174,15 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
    *    既有状态，parentId 已由粘贴桶映射或快照给足（§4.7「批外父落为顶层」
    *    同理——粘贴不替用户新做归属决定，I5 三条写路径不含粘贴）；
    *  - 已带 parentId 的新件（含同批尚未建出的容器——程序化批量建件不保证
-   *    容器先于子；归属是既定事实，不由创建路径重判）。
+   *    容器先于子；归属是既定事实，不由创建路径重判）；
+   *  - 画笔与连线（isAutoAdoptableType）：模型矩形是占位值，与 points 实际位置
+   *    无关——按矩形判会被盖住左上角的容器误收（E2E container C-17）。
    *  拖动/微移落点不经此处，仍是 §2.4 三态滞回 */
   adoptOnCreate(id: string): void {
     if (!this.viewport.editable$.value) return;
     if (this.inBatchTransaction) return;
-    if (this.widgetData(id)?.parentId !== undefined) return;
+    const data = this.widgetData(id);
+    if (!data || data.parentId !== undefined || !isAutoAdoptableType(data.type)) return;
     this.reconcileOne(id, (x) => this.modelRectOf(x));
   }
 

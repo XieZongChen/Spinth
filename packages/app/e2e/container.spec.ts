@@ -16,6 +16,8 @@ interface Snap {
   title?: string;
   headerSide?: string;
   parentId?: string;
+  startNodeId?: string | null;
+  endNodeId?: string | null;
   zOrder?: string;
   x: number;
   y: number;
@@ -950,4 +952,43 @@ test('C-16 粘贴层级：子先于容器入批（选区序 [子, 容器]）→ 
     newChild.y + newChild.height / 2 + TOP_BAR,
   );
   await expect.poll(() => selectedIds(page)).toEqual([newChild.id]);
+});
+
+test('C-17 创建归属不误收画笔与自由线：左上角有容器时，别处画的笔画与自由线仍是顶层', async ({
+  page,
+}) => {
+  // 画笔与自由线落笔即建件，几何在 points、模型矩形是占位值 {0,0,100,100}——
+  // 创建归属若按模型矩形判定，盖住左上角的容器会把任何笔画/自由线收走
+  // （拖容器带走、删容器连删）。两类不参与创建归属；要归属可拖入
+  await addFrame(page, 0, 0, 300, 300);
+
+  await page.getByRole('button', { name: /画笔/ }).click();
+  await page.mouse.move(600, 400 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(660, 440 + TOP_BAR, { steps: 4 });
+  await page.mouse.move(720, 400 + TOP_BAR, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  const pen = (await vmStates(page)).find((s) => s.type === 'PEN')!;
+  expect(pen).toBeDefined();
+  const penDoc = (await modelOf(page, pen.id))!;
+  // 前置：占位矩形确实落在那个容器内（否则下面的断言是空过）
+  expect(penDoc.x).toBeGreaterThanOrEqual(0);
+  expect(penDoc.x + penDoc.width).toBeLessThanOrEqual(300);
+  expect(penDoc.y).toBeGreaterThanOrEqual(0);
+  expect(penDoc.y + penDoc.height).toBeLessThanOrEqual(300);
+  expect(penDoc.parentId).toBeUndefined();
+
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(600, 560 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(720, 640 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const line = (await vmStates(page)).find((s) => s.type === 'LINE')!;
+  expect(line).toBeDefined();
+  const lineDoc = (await modelOf(page, line.id))!;
+  expect(lineDoc.startNodeId).toBeNull(); // 前置：确是自由线（锚定线本就不参与归属）
+  expect(lineDoc.endNodeId).toBeNull();
+  expect(lineDoc.parentId).toBeUndefined();
 });

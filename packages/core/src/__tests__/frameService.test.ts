@@ -277,6 +277,27 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     env2.svc.adoptOnCreate('c3');
     expect(env2.updates).toEqual([]);
   });
+
+  it('adoptOnCreate：画笔与自由线不参与——模型矩形是占位值，按矩形判会被盖住左上角的容器误收', () => {
+    // PEN / LINE 落笔即建件：建件数据不含矩形，模型矩形取默认 {0,0,100,100}，
+    // 与 points 的实际位置无关。占位矩形落在左上角容器内 → 曾被收走
+    // （E2E container C-17：别处画的笔画成了该容器的子元素）
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('pen1', 'PEN', 'a1', [0, 0, 100, 100]), // points 实际在别处
+      W('ln1', 'LINE', 'a2', [0, 0, 100, 100], { startNodeId: null, endNodeId: null }),
+    ]);
+    env.svc.adoptOnCreate('pen1');
+    env.svc.adoptOnCreate('ln1');
+    expect(env.updates).toEqual([]);
+    // 对照：同位置的形状照常归属（守卫只挡这两类）
+    const env2 = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('s1', 'SHAPE', 'a1', [10, 10, 50, 50]),
+    ]);
+    env2.svc.adoptOnCreate('s1');
+    expect(env2.updates).toEqual([{ id: 's1', patch: { parentId: 'f1' } }]);
+  });
 });
 
 describe('computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
