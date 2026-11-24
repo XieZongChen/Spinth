@@ -379,6 +379,7 @@ describe('容器拖拽带子（specs/container-frame §4.4）', () => {
         return out;
       },
       reconcileParents: vi.fn(),
+      adoptByLanding: () => {},
       createMarqueeFrameFilter: () => null,
       computeLayerClamps: () => [],
     };

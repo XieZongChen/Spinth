@@ -147,7 +147,7 @@ export class ClipboardService extends Disposable {
   }
 
   /** 粘贴：相对布局保持 → 换 id（连线引用同批修正）→ 容器先入批 + 递增 zOrder
-   *  → 一个事务 → 重新选中 */
+   *  → 一个事务 → 无父副本的落点归属（紧随的事务，同一捕获窗）→ 重新选中 */
   private pasteSnapshots(snapshots: IWidgetSnapshot[], target: { x: number; y: number }): void {
     const anchor = unionRects(snapshots.map((s) => s.bounds));
     if (!anchor) return;
@@ -177,7 +177,8 @@ export class ClipboardService extends Disposable {
     ];
     // 容器归属桶重映射（specs/container-frame §4.7，groupIdMap 同款内联）：
     // 批内父 → 该容器的新 id（一拷贝一容器）；批外父（复制了子没复制容器）
-    // → undefined 落为顶层——否则粘贴体指向原容器，拖原件会带走副本。
+    // → undefined——原归属关系不随副本走，否则粘贴体指向原容器，拖原件会带走
+    // 副本；副本是否归属落点处的新容器由收尾的落点判定另算。
     // idMap 此刻已全量（prepared 循环完成）
     const parentIdOf = new Map<string, string | undefined>();
     for (const { data } of snapshots) {
@@ -225,6 +226,13 @@ export class ClipboardService extends Disposable {
         newIds.push(id);
       }
     });
+    // 粘贴落点归属（specs/container-frame §4.7，人类拍板）：无父副本完全落进存活
+    // 容器即归属。必须在粘贴批**之外**另起事务——批内写入对刚建 vm 的观察者不可见
+    // （yjs 不为本事务新建的类型登记变更），文档写了归属而 vm.state 没有；放在
+    // stopCapturing 之前 = 与粘贴同一捕获窗，一步 undo。参与资格与「已带父不动」
+    // 由 adoptByLanding 单源判定
+    const frames = this.getFrames();
+    if (frames) this.engine.transact(() => frames.adoptByLanding(newIds));
     this.history.stopCapturing();
     this.selector.setSelected(newIds);
   }

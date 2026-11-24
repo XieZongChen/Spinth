@@ -300,6 +300,40 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
   });
 });
 
+describe('adoptByLanding（自动归属的落点判定，§4.2/§4.7）', () => {
+  it('无父件完全落进容器 → 设父；跨出边界 → 不写（与拖放落点同款全含判据）', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [500, 0, 300, 300]), // 500..800
+      W('in', 'SHAPE', 'a1', [520, 20, 50, 50]),
+      W('edge', 'SHAPE', 'a2', [780, 20, 50, 50]), // 780..830：跨出右边界
+    ]);
+    env.svc.adoptByLanding(['in', 'edge']);
+    expect(env.updates).toEqual([{ id: 'in', patch: { parentId: 'f1' } }]);
+  });
+
+  it('已带 parentId 的件不动——即使完全在父容器外（粘贴「容器 + 框外子」的副本）', () => {
+    // 交给三态判据会按「完全离开」清父，副本与原件分叉（审查三轮 P2）
+    const env = makeEnv([
+      W('f2', 'FRAME', 'a0', [0, 0, 300, 300]), // 另一个容器全含它——也不得改挂
+      W('c2', 'SHAPE', 'a1', [10, 10, 50, 50], { parentId: 'f1' }), // f1 不在（批内父已映射）
+      W('c3', 'SHAPE', 'a2', [10, 100, 50, 50], { parentId: 'f2' }),
+    ]);
+    env.svc.adoptByLanding(['c2', 'c3']);
+    expect(env.updates).toEqual([]);
+  });
+
+  it('容器 / 画笔 / 连线不参与', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('f2', 'FRAME', 'a1', [10, 10, 100, 100]), // 容器不归属（单层）
+      W('pen1', 'PEN', 'a2', [0, 0, 100, 100]), // 模型矩形是占位值
+      W('ln1', 'LINE', 'a3', [0, 0, 100, 100], { startNodeId: null, endNodeId: null }),
+    ]);
+    env.svc.adoptByLanding(['f2', 'pen1', 'ln1']);
+    expect(env.updates).toEqual([]);
+  });
+});
+
 describe('computeLayerClamps / detachSelection（I3/§4.8/§5.3）', () => {
   it('computeLayerClamps：变更后表中容器在子之上 → 返回钳制写入（多容器顺序）', () => {
     const env = makeEnv([

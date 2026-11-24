@@ -6,8 +6,10 @@ import type { IFrameLookup } from '../types';
 /**
  * 容器 + 子元素复制粘贴（specs/container-frame §4.7）：快照展开带子、
  * parentId 桶映射（批内父 → 新容器 id / 批外父置空）、容器先入批（I3 层级在
- * 创建数据里即正确）。ClipboardService 级桩测（clipboardSymbol 同款；JS
- * 环境——内部 buffer 路径）。
+ * 创建数据里即正确）、无父副本的落点归属（粘贴批之后另起事务调
+ * adoptByLanding，同一捕获窗）。ClipboardService 级桩测（clipboardSymbol
+ * 同款；JS 环境——内部 buffer 路径）；判定本身在 frameService /
+ * clipboardLanding 测试。
  */
 
 interface Widget {
@@ -22,10 +24,12 @@ interface Widget {
   [k: string]: unknown;
 }
 
-function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
+function makeHarness(widgets: Widget[], opts: { selected?: string[]; frames?: boolean } = {}) {
   const byId = new Map(widgets.map((w) => [w.id, { ...w }]));
   const added: Array<Record<string, unknown>> = [];
   const updateLog: Array<{ id: string; patch: Record<string, unknown> }> = [];
+  /** 调用时序日志：事务开合 / 落点归属 / 撤销窗收口 */
+  const log: string[] = [];
   const framesLookup: IFrameLookup = {
     isFrame: (id) => byId.get(id)?.type === 'FRAME',
     childIds: (fid) => widgets.filter((w) => w.parentId === fid).map((w) => w.id),
@@ -40,6 +44,9 @@ function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
       return out;
     },
     reconcileParents: () => {},
+    adoptByLanding: vi.fn(() => {
+      log.push('adoptByLanding');
+    }),
     createMarqueeFrameFilter: () => null,
     // 粘贴路径不再调（容器先入批后无钳制可做）——保留桩只为断言「零调用」
     computeLayerClamps: vi.fn(() => []),
@@ -57,7 +64,11 @@ function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
       },
       removeByIds: vi.fn(),
       genInitialOrder: () => `z${zSeq}`,
-      transact: (fn: () => void) => fn(),
+      transact: (fn: () => void) => {
+        log.push('tx:begin');
+        fn();
+        log.push('tx:end');
+      },
     } as never,
     {
       getVmById: (id: string) => {
@@ -73,10 +84,14 @@ function makeHarness(widgets: Widget[], opts: { selected?: string[] } = {}) {
       editable$: new BehaviorSubject(true),
       vpBounds$: new BehaviorSubject({ x: 0, y: 0, width: 1000, height: 600 }),
     } as never,
-    { stopCapturing: vi.fn() } as never,
-    () => framesLookup,
+    {
+      stopCapturing: vi.fn(() => {
+        log.push('stopCapturing');
+      }),
+    } as never,
+    opts.frames === false ? () => null : () => framesLookup,
   );
-  return { svc, added, updateLog, framesLookup };
+  return { svc, added, updateLog, framesLookup, log };
 }
 
 const FIXTURE = (): Widget[] => [
@@ -100,7 +115,7 @@ describe('容器复制粘贴（specs/container-frame §4.7）', () => {
     expect(newFrame.id).not.toBe('f1');
   });
 
-  it('单选子复制（无容器在批）：批外父置空（落为顶层，不被原容器级联）', async () => {
+  it('单选子复制（无容器在批）：批外父置空——不被原容器级联（归属落点容器与否由 adoptByLanding 另判）', async () => {
     const h = makeHarness(FIXTURE(), { selected: ['c1'] });
     await h.svc.copySelected();
     h.svc.pasteAt({ x: 600, y: 400 });
@@ -135,5 +150,33 @@ describe('容器复制粘贴（specs/container-frame §4.7）', () => {
     h.svc.pasteAt({ x: 600, y: 400 });
     expect(h.framesLookup.computeLayerClamps).not.toHaveBeenCalled();
     expect(h.updateLog).toHaveLength(0);
+  });
+
+  it('粘贴收尾：无父副本的落点归属在粘贴批之后另起事务、stopCapturing 之前（同一捕获窗）', async () => {
+    const h = makeHarness(FIXTURE(), { selected: ['c1', 'c2', 'f1'] });
+    await h.svc.copySelected();
+    h.svc.pasteAt({ x: 600, y: 400 });
+    // 交全部新 id：哪些算「无父且可自动归属」由 adoptByLanding 单源判定
+    expect(h.framesLookup.adoptByLanding).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(h.framesLookup.adoptByLanding).mock.calls[0]![0]).toEqual(
+      h.added.map((w) => w.id),
+    );
+    // 批事务先闭合（批内写入对刚建 vm 的观察者不可见），归属写在自己的事务里，
+    // 且落在 stopCapturing 之前——与粘贴同一步 undo
+    expect(h.log).toEqual([
+      'tx:begin',
+      'tx:end',
+      'tx:begin',
+      'adoptByLanding',
+      'tx:end',
+      'stopCapturing',
+    ]);
+  });
+
+  it('无容器语义（getFrames 为 null）：不调落点归属、不开第二个事务', async () => {
+    const h = makeHarness(FIXTURE(), { selected: ['f1'], frames: false });
+    await h.svc.copySelected();
+    h.svc.pasteAt({ x: 600, y: 400 });
+    expect(h.log).toEqual(['tx:begin', 'tx:end', 'stopCapturing']);
   });
 });

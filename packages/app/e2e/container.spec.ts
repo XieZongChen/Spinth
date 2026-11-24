@@ -84,7 +84,8 @@ async function selectedIds(page: Page): Promise<string[]> {
  *  ① engine.add 不生成 id（data.id 直用）——缺 id 落成空串坏数据，页内生成；
  *  ② 不包外层 transact——外层事务内「创建后紧接的归属写」对 mid-transaction
  *    才挂上的 vm 观察者不可见（vm.state 丢 parentId；生产路径创建从无外来
- *    外层事务，粘贴批的 parentId 走创建数据自带）。逐件独立 add 与生产同构 */
+ *    外层事务，粘贴批的 parentId 走创建数据自带，收尾的落点归属放在批事务
+ *    之外）。逐件独立 add 与生产同构 */
 async function engineAdd(page: Page, widgets: Array<Record<string, unknown>>): Promise<string[]> {
   const ids = await page.evaluate((ws) => {
     const eng = (
@@ -815,7 +816,7 @@ test('C-14 恢复保真：框外子随容器删除后 undo 仍归属且无幻影
   expect([back.x, back.y, back.width, back.height]).toEqual([700, 150, 60, 60]);
 });
 
-test('C-15 粘贴保真：复制「容器 + 框外子」→ 副本子仍归属副本容器；顶层件的副本落进容器内仍是顶层', async ({
+test('C-15 粘贴保真与落点归属：复制「容器 + 框外子」→ 副本子仍归属副本容器；无父件的副本落进容器内即归属（拖容器跟随、一步 undo、redo 保留）', async ({
   page,
 }) => {
   const frame = await addFrame(page, 100, 100, 400, 300);
@@ -843,8 +844,8 @@ test('C-15 粘贴保真：复制「容器 + 框外子」→ 副本子仍归属�
   // （修前实测：文档清成无父、vm.state 仍显示归属——vmStates 断言假绿）
   expect((await modelOf(page, newChild.id))!.parentId).toBe(newFrame.id);
 
-  // 顶层件的副本落进容器内：粘贴是复制既有状态，不替用户新做归属决定
-  // （I5 三条写路径不含粘贴；要归属就拖一下——C-5 拖入归属）
+  // 无父件的副本落进容器内 → 归属（粘贴落点归属，人类拍板）：与拖放落点同款的
+  // 全含判据，在粘贴批之后另起事务、同一捕获窗——与粘贴是同一步 undo
   // 粘贴落点 = 视口中心（快照包络左上角落定）——围绕中心显式放一个容器，
   // 保证副本确实落在某个存活容器内（否则这条断言是空过）
   const vp = await page.evaluate(
@@ -901,7 +902,36 @@ test('C-15 粘贴保真：复制「容器 + 框外子」→ 副本子仍归属�
   expect(copy.x + copy.width).toBeLessThanOrEqual(pad.x + pad.width);
   expect(copy.y).toBeGreaterThanOrEqual(pad.y);
   expect(copy.y + copy.height).toBeLessThanOrEqual(pad.y + pad.height);
-  expect('parentId' in (await modelOf(page, copy.id))!).toBe(false); // 仍是顶层（文档真值）
+  expect((await modelOf(page, copy.id))!.parentId).toBe(padId); // 文档真值
+  // 归属写在粘贴批之外：vm 状态与文档一致（批内写入对刚建 vm 的观察者不可见）
+  const copyVm = async (): Promise<Snap | undefined> =>
+    (await shapesOf(page)).find((s) => s.id === copy.id);
+  await expect.poll(async () => (await copyVm())?.parentId).toBe(padId);
+
+  // 级联：拖容器，副本作为子元素跟随
+  await page.mouse.move(pad.x + 100, pad.y + 12 + TOP_BAR); // 标题带（不压副本）
+  await page.mouse.down();
+  await page.mouse.move(pad.x + 160, pad.y + 52 + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Math.abs((await modelOf(page, padId))!.x - (pad.x + 60)) < 0.01)
+    .toBe(true);
+  const movedCopy = (await modelOf(page, copy.id))!;
+  expect(Math.abs(movedCopy.x - (copy.x + 60))).toBeLessThan(0.5);
+  expect(Math.abs(movedCopy.y - (copy.y + 40))).toBeLessThan(0.5);
+  expect(movedCopy.parentId).toBe(padId);
+
+  // 一步 undo 回退拖动；再一步回退粘贴（粘贴批 + 归属同属一个撤销项）；redo 保留归属
+  await page.keyboard.press('Meta+z');
+  await expect
+    .poll(async () => Math.abs((await modelOf(page, padId))!.x - pad.x) < 0.01)
+    .toBe(true);
+  expect((await modelOf(page, copy.id))!.parentId).toBe(padId);
+  await page.keyboard.press('Meta+z');
+  await expect.poll(() => modelCount(page)).toBe(6);
+  await page.keyboard.press('Meta+Shift+z');
+  await expect.poll(() => modelCount(page)).toBe(7);
+  expect((await modelOf(page, copy.id))!.parentId).toBe(padId);
 });
 
 test('C-16 粘贴层级：子先于容器入批（选区序 [子, 容器]）→ 副本容器在文档与渲染两层都在副本子之下', async ({

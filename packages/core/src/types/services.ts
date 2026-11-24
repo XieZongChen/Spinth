@@ -228,6 +228,12 @@ export interface IFrameLookup {
    *  （I6：归属写与触发操作同一事务）；rectOf 事务内不许读 vm（§6.6-1——
    *  state 是微任务合批旧值，必须算术或 model.toJSON()） */
   reconcileParents(ids: string[], rectOf: (id: string) => IRect): void;
+  /** 自动归属的落点判定（specs/container-frame §4.2/§4.7）：只处理「无父且可自动
+   *  归属」的件（已有 parentId 是既定事实；FRAME/树/锚定线/画笔/连线不参与——
+   *  后两类模型矩形是占位值），完全落进某存活容器即设父。矩形直读 model。
+   *  **只在事务内调用**；与创建/粘贴的收口 stopCapturing 之间不得再插一步
+   *  stopCapturing（同一捕获窗 = 一步 undo） */
+  adoptByLanding(ids: string[]): void;
   /** 图层命令落地前的容器钳制（specs/container-frame §4.8）：输入「变更后
    *  zOrder 表」（调用方对 delta 算术叠加），返回容器需要的额外 zOrder 写入
    *  （可能为空，多容器顺序钳制防 key 冲突）。平台层（layerService）经本

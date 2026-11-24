@@ -39,9 +39,10 @@ type FrameWidgetSnapshot = {
  * 容器工具与归属服务（specs/container-frame §4.1/§4.2/§6.4）：
  * - 创建：DragCreateServiceBase 模板（单击默认尺寸按下点居中/拖拽跟手/网格吸附），
  *   不收养既有元素（§0.2 拍板）；
- * - 归属（I5 唯一写入口）：创建即归属（onModelCreated$ 订阅——只服务工具在
- *   事务外新建的无父件，粘贴批/undo·redo 恢复不重判）、拖放/微移落点
- *   （reconcileParents——只在事务内调用，I6）、右键移出（detachSelection）；
+ * - 归属（I5 唯一写入口）：自动归属的落点判定 adoptByLanding——创建即归属
+ *   （onModelCreated$ 订阅：只服务工具在事务外新建的件）与粘贴收尾（ClipboardService
+ *   在粘贴批之后调用）共用同一套参与资格；拖放/微移落点（reconcileParents——只在
+ *   事务内调用，I6）；右键移出（detachSelection）。undo·redo 恢复不重判；
  * - 级联：expandForCascade（拖拽/删除/复制带子）；设父同事务钳制容器到子
  *   之下（I3——图层命令另经 computeLayerClamps；粘贴靠容器先入批，创建数据
  *   即正确）。
@@ -167,23 +168,31 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     for (const id of ids) this.reconcileOne(id, rectOf);
   }
 
-  /** 创建即归属（§4.2）：只服务「工具在事务外新建的无父件」；矩形 = 落库值
-   *  直读 model。只读宿主不写。两类新建**不重判**——重判会让副本、恢复件与
-   *  原状态分叉（审查三轮 P2；真引擎回归 frameAdoptionFidelity.test）：
-   *  - 批量上下文（粘贴批 / undo·redo 恢复 / replay·远端）：复制或恢复的是
-   *    既有状态，parentId 已由粘贴桶映射或快照给足（§4.7「批外父落为顶层」
-   *    同理——粘贴不替用户新做归属决定，I5 三条写路径不含粘贴）；
-   *  - 已带 parentId 的新件（含同批尚未建出的容器——程序化批量建件不保证
-   *    容器先于子；归属是既定事实，不由创建路径重判）；
-   *  - 画笔与连线（isAutoAdoptableType）：模型矩形是占位值，与 points 实际位置
-   *    无关——按矩形判会被盖住左上角的容器误收（E2E container C-17）。
+  /** 创建即归属（§4.2）：只服务「工具在事务外新建」的件——守卫后交给
+   *  adoptByLanding（参与资格同源）。只读宿主不写。批量上下文的创建事件
+   *  **不重判**——重判会让副本、恢复件与原状态分叉（审查三轮 P2；真引擎回归
+   *  frameAdoptionFidelity.test）：undo·redo 恢复的是既有状态；粘贴副本的归属
+   *  由 ClipboardService 在粘贴批收尾后显式调 adoptByLanding（§4.7）。
    *  拖动/微移落点不经此处，仍是 §2.4 三态滞回 */
   adoptOnCreate(id: string): void {
     if (!this.viewport.editable$.value) return;
     if (this.inBatchTransaction) return;
-    const data = this.widgetData(id);
-    if (!data || data.parentId !== undefined || !isAutoAdoptableType(data.type)) return;
-    this.reconcileOne(id, (x) => this.modelRectOf(x));
+    this.adoptByLanding([id]);
+  }
+
+  /** 自动归属的落点判定（§4.2/§4.7，创建与粘贴收尾共用）：只处理「无父且可自动
+   *  归属」的件，完全落进某存活容器（多容器取最上者）即设父并钳制其层级（I3）；
+   *  跨出边界保持顶层。矩形 = 落库值直读 model。
+   *  - 已带 parentId 的件不动：归属是既定事实（粘贴桶映射 / 快照给足）。交给三态
+   *    判据会把「框外子」按完全离开清父——副本与原件分叉；
+   *  - 画笔与连线不参与（isAutoAdoptableType）：模型矩形是占位值。
+   *  调用方负责事务与撤销窗收口 */
+  adoptByLanding(ids: string[]): void {
+    for (const id of ids) {
+      const data = this.widgetData(id);
+      if (!data || data.parentId !== undefined || !isAutoAdoptableType(data.type)) continue;
+      this.reconcileOne(id, (x) => this.modelRectOf(x));
+    }
   }
 
   private reconcileOne(id: string, rectOf: (id: string) => IRect): void {
