@@ -311,28 +311,30 @@ selectedIds 单独保持，归属只判用户选中件）；缩放不缩放子�
 `IFrameLookup.computeLayerClamps`（容器恒在子之下 I3，公开面 71 不变）；
 参考线参照物排除面扩为 `selected$ ∪ previewIds`；框选归并经
 `createMarqueeFrameFilter` 闭包（全含才入选/子剔除/组在容器内不拆组——
-几何归属优先于选择聚合）；剪贴板 parentId 桶映射（批外父置空）+ 粘贴容器先入批；
+几何归属优先于选择聚合）；剪贴板 parentId 桶映射（批外父置空）+ 粘贴容器先入批 + 粘贴落点归属（无父副本
+完全落进容器即归属，`adoptByLanding`——创建与粘贴收尾共用，画笔/连线不参与）；
 标题 plain 编辑（单击已选中标题带，Enter 恒提交，treeNodeEditor 同款）；
 工具坞「容器 (C)」（f 被 view.zoomFit 占用）+ ActionBar 样式五项 + 右键
 「移出容器」（updateSelectedStyle parentId 分流 detachSelection）；标题缺省
 色随带底自适应（defaultTextColorForFill 同款判据，双态护栏 ≥4.5:1）。
-E2E container.spec C-1..C-16 + 视觉 container-sample 双平台基线
+E2E container.spec C-1..C-17 + 视觉 container-sample 双平台基线
 （--stability 11 张逐字节全等）；老文档零迁移、老客户端开新文档 FRAME 隔离、parentId 未知键保留。审查返工已
 收口：归属写入同事务钳制容器 zOrder（拖入路径 I3 补全 + C-7/C-10 补强 +
 darwin theme 基线强制重生成 + I2 口径改「运行时排除」+ ActionBar/selector
-拆分全部 <400 行）；三轮收口：创建即归属只服务工具在事务外新建的无父件
-（粘贴批/undo·redo 恢复不重判——批量上下文 + 已有父两道守卫，橡皮拆段继承
-parentId，真引擎集成测试）、粘贴批容器先入批（同事务内创建后钳制对 vm
-观察者不可见——文档钳了渲染没动）、E2E 归属断言读文档真值（批量路径后 vm
-状态可能停在创建值），specs/container-frame §16。
+拆分全部 <400 行）；三轮收口：undo·redo 恢复不重判（批量上下文 + 已有父两道
+守卫，橡皮拆段继承 parentId，真引擎集成测试）、粘贴批容器先入批（同事务内创建
+后钳制对 vm 观察者不可见——文档钳了渲染没动）、E2E 归属断言读文档真值；后续
+拍板实施：VM 基类 `setState` 的 diff 基准含待合批 partial（同 tick 写回已应用值
+不再丢弃）、画笔与连线不参与自动归属（模型矩形是占位值）、粘贴落点归属（无父
+副本完全落进容器即归属，与粘贴同一步 undo），specs/container-frame §16。
 
-当前实测基线：`pnpm verify` 通过；1475 单测（core 1358 + react 79 + app 38）；
-E2E 57 spec / 334 例（主配置 327 --list 实测：非 visual 317 = 315 通过 +
+当前实测基线：`pnpm verify` 通过；1489 单测（core 1372 + react 79 + app 38）；
+E2E 57 spec / 335 例（主配置 328 --list 实测：非 visual 318 = 316 通过 +
 2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 10；pwa 7 独立配置；
 全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
 网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
-多线/项目文件往返+PNG/只读；容器底座 +16 例 container.spec C-1..C-16 +
-单测 +93（specs/container-frame §8）；树形图族 19 例；flowchart 15 例；
+多线/项目文件往返+PNG/只读；容器底座 +17 例 container.spec C-1..C-17 +
+单测 +105（specs/container-frame §8）；树形图族 19 例；flowchart 15 例；
 视觉 10/10 双平台（11 张基线含 network-sample 网络拓扑样本——4.3 交付、
 container-sample 三泳道样本——4.4 交付；darwin theme 双态随工具坞容器钮
 重生成）；
