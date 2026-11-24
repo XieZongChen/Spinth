@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import * as Y from 'yjs';
 import { Container, Graphics } from 'pixi.js';
 import { BaseWidgetVm } from '../base/baseWidgetVm';
 import { SelectionVm } from '../platform/selection/selectionVm';
 import { resizeRect, type HandleDir } from '../platform/rectEditor/resizeMath';
-import type { IOnStateChangedInfo } from '../types';
+import type { IBaseModel, IOnStateChangedInfo } from '../types';
 import type { IWidgetData } from '../types';
 
 /**
@@ -99,6 +100,41 @@ describe('规则 2：setState 广播发生在渲染之后（docs/14）', () => {
     vm.setState({ width: 100 }); // 与初始值相同
     await flushMicrotask();
     expect(events).toHaveLength(0);
+  });
+
+  it('同 tick 内写回已应用值不被丢弃（diff 基准含待合批 partial）', async () => {
+    const vm = new TestWidgetVm();
+    const events: IOnStateChangedInfo[] = [];
+    vm.onStateChanged$.subscribe((e) => events.push(e));
+    vm.setState({ width: 300 });
+    // 微任务未跑：this.state 仍是 100。若 diff 只对已应用 state 比较，这条会被
+    // 判成「同值」丢弃，合批后 state 停在 300 而写入方已回到 100
+    vm.setState({ width: 100 });
+    await flushMicrotask();
+    expect(vm.state.width).toBe(100);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.diff).toEqual({ width: 100 });
+  });
+
+  it('setModel 后同 tick 清键：文档已无键、vm.state 也不留旧值', async () => {
+    // 真实场景：批量路径里新建件的模型先以「含某键」的快照建 VM，同一 tick 内
+    // 紧接着把该键写回初值（清父 / 删 optional 字段）。观察者照常触发，但第二条
+    // partial 曾被丢弃——vm.state 与文档分叉且静默无感
+    const doc = new Y.Doc();
+    const yData = doc.getMap<unknown>('w');
+    yData.set('id', 't1');
+    yData.set('parentId', 'f1');
+    const model = {
+      id: 't1',
+      yData,
+      toJSON: () => ({ ...(yData.toJSON() as object) }),
+    } as unknown as IBaseModel<IWidgetData>;
+    const vm = new TestWidgetVm();
+    vm.setModel(model); // 创建快照含 parentId: 'f1'，进入待合批
+    yData.set('parentId', undefined); // 同 tick 清键
+    await flushMicrotask();
+    expect((yData.toJSON() as { parentId?: string }).parentId).toBeUndefined();
+    expect((vm.state as { parentId?: string }).parentId).toBeUndefined();
   });
 });
 

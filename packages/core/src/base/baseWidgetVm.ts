@@ -77,7 +77,14 @@ export abstract class BaseWidgetVm<D extends IWidgetData = IWidgetData, S extend
    *  广播延迟到渲染完成之后（afterUpdate）——否则订阅者（选区框/编辑器框/
    *  连线跟随）读 root 几何时拿到旧帧（缩放松手后框回弹的根因）。 */
   override setState(next: Partial<S>, local = true): void {
-    const diff = deepDiff(this.state as object, next as object);
+    // diff 基准 = 已应用 state + 待合批 partial：微任务未跑时 this.state 仍是上一帧，
+    // 只对它比较会把「同 tick 内写回已应用值」的第二条 partial 判成同值丢弃——
+    // 合批后 state 停在前一条而文档已变（批量路径里新建件「快照含键 → 同 tick
+    // 清键」曾因此 vm 与文档分叉且静默无感）
+    const base = this.batchState
+      ? ({ ...this.state, ...this.batchState } as object)
+      : (this.state as object);
+    const diff = deepDiff(base, next as object);
     if (Object.keys(diff).length === 0) return;
     // undefined 直接并入（键删除的合法投影——undo 删 optional 字段如 rotation：
     // 跳过会让 state/渲染/探针停在旧值）。旧「跳过 undefined」守卫防的毒化

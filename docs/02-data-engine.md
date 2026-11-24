@@ -41,11 +41,9 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 - 容器 zOrder 恒小于其全部子元素：归属写入与图层命令后钳制（clampFrameZOrder
   单源），粘贴靠容器先入批；孤儿 parentId（父被删）读取侧按顶层处理、不改写
   数据（undo 恢复后归属复活）。
-- 批量路径（粘贴批 / undo·redo 恢复）中紧随创建的写入不达 vm 状态，文档与
-  vm.state 分叉——两个原因：① 同一外层事务内，Yjs 不为本事务新建的类型登记变更，
-  观察者不触发；② 观察者相里的新事务观察者照常触发，但 `BaseWidgetVm.setState`
-  的 diff 对尚未应用微任务合批的旧 state 计算，同一 tick 内「创建快照含值 → 写回
-  初值」的 partial 被判同值丢弃。新件的事实必须写进创建数据，或移到事务外写。
+- 同一外层事务内「创建新件后紧接写入」对新件的 vm 观察者不可见（Yjs 不为本事务
+  新建的类型登记变更）：vm.state 与 `root.zOrder` 停在创建值而文档已变。新件的
+  事实必须写进创建数据，或移到事务外写。
 - 老客户端打开新文档：FRAME 进未知类型隔离、parentId 作为未知键保留。
 
 ### zOrder：fractional indexing

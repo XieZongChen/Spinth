@@ -141,6 +141,10 @@ setState(partial)
       → afterUpdate 发出 onStateChanged$（渲染完成后才广播）
 ```
 
+写前 diff（`BaseWidgetVm.setState`）的基准是「已应用 state + 待合批 partial」：微任务
+未跑时 `state` 仍是上一帧，只对它比较会把同一 tick 内「写回已应用值」的 partial 判成
+同值丢弃，合批后 state 停在前一条而文档已变。diff 为空才跳过合批。
+
 ```
 VmEngine.initialize():
   dataEngine.onModelCreated$ → resolve(vmTokens[type]) → vm.setModel(model)
