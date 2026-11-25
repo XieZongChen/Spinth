@@ -63,7 +63,7 @@
   脑图按钮钳制/空画布提示；helper `layoutE2e.ts`：boxWithin 容差 0.5px、minTarget
   24 下限、intersects、noDocHScroll；断言只用 `data-spinth-*` 标记，坐标从 canvas
   box / `__spinth`·`__spinthDebug` 探针推导）。
-- 运行时公共面/调试面：debugSurface.spec 3 例（`__spinth` = 68 成员冻结投影、
+- 运行时公共面/调试面：debugSurface.spec 3 例（`__spinth` = 71 成员冻结投影、
   内部字段不可见不可写、方法绑定与身份稳定、`__spinthDebug.__debug` 快照与逃生口）
   与 pwa P7（无 `?e2e=1` 时两全局零探针且画布可编辑；specs/runtime-narrowing §6.2）。
 - 单机断网不变量：core `networkService`（默认离线不阻断/blockOnOffline 三态翻转/
@@ -122,7 +122,7 @@
 - 适用：主题双态整帧、marks 粗细/颜色、旋转/形变。
 - 禁用：动画/光标/时间敏感、外部资源依赖、高频 DOM 文本。
 - 基线：`packages/app/e2e/visual.spec.ts-snapshots/`，按平台分文件（`-darwin.png`
-  与 `-linux.png` 各 5 张）。容差 `maxDiffPixelRatio: 0.02`；不得用未跟踪截图
+  与 `-linux.png` 各 11 张）。容差 `maxDiffPixelRatio: 0.02`；不得用未跟踪截图
   代替基线。
 - darwin：系统 Chrome（`channel: chrome`）本地直接跑；`@visual` 用例另带 DPR=1 /
   WebGL / 字体就绪三项环境断言（只影响失败信息，不改像素）。
