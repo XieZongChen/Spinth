@@ -299,7 +299,8 @@ export type IWidgetData = z.infer<typeof WidgetDataUnion> & IRect;
  *    specs/rotate-hide）。LINE/PEN/MIND_MAP 不旋转
  *  - groupable：自由六类；MIND_MAP 节点级选中走焦点体系（docs/18 §3.1）
  *  - resizable：LINE 无（端点手势管形状）；PEN 走 points 重映射非 root.scale
- *  - keepRatio：仅 IMAGE（图片默认锁定比例）
+ *  - keepRatio：仅 IMAGE——手柄缩放按住 Shift 时按起点宽高比锁定（普通拖拽自由
+ *    缩放，docs/05 §4.4；rectEditorService 唯一消费点）
  *  - editable（第五刀）：统一编辑会话三类 TEXT/STICKY/SHAPE（docs/17——LINE
  *    线上文字走独立 textEditor 通道不在统一会话）
  *  - referenceable（第五刀）：参考线参照物四类（docs/06 §2）
@@ -438,7 +439,7 @@ export const WIDGET_REGISTRY = {
       resizable: true,
       movable: true,
       selectable: true,
-      // contain 适配不改宽高比，但 bbox 仍是矩形缩放（keepRatio 只约束手势）
+      // contain 适配不改宽高比，但 bbox 仍是矩形缩放（keepRatio 只约束手柄缩放）
       keepRatio: false,
       // 标签走统一编辑会话（docs/17，TYPES_WHERE('editable') 自动纳入）
       editable: true,

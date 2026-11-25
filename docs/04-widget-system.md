@@ -105,6 +105,9 @@ export const WIDGET_REGISTRY = {
 `rotatable / groupable / resizable / movable / selectable / keepRatio / editable /
 referenceable / erasable`
 
+`keepRatio` 仅 IMAGE 置 true：手柄缩放按住 Shift 时锁定宽高比，普通拖拽自由
+缩放（docs/05 §4.4）。其余能力位的消费点与语义见 `types/widget.ts` 注释。
+
 注册表每项含 `family: 'widget' | 'tree'`（docs/22 §1）：family 是引擎层
 唯一判据（vmEngine 查询豁免 / culling 豁免 / selector 节点拖拽分流走
 `isTreeWidgetType()`）；树种类差异在 `widgets/tree/registry.ts` 的

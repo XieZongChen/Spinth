@@ -30,8 +30,8 @@ const MISSING_STROKE = 0xd97706;
  * BoardSDK.initialize 必经 composeBoard，宿主不直接 new VM）。
  * 纹理归缓存租约所有：destroySprite 只销毁 sprite 自身，绝不销毁纹理
  * （同图多实例共享一份 GPU 纹理，docs/19 §3）。
- * rect 型几何（root=世界坐标，sprite 拉伸到 state 宽高——保持比例由
- * Model capabilities.keepRatio 交给 RectEditor 语义层）。
+ * rect 型几何（root=世界坐标，sprite 拉伸到 state 宽高；保持比例不在视图层做
+ * ——能力位 keepRatio 由 RectEditor 在按住 Shift 拖手柄时生效，docs/05 §4.4）。
  */
 export class ImageVm extends BaseWidgetVm<ImageData & IRect> {
   private readonly placeholder = new Graphics();

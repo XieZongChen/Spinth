@@ -2,7 +2,6 @@ import { Disposable } from '../../base/disposable';
 import { Subject } from 'rxjs';
 import { markRender } from '../../common/render';
 import type { IRect } from '../../common/geometry';
-import { quantizeResizeRect } from '../../common/grid';
 import type {
   IDataEngineService,
   IHistoryService,
@@ -11,7 +10,7 @@ import type {
   IVmEngineService,
 } from '../../types';
 import { RectEditorVm } from './rectEditorVm';
-import { resizeRotatedRect, type HandleDir } from './resizeMath';
+import { createResizeSnaps, planResize, type HandleDir } from './resizeMath';
 import { inverseRotatePoint, pointerAngle, snapAngle } from './rotateMath';
 import type { RefLineService } from '../refLine/refLineService';
 
@@ -24,6 +23,9 @@ interface ResizeState {
   /** 手势起点的宿主旋转（docs/05 §8）：≠0 时指针逆旋转进局部做缩放数学、
    *  吸附禁用（边开口轴对齐语义失真） */
   startRotation: number;
+  /** 比例锁的起点宽高比（能力位 keepRatio 的控件才有，按住 Shift 时生效，
+   *  docs/05 §4.4）——按当前比例锁，不纠正已拉歪的图 */
+  ratio?: number;
   /** 手势指针（审查 P2）：window 级 move/up/cancel 只认它；undefined = 桩
    *  环境直调 down 无 id，不过滤（viewportPointerInput 同款约定） */
   pointerId: number | undefined;
@@ -57,6 +59,12 @@ export class RectEditorService extends Disposable {
   readonly resizeMove$ = new Subject<void>();
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
   gridSnapOn: () => boolean = () => false;
+
+  /** θ=0 缩放的吸附/量化（数学层经它回调；组装在 resizeMath，依赖延迟取） */
+  private readonly snaps = createResizeSnaps(
+    () => this.refLine,
+    () => this.gridSnapOn(),
+  );
 
   /** 缩放松手落库后、stopCapturing 前的钩子（组合根接锚定线急切重路由——并入
    *  同一撤销项，docs/05 §4.4；next = commitResize 落库的目标矩形，正是微任务相
@@ -164,12 +172,16 @@ export class RectEditorService extends Disposable {
     void worldX;
     void worldY;
     const startBounds = vm.getLocalRect();
+    // 比例锁走能力位（与 resizable/rotatable 同款读法，无类型分支）；退化矩形不算
+    const keepRatio = this.engine.getModelById(this.targetId)?.capabilities.keepRatio === true;
     this.resize = {
       vmId: this.targetId,
       dir,
       start: startBounds,
       lastNext: startBounds,
       startRotation: vm.getRotation(),
+      ratio:
+        keepRatio && startBounds.height > 0 ? startBounds.width / startBounds.height : undefined,
       pointerId,
     };
     // 手柄 down 被 RectEditorVm stopPropagation；up 仍冒泡到 stage，不得当 click
@@ -235,26 +247,18 @@ export class RectEditorService extends Disposable {
     };
     const world = th === 0 ? worldRaw : inverseRotatePoint(worldRaw, center, th);
     // 无状态计算：一切以「拖拽起点矩形 + 当前光标」推导，禁止读取实时视觉状态
-    // （视觉状态每帧被本函数改写，作为基准会产生复合漂移）
-    // 1.6：旋转态走对侧锚定版（θ=0 内部退化为 resizeRect 等价输出）
-    let next = resizeRotatedRect(this.resize.start, this.resize.dir, world, th);
-    if (th === 0) {
-      // 参考线吸附：只有被拖动的边参与（docs/06 §3）；旋转态跳过
-      const snapped = this.refLine.snapForResize(next, this.resize.dir);
-      next = snapped.rect;
-      // 网格吸附（specs/flowchart-closeout §9.2）：参考线未命中的轴量化到格点，
-      // 固定角 = 被抓手柄的对侧（start 不动、移动边取整）；旋转态跳过。
-      // lastNext 即落库值（预览与落库同源）
-      if (this.gridSnapOn()) {
-        next = quantizeResizeRect(
-          this.resize.start,
-          this.resize.dir,
-          next,
-          snapped.matchedV.length === 0,
-          snapped.matchedH.length === 0,
-        );
-      }
-    }
+    // （视觉状态每帧被本函数改写，作为基准会产生复合漂移）。数学在 resizeMath
+    // （旋转态对侧锚定 / 吸附 / 比例锁），这里只接线；lastNext 即落库值（预览与
+    // 落库同源）
+    // 比例锁每帧只看当前 Shift（docs/05 §4.4）：手势中途按下 / 松开即时切换
+    const next = planResize(
+      this.resize.start,
+      this.resize.dir,
+      world,
+      th,
+      e.shiftKey ? this.resize.ratio : undefined,
+      this.snaps,
+    );
     this.resize.lastNext = next;
     // 视觉反馈：per-type 预览（rect 型 position+scale；points 世界坐标型
     // 端点/采样点重映射重绘，避免拉伸线宽/箭头）
