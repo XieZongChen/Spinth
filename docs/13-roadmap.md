@@ -14,8 +14,8 @@
   运行时降级序列，docs/21 §4）；语义色 / 对比度 / 键盘协议（specs/a11y-closeout）、
   字号单位（specs/rem-typography）。
 - 版本与门禁：`1.0.1`（tag `v1.0.1`），仓库开源；1.0 是首个公开 API 基线；
-  1489 单测（core 1372 + react 79 + app 38）、E2E 57 spec / 335 例（主配置
-  328 + pwa 7；非 visual 318 = 316 通过 + 2 跳过，实测 0 failed）、视觉 10/10
+  1527 单测（core 1408 + react 81 + app 38）、E2E 58 spec / 342 例（主配置
+  335 + pwa 7；非 visual 332 = 330 通过 + 2 跳过，实测 0 failed）、视觉 10/10
   （11 张基线 × 双平台）、`pnpm verify` 通过；明细见 docs/15。
 
 ## 2. 阶段路线

@@ -741,6 +741,7 @@ export interface ISelectorDragContext {
 | C-15 粘贴保真与落点归属 | 复制「容器 + 框外子」→ 副本子 `parentId` 指向副本容器（文档真值）；无父件的副本落进容器内即归属（文档与 vm 状态一致）→ 拖容器副本跟随 → 一步 undo 回退拖动、再一步回退粘贴 → redo 保留归属 |
 | C-16 粘贴层级           | 选区序 [子, 容器] 粘贴：副本容器 zOrder 在文档层与渲染层（`vmPositions` 的 `root.zOrder`）都低于副本子；点子副本中心命中子副本                                                             |
 | C-17 不误收画笔         | 左上角有容器时，在别处画一笔画笔、拉一条自由线：两者文档均无 `parentId`（前置断言占位矩形确在容器内、线确为自由线）                                                                        |
+| C-18 连线不参与落点判定 | 形状 + 自由线框选后拖进容器：形状归属、线 `points` 不变且文档无 `parentId`（文档真值；修前线的 `parentId` 被写成容器）                                                                     |
 
 E2E 辅助：在 `e2e/helpers/widgetProbeE2e.ts` 加 `createFrameByDrag(page, rect)`（按 C、拖框、Esc 回 cursor），
 C-1..C-13 共用，避免 13 份手写手势。
