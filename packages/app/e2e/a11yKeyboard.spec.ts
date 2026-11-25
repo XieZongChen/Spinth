@@ -288,6 +288,11 @@ test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
     await expect(announcer).toContainText('已选中 1 个元素');
     await page.keyboard.press('p');
     await expect(announcer).toContainText('当前工具：画笔');
+    // 容器与组织架构也曾缺播报名（TOOL_NAMES 缺项静默）——两张表逐个按快捷键实切
+    await page.keyboard.press('c');
+    await expect(announcer).toHaveText('当前工具：容器');
+    await page.keyboard.press('o');
+    await expect(announcer).toHaveText('当前工具：组织架构');
   });
 });
 

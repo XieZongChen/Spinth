@@ -16,7 +16,10 @@ export interface IAnnouncementSnapshot {
 }
 
 /** 工具名（播报用中文，docs/09 §2 同名口径；cursor 不在播报里出现——切换到
- *  cursor 常是建件后的自动回归，播报会是噪音） */
+ *  cursor 常是建件后的自动回归，播报会是噪音）。
+ *  声明类型保留 Partial（下方用含 cursor 的联合索引）；satisfies 把「除 cursor 外
+ *  每个工具模式都有名字」做成编译锁——新增 CursorMode 而漏写名字即编译红
+ *  （容器与组织架构曾因缺项静默，读屏用户感知不到工具切换） */
 const TOOL_NAMES: Partial<Record<CursorMode, string>> = {
   hand: '抓手',
   shape: '形状',
@@ -27,7 +30,9 @@ const TOOL_NAMES: Partial<Record<CursorMode, string>> = {
   eraser: '橡皮',
   sticky: '便签',
   mind: '脑图',
-};
+  org: '组织架构',
+  frame: '容器',
+} satisfies Record<Exclude<CursorMode, 'cursor'>, string>;
 
 export function announcementFor(
   prev: IAnnouncementSnapshot | null,
