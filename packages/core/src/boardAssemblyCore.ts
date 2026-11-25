@@ -85,12 +85,11 @@ export function assembleCore(sdk: BoardSDK): void {
     }
     vm.onStateChanged$.subscribe(({ diff }) => {
       sdk.widgetsChanged$.next();
-      if (vm.type === 'LINE') {
-        // 线自身几何变化不触发 reattach（防自环）；但 lineType 切回
-        // ELBOWED 要重路由（STRAIGHT 期间锚点可能已漂移，2026-09 实测揪出）
-        if ('lineType' in diff) sdk.lineService?.rerouteLine(vm.id);
-        return;
-      }
+      // 线自身变化不触发 reattach（防自环）。切回 ELBOWED 的重路由也不在这里做：
+      // vm diff 是微任务相，晚于切型事务的 stopCapturing——写入会裂成独立撤销项；
+      // undo·redo 落回 ELBOWED 同样带 lineType diff，重路由会覆盖恢复出的历史
+      // 路由并清空重做栈。由 updateSelectedStyle 在切型事务内同步触发
+      if (vm.type === 'LINE') return;
       const geomChanged = ['x', 'y', 'width', 'height', 'rotation'].some((k) => k in diff);
       if (geomChanged) sdk.lineService?.reattach(vm.id, vm.getHostGeom());
     });

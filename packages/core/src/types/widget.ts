@@ -132,7 +132,8 @@ export const LineSchema = z.object({
    *  （初始 ELBOWED，2026-09 拍板；工具坞二级菜单可切，docs/04 §2 会话态优先） */
   lineType: LineTypeSchema.default('STRAIGHT'),
   /** 用户手滑段锁定（批次 3 waypoint，docs/08 §10）：true = 拐点用户优先，
-   *  锚定跟随只重贴两端锚点不重路由；端点重锚定/切 lineType 时复位 false */
+   *  锚定跟随只重贴两端锚点不重路由；端点重锚定/切回 ELBOWED 时复位 false
+   *  （切到直线/曲线不动 points 与 pinned） */
   pinned: z.boolean().default(false),
   /** 虚线（docs/08 §1） */
   dashed: z.boolean().default(false),

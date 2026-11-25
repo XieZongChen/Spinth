@@ -90,6 +90,11 @@ routeElbow(start, startJoin, end, endJoin, startNode?, endNode?, obstacles?):
 - 拐点吸附：内部「抖动拐」（jog < 2×R）对齐到较长段拉直（`absorbTinyJogs`）。
 - ELBOWED 渲染：逐拐点 quadraticCurveTo R14 圆角（首尾端点精确，箭头贴齐）。
 - 新线默认 ELBOWED；两端同轴对齐时路由自然退化为直线。
+- **切回 ELBOWED**（ActionBar 线型：直线/曲线 → 折线）：按当前两端锚点全路径
+  重路由，与锚定跟随同一路由单源（自环与嵌套跨度、全局避障一并生效；自由线
+  不路由，切型只换渲染方式）。重路由并入切型事务 = 一步撤销；线型没变（重复
+  点选当前项）不触发。切到直线/曲线不改 points。undo·redo 落回 ELBOWED 恢复的
+  是历史路由，不重路由。
 
 ### 曲线（CURVE）
 
@@ -204,6 +209,7 @@ pointerup
   全程正交；offset=0 时 mergeCollinear 清回原形。
 - 自由端侧首/末段（非唯一段）两档：长段（≥ 30）拆几字形保正交；短段斜连
   退化（端点保持、拐点平移求交）；唯一段走上方拆五点。
-- 段滑移落库 `{points, pinned:true}`；端点重锚定/切 lineType 复位 pinned。
+- 段滑移落库 `{points, pinned:true}`；端点重锚定/切回 ELBOWED 时复位 pinned
+  （切到直线/曲线不动 points 与 pinned）。
 - 两端视觉留隙：`LINE_END_GAP = 5` 世界像素；stroke/箭头/镂空走收缩后视觉路径，
   points/命中/段滑移/hover/文字 ratio 语义不动。

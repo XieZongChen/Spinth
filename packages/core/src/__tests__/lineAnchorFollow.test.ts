@@ -479,3 +479,163 @@ describe('LineAnchorFollow 加删线全量重排（settle/unbind 触发）', () 
     expect(models.get('LB')!.model.update).not.toHaveBeenCalled();
   });
 });
+
+describe('LineAnchorFollow.rerouteLine 切回 ELBOWED（与锚定跟随同一路由单源）', () => {
+  // 节点 120×80，锚点数学 = bbox 边插值（t 沿边滑动）。自环旧实现直接调 routeElbow：
+  // 同边两端锚点重合 → 返回两个重合点，环被毁；嵌套跨度与 pinned 语义也与之脱节
+  const geomOf = (x: number) => ({ rect: { x, y: 0, width: 120, height: 80 }, rotation: 0 });
+  const N1 = geomOf(0);
+  const N2 = geomOf(300);
+  const anchorOfGeom = (g: typeof N1, join: string, t = 0.5) => {
+    const { x, y, width: w, height: h } = g.rect;
+    return join === 'right'
+      ? { x: x + w, y: y + t * h }
+      : join === 'left'
+        ? { x, y: y + t * h }
+        : join === 'top'
+          ? { x: x + t * w, y }
+          : { x: x + t * w, y: y + h };
+  };
+
+  function makeFollow(lines: Array<{ id: string; data: Record<string, unknown> }>) {
+    const models = new Map(
+      lines.map((l) => [
+        l.id,
+        statefulLineModel({ id: l.id, lineType: 'ELBOWED', pinned: false, ...l.data }),
+      ]),
+    );
+    const nodes = [
+      {
+        id: 'N1',
+        type: 'SHAPE',
+        getHostGeom: () => N1,
+        getAnchorPoint: (j: string, t = 0.5) => anchorOfGeom(N1, j, t),
+      },
+      {
+        id: 'N2',
+        type: 'SHAPE',
+        getHostGeom: () => N2,
+        getAnchorPoint: (j: string, t = 0.5) => anchorOfGeom(N2, j, t),
+      },
+    ];
+    const lineVms = lines.map((l) => ({ id: l.id, type: 'LINE', previewRoute: vi.fn() }));
+    const follow = new LineAnchorFollow(
+      { getModelById: (id: string) => models.get(id)?.model } as never,
+      {
+        getAllVms: () => [...nodes, ...lineVms],
+        // rerouteLine 的守卫按 id 取线 vm；节点 vm 供锚点求值
+        getVmById: (id: string) =>
+          nodes.find((n) => n.id === id) ?? lineVms.find((v) => v.id === id) ?? null,
+        // 避障收集走空间索引；两端节点本就被排除——留空即无第三方障碍
+        getVmsInRect: () => [],
+      } as never,
+      { selected$: new BehaviorSubject<string[]>([]) } as never,
+    );
+    const lastPatch = (id: string) => models.get(id)!.calls.at(-1) as Record<string, unknown>;
+    return { follow, models, lastPatch };
+  }
+  const pointsOf = (patch: Record<string, unknown>) => patch.points as Array<[number, number]>;
+  const spanX = (pts: Array<[number, number]>) =>
+    Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
+  /** 两端恒 0.5 的同边自环被旧实现毁掉后的落库形态：两个重合点 */
+  const collapsed = {
+    startNodeId: 'N1',
+    endNodeId: 'N1',
+    startJoin: 'top',
+    endJoin: 'top',
+    points: [
+      [60, 0],
+      [60, 0],
+    ],
+  };
+
+  it('同边自环：重路由回 4 点正交环（跨度 80、车道在边外侧），不再落两个重合点', () => {
+    const { follow, lastPatch } = makeFollow([{ id: 'LA', data: collapsed }]);
+    follow.rerouteLine('LA');
+    const pts = pointsOf(lastPatch('LA'));
+    expect(pts).toHaveLength(4);
+    expect(spanX(pts)).toBeCloseTo(80, 5); // min(max(80, 120×0.5), 120)
+    expect(Math.min(...pts.map((p) => p[1]))).toBeCloseTo(-30, 5); // 车道深度 NODE_MARGIN
+    // 全段轴对齐
+    for (let i = 0; i + 1 < pts.length; i++) {
+      expect(
+        Math.abs(pts[i]![0] - pts[i + 1]![0]) < 1e-6 ||
+          Math.abs(pts[i]![1] - pts[i + 1]![1]) < 1e-6,
+      ).toBe(true);
+    }
+  });
+
+  it('同边双自环嵌套：外环跨度 120、车道 −60（spanScale 与锚定跟随同源）', () => {
+    const { follow, lastPatch } = makeFollow([
+      { id: 'LA', data: collapsed },
+      { id: 'LB', data: collapsed },
+    ]);
+    follow.rerouteLine('LB');
+    const pts = pointsOf(lastPatch('LB'));
+    expect(pts).toHaveLength(4);
+    expect(spanX(pts)).toBeCloseTo(120, 5); // 80×2 钳到边长 120
+    expect(Math.min(...pts.map((p) => p[1]))).toBeCloseTo(-60, 5);
+  });
+
+  it('pinned 自环：切回 ELBOWED = 自动路由接管——环恢复且 pinned 复位', () => {
+    const { follow, lastPatch } = makeFollow([{ id: 'LA', data: { ...collapsed, pinned: true } }]);
+    follow.rerouteLine('LA');
+    expect(pointsOf(lastPatch('LA'))).toHaveLength(4);
+    expect(lastPatch('LA').pinned).toBe(false);
+  });
+
+  it('普通两节点线：与既有行为一致——锚定端点按当前宿主几何重贴', () => {
+    const { follow, lastPatch } = makeFollow([
+      {
+        id: 'L1',
+        data: {
+          startNodeId: 'N1',
+          startJoin: 'right',
+          endNodeId: 'N2',
+          endJoin: 'left',
+          points: [
+            [100, 40], // STRAIGHT 期间漂移的旧起点
+            [300, 40],
+          ],
+        },
+      },
+    ]);
+    follow.rerouteLine('L1');
+    expect(pointsOf(lastPatch('L1'))).toEqual([
+      [120, 40],
+      [300, 40],
+    ]);
+  });
+
+  it('同值守卫：路由与现有 points 一致、pinned 已是 false → 零写（两端没漂移时切回折线不产空撤销项）', () => {
+    const loop = [
+      [20, 0],
+      [20, -30],
+      [100, -30],
+      [100, 0],
+    ];
+    const { follow, models } = makeFollow([{ id: 'LA', data: { ...collapsed, points: loop } }]);
+    follow.rerouteLine('LA');
+    expect(models.get('LA')!.model.update).not.toHaveBeenCalled();
+  });
+
+  it('非 ELBOWED 与自由线不重路由（既有早退）', () => {
+    const { follow, models } = makeFollow([
+      { id: 'LS', data: { ...collapsed, lineType: 'STRAIGHT' } },
+      {
+        id: 'LF',
+        data: {
+          lineType: 'ELBOWED',
+          points: [
+            [0, 0],
+            [50, 50],
+          ],
+        },
+      },
+    ]);
+    follow.rerouteLine('LS');
+    follow.rerouteLine('LF');
+    expect(models.get('LS')!.model.update).not.toHaveBeenCalled();
+    expect(models.get('LF')!.model.update).not.toHaveBeenCalled();
+  });
+});

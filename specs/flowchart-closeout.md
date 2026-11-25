@@ -759,3 +759,32 @@ per-实例 textColor 恒优先），文字色板独立 `TEXT_COLOR_PALETTE`（�
 | 单机优先                        | 零服务端、零网络；偏好走 localStorage                                               |
 | 渲染同步六条                    | 无增量累加（量化绝对几何）、预览后广播不变、会话状态经 Service 传参、几何读缩放感知 |
 | 公共 API 收口                   | §14 三个成员增量 + allowlist 与编译锁测试                                           |
+
+## 24. 后续修复记录
+
+**线型切回折线的重路由（2026-11-26）**
+
+- **自环被毁**：`LineAnchorFollow.rerouteLine` 此前直接调常规 `routeElbow`，不走
+  `routeLinePoints`——同边自环两端锚点重合，切回折线被压成两个重合点（E2E 修前
+  实测：直线 → 折线后 points 只剩 2 个）。修法：改走 `routeLinePoints` 单源（自环
+  分支、同边多自环嵌套跨度、全局避障与锚定跟随一致），带 `samePoints` 同值守卫。
+- **撤销裂成两步**（读码推出、E2E 实锤）：重路由由组合根在 vm 的 `lineType` diff
+  上触发，那是微任务相——晚于 `updateSelectedStyle` 事务的 `stopCapturing`，写入
+  落成独立撤销项。修前实测：直线 → 折线后 undo 一步仍是折线。
+- **重做栈丢失**（同一路径）：undo 落回 ELBOWED 同样带 `lineType` diff，旧实现无条件
+  写 `{points, pinned:false}`——幻影撤销项 + 清空重做栈。修前实测：折线 → 曲线 →
+  undo → redo 回不到曲线。
+- **pinned 路由被覆盖**（同一路径）：undo 恢复 pinned 折线时按 `pinned:false` 重算，
+  手调路由丢失。实测：pinned 折线 → 曲线 → undo 后 `pinned` 为 false（仅加同值
+  守卫的中间态仍红）。
+- **修法**：触发点收进用户动作——`updateSelectedStyle` 在切型事务内、线型实际变成
+  ELBOWED 时同步调 `lineService.rerouteLine(id)`（切型 + 重路由一步撤销；重复点选
+  当前项不触发）；组合根的 `lineType` diff 触发器撤除——undo·redo 恢复的是自洽的
+  历史状态，不重路由。既有线上线型变化的唯一用户入口就是 ActionBar 切型。
+- **护栏**：`lineAnchorFollow.test.ts` 新 describe 6 例（修前 4 红）、
+  `styleCommands.test.ts` 3 例（修前 1 红）、`lineStyle.spec.ts` 5 例（前三例修前
+  红，pinned 撤销例在中间态红）。连线相关 E2E 回归 66 例通过；docs/08 §4 与
+  §10.3 同步。
+- **顺带发现、本批未处理**：E2E helper `createTwoRects` 的第二次拖拽不建图——拖拽
+  画图完成后工具自动回选择模式（`dragCreateServiceBase.ts`，有意行为），用它的
+  既有用例实际只测到「单端锚定线」。修它会改变一批用例的前提，另批处理。

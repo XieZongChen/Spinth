@@ -56,9 +56,19 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
   } else if (typeof patch.color === 'string' && patch.color.startsWith('#')) {
     patch2.fill = 'solid';
   }
+  // 切回折线 = 自动路由接管：重路由并入本事务（切型 + 重路由一步撤销）。不交给
+  // vm 的 lineType diff——那是微任务相，本事务已关、stopCapturing 已过，写入会
+  // 裂成独立撤销项；undo·redo 落回 ELBOWED 同样带 lineType diff，在那里重路由
+  // 会覆盖恢复出来的历史路由（含 pinned）并清空重做栈。线型实际有变才触发
+  // （重复点选当前项幂等）；rerouteLine 自带非线/自由线早退
+  const toElbowed = patch2.lineType === 'ELBOWED';
   ctx.engine!.transact(() => {
     for (const id of ids) {
-      ctx.engine?.getModelById(id)?.update(patch2 as never);
+      const model = ctx.engine?.getModelById(id);
+      const wasElbowed =
+        toElbowed && (model?.toJSON() as { lineType?: string } | undefined)?.lineType === 'ELBOWED';
+      model?.update(patch2 as never);
+      if (toElbowed && !wasElbowed) ctx.lineService?.rerouteLine(id);
     }
   });
   if (

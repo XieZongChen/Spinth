@@ -308,22 +308,17 @@ export class LineAnchorFollow extends Disposable {
    * lineType 切回 ELBOWED 时全路径重路由：STRAIGHT 期间锚定端点可能已漂移
    * （拖拽锚定节点时 STRAIGHT 只替换端点，不维护正交走廊），切型后按当前
    * 两端锚点重算。自由线（无锚定）不路由——切型仅改渲染方式。
-   * 由组合根在 lineType diff 上调用；写回 points 不含 lineType，天然收敛。
+   * 由 updateSelectedStyle 在切型事务内同步调用（并入同一步撤销）；不走 vm 的
+   * lineType diff——微任务相写入晚于 stopCapturing，且 undo·redo 落回 ELBOWED
+   * 时会覆盖恢复出的历史路由。写回 points 不含 lineType，天然收敛。
+   * 路由走 routeLinePoints 单源（自环 / 嵌套跨度 / 避障与锚定跟随一致），带
+   * 同值守卫。
    */
   rerouteLine(id: string): void {
     const vm = this.vmEngine.getVmById(id);
     const model = this.engine.getModelById(id);
     if (!vm || !model || vm.type !== 'LINE') return;
-    const data = model.toJSON() as unknown as {
-      lineType: 'STRAIGHT' | 'ELBOWED' | 'CURVE';
-      startNodeId: string | null;
-      endNodeId: string | null;
-      startJoin: JoinDir | null;
-      endJoin: JoinDir | null;
-      startPort?: number;
-      endPort?: number;
-      points: Array<[number, number]>;
-    };
+    const data = model.toJSON() as unknown as ILineAnchorData & { id: string };
     if (data.lineType !== 'ELBOWED') return;
     if (!data.startNodeId && !data.endNodeId) return;
     const startGeom = data.startNodeId
@@ -332,32 +327,21 @@ export class LineAnchorFollow extends Disposable {
     const endGeom = data.endNodeId
       ? (this.vmEngine.getVmById(data.endNodeId)?.getHostGeom() ?? null)
       : null;
-    const startT = data.startPort ?? 0.5;
-    const endT = data.endPort ?? 0.5;
-    const start = this.anchorOfNode(data.startNodeId, startGeom, data.startJoin, startT) ?? {
-      x: data.points[0]![0],
-      y: data.points[0]![1],
-    };
-    const last = data.points[data.points.length - 1]!;
-    const end = this.anchorOfNode(data.endNodeId, endGeom, data.endJoin, endT) ?? {
-      x: last[0],
-      y: last[1],
-    };
-    const route = routeElbow({
-      start,
-      obstacles: collectRouteObstacles(this.vmEngine, start, end, data.startNodeId, data.endNodeId),
-      startJoin: startGeom
-        ? quantizeJoin(data.startJoin ?? 'right', startGeom.rotation)
-        : data.startJoin,
-      end,
-      endJoin: endGeom ? quantizeJoin(data.endJoin ?? 'left', endGeom.rotation) : data.endJoin,
-      startNode: startGeom ? rotatedRectBounds(startGeom.rect, startGeom.rotation) : null,
-      endNode: endGeom ? rotatedRectBounds(endGeom.rect, endGeom.rotation) : null,
-    });
-    // 切回 ELBOWED = 全量重路由 → pinned 复位（自动路由接管，docs/08 §10 批次 3）
-    model.update({
-      points: route.map((q) => [r2(q.x), r2(q.y)] as [number, number]),
-      pinned: false,
-    } as never);
+    // 路由与锚定跟随同源（routeLinePoints）：自环分支与同边多自环嵌套跨度一并
+    // 生效。此前这里直接调 routeElbow——同边自环两端锚点重合，被压成两个重合点。
+    // 按 pinned:false 计算：切回 ELBOWED = 自动路由接管（docs/08 §10.3）
+    const pts = this.routeLinePoints(
+      { ...data, pinned: false },
+      startGeom,
+      endGeom,
+      this.selfLoopSpans(),
+    );
+    if (!pts) return;
+    // 同值守卫（reattach 同款）：两端没漂移时切回折线路由不变，不写 points
+    // （写了就是一步只改数组引用的空撤销）
+    const patch: Record<string, unknown> = {};
+    if (!samePoints(data.points, pts)) patch.points = pts;
+    if (data.pinned) patch.pinned = false;
+    if (Object.keys(patch).length > 0) model.update(patch as never);
   }
 }
