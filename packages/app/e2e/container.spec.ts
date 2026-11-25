@@ -989,7 +989,8 @@ test('C-17 创建归属不误收画笔与自由线：左上角有容器时，别
 }) => {
   // 画笔与自由线落笔即建件，几何在 points、模型矩形是占位值 {0,0,100,100}——
   // 创建归属若按模型矩形判定，盖住左上角的容器会把任何笔画/自由线收走
-  // （拖容器带走、删容器连删）。两类不参与创建归属；要归属可拖入
+  // （拖容器带走、删容器连删）。两类不参与创建归属；画笔要归属可拖入，
+  // 连线不参与任何落点判定（C-18）
   await addFrame(page, 0, 0, 300, 300);
 
   await page.getByRole('button', { name: /画笔/ }).click();
@@ -1021,4 +1022,58 @@ test('C-17 创建归属不误收画笔与自由线：左上角有容器时，别
   expect(lineDoc.startNodeId).toBeNull(); // 前置：确是自由线（锚定线本就不参与归属）
   expect(lineDoc.endNodeId).toBeNull();
   expect(lineDoc.parentId).toBeUndefined();
+});
+
+test('C-18 混选拖拽的归属判定不看连线：形状 + 自由线一起拖进容器 → 形状归属、线原地不动且不归属', async ({
+  page,
+}) => {
+  // 线不随拖拽平移（LineVm.commitDrag 空操作），但拖拽会话的 rectOf 对会话内
+  // 每个 id 都给「初值 + 位移」——旧实现按这个虚拟位置判定，把没动的自由线
+  // 收进容器（之后拖容器带走、删容器连删，而线根本不在容器里）
+  const frame = await addFrame(page, 600, 300, 400, 300);
+
+  // 形状（真实工具路径）与自由线，都在容器外
+  await page.keyboard.press('r');
+  await page.mouse.move(100, 100 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(200, 180 + TOP_BAR, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  await page.getByRole('button', { name: /连线/ }).click();
+  await page.mouse.move(120, 250 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(220, 290 + TOP_BAR, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  const shape = (await shapesOf(page))[0]!;
+  const line = (await vmStates(page)).find((s) => s.type === 'LINE')!;
+  const lineBefore = (await modelOf(page, line.id))!;
+  expect(lineBefore.startNodeId).toBeNull(); // 前置：确是自由线
+  expect(lineBefore.endNodeId).toBeNull();
+  await expect.poll(() => selectedIds(page)).toEqual([]); // 前置：工具已退、选区已清（框选从空白起手）
+
+  // 框选两件（起点空白，不碰容器）→ 按住形状整体拖进容器。位移取 +610/+260：
+  // 落点各边离容器参考线都在吸附阈值（6）之外，断言不被吸附修正污染
+  await page.mouse.move(60, 60 + TOP_BAR);
+  await page.mouse.down();
+  await page.mouse.move(300, 330 + TOP_BAR, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  expect([...(await selectedIds(page))].sort()).toEqual([shape.id, line.id].sort());
+  await dragFrom(page, 150, 140, 610, 260);
+
+  // 形状完全落进容器 → 归属；线原地不动、不归属（文档真值）
+  const shapeDoc = (await modelOf(page, shape.id))!;
+  expect(shapeDoc.x).toBe(710);
+  expect(shapeDoc.y).toBe(360);
+  expect(shapeDoc.parentId).toBe(frame.id);
+  const lineAfter = (await modelOf(page, line.id))!;
+  expect((lineAfter as { points?: unknown }).points).toEqual(
+    (lineBefore as { points?: unknown }).points,
+  );
+  expect(lineAfter.parentId).toBeUndefined();
 });

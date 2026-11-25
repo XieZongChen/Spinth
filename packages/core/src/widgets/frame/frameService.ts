@@ -98,7 +98,7 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
       },
       // 创建即归属（§4.2）：工具新建控件落入容器 → 写 parentId。与创建同一
       // undo 捕获窗（创建工具在 up 才 stopCapturing）——一次 undo 回退到底。
-      // FRAME/树/锚定线在 reconcileOne 拒绝
+      // FRAME/树/连线在 reconcileOne 拒绝
       this.engine.onModelCreated$.subscribe((m) => this.adoptOnCreate(m.id)),
     );
   }
@@ -199,7 +199,10 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     const data = this.widgetData(id);
     if (!data) return;
     if (data.type === 'FRAME' || isTreeWidgetType(data.type)) return; // 容器/树不归属（I1/§0.3）
-    if (data.type === 'LINE' && (data.startNodeId || data.endNodeId)) return; // 锚定线写侧拒绝（I2）
+    // 连线一律不参与落点判定（I2）：线不随拖拽 / 微移平移（LineVm.commitDrag 空操作），
+    // 调用方的 rectOf 对会话内每个 id 都给「初值 + 位移」的虚拟位置——按它判定会把
+    // 没动的自由线收进容器（E2E C-18 修前实锤）。锚定线另由读取侧排除（childIds）
+    if (data.type === 'LINE') return;
     const frames = this.liveFrames().filter((f) => f.id !== id);
     const hasParent = data.parentId !== undefined && frames.some((f) => f.id === data.parentId);
     // 父容器可能同在本次移动集（shift 多选拖容器+其子）——rectOf 已含位移，

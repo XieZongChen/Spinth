@@ -226,10 +226,11 @@ export interface IFrameLookup {
   expandForCascade(ids: string[]): string[];
   /** 归属三态判定并落库（specs/container-frame §2.4）。**只在事务内调用**
    *  （I6：归属写与触发操作同一事务）；rectOf 事务内不许读 vm（§6.6-1——
-   *  state 是微任务合批旧值，必须算术或 model.toJSON()） */
+   *  state 是微任务合批旧值，必须算术或 model.toJSON()）。连线一律跳过——线不随
+   *  拖拽 / 微移平移，rectOf 给它的只是「初值 + 位移」的虚拟位置（I2） */
   reconcileParents(ids: string[], rectOf: (id: string) => IRect): void;
   /** 自动归属的落点判定（specs/container-frame §4.2/§4.7）：只处理「无父且可自动
-   *  归属」的件（已有 parentId 是既定事实；FRAME/树/锚定线/画笔/连线不参与——
+   *  归属」的件（已有 parentId 是既定事实；FRAME/树/画笔/连线不参与——
    *  后两类模型矩形是占位值），完全落进某存活容器即设父。矩形直读 model。
    *  **只在事务内调用**；与创建/粘贴的收口 stopCapturing 之间不得再插一步
    *  stopCapturing（同一捕获窗 = 一步 undo） */

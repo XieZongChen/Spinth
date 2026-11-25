@@ -186,6 +186,7 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
       W('s1', 'SHAPE', 'a1', [500, 500, 50, 50]),
       W('f2', 'FRAME', 'a2', [400, 400, 500, 500]),
       W('ln', 'LINE', 'a3', [10, 10, 60, 60], { startNodeId: 's1' }),
+      W('freeline', 'LINE', 'a4', [10, 10, 60, 60]),
     ]);
     // 外部形状拖进 f2：设父 + f2 钳到子之下（f2 'a2' > s1 'a1' 倒置 → 钳制写）
     env.svc.reconcileParents(['s1'], (id) =>
@@ -199,6 +200,24 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     // 容器自身 / 锚定线：零写
     env.updates.length = 0;
     env.svc.reconcileParents(['f2', 'ln'], (id) => env.widget(id)!);
+    expect(env.updates).toEqual([]);
+    // 自由线：线不随拖拽 / 微移平移（LineVm.commitDrag 空操作），rectOf 给的是
+    // 「初值 + 位移」的虚拟位置——旧实现按它判定，把没动的线收进容器。连线一律
+    // 不参与落点判定（即使虚拟位置完全落在容器内）
+    env.svc.reconcileParents(['freeline'], (id) =>
+      id === 'freeline' ? { x: 450, y: 450, width: 60, height: 60 } : env.widget(id)!,
+    );
+    expect(env.updates).toEqual([]);
+  });
+
+  it('连线不参与落点判定：带 parentId 的自由线按虚拟位置「完全离开」也不清父', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('freeline', 'LINE', 'a1', [10, 10, 60, 60], { parentId: 'f1' }),
+    ]);
+    env.svc.reconcileParents(['freeline'], (id) =>
+      id === 'freeline' ? { x: 900, y: 900, width: 60, height: 60 } : env.widget(id)!,
+    );
     expect(env.updates).toEqual([]);
   });
 
