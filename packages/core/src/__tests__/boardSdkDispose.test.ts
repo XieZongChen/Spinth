@@ -42,4 +42,23 @@ describe('BoardSDK 命令层守卫与 dispose 幂等', () => {
     expect(() => sdk.dispose()).not.toThrow(); // 幂等
     expect(editingExit).toHaveBeenCalledTimes(1); // 二次不再执行
   });
+
+  it('容器服务在销毁序列内，且早于引擎销毁', () => {
+    // FrameService 的 onModelCreated$ 订阅永不 complete——不入序列则引擎一直
+    // 持有它；yDoc 两个监听也靠 dispose 摘，必须早于 engine.dispose()（文档销毁）
+    const sdk = new BoardSDK();
+    const w = sdk as unknown as Record<string, unknown>;
+    const frameDispose = vi.fn();
+    const engineDispose = vi.fn();
+    w.registry = { dispose: vi.fn() };
+    w.frame = { dispose: frameDispose };
+    w.engine = { dispose: engineDispose };
+    sdk.dispose();
+    expect(frameDispose).toHaveBeenCalledTimes(1);
+    expect(frameDispose.mock.invocationCallOrder[0]!).toBeLessThan(
+      engineDispose.mock.invocationCallOrder[0]!,
+    );
+    sdk.dispose();
+    expect(frameDispose).toHaveBeenCalledTimes(1); // 二次不再执行
+  });
 });

@@ -669,6 +669,9 @@ export interface ISelectorDragContext {
 - `sdk.frame = new FrameService(viewport, engine, vmEngine, selector, history, editingService)`
   放在 `boardAssemblyInteraction` 的 editingService 之后（需要 plain 内核）。
 - `selector` 用惰性 getter `() => sdk.frame`（同 `getGroups` 先例，避免构造环）。
+- 销毁：`boardTeardown` 的 `host.frame?.dispose()`，紧随 `symbolService`、早于 `engine`——
+  摘 yDoc 批量事务监听、退订 `onModelCreated$`（该 Subject 永不 complete，不入序列则
+  引擎一直持有服务）。护栏 `boardSdkDispose.test.ts`（调用一次 + 序早于 engine）。
 - 容器 **不**注册进 `WIDGET_RUNTIME` 之外的表；Service 不入注册表（docs/04 §3）。
 
 ### 6.6 必须避开的陷阱（逐条对账）
@@ -1020,3 +1023,12 @@ P1/P2 完成后追加 `pnpm test:e2e -- container.spec.ts`；P4 完成后跑全�
   真引擎集成 `clipboardLanding.test.ts` 6 例（`makeFrameEnv` 自 frameAdoptionFidelity
   抽到 helpers 共用），E2E C-15 后半段翻转并补拖容器跟随 / 两步 undo / redo。反向
   验证：禁用该调用，4 例单测 + C-15 后半段应红。
+
+**后续修复（2026-11-26）**
+
+- **FrameService 纳入销毁序列**：`boardTeardown.ts` 此前没有 `frame` 行（符号控件有、
+  容器漏了）。`initialize()` 注册的 `onModelCreated$` 订阅永不 complete，引擎一直
+  持有 FrameService；yDoc 两个批量事务监听也要到 `engine.dispose()` 才随文档销毁。
+  修法：`host.frame?.dispose()` 紧随 `symbolService`（早于 engine）。护栏
+  `boardSdkDispose.test.ts`（dispose 一次 + 调用序早于 engine + 二次不再执行），
+  修前红。
