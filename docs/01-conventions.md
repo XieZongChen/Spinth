@@ -23,7 +23,7 @@ packages/core/src/
 ├── types/        契约层：I*Service / I*Vm / I*Model + zod schema（接口先行）
 ├── base/         Disposable、BaseVm、BaseWidgetVm、BaseModel
 ├── platform/     平台服务（dataEngine/vmEngine/viewport/selector/history/...）
-├── widgets/      控件三件套（shape/sticky/text/line/pen/image/mind/eraser）
+├── widgets/      控件三件套（shape/sticky/text/line/pen/image/symbol/frame/tree/eraser）
 ├── common/       共享工具（render、geometry、selectionStyle）
 └── utils/        业务无关纯函数
 

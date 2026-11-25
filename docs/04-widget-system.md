@@ -86,6 +86,8 @@ export const WIDGET_REGISTRY = {
   MIND_MAP: { family: 'tree', schema: MindMapSchema, capabilities: { ... } },
   ORG_CHART: { family: 'tree', schema: OrgChartSchema, capabilities: { ... } },
   IMAGE: { schema: ImageSchema, capabilities: { ... } },
+  SYMBOL: { schema: SymbolSchema, capabilities: { ... } },
+  FRAME: { schema: FrameSchema, capabilities: { ... } },
 } as const;
 ```
 

@@ -6,6 +6,6 @@
 - `xxxVm.ts` — 视图层：持有 PIXI root；observeDeep 订阅 → setState → diff → render；实现 hitTest
 - `xxxService.ts` — 交互层：注册全局指针回调（按 cursorMode）；工具态与创建流程
 
-现有控件：`shape/`（四型 + 图形内文字）、`sticky/`、`text/`、`line/`、`pen/`、
-`image/`、`mind/`；`eraser/` 为纯工具型特例（无 Model/Vm——橡皮不产生数据，
+现有控件：`shape/`（20 型 + 图形内文字）、`sticky/`、`text/`、`line/`、`pen/`、
+`image/`、`symbol/`、`frame/`、`tree/`（树形图族：脑图 / 组织架构）；`eraser/` 为纯工具型特例（无 Model/Vm——橡皮不产生数据，
 Service + 圆形指示器两文件）。控件清单与 eraser 行为规格见 docs/04 §8。

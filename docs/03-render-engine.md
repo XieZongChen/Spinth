@@ -84,7 +84,18 @@ viewport
 
 ```ts
 type CursorMode =
-  'cursor' | 'hand' | 'shape' | 'sticky' | 'text' | 'pen' | 'line' | 'eraser' | 'mind';
+  | 'cursor'
+  | 'hand'
+  | 'shape'
+  | 'symbol'
+  | 'sticky'
+  | 'text'
+  | 'pen'
+  | 'line'
+  | 'eraser'
+  | 'mind'
+  | 'org'
+  | 'frame';
 ```
 
 - `ViewportService.registerGlobalEventListener(mode, handlers)` 按模式注册

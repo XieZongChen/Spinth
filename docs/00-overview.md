@@ -7,7 +7,8 @@ spinth 是一个**本地优先的白板与思维导图编辑器**。当前版本
 - 打开即用，不需要账号、服务端或网络；
 - 文档、撤销历史和图片资产保存在浏览器本地；
 - 刷新可恢复，离线可继续编辑；
-- 交互体验聚焦画布编辑本身：无限画布、形状/文本/便签/连线/画笔/图片/脑图。
+- 交互体验聚焦画布编辑本身：无限画布、形状/符号/容器/文本/便签/连线/画笔/图片/
+  树形图（脑图 / 组织架构）。
 
 **非目标（当前版本）**：账号体系、云端同步、多人协同、服务端资产端点。协同只保留
 Yjs 文档、origin 纪律和资产 provider 边界，作为未来独立能力接入，不进入默认启动路径。
@@ -50,18 +51,18 @@ PIXI 舞台                         diff → render() → markRender()
 
 ## 4. 核心概念速查
 
-| 概念                 | 含义                                                             | 详见       |
-| -------------------- | ---------------------------------------------------------------- | ---------- |
-| Model / Vm / Service | 控件三件套：数据 / 视图 / 交互                                   | docs/04    |
-| cursorMode           | 工具状态机（cursor/hand/shape/sticky/text/pen/line/eraser/mind） | docs/03 §7 |
-| zOrder               | fractional indexing 字符串，字典序即渲染序                       | docs/02 §2 |
-| rect / YKeyValue     | 几何字段独立存储，分离高频位移与低频属性                         | docs/02 §2 |
-| transaction          | Yjs 事务 = 撤销粒度的原子单位                                    | docs/02 §4 |
-| 三态文本             | preview（PIXI 纹理）/ edit（DOM 双内核）                         | docs/07    |
-| 编辑会话             | EditingService：跨控件编辑互斥 + 双内核 + descriptor 协议        | docs/17    |
-| 排版 override        | per-实例 fontSize/textColor/align/lineHeight                     | docs/17 §4 |
-| 资产引用             | `spinth-asset:<sha256>`，文档只存短引用                          | docs/19    |
-| 按需渲染             | `renderId` 脏计数，静止时零 GPU 消耗                             | docs/03 §3 |
+| 概念                 | 含义                                                      | 详见       |
+| -------------------- | --------------------------------------------------------- | ---------- |
+| Model / Vm / Service | 控件三件套：数据 / 视图 / 交互                            | docs/04    |
+| cursorMode           | 工具状态机（选择 / 抓手与各创建工具，全集见 docs/03 §7）  | docs/03 §7 |
+| zOrder               | fractional indexing 字符串，字典序即渲染序                | docs/02 §2 |
+| rect / YKeyValue     | 几何字段独立存储，分离高频位移与低频属性                  | docs/02 §2 |
+| transaction          | Yjs 事务 = 撤销粒度的原子单位                             | docs/02 §4 |
+| 三态文本             | preview（PIXI 纹理）/ edit（DOM 双内核）                  | docs/07    |
+| 编辑会话             | EditingService：跨控件编辑互斥 + 双内核 + descriptor 协议 | docs/17    |
+| 排版 override        | per-实例 fontSize/textColor/align/lineHeight              | docs/17 §4 |
+| 资产引用             | `spinth-asset:<sha256>`，文档只存短引用                   | docs/19    |
+| 按需渲染             | `renderId` 脏计数，静止时零 GPU 消耗                      | docs/03 §3 |
 
 ## 5. 单机边界
 
@@ -72,8 +73,9 @@ PIXI 舞台                         diff → render() → markRender()
 
 ## 6. 当前范围
 
-已包含：无限画布、视口、按需渲染、空间索引与 culling；形状/文本/便签/连线/画笔/
-图片/脑图；多选/编组/对齐/分布/旋转/参考线；富文本、排版、橡皮；undo/redo、
+已包含：无限画布、视口、按需渲染、空间索引与 culling；形状/符号/容器/文本/便签/
+连线/画笔/图片/树形图（脑图 / 组织架构）；多选/编组/对齐/分布/旋转/参考线；
+富文本、排版、橡皮；undo/redo、
 IndexedDB 持久化、本地资产库、移动端工具菜单。
 
 暂不包含：服务端、账号、云端同步、多人协同、服务端资产端点。下一阶段计划见
