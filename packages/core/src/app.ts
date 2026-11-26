@@ -17,6 +17,8 @@ import { ClipboardService } from './platform/clipboard/clipboardService';
 import { ShapeService } from './widgets/shape/shapeService';
 import { SymbolService } from './widgets/symbol/symbolService';
 import { FrameService } from './widgets/frame/frameService';
+import { LifelineService } from './widgets/sequence/lifelineService';
+import { SequenceService } from './widgets/sequence/sequenceService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
@@ -104,6 +106,10 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   symbolService: SymbolService | null = null;
   /** 容器工具与归属服务（specs/container-frame）：交互装配阶段构造 */
   frame: FrameService | null = null;
+  /** 时序图：'sequence' 模式处理器的唯一注册者（specs/sequence-diagram §7.1） */
+  sequence: SequenceService | null = null;
+  /** 生命线工具（不注册，由 sequence 转发） */
+  lifeline: LifelineService | null = null;
   rectEditor: RectEditorService | null = null;
   refLine: RefLineService | null = null;
   layer: LayerService | null = null;

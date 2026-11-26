@@ -21,6 +21,8 @@ export function disposeBoard(host: IBoardTeardownHost): void {
   host.shapeService?.dispose();
   host.symbolService?.dispose();
   host.frame?.dispose(); // 必须早于 engine：摘 yDoc 批量事务监听 + 退订 onModelCreated$（永不 complete）
+  host.lifeline?.dispose();
+  host.sequence?.dispose();
   host.culling?.dispose();
   host.network?.dispose();
   host.awarenessVm?.dispose();

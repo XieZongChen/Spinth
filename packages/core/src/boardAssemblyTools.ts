@@ -10,6 +10,8 @@ import { EraserService } from './widgets/eraser/eraserService';
 import { StickyService } from './widgets/sticky/stickyService';
 import { ImageService } from './widgets/image/imageService';
 import { TreeService } from './widgets/tree/service/treeService';
+import { LifelineService } from './widgets/sequence/lifelineService';
+import { SequenceService } from './widgets/sequence/sequenceService';
 import { countDanglingLines } from './widgets/line/linePrune';
 import { ViewportService } from './platform/viewport/viewportService';
 import type { IBoardConfig } from './boardConfig';
@@ -152,6 +154,22 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
   // 脑图焦点变化（Tab 建子/方向键导航/点击）不改 selected$——选区框
   // 经此驱动重画到焦点节点（单层化后焦点框是节点唯一选中视觉）
   sdk.treeService.focusChanged$.subscribe(() => sdk.selector?.refreshSelectionFrame());
+
+  // 时序图工具（specs/sequence-diagram §7.1）：生命线服务在 editingService 之后构造
+  // （标签 plain 内核）；'sequence' 模式由 SequenceService 唯一注册并转发，种类
+  // 记忆走工具默认参数聚合表（与符号按钮同款）
+  sdk.lifeline = new LifelineService(
+    sdk.viewport!,
+    sdk.engine!,
+    sdk.vmEngine!,
+    sdk.selector!,
+    sdk.history!,
+    sdk.editingService!,
+  );
+  sdk.lifeline.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
+  sdk.sequence = new SequenceService(sdk.viewport!, sdk.lifeline);
+  sdk.sequence.initialize();
+  sdk.sequence.kind$.subscribe((v) => sdk.syncToolOption('sequence', 'kind', v));
 
   // awareness（docs/10 §3）：仅协同模式（wsProvider 存在）；本地模式零开销
   const wsProvider = sdk.engine!.wsProvider;

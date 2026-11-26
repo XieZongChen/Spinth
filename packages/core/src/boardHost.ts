@@ -20,6 +20,8 @@ import type { ServiceRegistry } from './platform/registry/serviceRegistry';
 import type { ShapeService } from './widgets/shape/shapeService';
 import type { SymbolService } from './widgets/symbol/symbolService';
 import type { FrameService } from './widgets/frame/frameService';
+import type { LifelineService } from './widgets/sequence/lifelineService';
+import type { SequenceService } from './widgets/sequence/sequenceService';
 import type { RectEditorService } from './platform/rectEditor/rectEditorService';
 import type { LayerService } from './platform/layer/layerService';
 import type { RefLineService } from './platform/refLine/refLineService';
@@ -64,6 +66,8 @@ export interface IBoardServices {
   symbolService: SymbolService | null;
   /** 容器工具与归属服务（specs/container-frame）：几何归属层，组是选择层 */
   frame: FrameService | null;
+  sequence: SequenceService | null;
+  lifeline: LifelineService | null;
   refLine: RefLineService | null;
   layer: LayerService | null;
   group: GroupService | null;

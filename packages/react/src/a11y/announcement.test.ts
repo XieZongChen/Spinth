@@ -40,6 +40,7 @@ describe('announcementFor 差分矩阵', () => {
   it('容器与组织架构工具也播工具名（此前缺项静默——读屏用户感知不到切换）', () => {
     expect(announcementFor(snap({}), snap({ cursorMode: 'frame' }))).toBe('当前工具：容器');
     expect(announcementFor(snap({}), snap({ cursorMode: 'org' }))).toBe('当前工具：组织架构');
+    expect(announcementFor(snap({}), snap({ cursorMode: 'sequence' }))).toBe('当前工具：时序图');
   });
 
   it('全部工具模式都有播报名（cursor 除外——建件后自动回归，非用户意图）', () => {
@@ -56,6 +57,7 @@ describe('announcementFor 差分矩阵', () => {
       'mind',
       'org',
       'frame',
+      'sequence',
     ];
     for (const mode of tools) {
       const msg = announcementFor(snap({}), snap({ cursorMode: mode }));

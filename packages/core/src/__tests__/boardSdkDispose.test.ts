@@ -61,4 +61,25 @@ describe('BoardSDK 命令层守卫与 dispose 幂等', () => {
     sdk.dispose();
     expect(frameDispose).toHaveBeenCalledTimes(1); // 二次不再执行
   });
+
+  it('时序图服务在销毁序列内（早于引擎），且二次 dispose 不重复', () => {
+    const sdk = new BoardSDK();
+    const w = sdk as unknown as Record<string, unknown>;
+    const lifelineDispose = vi.fn();
+    const sequenceDispose = vi.fn();
+    const engineDispose = vi.fn();
+    w.registry = { dispose: vi.fn() };
+    w.lifeline = { dispose: lifelineDispose };
+    w.sequence = { dispose: sequenceDispose };
+    w.engine = { dispose: engineDispose };
+    sdk.dispose();
+    expect(lifelineDispose).toHaveBeenCalledTimes(1);
+    expect(sequenceDispose).toHaveBeenCalledTimes(1);
+    expect(lifelineDispose.mock.invocationCallOrder[0]!).toBeLessThan(
+      engineDispose.mock.invocationCallOrder[0]!,
+    );
+    sdk.dispose();
+    expect(lifelineDispose).toHaveBeenCalledTimes(1);
+    expect(sequenceDispose).toHaveBeenCalledTimes(1);
+  });
 });

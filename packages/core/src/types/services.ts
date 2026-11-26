@@ -20,7 +20,8 @@ export type CursorMode =
   | 'eraser'
   | 'mind'
   | 'org'
-  | 'frame';
+  | 'frame'
+  | 'sequence';
 
 export type DocState = 'idle' | 'loading' | 'synced';
 

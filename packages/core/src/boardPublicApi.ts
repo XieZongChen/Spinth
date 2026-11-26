@@ -107,6 +107,8 @@ export type BoardInternalMember =
   | 'shapeService'
   | 'symbolService'
   | 'frame'
+  | 'sequence'
+  | 'lifeline'
   | 'rectEditor'
   | 'refLine'
   | 'layer'

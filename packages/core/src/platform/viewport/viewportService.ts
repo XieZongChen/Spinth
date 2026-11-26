@@ -303,6 +303,7 @@ export class ViewportService extends Disposable implements IViewportService {
     pen: 'crosshair',
     eraser: 'cell',
     frame: 'crosshair',
+    sequence: 'crosshair',
   };
 
   setCursorMode(mode: CursorMode): void {

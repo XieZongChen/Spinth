@@ -64,6 +64,7 @@ export class BoardCommands {
     if (tool === 'shape' && key === 'type')
       this.ctx.shapeService?.setDefaultShapeType(id as ShapeType);
     else if (tool === 'symbol' && key === 'kind') this.ctx.symbolService?.setDefaultSymbol(id);
+    else if (tool === 'sequence' && key === 'kind') this.ctx.sequence?.setKind(id);
     else if (tool === 'line' && key === 'type')
       this.ctx.lineService?.setDefaultLineType(id as LineType);
     else if (tool === 'line' && key === 'width')

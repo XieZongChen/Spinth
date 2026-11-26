@@ -32,6 +32,7 @@ const TOOL_NAMES: Partial<Record<CursorMode, string>> = {
   mind: '脑图',
   org: '组织架构',
   frame: '容器',
+  sequence: '时序图',
 } satisfies Record<Exclude<CursorMode, 'cursor'>, string>;
 
 export function announcementFor(
