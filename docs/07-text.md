@@ -63,8 +63,10 @@ IDocView  = Doc → Paragraph → Line → Span（带 rect 坐标的视图模型
   缓存键含 bold/italic/字号/字族，不含 color/underline。
 - 输出由 `DocDisplay` 消费产出 PIXI 显示树（每 span 一个 Text）。
 - 未实现：`overflow: hidden` / ellipsis（STICKY 纵向溢出靠换行约束）。
-  符号（SYMBOL）标签不依赖它：`symbolGeometry.truncateLabelToWidth` 在渲染前
-  按可用宽逐字素截断 + 省略号（数据恒存完整 64 字素，加宽即恢复）。
+  符号（SYMBOL）标签与容器标题不依赖它：`platform/textEngine/labelText` 的单行
+  截断（`truncateLabelToWidth` / `truncateWithEllipsis`，两者同一算法）在渲染前按
+  可用宽逐字素截断 + 省略号（数据恒存完整文本，加宽即恢复）；单行标签的落库清洗
+  `clampSingleLineLabel`（空白折一 + trim + 按字素截断）同在该模块。
 
 ## 6. 两级文字渲染
 

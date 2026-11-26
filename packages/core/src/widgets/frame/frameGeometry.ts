@@ -1,10 +1,10 @@
 /**
  * 容器控件几何单源（specs/container-frame §3）：标题带几何、标题可用宽、
- * 单行截断、命中区域（标题带 ∪ 边框环）——全部纯函数，单测直测。
+ * 单行截断（入口名 truncateTitle，实现在 platform/textEngine/labelText）、命中区域
+ * （标题带 ∪ 边框环）——全部纯函数，单测直测。
  * 纯模块（无 PIXI）：渲染 Vm / 标题编辑链 / 命中测试共用，不依赖 Vm 层。
  */
 import type { IPoint, IRect } from '../../common/geometry';
-import { graphemes } from '../../platform/textEngine/measure';
 
 // —— 常量（§3.1；标题带恒定 = 几何可预测，空标题不塌陷） ——
 
@@ -62,26 +62,11 @@ export function frameTitleRect(w: number, h: number, side: 'top' | 'left'): IRec
 }
 
 // —— 单行截断（§3.2：同 SYMBOL 标签口径——二分最长前缀 + 省略号） ——
-
-/** 单行截断：超出可用宽时按字素二分找最长前缀 + '…'；连省略号都放不下返回
- *  '…'（由调用方的最小宽度兜底）。measure 注入（canvas 测宽单源） */
-export function truncateTitle(
-  text: string,
-  maxWidth: number,
-  measure: (s: string) => number,
-): string {
-  if (text.length === 0 || measure(text) <= maxWidth) return text;
-  const gs = [...graphemes(text)];
-  const ellipsis = '…';
-  let lo = 0;
-  let hi = gs.length - 1;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (measure(gs.slice(0, mid).join('') + ellipsis) <= maxWidth) lo = mid;
-    else hi = mid - 1;
-  }
-  return gs.slice(0, lo).join('') + ellipsis;
-}
+// 实现上提 platform/textEngine/labelText（SYMBOL / FRAME / LIFELINE 共用同一算法）；
+// 本文件保留 truncateTitle 名字——frameVm 与单测的导入路径不变。超出可用宽时按
+// 字素二分找最长前缀 + '…'；连省略号都放不下返回 '…'（由调用方的最小宽度兜底）。
+// measure 注入（canvas 测宽单源）
+export { truncateWithEllipsis as truncateTitle } from '../../platform/textEngine/labelText';
 
 // —— 命中区域（§3.3：标题带 ∪ 边框环，内部空白不命中） ——
 

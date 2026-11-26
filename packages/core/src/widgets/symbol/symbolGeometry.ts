@@ -1,9 +1,9 @@
 /**
  * 符号控件几何单源（specs/symbol-widget §3）：两段几何（图形区 + 标签带）派生、
- * contain 适配、图形区四边锚点、单行标签截断与落库清洗——全部纯函数，单测直测。
+ * contain 适配、图形区四边锚点、单行标签截断与落库清洗入口——全部纯函数，单测直测。
  */
 import type { IPoint, IRect, JoinDir } from '../../common/geometry';
-import { graphemes, type IMeasurer, type ITextStyleProps } from '../../platform/textEngine/measure';
+import { clampSingleLineLabel } from '../../platform/textEngine/labelText';
 import { defaultTextColor } from '../../platform/textEngine/theme';
 
 /** 合法着色：#RRGGBB（ActionBar 色板全 6 位 hex；坏项目文件里的空串/色名/
@@ -92,38 +92,14 @@ export function symbolGlyphAnchor(rect: IRect, join: JoinDir, t: number): IPoint
 }
 
 // —— 标签（§5.1/§5.4：单行渲染截断 + 落库清洗；数据恒存完整 64 字素） ——
+// 实现上提 platform/textEngine/labelText（FRAME 标题、LIFELINE 标签共用同一算法）；
+// 本文件保留 SYMBOL 口径入口，调用点（symbolVm / textCommit）与单测路径不变
 
-/**
- * 单行截断：可用宽度内逐字素贪心保留，超宽末尾补省略号。textEngine 的
- * overflow:'hidden' 未实现（measure.ts Pending，docs/07 §5）——符号标签不走
- * 自动换行，靠本函数在渲染前截短（加宽控件后完整名字自动回来）。
- * 连省略号都放不下的极端窄宽返回 '…'（由调用方的最小宽度兜底）。
- */
-export function truncateLabelToWidth(
-  label: string,
-  maxWidth: number,
-  style: ITextStyleProps,
-  measurer: IMeasurer,
-): string {
-  if (label.length === 0 || measurer.measure(label, style) <= maxWidth) return label;
-  const gs = [...graphemes(label)];
-  const ellipsis = '…';
-  // 二分最大前缀 k（前缀宽度单调）：width(前 k 字素 + …) ≤ maxWidth
-  let lo = 0;
-  let hi = gs.length - 1;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (measurer.measure(gs.slice(0, mid).join('') + ellipsis, style) <= maxWidth) lo = mid;
-    else hi = mid - 1;
-  }
-  return gs.slice(0, lo).join('') + ellipsis;
-}
+/** 单行截断：可用宽度内逐字素保留，超宽末尾补省略号（加宽控件后完整名字
+ *  自动回来）；连省略号都放不下的极端窄宽返回 '…' */
+export { truncateLabelToWidth } from '../../platform/textEngine/labelText';
 
 /** 落库清洗（§5.1）：连续空白（含换行）折成一个空格 → trim → 截 64 字素 */
 export function clampSymbolLabel(raw: string): string {
-  const collapsed = raw.replace(/\s+/g, ' ').trim();
-  const gs = [...graphemes(collapsed)];
-  return gs.length <= SYMBOL_LABEL_MAX_CHARS
-    ? collapsed
-    : gs.slice(0, SYMBOL_LABEL_MAX_CHARS).join('');
+  return clampSingleLineLabel(raw, SYMBOL_LABEL_MAX_CHARS);
 }
