@@ -161,7 +161,7 @@ B 路线的语义控件另有价值（自动布局、编号），不属于 A，�
 
 ### 1.6 代码硬约束
 
-- **行数余量**：`lineService.ts` 397、`selectorService.ts` 398、`rectEditorService.ts` 398、
+- **行数余量**：`lineService.ts` 368（批次 1 瘦身后；原 397）、`selectorService.ts` 398、`rectEditorService.ts` 398、
   `boardActionBar.ts` 382、`lineVm.ts` 362、`lineAnchorFollow.ts` 347。400 行铁律没有
   自动门禁（eslint 无 `max-lines`，scripts 无检查），靠人工与审查。本 spec 对
   `selectorService.ts` 零改动；`lineService.ts` 只许净增 ≤ 2 行，新增行为全部落新
@@ -719,11 +719,11 @@ export function composeCascadeLookup(
 
 - `DragCreateServiceBase` 把 `initialize()` 里注册的处理器对象提为只读属性
   `handlers`，注册与被转发共用同一对象。
-- `LineService` 同款提 `drawHandlers`；并把 `quickAdd` / `endpointDragCtl` /
-  `segTextSlide` 的构造迁入 `lineCollaborators.ts` 的工厂（只构造、不登记），
-  给 §4 的转发腾出行数。`initialize()` 按原顺序逐个登记——释放顺序等于登记顺序，
-  工厂若把三个连续登记会悄悄改变 `anchorFollow` 的释放位次；工厂只在 `initialize()`
-  里调用，构造函数不碰依赖（`lineDefaultType.test.ts` 有断言）。
+- `LineService` 同款提 `drawHandlers`；六个协作者（悬停浮层、拉线状态机、quickAdd、
+  anchorFollow、endpointDragCtl、segTextSlide）的构造迁入 `lineCollaborators.ts` 的
+  工厂（只构造、不登记），`initialize()` 只做一次按序登记，397 → 368 行。释放顺序
+  等于登记顺序（`Disposable` 正向遍历），`lineServiceWiring.test` 锁定；工厂只在
+  `initialize()` 里调用，构造函数不碰依赖（`lineDefaultType.test.ts` 有断言）。
 
 `LifelineService.initialize()` 直接抛错而不是靠约定「不调」：它注册的 `scope` 就是
 `'sequence'`，误调会覆盖 `SequenceService` 的注册（§9.6 第 6 条）。

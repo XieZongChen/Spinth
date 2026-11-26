@@ -6,6 +6,7 @@ import type {
   IEditingService,
   IHistoryService,
   IPointerEventInfo,
+  IPointerHandlers,
   ISelectorService,
   IViewportService,
   IVmEngineService,
@@ -16,16 +17,16 @@ import { effectivePath } from './lineMath';
 import type { LineVm } from './lineVm';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { Point } from 'pixi.js';
-import { LineHoverOverlay } from './lineHoverOverlay';
-import { LineQuickAdd, type ILineAnchorData } from './lineQuickAdd';
-import { createQuickAddHost } from './lineQuickAddHost';
-import { LineAnchorFollow } from './lineAnchorFollow';
-import { LineEndpointDrag } from './lineEndpointDrag';
-import { LineSegTextSlide } from './lineSegTextSlide';
+import type { LineHoverOverlay } from './lineHoverOverlay';
+import type { LineQuickAdd, ILineAnchorData } from './lineQuickAdd';
+import { createLineCollaborators } from './lineCollaborators';
+import type { LineAnchorFollow } from './lineAnchorFollow';
+import type { LineEndpointDrag } from './lineEndpointDrag';
+import type { LineSegTextSlide } from './lineSegTextSlide';
 import { LineTextEditor } from './lineTextEditor';
-import { LineDrawSession } from './lineDrawSession';
+import type { LineDrawSession } from './lineDrawSession';
 import { LINE_WIDTH_STEPS } from './lineOptions';
-import { hitWidget, nearestLineEndpoint } from './lineHitTest';
+import { nearestLineEndpoint } from './lineHitTest';
 
 /**
  * 连接线交互层（docs/08 §7）：line 工具按下→拖出→松手；
@@ -92,6 +93,20 @@ export class LineService extends Disposable {
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
   gridSnapOn: () => boolean = () => false;
 
+  /** line 模式的指针处理器（只读属性而非 initialize() 内联字面量）：多图元工具的
+   *  转发者要拿到同一个对象按当前图元种类分发（specs/sequence-diagram §7.1——一个
+   *  CursorMode 只能注册一组处理器）。成员是箭头函数，只在事件到达时读协作者 */
+  readonly drawHandlers: IPointerHandlers = {
+    onPointerDown: (e) => this.drawSession.pointerDown(e),
+    onPointerMove: (e) => this.drawSession.pointerMove(e),
+    onPointerUp: (e) => this.drawSession.pointerUp(e),
+    onPointerUpOutside: (e) => this.drawSession.pointerUp(e),
+    // 手势取消（Batch 1 · 1.9）：打断 ≠ 点击——settle 清零长草稿线（up 同款收尾；
+    // up 读 e 处仅 flush 用，占位世界位不影响收尾语义）
+    onPointerCancel: () =>
+      this.drawSession.pointerUp({ world: { x: -1e5, y: -1e5 } } as IPointerEventInfo),
+  };
+
   /** 线上文字编辑协作者（A1 整理批刀 1：TipTap 生命周期/节流落库/镂空喂框） */
   private textEditor: LineTextEditor | null = null;
   private get editingLineId(): string | null {
@@ -125,97 +140,53 @@ export class LineService extends Disposable {
   }
 
   initialize(): void {
-    this.viewport.registerGlobalEventListener('line', {
-      onPointerDown: (e) => this.drawSession.pointerDown(e),
-      onPointerMove: (e) => this.drawSession.pointerMove(e),
-      onPointerUp: (e) => this.drawSession.pointerUp(e),
-      onPointerUpOutside: (e) => this.drawSession.pointerUp(e),
-      // 手势取消（Batch 1 · 1.9）：打断 ≠ 点击——settle 清零长草稿线（up 同款收尾；
-      // up 读 e 处仅 flush 用，占位世界位不影响收尾语义）
-      onPointerCancel: () =>
-        this.drawSession.pointerUp({ world: { x: -1e5, y: -1e5 } } as IPointerEventInfo),
-    });
-    this.overlay = new LineHoverOverlay(this.viewport, this.vmEngine, this.selector, {
-      isSessionBusy: () =>
-        Boolean(
-          this.drawSession.isDrawing ||
-          this.editingLineId ||
-          this.endpointDragCtl?.active ||
-          this.segTextSlide?.segSlideActive ||
-          this.segTextSlide?.cornerDragActive ||
-          this.selector.isDragging ||
-          (this.busyProbe?.() ?? false),
-        ),
-      isEditing: () => this.editingLineId !== null,
-      isDrawing: () => this.drawSession.isDrawing,
-      quickAddPlanFor: (srcId, sb, anchor, join) =>
-        this.quickAdd!.plan(srcId, sb, anchor, join, null),
-    });
-    this.overlay.initialize();
-    this.addDisposable(this.overlay);
-    this.drawSession = new LineDrawSession(
-      this.viewport,
-      this.engine,
-      this.vmEngine,
-      this.selector,
-      this.history,
-      {
-        overlay: this.overlay,
-        getDefaultLineType: () => this.defaultType,
-        getDefaultStrokeWidth: () => this.defaultWidth,
-        // 网格吸附开关探针（specs/flowchart-closeout §9.2 自由线端点；缺省关）
-        gridSnapOn: () => this.gridSnapOn(),
-        // 落定重排（specs/flowchart-closeout §7.3）：同边余线让位 + 本线终路由
-        // 单源（避障/spread/探针）；settle 事务内调用 = 一步撤销
-        onSettled: () => this.anchorFollow?.reattachAll(),
+    this.viewport.registerGlobalEventListener('line', this.drawHandlers);
+    const c = createLineCollaborators({
+      viewport: this.viewport,
+      engine: this.engine,
+      vmEngine: this.vmEngine,
+      selector: this.selector,
+      history: this.history,
+      overlayHost: {
+        isSessionBusy: () =>
+          Boolean(
+            this.drawSession.isDrawing ||
+            this.editingLineId ||
+            this.endpointDragCtl?.active ||
+            this.segTextSlide?.segSlideActive ||
+            this.segTextSlide?.cornerDragActive ||
+            this.selector.isDragging ||
+            (this.busyProbe?.() ?? false),
+          ),
+        isEditing: () => this.editingLineId !== null,
+        isDrawing: () => this.drawSession.isDrawing,
+        quickAddPlanFor: (srcId, sb, anchor, join) =>
+          this.quickAdd!.plan(srcId, sb, anchor, join, null),
       },
+      getDefaultLineType: () => this.defaultType,
+      getDefaultStrokeWidth: () => this.defaultWidth,
+      getDefaultShapeType: () => this.quickAddShapeTypeProbe(),
+      gridSnapOn: () => this.gridSnapOn(),
+      onSettled: () => this.anchorFollow?.reattachAll(),
+    });
+    // 协作者只构造、不登记（lineCollaborators）；登记序 = 释放序（Disposable 正向
+    // 遍历）。overlay.initialize 放在全部构造之后——宿主回调都是惰性读协作者，与
+    // 此前逐个构造、先 initialize 浮层的时序等价
+    this.overlay = c.overlay;
+    this.drawSession = c.drawSession;
+    this.quickAdd = c.quickAdd;
+    this.anchorFollow = c.anchorFollow;
+    this.endpointDragCtl = c.endpointDragCtl;
+    this.segTextSlide = c.segTextSlide;
+    this.addDisposable(
+      this.overlay,
+      this.drawSession,
+      this.quickAdd,
+      this.anchorFollow,
+      this.endpointDragCtl,
+      this.segTextSlide,
     );
-    this.addDisposable(this.drawSession);
-    // host 组装走 lineQuickAdd 侧工厂（2026-11 审查返工：400 行铁律）；会话
-    // 通道/会话默认值/点击落定重排（与拉线 settle 同源，docs/08 §5）显式注入
-    this.quickAdd = new LineQuickAdd(
-      this.viewport,
-      this.engine,
-      this.vmEngine,
-      this.selector,
-      this.history,
-      createQuickAddHost({
-        session: this.drawSession,
-        hideOverlays: () => this.overlay?.hideAll(),
-        getDefaultLineType: () => this.defaultType,
-        getDefaultStrokeWidth: () => this.defaultWidth,
-        getDefaultShapeType: () => this.quickAddShapeTypeProbe(),
-        onSettled: () => this.anchorFollow?.reattachAll(),
-      }),
-    );
-    this.addDisposable(this.quickAdd);
-    this.anchorFollow = new LineAnchorFollow(this.engine, this.vmEngine, this.selector);
-    this.addDisposable(this.anchorFollow);
-    if (this.overlay) {
-      this.endpointDragCtl = new LineEndpointDrag(
-        this.viewport,
-        this.engine,
-        this.vmEngine,
-        this.history,
-        this.overlay,
-        {
-          hitTest: (world) => hitWidget(this.vmEngine, this.viewport, world),
-          // 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入，缺省关）
-          gridSnapOn: () => this.gridSnapOn(),
-          // 端点重锚定落定重排（§7.3/§7.5 五轮：同边自环嵌套档全量重算）
-          onSettled: () => this.anchorFollow?.reattachAll(),
-        },
-      );
-      this.addDisposable(this.endpointDragCtl);
-      this.segTextSlide = new LineSegTextSlide(
-        this.viewport,
-        this.engine,
-        this.vmEngine,
-        this.history,
-        this.overlay,
-      );
-      this.addDisposable(this.segTextSlide);
-    }
+    this.overlay.initialize();
     // 拖拽预览期的连线实时跟随（docs/08 §3）：通用与脑图节点拖拽两通道都发
     // dragMove$——预览 bounds 重路由、仅视觉不写模型
     this.addDisposable(this.selector.dragMove$.subscribe(() => this.anchorFollow?.previewFollow()));
