@@ -82,6 +82,7 @@ export type IconName =
   | 'tree'
   | 'orgchart' // 脑图
   | 'frame' // 容器
+  | 'sequence' // 时序图
   | 'undo'
   | 'redo'
   | 'trash'
@@ -226,6 +227,18 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   expand: ChevronsUpDown,
   tree: ListTree,
   frame: Frame,
+  // 时序图（specs/sequence-diagram §8.1）：两个参与者头框 + 竖直虚线轴 + 一条
+  // 消息箭头——静态示意，与画布生命线（头框 + 虚线轴）同语义
+  sequence: svgIcon(
+    <>
+      <rect x="3.5" y="2.5" width="7" height="5" rx="1" />
+      <rect x="13.5" y="2.5" width="7" height="5" rx="1" />
+      <line x1="7" y1="7.5" x2="7" y2="21.5" strokeDasharray="2.5 2.5" />
+      <line x1="17" y1="7.5" x2="17" y2="21.5" strokeDasharray="2.5 2.5" />
+      <line x1="8" y1="13" x2="15.5" y2="13" />
+      <path d="M13 10.8 L15.8 13 L13 15.2" />
+    </>,
+  ),
   orgchart: Network,
   undo: Undo2,
   redo: Redo2,

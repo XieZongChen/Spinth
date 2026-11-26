@@ -45,6 +45,20 @@ describe('DEFAULT_SHORTCUTS cmd/ctrl 双注册结构', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('工具键位互不冲突（单字母工具键被两条定义共用 = 后者静默覆盖前者）', () => {
+    const tools = DEFAULT_SHORTCUTS.filter(
+      (d) => d.id.startsWith('tool.') && !d.id.includes('eraser.'),
+    );
+    const keys = tools.map((d) => d.keys);
+    expect(new Set(keys).size).toBe(keys.length); // 单字母工具键被两条定义共用 = 后者静默覆盖前者
+    // 时序图（specs/sequence-diagram D11）：Q——空闲字母里唯一能联想到 sequence 的
+    expect(DEFAULT_SHORTCUTS.find((d) => d.id === 'tool.sequence')).toEqual({
+      id: 'tool.sequence',
+      keys: 'q',
+      description: '时序图工具',
+    });
+  });
+
   // esc 的只读豁免不在注册表 allowInReadonly 字段——bind 层硬编码第三参
   // （keyboardService bind 'esc' 传 true），本断言只覆盖注册表白名单面
   it('视图类（断网白名单）恰为 cmd/ctrl 缩放 6 键 + f', () => {

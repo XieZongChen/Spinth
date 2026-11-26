@@ -129,8 +129,8 @@ export function Board({
     >
       <DotGrid />
       <p id={STAGE_HELP_ID} className="sr-only">
-        方向键微移选中元素，Shift 加速；V H R T L P E S M 切换工具；Cmd 或 Ctrl 加 Z 撤销；Delete
-        删除选中；Esc 取消；Shift 加 F10 打开右键菜单；按 Tab 离开画布。
+        方向键微移选中元素，Shift 加速；V H R N C T L P E S M O Q 切换工具；Cmd 或 Ctrl 加 Z
+        撤销；Delete 删除选中；Esc 取消；Shift 加 F10 打开右键菜单；按 Tab 离开画布。
       </p>
     </div>
   );

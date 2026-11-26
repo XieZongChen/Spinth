@@ -100,6 +100,13 @@ export { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 // 单源在生成文件，SymbolKind 经 widgets/symbol 路径导出）
 export { SYMBOL_OPTIONS } from './widgets/symbol/symbolService';
 export type { SymbolKind } from './widgets/symbol/symbolGlyphs.generated';
+// 时序图图元种类（specs/sequence-diagram §7.1——工具坞二级菜单单源；种类记忆经
+// setDefaultToolOption('sequence','kind',id) 通道）
+export {
+  SEQUENCE_ELEMENT_OPTIONS,
+  SEQUENCE_ELEMENT_KINDS,
+} from './widgets/sequence/sequenceOptions';
+export type { SequenceKind } from './widgets/sequence/sequenceOptions';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）
 export { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 export { PEN_COLOR_OPTIONS, PEN_WIDTH_OPTIONS } from './widgets/pen/penService';

@@ -293,6 +293,9 @@ test.describe('W4 屏读语义（specs/a11y-closeout §8）', () => {
     await expect(announcer).toHaveText('当前工具：容器');
     await page.keyboard.press('o');
     await expect(announcer).toHaveText('当前工具：组织架构');
+    // 时序图（specs/sequence-diagram 批次 1）：快捷键 Q 同样走播报
+    await page.keyboard.press('q');
+    await expect(announcer).toHaveText('当前工具：时序图');
   });
 });
 

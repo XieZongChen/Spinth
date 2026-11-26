@@ -15,6 +15,7 @@ import {
   FONT_SIZE_OPTIONS,
   ERASER_SIZE_OPTIONS,
   TREE_KIND_OPTIONS,
+  SEQUENCE_ELEMENT_OPTIONS,
   type CursorMode,
   type IActionBarOption,
 } from '@spinth/core';
@@ -209,6 +210,17 @@ export function Toolbar() {
       },
     ],
   };
+  // 时序图单入口（specs/sequence-diagram §8.1，第 12 钮）：一个 CursorMode 对应多种
+  // 图元——二级菜单 = 图元种类组（批次 1 只有生命线；批次 2 起追加），种类记忆走
+  // 工具默认参数聚合表（符号同款）；主题色沿用 shape 槽位（D11——不新增安全类）
+  const sequenceDef: ToolDef = {
+    id: 'sequence',
+    mode: 'sequence',
+    icon: 'sequence',
+    title: '时序图 (Q)',
+    tone: 'shape',
+    subMenuGroups: [{ key: 'kind', options: SEQUENCE_ELEMENT_OPTIONS }],
+  };
   const tools = [
     ...BASE_TOOLS.slice(0, SHAPE_SLOT),
     shapeDef,
@@ -216,6 +228,7 @@ export function Toolbar() {
     frameDef,
     ...BASE_TOOLS.slice(SHAPE_SLOT),
     treeDef,
+    sequenceDef,
   ];
 
   return (

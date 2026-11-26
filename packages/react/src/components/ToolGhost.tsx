@@ -37,6 +37,8 @@ const GHOST_TOOLS: Partial<Record<string, GhostToolDef>> = {
   symbol: { icon: 'symbol', tone: 'text-tool-shape' },
   // 容器（specs/container-frame §4.12）：shape 主题色槽位（Toolbar 同源）
   frame: { icon: 'frame', tone: 'text-tool-shape' },
+  // 时序图（specs/sequence-diagram §8.1）：静态图标；主题色 shape 槽位（D11）
+  sequence: { icon: 'sequence', tone: 'text-tool-shape' },
   text: { icon: 'text', tone: 'text-tool-text' },
   line: { icon: 'connector', tone: 'text-tool-line' },
   pen: { icon: 'pen', tone: 'text-tool-pen' },

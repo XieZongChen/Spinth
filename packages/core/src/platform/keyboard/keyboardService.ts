@@ -146,6 +146,9 @@ export class KeyboardService extends Disposable {
         case 'tool.frame':
           bind(def.keys, () => this.handlers.setCursorMode('frame'));
           break;
+        case 'tool.sequence':
+          bind(def.keys, () => this.handlers.setCursorMode('sequence'));
+          break;
         case 'view.zoomIn':
         case 'view.zoomIn2':
           bind(def.keys, () => this.handlers.zoomIn(), def.allowInReadonly);
