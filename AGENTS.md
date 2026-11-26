@@ -348,8 +348,9 @@ check 为 `gate`。
 
 下一阶段：常见图能力续批（docs/13 阶段 4，按 跨职能 / 泳道 → UML 时序 →
 UML 类图 / ER → BPMN 顺序；标准流程图、树形图族、网络拓扑 4.3 已完成，
-Phase 4 可选增强见 specs/tree-diagrams §13）→ 协同最后（docs/10，
-不进入默认启动路径）；
+Phase 4 可选增强见 specs/tree-diagrams §13；**UML 时序图（4.5）设计定稿、
+待实施**——specs/sequence-diagram.md，十项拍板已定，尚未动代码，实施从其
+§12 P0 起）→ 协同最后（docs/10，不进入默认启动路径）；
 1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
 
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
