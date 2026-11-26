@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import { Point } from 'pixi.js';
+import type { IPointerHandlers } from '../types';
 import { ShapeService } from '../widgets/shape/shapeService';
 import { StickyService } from '../widgets/sticky/stickyService';
 
@@ -17,11 +18,15 @@ type CreateServiceCtor = typeof ShapeService | typeof StickyService;
 
 function makeHarness(scale = 1, Ctor: CreateServiceCtor = ShapeService) {
   const handlers: Record<string, Handler | undefined> = {};
+  /** initialize() 交给 registerGlobalEventListener 的原对象（身份断言用） */
+  let registered: Record<string, Handler> | undefined;
   const added: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
   const model = { updateRect: vi.fn() };
   const viewport = {
-    registerGlobalEventListener: (_m: string, h: Record<string, Handler>) =>
-      Object.assign(handlers, h),
+    registerGlobalEventListener: (_m: string, h: Record<string, Handler>) => {
+      registered = h;
+      Object.assign(handlers, h);
+    },
     vpScale$: new BehaviorSubject(scale),
     setCursorMode: vi.fn(),
   };
@@ -37,10 +42,29 @@ function makeHarness(scale = 1, Ctor: CreateServiceCtor = ShapeService) {
   const selector = { setSelected: vi.fn() };
   const svc = new Ctor(viewport as never, engine as never, history as never, selector as never);
   svc.initialize();
-  return { handlers, added, model, viewport, history, selector };
+  return { handlers, registered, added, model, viewport, history, selector, svc };
 }
 
 const at = (x: number, y: number): { world: Point } => ({ world: new Point(x, y) });
+
+/** 基类焊死的五个指针成员（IPointerHandlers 的 onRightClick 不在创建流里） */
+const HANDLER_KEYS: ReadonlyArray<keyof IPointerHandlers> = [
+  'onPointerCancel',
+  'onPointerDown',
+  'onPointerMove',
+  'onPointerUp',
+  'onPointerUpOutside',
+];
+
+describe('拖拽创建基类：处理器对象是只读属性 handlers', () => {
+  it('initialize() 注册的就是 handlers——同一引用，五个成员齐全（多图元工具转发用）', () => {
+    const h = makeHarness();
+    expect(h.registered).toBe(h.svc.handlers);
+    for (const key of HANDLER_KEYS) {
+      expect(typeof h.svc.handlers[key], key).toBe('function');
+    }
+  });
+});
 
 describe('拖拽创建基类：单击与拖拽画图的分界（10 屏幕 px）', () => {
   it('单击滑移 8px：不建草稿，按单击落默认 120×80，以按下点为中心、工具保持、不选中', () => {

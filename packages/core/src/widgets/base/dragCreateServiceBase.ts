@@ -5,6 +5,7 @@ import type {
   IDataEngineService,
   IHistoryService,
   IPointerEventInfo,
+  IPointerHandlers,
   ISelectorService,
   IViewportService,
 } from '../../types';
@@ -64,23 +65,29 @@ export abstract class DragCreateServiceBase extends Disposable {
   /** 落库创建一个控件，返回其 id */
   protected abstract createWidget(x: number, y: number, width: number, height: number): string;
 
+  /** 指针处理器（只读属性而非 initialize() 内联字面量）：多图元工具的转发者要拿到
+   *  **同一个对象**按当前图元种类分发（specs/sequence-diagram §7.1——一个 CursorMode
+   *  只能注册一组处理器，LIFELINE 这类自己不注册、由 SequenceService 转发到它）。
+   *  成员是箭头函数，只在事件到达时读 this 的会话状态，字段初始化序不敏感 */
+  readonly handlers: IPointerHandlers = {
+    // 手势取消（Batch 1 · 1.9）：start/editingId 悬空会使下次 down 覆写 start、
+    // 草稿跳变——cancel 显式复位（草稿已成形者 editingId 分支走 up 同款收尾）
+    onPointerCancel: () => {
+      // 只清会话状态（start/editingId）——不落库（up 会按坐标建件，占位坐标
+      // 会产出怪件）；已实时落库的草稿由 undo 回退（stopCapturing 由下次操作切）
+      this.start = null;
+      this.editingId = null;
+    },
+    onPointerDown: (e) => {
+      this.start = e.world.clone();
+    },
+    onPointerMove: (e) => this.onPointerMove(e),
+    onPointerUp: () => this.onPointerUp(),
+    onPointerUpOutside: () => this.onPointerUp(),
+  };
+
   initialize(): void {
-    this.viewport.registerGlobalEventListener(this.scope, {
-      // 手势取消（Batch 1 · 1.9）：start/editingId 悬空会使下次 down 覆写 start、
-      // 草稿跳变——cancel 显式复位（草稿已成形者 editingId 分支走 up 同款收尾）
-      onPointerCancel: () => {
-        // 只清会话状态（start/editingId）——不落库（up 会按坐标建件，占位坐标
-        // 会产出怪件）；已实时落库的草稿由 undo 回退（stopCapturing 由下次操作切）
-        this.start = null;
-        this.editingId = null;
-      },
-      onPointerDown: (e) => {
-        this.start = e.world.clone();
-      },
-      onPointerMove: (e) => this.onPointerMove(e),
-      onPointerUp: () => this.onPointerUp(),
-      onPointerUpOutside: () => this.onPointerUp(),
-    });
+    this.viewport.registerGlobalEventListener(this.scope, this.handlers);
   }
 
   private onPointerMove(e: IPointerEventInfo): void {
