@@ -67,6 +67,16 @@ describe('PlainTextKernel（docs/17 §3 textarea 内核）', () => {
     spy.mockRestore();
   });
 
+  it('style.textAlign：声明居中则 textarea 居中；缺省靠左（既有调用方不变）', () => {
+    const { kernel } = makeKernel();
+    const taOf = () => (kernel as unknown as { ta: HTMLTextAreaElement | null }).ta;
+    kernel.begin(descriptor({ style: { ...style, textAlign: 'center' } }));
+    expect(taOf()!.style.textAlign).toBe('center');
+    kernel.begin(descriptor({ nodeKey: 'n2' })); // 缺省
+    expect(taOf()!.style.textAlign).toBe('left');
+    kernel.end(false);
+  });
+
   it('异 nodeKey 重建（同图换节点）', () => {
     const { kernel } = makeKernel();
     const spy = vi.spyOn(document.body, 'appendChild');

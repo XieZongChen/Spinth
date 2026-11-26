@@ -322,6 +322,9 @@ export interface IPlainEditorStyle {
   background: string;
   fontWeight?: string;
   borderRadius?: number;
+  /** 文字对齐（编辑器与画布渲染同向，html 内核 textAlign 的 plain 对应项）；
+   *  缺省靠左（FRAME 标题 / 脑图节点）；居中渲染的单行标签声明 center */
+  textAlign?: 'left' | 'center' | 'right';
   /** 世界 px（内核内部 ×scale） */
   paddingX: number;
   paddingY: number;

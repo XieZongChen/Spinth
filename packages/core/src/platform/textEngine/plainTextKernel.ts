@@ -81,6 +81,7 @@ export class PlainTextKernel extends Disposable {
     s.resize = 'none';
     s.fontFamily = 'sans-serif';
     s.fontWeight = style.fontWeight ?? '500';
+    s.textAlign = style.textAlign ?? 'left';
     s.background = style.background;
     s.color = style.color;
     s.borderRadius = `${style.borderRadius ?? 0}px`;
