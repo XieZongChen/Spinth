@@ -210,6 +210,18 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     expect(env.updates).toEqual([]);
   });
 
+  it('LIFELINE 不归属：完全落进容器也零写（schema 无 parentId，specs/sequence-diagram S5）', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('lf', 'LIFELINE', 'a1', [500, 500, 120, 520]),
+    ]);
+    env.svc.reconcileParents(['lf'], () => ({ x: 50, y: 20, width: 120, height: 200 }));
+    expect(env.updates).toEqual([]);
+    // 创建 / 粘贴落点路径同拒
+    env.svc.adoptByLanding(['lf']);
+    expect(env.updates).toEqual([]);
+  });
+
   it('连线不参与落点判定：带 parentId 的自由线按虚拟位置「完全离开」也不清父', () => {
     const env = makeEnv([
       W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),

@@ -1,4 +1,10 @@
-export type { IBaseModel, IBaseWidgetVm, IOnStateChangedInfo, IWidgetCapabilities } from './base';
+export type {
+  IBaseModel,
+  IBaseWidgetVm,
+  IOnStateChangedInfo,
+  IWidgetCapabilities,
+  ResizeDir,
+} from './base';
 export type { CursorMode, DocState, WsState } from './services';
 export type {
   IPointerHandlers,
@@ -30,6 +36,7 @@ export {
   ImageSchema,
   SymbolSchema,
   FrameSchema,
+  LifelineSchema,
   TypoFields,
   WIDGET_REGISTRY,
   WidgetDataUnion,
@@ -49,6 +56,7 @@ export type {
   ImageData,
   SymbolData,
   FrameData,
+  LifelineData,
   IWidgetData,
   IActionBarSchema,
   IActionBarItem,

@@ -7,6 +7,8 @@ import {
   resolveShapeTextStyle,
 } from '../widgets/shape/shapeVm';
 import { SHAPE_PALETTE, TEXT_COLOR_PALETTE } from '../actionBarOptions';
+import { LIFELINE_HEAD_BORDER, LIFELINE_HEAD_COLOR } from '../widgets/sequence/lifelineGeometry';
+import { defaultTextColor } from '../platform/textEngine/theme';
 
 /**
  * 对比度护栏（specs/flowchart-closeout §16）：黑填充（#000000）配默认深字
@@ -98,6 +100,22 @@ describe('容器标题缺省色 vs 带底色（specs/container-frame §5.4 双�
     try {
       expect(resolveFrameTitleColor({ fill: 'none', color: '#ffffff' })).toBe('#ededf2');
       expect(contrastRatio('#ededf2', '#1b1b22')).toBeGreaterThanOrEqual(4.5);
+    } finally {
+      setTextTheme('light');
+    }
+  });
+});
+
+describe('生命线配色（specs/sequence-diagram §3.6）', () => {
+  it('标签 / 描边色对白头框底 ≥ 4.5:1（写死配色，不随主题）', () => {
+    expect(contrastRatio(LIFELINE_HEAD_BORDER, LIFELINE_HEAD_COLOR)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('轴色 = 主题墨色：dark 下对画布底 #1b1b22 ≥ 4.5:1', () => {
+    setTextTheme('dark');
+    try {
+      expect(defaultTextColor()).toBe('#ededf2');
+      expect(contrastRatio(defaultTextColor(), '#1b1b22')).toBeGreaterThanOrEqual(4.5);
     } finally {
       setTextTheme('light');
     }

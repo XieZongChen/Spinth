@@ -15,10 +15,17 @@ export type ParentUpdate = string | undefined | null;
  * 画笔与连线不参与——两类落笔即建件，几何在 points、模型矩形是占位值
  * {0,0,100,100}，按矩形判会被盖住左上角的容器误收。两类均不经此函数；落点判定
  * （reconcileParents）只对画笔生效——画笔随拖拽平移、拖入才归属（走 getLocalRect
- * 即真实包围盒），连线不随拖拽 / 微移平移、一律跳过
+ * 即真实包围盒），连线不随拖拽 / 微移平移、一律跳过。生命线不进容器
+ * （specs/sequence-diagram §2.5 S5：schema 无 parentId，时序图自成一体）
  */
 export function isAutoAdoptableType(type: string): boolean {
-  return type !== 'FRAME' && type !== 'PEN' && type !== 'LINE' && !isTreeWidgetType(type);
+  return (
+    type !== 'FRAME' &&
+    type !== 'PEN' &&
+    type !== 'LINE' &&
+    type !== 'LIFELINE' &&
+    !isTreeWidgetType(type)
+  );
 }
 
 /** 全含判据：inner 的 AABB 完全落在 outer 的 AABB 内（等值边界算含） */

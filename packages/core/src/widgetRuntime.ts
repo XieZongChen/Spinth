@@ -32,6 +32,8 @@ import { SymbolModel } from './widgets/symbol/symbolModel';
 import { SymbolVm } from './widgets/symbol/symbolVm';
 import { FrameModel } from './widgets/frame/frameModel';
 import { FrameVm } from './widgets/frame/frameVm';
+import { LifelineModel } from './widgets/sequence/lifelineModel';
+import { LifelineVm } from './widgets/sequence/lifelineVm';
 import { MindMapModel, OrgChartModel } from './widgets/tree/model/treeMapModel';
 import { MindMapVm, OrgChartVm } from './widgets/tree/vm/treeMapVm';
 
@@ -86,6 +88,14 @@ export const WIDGET_RUNTIME = {
     // Tokens.ViewportService 在 boardAssemblyCore 注册 singleton
     createVm: (r: ServiceRegistry) =>
       new FrameVm(() => r.resolve(Tokens.ViewportService).vpScale$.value),
+  },
+  LIFELINE: {
+    modelToken: token<IBaseModel>('LifelineModel'),
+    vmToken: token<IBaseWidgetVm>('LifelineVm'),
+    createModel: (r: ServiceRegistry) => new LifelineModel(r.resolve(Tokens.DataProcessor)),
+    // 轴带命中半宽按屏幕 px 折算需要 vpScale（FRAME 命中环同款）
+    createVm: (r: ServiceRegistry) =>
+      new LifelineVm(() => r.resolve(Tokens.ViewportService).vpScale$.value),
   },
   MIND_MAP: {
     modelToken: token<IBaseModel>('MindMapModel'),

@@ -17,10 +17,11 @@ import type { IRect } from '../common/geometry';
  * 任一侧加字段/加类型未同步即此处编译红/测红（防两套真相漂移）。
  */
 describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
-  it('注册表覆盖全部十类型', () => {
+  it('注册表覆盖全部十一类型', () => {
     expect(Object.keys(WIDGET_REGISTRY).sort()).toEqual([
       'FRAME',
       'IMAGE',
+      'LIFELINE',
       'LINE',
       'MIND_MAP',
       'ORG_CHART',
@@ -46,12 +47,13 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     }
   });
 
-  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照六类（含 FRAME）/可擦一类', async () => {
+  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照七类（含 FRAME、LIFELINE）/可擦一类', async () => {
     const { TYPES_WHERE } = await import('../types/widget');
     expect(TYPES_WHERE('editable').sort()).toEqual(['SHAPE', 'STICKY', 'SYMBOL', 'TEXT']);
     expect(TYPES_WHERE('referenceable').sort()).toEqual([
       'FRAME',
       'IMAGE',
+      'LIFELINE',
       'SHAPE',
       'STICKY',
       'SYMBOL',
@@ -89,6 +91,19 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
       referenceable: true,
       erasable: false,
     });
+    // LIFELINE（specs/sequence-diagram §2.4）：不旋转（轴恒竖直）、可编组、可缩放
+    // （宽度以轴对称经 constrainResize 整形）、标签走自有 plain 会话、参考线可吸附
+    expect(WIDGET_REGISTRY.LIFELINE.capabilities).toMatchObject({
+      rotatable: false,
+      groupable: true,
+      resizable: true,
+      movable: true,
+      selectable: true,
+      keepRatio: false,
+      editable: false,
+      referenceable: true,
+      erasable: false,
+    });
   });
 
   it('discriminatedUnion 按 type 分派 parse（抽样 SHAPE/未知拒绝）', () => {
@@ -104,6 +119,37 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     expect(ok.success).toBe(true);
     expect(WidgetDataUnion.safeParse({ id: 'x', type: 'FUTURE' }).success).toBe(false);
     void ShapeSchema;
+  });
+
+  it('LIFELINE：label 缺省空串、head 可缺省；parentId 被 schema 剥离（不进容器，S5）', () => {
+    const parsed = WidgetDataUnion.safeParse({ id: 'l1', type: 'LIFELINE', zOrder: 'a0' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).toEqual({ id: 'l1', type: 'LIFELINE', zOrder: 'a0', label: '' });
+    }
+    const full = WidgetDataUnion.safeParse({
+      id: 'l2',
+      type: 'LIFELINE',
+      zOrder: 'a1',
+      label: '用户',
+      head: 'actor',
+      groupId: 'g1',
+    });
+    expect(full.success).toBe(true);
+    if (full.success) {
+      expect(full.data).toMatchObject({ label: '用户', head: 'actor', groupId: 'g1' });
+    }
+    const stripped = WidgetDataUnion.safeParse({
+      id: 'l3',
+      type: 'LIFELINE',
+      zOrder: 'a2',
+      parentId: 'f1',
+    });
+    if (stripped.success) expect(stripped.data).not.toHaveProperty('parentId');
+    expect(
+      WidgetDataUnion.safeParse({ id: 'l4', type: 'LIFELINE', zOrder: 'a3', head: 'robot' })
+        .success,
+    ).toBe(false);
   });
 
   // 编译期等价锁（第三刀后两侧同源）：IWidgetData 现在就是

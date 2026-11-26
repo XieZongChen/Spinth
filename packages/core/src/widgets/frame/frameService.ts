@@ -199,6 +199,8 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     const data = this.widgetData(id);
     if (!data) return;
     if (data.type === 'FRAME' || isTreeWidgetType(data.type)) return; // 容器/树不归属（I1/§0.3）
+    // 生命线不进容器（specs/sequence-diagram §2.5 S5：schema 无 parentId + 写侧拒绝）
+    if (data.type === 'LIFELINE') return;
     // 连线一律不参与落点判定（I2）：线不随拖拽 / 微移平移（LineVm.commitDrag 空操作），
     // 调用方的 rectOf 对会话内每个 id 都给「初值 + 位移」的虚拟位置——按它判定会把
     // 没动的自由线收进容器（E2E C-18 修前实锤）。锚定线另由读取侧排除（childIds）

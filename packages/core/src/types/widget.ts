@@ -267,6 +267,24 @@ export const FrameSchema = z.object({
 });
 export type FrameData = z.infer<typeof FrameSchema>;
 
+/** 生命线（specs/sequence-diagram §2.1）：UML 时序图的参与者——头框（居中单行
+ *  标签）+ 竖直虚线轴。几何 x/y/width/height 是整条（头 + 轴）的 bbox，轴在水平
+ *  中心。带 groupId（可编组对齐）；**不带 parentId**：生命线不进容器（§2.5 S5，
+ *  frameOps / frameService 双重拒绝）。optional 无 default 的字段缺省由消费侧
+ *  常量兜底 */
+export const LifelineSchema = z.object({
+  id: z.string(),
+  type: z.literal('LIFELINE'),
+  zOrder: z.string(),
+  /** 参与者名（纯文本单行，非 HTML——plain 内核编辑；落库截断 ≤64 字素）；空串 = 只有头框 */
+  label: z.string().default(''),
+  /** 头部样式：box（缺省，矩形头框）/ actor（小人）。小人绘制与切换入口属批次 4，
+   *  在此之前 actor 按加高的头框渲染 */
+  head: z.enum(['box', 'actor']).optional(),
+  ...GroupIdField,
+});
+export type LifelineData = z.infer<typeof LifelineSchema>;
+
 /** 控件实现族（specs/tree-diagrams D1）：family 是引擎层的唯一判据——
  *  `family: 'tree'` 的唯一含义是「节点不是 widget、几何由树布局派生、
  *  空间索引与 culling 豁免」。vmEngine/culling/selector 只认 family，
@@ -463,6 +481,25 @@ export const WIDGET_REGISTRY = {
       // TYPES_WHERE('editable') 的富文本通道，那条通道写 text 字段）
       editable: false,
       // 参考线可吸附容器边（泳道对齐刚需，§2.6）
+      referenceable: true,
+      erasable: false,
+    },
+  },
+  LIFELINE: {
+    family: 'widget',
+    schema: LifelineSchema,
+    capabilities: {
+      // 不旋转（specs/sequence-diagram §2.4：轴恒竖直，消息 / 激活条都按轴定位）
+      rotatable: false,
+      groupable: true,
+      // 宽度以轴对称、下限 60×120：经 constrainResize 探针在缩放数学末位整形（§3.5）
+      resizable: true,
+      movable: true,
+      selectable: true,
+      keepRatio: false,
+      // 标签走自有 plain 内核会话（§3.7，FRAME 标题先例——不走富文本通道）
+      editable: false,
+      // 参考线可吸附（头框顶对齐、轴 = bbox 中心线，docs/06 §2）
       referenceable: true,
       erasable: false,
     },

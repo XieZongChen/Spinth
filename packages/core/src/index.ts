@@ -37,6 +37,7 @@ export type {
   IWidgetData,
   ImageData,
   SymbolData,
+  LifelineData,
   IActionBarSchema,
   IActionBarItem,
   IActionBarOption,
