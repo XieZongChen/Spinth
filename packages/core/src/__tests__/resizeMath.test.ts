@@ -4,9 +4,12 @@ import { describe, expect, it } from 'vitest';
 import type { IRect } from '../common/geometry';
 import {
   lockAspectRect,
+  planResize,
   RESIZE_MIN_SIZE,
   resizeRect,
   resizeRotatedRect,
+  type IResizeConstrain,
+  type IResizeSnaps,
 } from '../platform/rectEditor/resizeMath';
 import { rotatePointAround } from '../platform/rectEditor/rotateMath';
 
@@ -151,5 +154,93 @@ describe('resizeRotatedRect 的 ratio 尾参', () => {
   it('旋转态不传 ratio：自由缩放，比例不保持（对照）', () => {
     const next = resizeRotatedRect(START, 'se', world, Math.PI / 4);
     expect(round(next.width / next.height)).not.toBe(round(RATIO));
+  });
+});
+
+describe('planResize：缩放数学唯一出口 + 整形探针', () => {
+  /** 生命线默认尺寸的起点（轴 x = 160） */
+  const AXIS_START: IRect = { x: 100, y: 100, width: 120, height: 520 };
+  const passthrough: IResizeSnaps = { apply: (_s, rect) => rect };
+  /** 轴对称口径的整形（生命线）：被拖边保持不动，宽度 = 2 × 该边到起点轴的距离 */
+  const axisSymmetric: IResizeConstrain = (start, next, dir) => {
+    if (!dir.includes('e') && !dir.includes('w')) return next;
+    const axisX = start.x + start.width / 2;
+    const right = dir.includes('e') ? next.x + next.width : 2 * axisX - next.x;
+    return {
+      x: 2 * axisX - right,
+      y: next.y,
+      width: 2 * Math.abs(right - axisX),
+      height: next.height,
+    };
+  };
+
+  it('不传整形：θ=0 自由缩放后吸附（特征——既有控件路径不变）', () => {
+    const world = { x: 250, y: 650 };
+    expect(planResize(AXIS_START, 'se', world, 0, undefined, passthrough)).toEqual(
+      resizeRect(AXIS_START, 'se', world),
+    );
+  });
+
+  it('不传整形：比例锁 = 主轴吸附后按比例收敛（特征）', () => {
+    // 自由 300×200：高的相对变化更大 → 高为主轴 → 宽 = 200 × 2
+    expect(planResize(START, 'se', { x: 400, y: 300 }, 0, RATIO, passthrough)).toEqual({
+      x: 100,
+      y: 100,
+      width: 400,
+      height: 200,
+    });
+  });
+
+  it('末位整形：整形函数收到「吸附后」的矩形与手柄方向；返回值即落库矩形', () => {
+    const snapped = { x: 100, y: 100, width: 145, height: 520 };
+    const snaps: IResizeSnaps = { apply: () => snapped };
+    const calls: Array<[IRect, string]> = [];
+    const constrain: IResizeConstrain = (start, next, dir) => {
+      void start;
+      calls.push([next, dir]);
+      return { ...next, x: 1 };
+    };
+    expect(planResize(AXIS_START, 'ne', { x: 230, y: 60 }, 0, undefined, snaps, constrain)).toEqual(
+      { x: 1, y: 100, width: 145, height: 520 },
+    );
+    expect(calls).toEqual([[snapped, 'ne']]);
+  });
+
+  it('轴对称口径（生命线）：被拖边跟手 = 指针；w 手柄与 e 手柄镜像同解', () => {
+    // 东边拖到 230：半宽 = 230 − 160 = 70 → 宽 140；轴 x = 160 不动
+    expect(
+      planResize(AXIS_START, 'e', { x: 230, y: 100 }, 0, undefined, passthrough, axisSymmetric),
+    ).toEqual({ x: 90, y: 100, width: 140, height: 520 });
+    // 西边拖到 90：半宽 = 160 − 90 = 70 → 同一个矩形
+    expect(
+      planResize(AXIS_START, 'w', { x: 90, y: 100 }, 0, undefined, passthrough, axisSymmetric),
+    ).toEqual({ x: 90, y: 100, width: 140, height: 520 });
+    // 不含横向的手柄不整形
+    expect(
+      planResize(AXIS_START, 's', { x: 260, y: 700 }, 0, undefined, passthrough, axisSymmetric),
+    ).toEqual(resizeRect(AXIS_START, 's', { x: 260, y: 700 }));
+  });
+
+  it('轴对称口径 + 吸附：被拖边落在命中线上（整形读的是吸附后的被拖边）', () => {
+    const guide = 240; // 命中线画在 240
+    const snaps: IResizeSnaps = {
+      apply: (_s, rect) => ({ ...rect, width: guide - rect.x }),
+    };
+    const out = planResize(AXIS_START, 'e', { x: 230, y: 100 }, 0, undefined, snaps, axisSymmetric);
+    // 半宽 = 240 − 160 = 80 → 宽 160、x = 80：东边仍在命中线上，西边镜像
+    expect(out).toEqual({ x: 80, y: 100, width: 160, height: 520 });
+  });
+
+  it('旋转态（θ ≠ 0）不调用整形——需要整形的控件都不可旋转', () => {
+    let calls = 0;
+    const spy: IResizeConstrain = (_s, next) => {
+      calls += 1;
+      return next;
+    };
+    const world = { x: 400, y: 240 };
+    expect(planResize(START, 'se', world, Math.PI / 4, undefined, passthrough, spy)).toEqual(
+      resizeRotatedRect(START, 'se', world, Math.PI / 4),
+    );
+    expect(calls).toBe(0);
   });
 });

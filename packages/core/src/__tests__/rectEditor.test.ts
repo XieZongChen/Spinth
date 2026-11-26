@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RectEditorService } from '../platform/rectEditor/rectEditorService';
 import { resizeRect, resizeRotatedRect } from '../platform/rectEditor/resizeMath';
 import { getRenderId } from '../common/render';
+import type { IRect } from '../common/geometry';
 
 /**
  * RectEditor 缩放编排桩测试（docs/15 §3 挂账收口：lastNext 落库——
@@ -12,8 +13,15 @@ import { getRenderId } from '../common/render';
  * window pointermove/up 用真实 DOM 事件（jsdom）。
  */
 
-function makeHarness(opts: { snapRect?: (r: unknown) => { rect: unknown } } = {}) {
+function makeHarness(
+  opts: {
+    snapRect?: (r: unknown) => { rect: unknown };
+    /** 目标 VM 的缩放整形探针（缺省 = 控件不整形） */
+    constrain?: (start: IRect, next: IRect, dir: string) => IRect;
+  } = {},
+) {
   const vmStub = {
+    ...(opts.constrain ? { constrainResize: opts.constrain } : {}),
     id: 'w1',
     type: 'SHAPE',
     getBounds: () => ({ x: 100, y: 100, width: 50, height: 50 }),
@@ -143,6 +151,56 @@ describe('RectEditor 缩放编排（docs/15 §3 挂账）', () => {
     h.fireUp();
     const [, next] = h.vmStub.commitResize.mock.calls[0] as unknown as [unknown, { width: number }];
     expect(next.width).toBe(96);
+  });
+
+  it('整形探针：目标带 constrainResize 时，预览 / 编辑框 / 选区框 / 落库拿到同一个整形后矩形', () => {
+    // 宽度以起点轴对称（生命线口径，specs/sequence-diagram §3.5）：轴 x = 125，
+    // 宽度 = 2 × 被拖边到轴的距离；整形函数按手柄方向读被拖边
+    const constrain = vi.fn((start: IRect, next: IRect, dir: string): IRect => {
+      const axisX = start.x + start.width / 2;
+      const right = next.x + next.width;
+      return dir.includes('e')
+        ? { x: 2 * axisX - right, y: next.y, width: 2 * (right - axisX), height: next.height }
+        : next;
+    });
+    const h = makeHarness({ constrain });
+    h.selected$.next(['w1']);
+    (
+      h.svc as unknown as { vm: { onHandleDown: (d: string, x: number, y: number) => void } }
+    ).vm.onHandleDown('se', 150, 150);
+    h.fireMove(180, 170); // 自由 80×70 → 东边 180 到轴 125 距离 55 → 宽 110、x = 70
+    const shaped = { x: 70, y: 100, width: 110, height: 70 };
+    // 拖拽中：预览与编辑框贴合（VM 层各自整形时编辑框会按未整形的矩形画）
+    expect(h.vmStub.applyResizePreview).toHaveBeenLastCalledWith(
+      { x: 100, y: 100, width: 50, height: 50 },
+      shaped,
+    );
+    expect(h.svc.__editorFrame).toEqual(shaped);
+    expect(h.updateSelectionFrame).toHaveBeenLastCalledWith(shaped);
+    h.fireUp();
+    expect(h.vmStub.commitResize).toHaveBeenCalledWith(
+      { x: 100, y: 100, width: 50, height: 50 },
+      shaped,
+    );
+    // 探针按方法形式调用（this = vm）且拿到手柄方向
+    expect(constrain.mock.instances.at(-1)).toBe(h.vmStub);
+    expect(constrain).toHaveBeenLastCalledWith(
+      { x: 100, y: 100, width: 50, height: 50 },
+      { x: 100, y: 100, width: 80, height: 70 },
+      'se',
+    );
+  });
+
+  it('无整形探针的控件：路径不变（落库 = 自由缩放矩形）', () => {
+    const h = makeHarness();
+    h.selected$.next(['w1']);
+    (
+      h.svc as unknown as { vm: { onHandleDown: (d: string, x: number, y: number) => void } }
+    ).vm.onHandleDown('se', 150, 150);
+    h.fireMove(180, 170);
+    h.fireUp();
+    const [, next] = h.vmStub.commitResize.mock.calls[0] as unknown as [unknown, IRect];
+    expect(next).toEqual({ x: 100, y: 100, width: 80, height: 70 });
   });
 
   it('undo 裂项守卫：onResizeCommitted 夹在 commitResize 与 stopCapturing 之间（docs/05 §4.4）', () => {

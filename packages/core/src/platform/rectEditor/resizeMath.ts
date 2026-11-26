@@ -1,9 +1,11 @@
 import type { IRect } from '../../common/geometry';
+import type { ResizeDir } from '../../types/base';
 import { quantizeResizeRect } from '../../common/grid';
 import { rotatePointAround } from './rotateMath';
 
-/** 缩放手柄语义（角 = 双轴，边 = 单轴） */
-export type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+/** 缩放手柄语义（角 = 双轴，边 = 单轴）。联合定义在 types 层——整形探针契约
+ *  （`IBaseWidgetVm.constrainResize`）在那里声明，数学层与服务沿用同一别名 */
+export type HandleDir = ResizeDir;
 
 /** 单轴手柄方向（比例锁时只让主轴参与吸附，docs/05 §4.4） */
 export type AxisDir = 'n' | 'e' | 's' | 'w';
@@ -189,12 +191,20 @@ export function createResizeSnaps(
   };
 }
 
+/** 整形探针（`IBaseWidgetVm.constrainResize`，以方法形式传入）：返回整形后的目标
+ *  矩形。数学层不认识控件类型——生命线宽度以轴对称等约束由控件自述 */
+export type IResizeConstrain = (start: IRect, next: IRect, dir: HandleDir) => IRect;
+
 /**
  * 单帧缩放目标矩形（缩放数学的唯一出口，服务只接线）：一切从「起点矩形 +
  * 当前指针」推导，无跨帧状态（docs/14 规则 3）。
- * - 旋转态：对侧锚定反解，不吸附；比例锁在局部系内完成
+ * - 旋转态：对侧锚定反解，不吸附、不整形（需要整形的控件都不可旋转）；比例锁在
+ *   局部系内完成
  * - θ=0：自由缩放后吸附/量化。锁比例时只有主轴参与吸附——另一轴由比例派生，
  *   吸附它没有意义、命中线也不该画；最后按比例收敛
+ * - 整形在吸附之后末位应用一次，拿到吸附后的矩形与手柄方向：预览 / 编辑框 /
+ *   选区框 / 落库同源。整形须保持被拖边的位置（吸附落点）——轴对称的控件按
+ *   「被拖边到轴的距离」定宽，而不是把 next.x 当成固定的对边
  */
 export function planResize(
   start: IRect,
@@ -203,10 +213,25 @@ export function planResize(
   theta: number,
   ratio: number | undefined,
   snaps: IResizeSnaps,
+  constrain?: IResizeConstrain,
 ): IRect {
   if (theta !== 0) return resizeRotatedRect(start, dir, world, theta, RESIZE_MIN_SIZE, ratio);
   const free = resizeRect(start, dir, world);
-  if (ratio === undefined) return snaps.apply(start, free, dir);
+  const next =
+    ratio === undefined
+      ? snaps.apply(start, free, dir)
+      : snapAndLock(start, dir, free, ratio, snaps);
+  return constrain ? constrain(start, next, dir) : next;
+}
+
+/** 比例锁路径：只有主轴参与吸附（另一轴由比例派生），最后按比例收敛 */
+function snapAndLock(
+  start: IRect,
+  dir: HandleDir,
+  free: IRect,
+  ratio: number,
+  snaps: IResizeSnaps,
+): IRect {
   const mainDir = lockMainDir(start, dir, free);
   const single =
     mainDir === 'e' || mainDir === 'w'

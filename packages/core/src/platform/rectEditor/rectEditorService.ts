@@ -248,8 +248,8 @@ export class RectEditorService extends Disposable {
     const world = th === 0 ? worldRaw : inverseRotatePoint(worldRaw, center, th);
     // 无状态计算：一切以「拖拽起点矩形 + 当前光标」推导，禁止读取实时视觉状态
     // （视觉状态每帧被本函数改写，作为基准会产生复合漂移）。数学在 resizeMath
-    // （旋转态对侧锚定 / 吸附 / 比例锁），这里只接线；lastNext 即落库值（预览与
-    // 落库同源）
+    // （旋转态对侧锚定 / 吸附 / 比例锁 / 控件自述的整形），这里只接线；lastNext 即
+    // 落库值（预览与落库同源）
     // 比例锁每帧只看当前 Shift（docs/05 §4.4）：手势中途按下 / 松开即时切换
     const next = planResize(
       this.resize.start,
@@ -258,6 +258,7 @@ export class RectEditorService extends Disposable {
       th,
       e.shiftKey ? this.resize.ratio : undefined,
       this.snaps,
+      vm.constrainResize?.bind(vm),
     );
     this.resize.lastNext = next;
     // 视觉反馈：per-type 预览（rect 型 position+scale；points 世界坐标型

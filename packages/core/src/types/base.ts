@@ -77,11 +77,21 @@ export interface IBaseWidgetVm<D extends IWidgetData = IWidgetData> {
   /** 旋转落库（松手一次）：写 rotation 字段 */
   commitRotate(theta: number): void;
 
+  /** 缩放整形（specs/sequence-diagram §3.5）：next = 吸附 / 量化之后的目标矩形，
+   *  返回整形后的目标矩形。经 `resizeMath.planResize` 以方法形式调用（this = vm）——
+   *  预览 / 编辑框 / 选区框 / 落库同源（VM 层各自整形会让编辑框按未整形的矩形画）。
+   *  契约：保持被拖边（dir 所指的边）的位置——那是吸附落点，挪了命中线就对不上。
+   *  θ ≠ 0 的旋转态不调用：需要整形的控件都不可旋转。缺省 = 不整形 */
+  constrainResize?(start: IRect, next: IRect, dir: ResizeDir): IRect;
+
   readonly onStateChanged$: Subject<IOnStateChangedInfo>;
   readonly onSelected$: BehaviorSubject<boolean>;
   readonly onRemoved$: Subject<void>;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** 缩放手柄方向（角 = 双轴，边 = 单轴）：整形探针的入参，rectEditor 的 HandleDir 沿用 */
+export type ResizeDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
 /** 控件能力位：交互层查询，控件自声明（docs/02 §4 六元；rotatable 2026-10-15 旋转批、groupable 2026-10-17 编组批） */
 export interface IWidgetCapabilities {
