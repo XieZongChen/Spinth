@@ -10,6 +10,7 @@ import type { IPoint, IRect } from '../../common/geometry';
 import { rectsIntersect } from '../../common/geometry';
 import { truncateLabelToWidth } from '../../platform/textEngine/labelText';
 import { createCanvasMeasurer, type ITextStyleProps } from '../../platform/textEngine/measure';
+import type { ResizeDir } from '../../types/base';
 
 /** 头部样式：box = 矩形头框；actor = 小人（批次 4 绘制；几何先定，标签在小人下方） */
 export type LifelineHead = 'box' | 'actor';
@@ -147,20 +148,31 @@ export function lifelineLabelRect(width: number, head?: LifelineHead): IRect {
   };
 }
 
-/** 缩放整形（§3.5）：宽度以轴为对称轴（轴 x 不因缩放移动——绑定的激活条因此不
- *  需要跟随），宽高钳到下限。高度被钳时保持没动的那条横边：上边动了（n 系手柄）
- *  锚底边，否则锚顶边 */
-export function constrainLifelineResize(start: IRect, next: IRect): IRect {
-  const width = Math.max(next.width, LIFELINE_MIN_WIDTH);
-  const height = Math.max(next.height, LIFELINE_MIN_HEIGHT);
+/** 缩放整形（§3.5）：被拖边跟手——宽度 = 2 × |被拖边到轴的距离|（e 手柄读 next
+ *  的右边、w 手柄读左边；轴 x = 起点水平中心，不因缩放移动——绑定的激活条因此不
+ *  需要跟随），钳到 LIFELINE_MIN_WIDTH；高度只认被拖的横边（n 锚底边、s 锚顶边），
+ *  钳到 LIFELINE_MIN_HEIGHT。
+ *
+ *  next 是吸附 / 量化**之后**的目标矩形（rectEditor 经 planResize 传入）：整形保持
+ *  被拖边的位置——命中线画在哪、边就落在哪；对边镜像过去。不能拿 next.width 当宽：
+ *  它是相对固定的对边量的（e 手柄 = 指针到起点左边），轴对称后手柄只以半速跟手；
+ *  网格量化还会把 next.x 重置成起点左边。 */
+export function constrainLifelineResize(start: IRect, next: IRect, dir: ResizeDir): IRect {
+  const bottom = start.y + start.height;
+  const topMoved = dir.includes('n');
+  const height = topMoved
+    ? Math.max(bottom - next.y, LIFELINE_MIN_HEIGHT)
+    : dir.includes('s')
+      ? Math.max(next.y + next.height - start.y, LIFELINE_MIN_HEIGHT)
+      : start.height;
+  const y = topMoved ? bottom - height : start.y;
+  if (!dir.includes('e') && !dir.includes('w')) {
+    return { x: start.x, y, width: start.width, height };
+  }
   const axisX = start.x + start.width / 2;
-  const topMoved = next.y !== start.y;
-  return {
-    x: axisX - width / 2,
-    y: topMoved ? start.y + start.height - height : next.y,
-    width,
-    height,
-  };
+  const edge = dir.includes('e') ? next.x + next.width : next.x;
+  const width = Math.max(2 * Math.abs(edge - axisX), LIFELINE_MIN_WIDTH);
+  return { x: axisX - width / 2, y, width, height };
 }
 
 /** 标签渲染截断：可用宽内逐字素 + 省略号（数据恒存完整标签，加宽即恢复）；

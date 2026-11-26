@@ -138,43 +138,82 @@ describe('生命线几何：标签区', () => {
   });
 });
 
-describe('生命线几何：缩放整形（宽度以轴对称、下限 60×120）', () => {
-  const start: IRect = { x: 200, y: 100, width: 120, height: 520 }; // 轴 x = 260
+describe('生命线几何：缩放整形（被拖边跟手、宽度以轴对称、下限 60×120）', () => {
+  const start: IRect = { x: 200, y: 100, width: 120, height: 520 }; // 轴 x = 260，底边 620
+  /** 自由缩放的输出（resizeRect 口径）：e 手柄指针 px / w 手柄指针 px */
+  const freeE = (px: number): IRect => ({ x: 200, y: 100, width: px - 200, height: 520 });
+  const freeW = (px: number): IRect => ({ x: px, y: 100, width: 320 - px, height: 520 });
 
-  it('限内：原样通过（只重算 x，轴 x 不动）', () => {
-    expect(constrainLifelineResize(start, { x: 200, y: 100, width: 200, height: 600 })).toEqual({
-      x: 160,
+  it('e 手柄：右边 = 指针，宽度 = 2 × 边到轴的距离；轴 x 不动', () => {
+    expect(constrainLifelineResize(start, freeE(380), 'e')).toEqual({
+      x: 140,
       y: 100,
-      width: 200,
-      height: 600,
+      width: 240,
+      height: 520,
     });
   });
 
-  it('宽度以轴为对称轴：拖 east 手柄得到的 next 被整形为轴两侧各半', () => {
-    const next = constrainLifelineResize(start, { x: 200, y: 100, width: 170, height: 520 });
-    expect(next.x + next.width / 2).toBeCloseTo(260, 9);
-    expect(next.width).toBe(170);
+  it('w 手柄：左边 = 指针，与 e 手柄镜像同解', () => {
+    expect(constrainLifelineResize(start, freeW(140), 'w')).toEqual({
+      x: 140,
+      y: 100,
+      width: 240,
+      height: 520,
+    });
   });
 
-  it('宽度钳到 60', () => {
-    expect(constrainLifelineResize(start, { x: 200, y: 100, width: 20, height: 520 }).width).toBe(
-      LIFELINE_MIN_WIDTH,
+  it('吸附后：被拖边落在参考线上、对边镜像（整形保持被拖边——命中线如实）', () => {
+    // e 手柄的东边被吸到 400（吸附输出的宽 = 400 − 200）：宽 = 2 × 140
+    expect(constrainLifelineResize(start, freeE(400), 'e')).toEqual({
+      x: 120,
+      y: 100,
+      width: 280,
+      height: 520,
+    });
+  });
+
+  it('网格量化把 x 重置成起点左边：整形只读被拖边，不受影响', () => {
+    // quantizeResizeRect 的 e 输出形如 { x: start.x, 宽: 格点 − start.x }（格点 360）
+    expect(
+      constrainLifelineResize(start, { x: 200, y: 100, width: 160, height: 520 }, 'e'),
+    ).toEqual({ x: 160, y: 100, width: 200, height: 520 });
+  });
+
+  it('宽度下限 60：指针贴过轴不翻面（被拖边停在轴外 30）', () => {
+    expect(constrainLifelineResize(start, freeE(245), 'e')).toEqual({
+      x: 230,
+      y: 100,
+      width: LIFELINE_MIN_WIDTH,
+      height: 520,
+    });
+    // 越过轴 40：宽 80，右边缘像到轴另一侧（不翻面）
+    expect(constrainLifelineResize(start, freeE(220), 'e')).toEqual({
+      x: 220,
+      y: 100,
+      width: 80,
+      height: 520,
+    });
+  });
+
+  it('高度下限 120：s 手柄锚顶边、n 手柄锚底边', () => {
+    expect(constrainLifelineResize(start, { x: 200, y: 100, width: 120, height: 30 }, 's')).toEqual(
+      { x: 200, y: 100, width: 120, height: LIFELINE_MIN_HEIGHT },
+    );
+    expect(constrainLifelineResize(start, { x: 200, y: 590, width: 120, height: 30 }, 'n')).toEqual(
+      { x: 200, y: 500, width: 120, height: LIFELINE_MIN_HEIGHT },
     );
   });
 
-  it('高度钳到 120：south 手柄锚顶边、north 手柄锚底边', () => {
-    expect(constrainLifelineResize(start, { x: 200, y: 100, width: 120, height: 30 })).toEqual({
-      x: 200,
-      y: 100,
-      width: 120,
-      height: LIFELINE_MIN_HEIGHT,
-    });
-    expect(constrainLifelineResize(start, { x: 200, y: 590, width: 120, height: 30 })).toEqual({
-      x: 200,
-      y: 500, // 底边 620 − 120
-      width: 120,
-      height: LIFELINE_MIN_HEIGHT,
-    });
+  it('单轴手柄不动另一轴；角柄两轴各读各的被拖边', () => {
+    expect(
+      constrainLifelineResize(start, { x: 200, y: 100, width: 120, height: 600 }, 's'),
+    ).toEqual({ x: 200, y: 100, width: 120, height: 600 });
+    expect(
+      constrainLifelineResize(start, { x: 200, y: 100, width: 180, height: 600 }, 'se'),
+    ).toEqual({ x: 140, y: 100, width: 240, height: 600 });
+    expect(
+      constrainLifelineResize(start, { x: 200, y: 60, width: 180, height: 560 }, 'ne'),
+    ).toEqual({ x: 140, y: 60, width: 240, height: 560 });
   });
 });
 
