@@ -328,13 +328,15 @@ darwin theme 基线强制重生成 + I2 口径改「运行时排除」+ ActionBa
 不再丢弃）、画笔与连线不参与自动归属（模型矩形是占位值）、粘贴落点归属（无父
 副本完全落进容器即归属，与粘贴同一步 undo），specs/container-frame §16。
 
-当前实测基线：`pnpm verify` 通过；1489 单测（core 1372 + react 79 + app 38）；
-E2E 57 spec / 335 例（主配置 328 --list 实测：非 visual 318 = 316 通过 +
+当前实测基线：`pnpm verify` 通过；1527 单测（core 1408 + react 81 + app 38）；
+E2E 58 spec / 342 例（主配置 335 --list 实测：非 visual 332 = 330 通过 +
 2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 10；pwa 7 独立配置；
 全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
 网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
-多线/项目文件往返+PNG/只读；容器底座 +17 例 container.spec C-1..C-17 +
+多线/项目文件往返+PNG/只读；容器底座 +18 例 container.spec C-1..C-18 +
 单测 +105（specs/container-frame §8）；树形图族 19 例；flowchart 15 例；
+存量修复五项 E2E +6 例（lineStyle 线型切回折线 5、imageResize 1）+
+单测 +38（specs/flowchart-closeout §24、specs/image-ratio-lock）；
 视觉 10/10 双平台（11 张基线含 network-sample 网络拓扑样本——4.3 交付、
 container-sample 三泳道样本——4.4 交付；darwin theme 双态随工具坞容器钮
 重生成）；
