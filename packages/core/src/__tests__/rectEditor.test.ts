@@ -207,13 +207,17 @@ describe('RectEditor 缩放编排（docs/15 §3 挂账）', () => {
     const h = makeHarness();
     const order: string[] = [];
     let hookNext: unknown = undefined;
+    let hookStart: unknown = undefined;
     h.vmStub.commitResize.mockImplementation(() => order.push('commitResize'));
     h.stopCapturing.mockImplementation(() => order.push('stopCapturing'));
     (
-      h.svc as unknown as { onResizeCommitted: ((id: string, next: unknown) => void) | null }
-    ).onResizeCommitted = (id: string, next: unknown) => {
+      h.svc as unknown as {
+        onResizeCommitted: ((id: string, next: unknown, start: unknown) => void) | null;
+      }
+    ).onResizeCommitted = (id: string, next: unknown, start: unknown) => {
       order.push(`hook:${id}`);
       hookNext = next;
+      hookStart = start;
     };
     h.selected$.next(['w1']);
     (
@@ -224,6 +228,9 @@ describe('RectEditor 缩放编排（docs/15 §3 挂账）', () => {
     expect(order).toEqual(['commitResize', 'hook:w1', 'stopCapturing']);
     // next = lastNext（commitResize 落库值同源——微任务相 reattach 将算出的同一 bounds）
     expect(hookNext).toEqual({ x: 100, y: 100, width: 80, height: 70 });
+    // start = commitResize 收到的起点矩形（加长保高度按前后几何重算端口，
+    // specs/sequence-diagram §4.7）——与落库同源，不从视觉反推
+    expect(hookStart).toEqual({ x: 100, y: 100, width: 50, height: 50 });
   });
 
   it('松手后 resizeMove$/isResizing 复位；选区空 → 手柄隐藏', () => {

@@ -12,6 +12,7 @@ import { FrameService } from './widgets/frame/frameService';
 import { TextService } from './widgets/text/textService';
 import { EditingService } from './platform/textEngine/editingService';
 import { LineService } from './widgets/line/lineService';
+import { rewirePortsAfterResize } from './widgets/line/lineAxisResize';
 import { CullingService } from './platform/spatial/cullingService';
 import { EdgeAutoScrollService } from './platform/viewport/edgeAutoScrollService';
 import type { BoardSDK } from './app';
@@ -182,10 +183,20 @@ export function assembleInteraction(sdk: BoardSDK): void {
   // 缩放松手的锚定线急切重路由（docs/05 §4.4）：next = commitResize 落库的
   // 目标矩形，与微任务相 reattach 将算出的 bounds 同源；reattach 对无锚定
   // 线的类型（PEN 等）天然 no-op
-  sdk.rectEditor.onResizeCommitted = (id, next) => {
+  sdk.rectEditor.onResizeCommitted = (id, next, start) => {
     const vm = sdk.vmEngine?.getVmById(id);
     // next = 落库目标局部矩形（rectEditor 语义）；θ 取宿主 state（docs/05 §8）
-    sdk.lineService?.reattach(id, { rect: next, rotation: vm?.getRotation() ?? 0 });
+    const rotation = vm?.getRotation() ?? 0;
+    // 加长保高度（specs/sequence-diagram §4.7）：轴宿主缩放后先按旧锚点高度重写
+    // 锚定端端口，再急刻重路由——同在 stopCapturing 之前，与缩放同一撤销项；
+    // 非轴宿主零写入
+    rewirePortsAfterResize(
+      id,
+      { rect: start, rotation },
+      { rect: next, rotation },
+      { engine: sdk.engine!, vmEngine: sdk.vmEngine! },
+    );
+    sdk.lineService?.reattach(id, { rect: next, rotation });
   };
   // 旋转手势（docs/05 §8）：拖拽中锚定线实时跟随（用户拍板 2026-10-15——
   // previewFollow 对 root.rotation 预览敏感）；松手急切重路由并同撤销项

@@ -55,10 +55,12 @@ export class RectEditorService extends Disposable {
     () => this.gridSnapOn(),
   );
 
-  /** 缩放松手落库后、stopCapturing 前的钩子（组合根接锚定线急切重路由——并入
+  /** 缩放松手落库后、stopCapturing 前的钩子（组合根接锚定线急刻重路由——并入
    *  同一撤销项，docs/05 §4.4；next = commitResize 落库的目标矩形，正是微任务相
-   *  reattach 将算出的 bounds——同源无换算）。与 selector.onDragCommitted 同模式 */
-  onResizeCommitted: ((vmId: string, next: IRect) => void) | null = null;
+   *  reattach 将算出的 bounds——同源无换算；start = commitResize 收到的起点矩形，
+   *  specs/sequence-diagram §4.7 加长保高度按前后几何重算端口）。与
+   *  selector.onDragCommitted 同模式 */
+  onResizeCommitted: ((vmId: string, next: IRect, start: IRect) => void) | null = null;
 
   /** 旋转预览逐帧钩子（组合根接 lineService.previewFollow——锚定线实时跟随，
    *  用户拍板 2026-10-15；与 resizeMove$ 同模式） */
@@ -305,7 +307,7 @@ export class RectEditorService extends Disposable {
       // 锚定线急切重路由（docs/05 §4.4）：必须夹在 commitResize（事务已闭、
       // 观察者相 state 已刷新）与 stopCapturing（并入同一撤销项）之间——留给
       // onStateChanged$ 微任务相会裂成第二个 undo 项（拖拽同款，2026-10-10）
-      this.onResizeCommitted?.(vmId, lastNext);
+      this.onResizeCommitted?.(vmId, lastNext, start);
     }
     this.resize = null;
     this.history.stopCapturing();
