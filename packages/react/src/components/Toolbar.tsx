@@ -16,6 +16,7 @@ import {
   ERASER_SIZE_OPTIONS,
   TREE_KIND_OPTIONS,
   SEQUENCE_ELEMENT_OPTIONS,
+  SEQUENCE_MESSAGE_OPTIONS,
   type CursorMode,
   type IActionBarOption,
 } from '@spinth/core';
@@ -211,15 +212,32 @@ export function Toolbar() {
     ],
   };
   // 时序图单入口（specs/sequence-diagram §8.1，第 12 钮）：一个 CursorMode 对应多种
-  // 图元——二级菜单 = 图元种类组（批次 1 只有生命线；批次 2 起追加），种类记忆走
-  // 工具默认参数聚合表（符号同款）；主题色沿用 shape 槽位（D11——不新增安全类）
+  // 图元——二级菜单 = 图元组 + 消息组，走动态组让各组**共用一个当前值**（静态组每组
+  // 各算一次 current）；种类记忆走工具默认参数聚合表（符号同款，经 kind 参数分发）；
+  // 主题色沿用 shape 槽位（D11——不新增安全类）
+  const sequenceKind = toolOptions['sequence']?.kind ?? '';
+  const pickSequenceKind = (id: string): void =>
+    spinthCommands.setDefaultToolOption('sequence', 'kind', id);
   const sequenceDef: ToolDef = {
     id: 'sequence',
     mode: 'sequence',
     icon: 'sequence',
     title: '时序图 (Q)',
     tone: 'shape',
-    subMenuGroups: [{ key: 'kind', options: SEQUENCE_ELEMENT_OPTIONS }],
+    buildSubMenuGroups: () => [
+      {
+        options: SEQUENCE_ELEMENT_OPTIONS,
+        current: sequenceKind,
+        activeClass: TONE_ACTIVE.shape,
+        onPick: pickSequenceKind,
+      },
+      {
+        options: SEQUENCE_MESSAGE_OPTIONS,
+        current: sequenceKind,
+        activeClass: TONE_ACTIVE.shape,
+        onPick: pickSequenceKind,
+      },
+    ],
   };
   const tools = [
     ...BASE_TOOLS.slice(0, SHAPE_SLOT),

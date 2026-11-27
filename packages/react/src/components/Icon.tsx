@@ -83,6 +83,9 @@ export type IconName =
   | 'orgchart' // 脑图
   | 'frame' // 容器
   | 'sequence' // 时序图
+  | 'sequence-message-sync' // 同步消息（实心箭头）
+  | 'sequence-message-async' // 异步消息（开放箭头）
+  | 'sequence-message-return' // 返回消息（虚线 + 开放箭头）
   | 'undo'
   | 'redo'
   | 'trash'
@@ -237,6 +240,32 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
       <line x1="17" y1="7.5" x2="17" y2="21.5" strokeDasharray="2.5 2.5" />
       <line x1="8" y1="13" x2="15.5" y2="13" />
       <path d="M13 10.8 L15.8 13 L13 15.2" />
+    </>,
+  ),
+  // 时序图消息三类（specs/sequence-diagram §4.3）：两条虚线轴 + 一条消息，图标区分
+  // 箭头形态——实心 / 开放 / 虚线（与落库的 endArrow / dashed 预设同语义）
+  'sequence-message-sync': svgIcon(
+    <>
+      <line x1="4" y1="3" x2="4" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="5.5" y1="12" x2="16" y2="12" />
+      <path d="M15.5 9.4 L19.5 12 L15.5 14.6 Z" fill="currentColor" />
+    </>,
+  ),
+  'sequence-message-async': svgIcon(
+    <>
+      <line x1="4" y1="3" x2="4" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="5.5" y1="12" x2="19" y2="12" />
+      <path d="M15.8 8.8 L19.2 12 L15.8 15.2" />
+    </>,
+  ),
+  'sequence-message-return': svgIcon(
+    <>
+      <line x1="4" y1="3" x2="4" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2.5 2.5" />
+      <line x1="5.5" y1="12" x2="19" y2="12" strokeDasharray="3 2.4" />
+      <path d="M15.8 8.8 L19.2 12 L15.8 15.2" />
     </>,
   ),
   orgchart: Network,

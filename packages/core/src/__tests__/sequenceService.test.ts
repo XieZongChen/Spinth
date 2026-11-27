@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Point } from 'pixi.js';
 import { SequenceService } from '../widgets/sequence/sequenceService';
 import { LifelineService } from '../widgets/sequence/lifelineService';
+import { MESSAGE_RETURN_POLICY } from '../widgets/line/lineAxisAnchor';
 import { BoardCommands } from '../boardCommands';
 import type { IBoardCommandHost } from '../boardHost';
 import type { IPointerEventInfo, IPointerHandlers } from '../types';
@@ -103,10 +104,62 @@ describe('SequenceService：转发与种类记忆', () => {
     // BehaviorSubject 订阅即发当前值——只记其后的切换
     h.svc.kind$.pipe(skip(1)).subscribe((k) => emissions.push(k));
     expect(h.svc.currentKind).toBe('lifeline'); // 缺省
-    h.svc.setKind('message'); // 批次 2 才有——当前忽略
+    h.svc.setKind('message'); // 不是合法种类 id（消息种类是 message-sync 等）——忽略
     h.svc.setKind('lifeline'); // 同值
     expect(h.svc.currentKind).toBe('lifeline');
     expect(emissions).toEqual([]);
+  });
+
+  it('消息种类：指针成员转发到 lineService.drawHandlers，并按种类给拉线策略（仅时序图工具激活时）', () => {
+    const seen: number[] = [];
+    const drawHandlers: IPointerHandlers = {
+      onPointerDown: (e) => seen.push(e.world.x),
+      onPointerUp: (e) => seen.push(e.world.x + 100),
+    };
+    const lifeline = { handlers: { onPointerDown: () => seen.push(-1) } };
+    const line = { drawHandlers, drawPolicyProbe: null as (() => unknown) | null };
+    const cursorMode$ = new BehaviorSubject('line');
+    const svc = new SequenceService(
+      { registerGlobalEventListener: vi.fn(), cursorMode$ } as never,
+      {} as never,
+      lifeline as never,
+      line as never,
+    );
+    expect(typeof line.drawPolicyProbe).toBe('function');
+    const probe = line.drawPolicyProbe as () => unknown;
+    // 生命线种类：无策略，指针仍走生命线服务
+    expect(probe()).toBeUndefined();
+    svc.handlers.onPointerDown?.(evt(1));
+    expect(seen).toEqual([-1]);
+    // 切到消息种类：通用连线工具（'line' 模式）激活时不给策略——同一组 drawHandlers
+    // 不能被时序图的预设劫持
+    svc.setKind('message-return');
+    expect(probe()).toBeUndefined();
+    cursorMode$.next('sequence');
+    expect(probe()).toEqual(MESSAGE_RETURN_POLICY);
+    svc.handlers.onPointerDown?.(evt(2));
+    svc.handlers.onPointerUp?.(evt(3));
+    expect(seen).toEqual([-1, 2, 103]);
+    // 切回生命线：转发回去、策略清空
+    svc.setKind('lifeline');
+    expect(probe()).toBeUndefined();
+    svc.handlers.onPointerDown?.(evt(4));
+    expect(seen).toEqual([-1, 2, 103, -1]);
+  });
+
+  it('line 未组装（桩环境）：消息种类转发为 no-op，不抛错', () => {
+    const lifeline = { handlers: { onPointerDown: vi.fn() } };
+    const svc = new SequenceService(
+      {
+        registerGlobalEventListener: vi.fn(),
+        cursorMode$: new BehaviorSubject('sequence'),
+      } as never,
+      {} as never,
+      lifeline as never,
+    );
+    svc.setKind('message-sync');
+    for (const k of HANDLER_KEYS) expect(() => svc.handlers[k]?.(evt(9))).not.toThrow();
+    expect(lifeline.handlers.onPointerDown).not.toHaveBeenCalled();
   });
 
   it('axisOf（ISequenceLookup，§9.4）：轴宿主返回其轴；普通件 / vm 缺失返回 null', () => {

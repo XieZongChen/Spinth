@@ -78,12 +78,51 @@ describe('工具坞「时序图」入口', () => {
     const items = [
       ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
     ];
-    expect(items.map((i) => i.getAttribute('aria-label'))).toEqual(['生命线']);
+    // 两组：图元（生命线）+ 消息（同步 / 异步 / 返回）
+    expect(items.map((i) => i.getAttribute('aria-label'))).toEqual([
+      '生命线',
+      '同步消息',
+      '异步消息',
+      '返回消息',
+    ]);
     expect(items[0]!.getAttribute('aria-checked')).toBe('true'); // 当前种类点亮
+    expect(items.slice(1).every((i) => i.getAttribute('aria-checked') === 'false')).toBe(true);
     // 选中项 → 工具默认参数聚合表（mode + 参数名 + 选项 id）
     const setOpt = vi.spyOn(spinthCommands, 'setDefaultToolOption');
     click(items[0]!);
     expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'lifeline');
+  });
+
+  it('两组共用一个当前值：记忆为消息种类时只有消息组的一项点亮，图元组不亮', () => {
+    render(<Toolbar />);
+    act(() =>
+      useSpinthStore.setState({
+        cursorMode: 'sequence',
+        defaultToolOptions: { sequence: { kind: 'message-async' } },
+      }),
+    );
+    const items = [
+      ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
+    ];
+    const lit = items
+      .filter((i) => i.getAttribute('aria-checked') === 'true')
+      .map((i) => i.getAttribute('aria-label'));
+    expect(lit).toEqual(['异步消息']);
+    // 组间有一条分隔线（浮层根的直接子节点；图标自身的 aria-hidden 在更深层）
+    expect(document.querySelectorAll('[data-spinth-tool-flyout] > [aria-hidden]').length).toBe(1);
+  });
+
+  it('点消息项 → setDefaultToolOption(sequence, kind, 消息种类 id)', () => {
+    const setOpt = vi.spyOn(spinthCommands, 'setDefaultToolOption');
+    render(<Toolbar />);
+    act(() => useSpinthStore.setState({ cursorMode: 'sequence' }));
+    const items = [
+      ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
+    ];
+    click(items[3]!);
+    expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'message-return');
+    click(items[2]!);
+    expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'message-async');
   });
 
   it('二级菜单未拿到种类记忆时按缺省点亮（聚合表无 sequence 条目）', () => {

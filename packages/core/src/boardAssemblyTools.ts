@@ -168,7 +168,7 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.editingService!,
   );
   sdk.lifeline.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
-  sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline);
+  sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline, sdk.lineService!);
   sdk.sequence.initialize();
   // VM 只读查询（specs/sequence-diagram §9.5）：注册晚绑定门面而非服务本体——
   // registry 缓存单例并在 dispose 时逐个 dispose，注册本体会让服务被二次 dispose

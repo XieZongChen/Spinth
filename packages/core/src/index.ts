@@ -105,6 +105,7 @@ export type { SymbolKind } from './widgets/symbol/symbolGlyphs.generated';
 export {
   SEQUENCE_ELEMENT_OPTIONS,
   SEQUENCE_ELEMENT_KINDS,
+  SEQUENCE_MESSAGE_OPTIONS,
 } from './widgets/sequence/sequenceOptions';
 export type { SequenceKind } from './widgets/sequence/sequenceOptions';
 // 工具默认参数选项单源（docs/04 §2 工具默认参数节——工具坞二级菜单与 ActionBar 同源）
