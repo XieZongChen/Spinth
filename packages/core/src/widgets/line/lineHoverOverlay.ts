@@ -247,6 +247,7 @@ export class LineHoverOverlay extends Disposable {
             scale,
             // 近形禁拖（2026-11）：锚定端相邻段不高亮不出光标（与抓取同源）
             lineAnchorFlags(line.state),
+            line.isAxisMessage(), // 轴消息线身 ns-resize（specs/sequence-diagram §4.5）
           );
           this.endpointHandles.show([pts[0]!, pts[pts.length - 1]!], scale, hit.endpointActive);
           this.showSegmentHandles(pts, scale, hit.segmentActive, line);

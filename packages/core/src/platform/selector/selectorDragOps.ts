@@ -30,6 +30,9 @@ export interface DragState {
    *  （否则吸附只作用于视觉、松手跳回未对齐位置——docs/06 §5 视觉=数据 / docs/14 规则 5） */
   lastDx: number;
   lastDy: number;
+  /** 纵向会话（specs/sequence-diagram §4.5；线选区恒置 'v'）：dx 恒 0、只做纵向
+   *  吸附与网格量化、选区框只动 y——线选区里只有轴消息会动，它们只动纵向 */
+  axis?: 'v';
 }
 
 /** 拖拽操作上下文：状态仍归 SelectorService（dragState 创建/清空/isDragging），
@@ -56,11 +59,12 @@ export interface ISelectorDragContext {
  *  initial（per-id）= getLocalRect（commitDrag/预览的输入语义——数据矩形）；
  *  initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）。
  *  无有效选中（union 为空）返回 null（主类不建 dragState）。
- *  纯线选区同样返回 null（LineVm 四覆写空操作，docs/08 §3「线不可整体拖
- *  动」）：空会话仍发 dragMove$ 触发「拖拽中隐藏 ActionBar」（docs/12 §3），
+ *  线选区里没有任何可平移件才返回 null（普通线四覆写空操作，docs/08 §3「线不可
+ *  整体拖动」）：空会话仍发 dragMove$ 触发「拖拽中隐藏 ActionBar」（docs/12 §3），
  *  而松手零写入 → widgetsChanged$ 恢复链不触发——浮动栏停隐直到选区重建
  *  （2026-11 近形禁拖后线身抓取被拒落回此处，用户实测「拖完线身操作栏
- *  消失且点线无反应」）。含形状的混合选区照常（形状移动带动线跟随）。 */
+ *  消失且点线无反应」）。线选区里只要有轴消息就建会话（恒纵向，DragState.axis；
+ *  specs/sequence-diagram §4.5）。含形状的混合选区照常（形状移动带动线跟随）。 */
 export function createDragState(
   ctx: ISelectorDragContext,
   ids: string[],
@@ -69,9 +73,10 @@ export function createDragState(
   /** 展开前选区（specs/container-frame §4.4；缺省 = ids，老调用零改动） */
   selectedIds?: string[],
 ): DragState | null {
-  if (ids.length > 0 && ids.every((id) => ctx.vmEngine.getVmById(id)?.type === 'LINE')) {
-    return null; // 纯线选区：空操作会话只带来 ActionBar 停隐副作用，不建
-  }
+  const lineOnly = ids.every((id) => ctx.vmEngine.getVmById(id)?.type === 'LINE');
+  // 线选区：没有任何可平移件（无轴消息）→ 不建——空操作会话只带来 ActionBar
+  // 停隐副作用。可平移 = LineVm.isAxisMessage 探针（服务层不按 type 分支）
+  if (lineOnly && !ids.some((id) => ctx.vmEngine.getVmById(id)?.isAxisMessage?.())) return null;
   const initial = new Map<string, IRect>();
   const worldBounds: IRect[] = [];
   for (const id of ids) {
@@ -93,6 +98,7 @@ export function createDragState(
     moved: false,
     lastDx: 0,
     lastDy: 0,
+    ...(lineOnly ? { axis: 'v' as const } : {}),
   };
 }
 
@@ -105,14 +111,16 @@ export function applyDragMove(
   e: IPointerEventInfo,
 ): void {
   const d = state;
-  let dx = e.world.x - d.startWorld.x;
+  const vertical = d.axis === 'v';
+  let dx = vertical ? 0 : e.world.x - d.startWorld.x; // 纵向会话：横向位移无意义
   let dy = e.world.y - d.startWorld.y;
   if (!d.moved) {
     if (Math.hypot(dx, dy) < DRAG_TRACTION_SCREEN / (ctx.viewport.vpScale$.value || 1)) return;
     d.moved = true;
   }
-  // 参考线吸附（docs/06 §5）：作用于选区外接矩形的期望位移
-  const snapped = ctx.getRefLine().snapForDrag(d.initialUnion, dx, dy);
+  // 参考线吸附（docs/06 §5）：作用于选区外接矩形的期望位移；纵向会话只做纵向
+  // （轴向实参——消息端点本就对齐生命线中心线，横向不限制每帧都画竖参考线）
+  const snapped = ctx.getRefLine().snapForDrag(d.initialUnion, dx, dy, d.axis);
   dx = snapped.dx;
   dy = snapped.dy;
   // 网格吸附（specs/flowchart-closeout §9.2）：优先级「参考线先、网格后」——
@@ -120,7 +128,7 @@ export function applyDragMove(
   // 左上角（多元素对齐才整齐），修正量写回 lastDx/lastDy（松手落库同源，不会
   // 「松手跳一格」）。等间距命中时 matchedV/H 为空，凭 spacingV/H 让位网格
   if (ctx.gridSnapOn()) {
-    if (snapped.matchedV.length === 0 && !snapped.spacingV) {
+    if (!vertical && snapped.matchedV.length === 0 && !snapped.spacingV) {
       dx = quantizeGrid(d.initialUnion.x + dx) - d.initialUnion.x;
     }
     if (snapped.matchedH.length === 0 && !snapped.spacingH) {

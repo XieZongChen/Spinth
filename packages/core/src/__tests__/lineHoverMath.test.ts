@@ -95,3 +95,27 @@ describe('resolveLineHover 端点/段身判定', () => {
     expect(hit.segmentActive).toBe(0); // 未过滤数组首位即段 0
   });
 });
+
+describe('resolveLineHover 轴消息线身（specs/sequence-diagram §4.5）', () => {
+  const MSG = [
+    { x: 255, y: 378 },
+    { x: 645, y: 378 },
+  ];
+
+  it('距两端 >12/scale 且距线身 ≤8/scale → ns-resize，不出胶囊', () => {
+    const hit = resolveLineHover(MSG, 'STRAIGHT', null, { x: 400, y: 382 }, 1, undefined, true);
+    expect(hit.hoverCursor).toBe('ns-resize');
+    expect(hit.segmentActive).toBeNull();
+    expect(hit.hoverSegIndex).toBe(-1);
+  });
+
+  it('端点附近仍 grab；离线身 >8/scale 无光标；非轴消息的 STRAIGHT 线维持无光标', () => {
+    expect(
+      resolveLineHover(MSG, 'STRAIGHT', null, { x: 258, y: 379 }, 1, undefined, true).hoverCursor,
+    ).toBe('grab');
+    expect(
+      resolveLineHover(MSG, 'STRAIGHT', null, { x: 400, y: 392 }, 1, undefined, true).hoverCursor,
+    ).toBeNull();
+    expect(resolveLineHover(MSG, 'STRAIGHT', null, { x: 400, y: 382 }, 1).hoverCursor).toBeNull();
+  });
+});

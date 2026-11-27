@@ -264,3 +264,22 @@ describe('参照物排除面 = selected$ ∪ previewIds（specs/container-frame 
     expect(r2.dx).toBe(100);
   });
 });
+
+describe('纵向会话（轴消息平移，specs/sequence-diagram §4.5）', () => {
+  it("axis = 'v'：横向不匹配（dx 原样返回、不出竖线），纵向照常吸附；不带轴向照旧", () => {
+    const { svc } = createService([
+      { id: 'ref', type: 'SHAPE', rect: { x: 100, y: 100, width: 50, height: 50 } },
+    ]);
+    const rect = { x: 0, y: 0, width: 50, height: 50 };
+    // 期望位移 (96, 97)：左边缘与顶边都进了参照物的吸附阈值
+    const v = svc.snapForDrag(rect, 96, 97, 'v');
+    expect(v.dx).toBe(96);
+    expect(v.matchedV).toEqual([]);
+    expect(v.spacingV).toBe(false);
+    expect(v.dy).toBe(100);
+    expect(v.matchedH.length).toBeGreaterThan(0);
+    const plain = svc.snapForDrag(rect, 96, 0);
+    expect(plain.dx).toBe(100);
+    svc.dispose();
+  });
+});

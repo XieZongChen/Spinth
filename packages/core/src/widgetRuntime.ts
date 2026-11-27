@@ -54,7 +54,9 @@ export const WIDGET_RUNTIME = {
     modelToken: token<IBaseModel>('LineModel'),
     vmToken: token<IBaseWidgetVm>('LineVm'),
     createModel: (r: ServiceRegistry) => new LineModel(r.resolve(Tokens.DataProcessor)),
-    createVm: () => new LineVm(),
+    // 轴消息判定要查轴（specs/sequence-diagram §4.5）：查询晚绑定（同生命线工厂）
+    createVm: (r: ServiceRegistry) =>
+      new LineVm({ axisOf: (id) => sequenceLookup(r)?.axisOf(id) ?? null }),
   },
   PEN: {
     modelToken: token<IBaseModel>('PenModel'),

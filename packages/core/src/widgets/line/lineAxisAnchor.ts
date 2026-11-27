@@ -23,7 +23,8 @@ export function axisJoinFor(axis: IAxisAnchor, p: IPoint): JoinDir {
  *  在 1000 高的轴上量化到 10px——「加长保高度」重写端口时消息会可见地跳。
  *  普通件维持两位不变（lineGeometry.r2） */
 export function r4(n: number): number {
-  return Math.round(n * 10000) / 10000;
+  // + 0 归一化 -0（Math.round(-1e-10) = -0）：钳到轴顶的端口不落负零
+  return Math.round(n * 10000) / 10000 + 0;
 }
 
 /** 高度 → 轴上比例（钳到 [0,1]，4 位小数）；退化轴（长 ≤ 0）不产生 NaN */

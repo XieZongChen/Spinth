@@ -73,8 +73,9 @@ export class RefLineService extends Disposable {
 
   /** 拖拽吸附：rect 为拖拽元素的初始包围盒。对齐（红）与等间距（橙）同 move
    *  内合并——同轴比较两者偏差，**更小者胜**（docs/06 §7：弱对齐不再截胡
-   *  更准的等距解；平局对齐胜，语义更强）；异轴并存 */
-  snapForDrag(initialRect: IRect, dx: number, dy: number): ISnapResult {
+   *  更准的等距解；平局对齐胜，语义更强）；异轴并存。
+   *  axis = 'v'（纵向会话，specs/sequence-diagram §4.5）：横向不匹配、dx 原样返回 */
+  snapForDrag(initialRect: IRect, dx: number, dy: number, axis?: 'v'): ISnapResult {
     const threshold = this.currentThreshold();
     this.lastGaps = [];
     if (threshold === null) {
@@ -84,8 +85,12 @@ export class RefLineService extends Disposable {
     this.rebuildIfDirty();
     const align = snapRect(initialRect, dx, dy, this.refLines, threshold, this.sticky);
     const spacing = snapEqualSpacing(initialRect, dx, dy, this.referenceRects, threshold);
+    // 纵向会话：消息端点本就对齐生命线中心线，不限制轴向每帧都会画竖参考线、
+    // 还会把 dx 拉偏
+    const freeV = axis === 'v';
     // 同轴偏差比较：偏差 = |修正后位移 − 期望位移|（吸附拉动量）
     const alignWinsV =
+      !freeV &&
       align.matchedV.length > 0 &&
       !(
         spacing.gaps.some((g) => g.axis === 'x') &&
@@ -102,10 +107,10 @@ export class RefLineService extends Disposable {
       v: alignWinsV ? (align.matchedVDefs ?? []) : [],
       h: alignWinsH ? (align.matchedHDefs ?? []) : [],
     };
-    const outDx = alignWinsV ? align.dx : spacing.dx;
+    const outDx = freeV ? dx : alignWinsV ? align.dx : spacing.dx;
     const outDy = alignWinsH ? align.dy : spacing.dy;
     const gaps = [
-      ...(alignWinsV ? [] : spacing.gaps.filter((g) => g.axis === 'x')),
+      ...(alignWinsV || freeV ? [] : spacing.gaps.filter((g) => g.axis === 'x')),
       ...(alignWinsH ? [] : spacing.gaps.filter((g) => g.axis === 'y')),
     ];
     this.lastGaps = gaps;
@@ -116,7 +121,7 @@ export class RefLineService extends Disposable {
       matchedH: alignWinsH ? align.matchedH : [],
       // 等间距让位轴（specs/flowchart-closeout §9.2）：消费方（selectorDragOps
       // 网格量化）凭此跳过该轴——否则 matchedV/H 为空会被误判「未命中参考线」
-      spacingV: !alignWinsV && spacing.gaps.some((g) => g.axis === 'x'),
+      spacingV: !freeV && !alignWinsV && spacing.gaps.some((g) => g.axis === 'x'),
       spacingH: !alignWinsH && spacing.gaps.some((g) => g.axis === 'y'),
     };
     this.drawMatches(result.matchedV, result.matchedH, gaps);

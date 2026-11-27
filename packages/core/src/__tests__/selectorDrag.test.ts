@@ -600,3 +600,137 @@ describe('容器拖拽带子（specs/container-frame §4.4）', () => {
     expect(frameVm.commitDrag).toHaveBeenCalledTimes(1); // 只有容器自身
   });
 });
+
+interface LineStub {
+  id: string;
+  type: 'LINE';
+  getBounds: () => { x: number; y: number; width: number; height: number };
+  getLocalRect: () => { x: number; y: number; width: number; height: number };
+  applyDragPreview: ReturnType<typeof vi.fn>;
+  commitDrag: ReturnType<typeof vi.fn>;
+  onSelected$: BehaviorSubject<boolean>;
+  onStateChanged$: Subject<unknown>;
+}
+
+/** 线桩：bbox = (x0, y0)–(x1, y1)；axisMessage = 实现轴消息探针 */
+function lineStub(id: string, x0: number, x1: number, axisMessage: boolean): LineStub {
+  const rect = { x: x0, y: 374, width: x1 - x0, height: 8 };
+  return {
+    id,
+    type: 'LINE',
+    getBounds: () => ({ ...rect }),
+    getLocalRect: () => ({ ...rect }),
+    applyDragPreview: vi.fn(),
+    commitDrag: vi.fn(),
+    onSelected$: new BehaviorSubject(false),
+    onStateChanged$: new Subject(),
+    ...(axisMessage ? { isAxisMessage: () => true } : {}),
+  };
+}
+
+describe('线选区拖拽（轴消息平移，specs/sequence-diagram §4.5）', () => {
+  function createLineHarness(vms: LineStub[]) {
+    let pressed = vms[0]!;
+    const handlers: Record<string, ((e: unknown) => void) | undefined> = {};
+    const transact = vi.fn((fn: () => void) => fn());
+    const stopCapturing = vi.fn();
+    const onDragCommitted = vi.fn();
+    const snapForDrag = vi.fn((_rect: unknown, dx: number, dy: number) => ({
+      dx,
+      dy,
+      matchedV: [],
+      matchedH: [],
+    }));
+    const selector = new SelectorService(
+      {
+        optionLayer: { addChild: () => {} },
+        vpScale$: { value: 1 },
+        registerGlobalEventListener: (_mode: string, h: Record<string, (e: unknown) => void>) => {
+          Object.assign(handlers, h);
+        },
+      } as never,
+      {
+        getAllVms: () => vms,
+        getVmById: (id: string) => vms.find((v) => v.id === id),
+        getVmByPoint: () => [pressed],
+        getVmByRect: () => vms,
+      } as never,
+      {
+        onModelCreated$: new Subject(),
+        onModelRemoved$: new Subject(),
+        transact,
+        removeByIds: vi.fn(),
+      } as never,
+      { stopCapturing } as never,
+      () => ({ snapForDrag, hideMatches: vi.fn() }) as unknown as RefLineService,
+    );
+    selector.onDragCommitted = onDragCommitted as never;
+    selector.initialize();
+    const evt = (x: number, y: number): unknown => ({
+      world: { x, y, clone: () => ({ x, y }) },
+      screen: { x, y },
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      raw: { x, y },
+    });
+    /** 选中 ids 后在 topId 上按下并拖动（down → move → up） */
+    const drag = (ids: string[], topId: string, dx: number, dy: number): void => {
+      pressed = vms.find((v) => v.id === topId)!;
+      selector.setSelected(ids);
+      handlers.onPointerDown?.(evt(300, 378));
+      handlers.onPointerMove?.(evt(300 + dx, 378 + dy));
+      handlers.onPointerUp?.(evt(300 + dx, 378 + dy));
+    };
+    return { selector, drag, transact, stopCapturing, snapForDrag, onDragCommitted };
+  }
+
+  it('线选区只有轴消息：建会话且恒为纵向——预览与落库只动 y（dx = 0），吸附带轴向实参', () => {
+    const m1 = lineStub('m1', 255, 645, true);
+    const h = createLineHarness([m1]);
+    h.drag(['m1'], 'm1', 40, 60);
+    const init = { x: 255, y: 374, width: 390, height: 8 };
+    expect(m1.applyDragPreview).toHaveBeenLastCalledWith(init, 0, 60);
+    expect(m1.commitDrag).toHaveBeenCalledTimes(1);
+    expect(m1.commitDrag).toHaveBeenCalledWith(init, 0, 60);
+    expect(h.snapForDrag).toHaveBeenCalledWith(init, 0, 60, 'v');
+    expect(h.onDragCommitted).toHaveBeenCalledWith(['m1'], 0, 60);
+    expect(h.transact).toHaveBeenCalledTimes(1);
+    expect(h.stopCapturing).toHaveBeenCalledTimes(1);
+  });
+
+  it('混有普通线：建会话，位移只走纵向；普通线不获得任何横向位移', () => {
+    const m1 = lineStub('m1', 255, 645, true);
+    const n1 = lineStub('n1', 100, 500, false);
+    const h = createLineHarness([m1, n1]);
+    h.drag(['m1', 'n1'], 'm1', 40, 60);
+    // 只有轴消息响应平移（LineVm 的普通线覆写仍是空操作——交互几何单测锁定）
+    expect(m1.applyDragPreview).toHaveBeenLastCalledWith(expect.anything(), 0, 60);
+    // 会话对普通线给出的位移同样没有横向分量
+    const [initN, dxN] = n1.applyDragPreview.mock.calls.at(-1) as [unknown, number, number];
+    expect(dxN).toBe(0);
+    expect(initN).toEqual({ x: 100, y: 374, width: 400, height: 8 });
+    expect(m1.commitDrag).toHaveBeenCalledWith(expect.anything(), 0, 60);
+  });
+
+  it('纯普通线选区：不建会话（现状不变）', () => {
+    const n1 = lineStub('n1', 100, 500, false);
+    const h = createLineHarness([n1]);
+    h.drag(['n1'], 'n1', 40, 60);
+    expect(n1.applyDragPreview).not.toHaveBeenCalled();
+    expect(n1.commitDrag).not.toHaveBeenCalled();
+    expect(h.transact).not.toHaveBeenCalled();
+    expect(h.snapForDrag).not.toHaveBeenCalled();
+  });
+
+  it('纵向会话的网格量化只作用 y（x 不被拉到格点）', () => {
+    const m1 = lineStub('m1', 255, 645, true);
+    const h = createLineHarness([m1]);
+    h.selector.gridSnapOn = () => true;
+    h.drag(['m1'], 'm1', 0, 61);
+    // x = 255 距格点 256 只差 1：横向若量化会得到 dx = 1；纵向 374 + 61 = 435 → 432
+    const [, dx, dy] = m1.applyDragPreview.mock.calls.at(-1) as [unknown, number, number];
+    expect(dx).toBe(0);
+    expect(dy).toBe(58);
+  });
+});

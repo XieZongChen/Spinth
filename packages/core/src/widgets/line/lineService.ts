@@ -341,6 +341,12 @@ export class LineService extends Disposable {
     this.anchorFollow?.reattach(nodeId, geom);
   }
 
+  /** 单线按锚点重算（轴消息平移后的兜底重算，specs/sequence-diagram §4.5；
+   *  本体在 LineAnchorFollow 协作者） */
+  refreshLine(id: string): void {
+    this.anchorFollow?.refreshLine(id);
+  }
+
   /** 拖拽/旋转预览期的锚定线实时跟随（旋转手势经组合根接线，docs/05 §8） */
   previewFollow(): void {
     this.anchorFollow?.previewFollow();

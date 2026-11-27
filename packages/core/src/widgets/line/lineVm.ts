@@ -7,6 +7,7 @@ import {
   effectivePath,
   insetEnds,
   LINE_END_GAP,
+  r2,
   segmentDirection,
   slicePathByDash,
   slicePathExcludingRect,
@@ -15,7 +16,8 @@ import {
 import { computeLineTextKnockout, createLineTextNode } from './lineVmText';
 import { hitTestLinePoint, hitTestLineText } from './lineVmHit';
 import { markRender } from '../../common/render';
-import type { LineData } from '../../types';
+import type { ISequenceLookup, LineData } from '../../types';
+import { axisMessageKind, shiftedAxisPorts, type AxisMessageKind } from './lineAxisMessage';
 
 // 线上文字常量单源在 lineVmText（编辑 DOM 与渲染同源消费）；此处 re-export
 // 保持 lineTextEditor 等外部消费者的 import 路径不变
@@ -48,8 +50,12 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
   private _editorFrame: { width: number; height: number } | null = null;
   /** 最近一次镂空矩形（世界坐标，E2E 探针 lineKnockout 用） */
   private _lastKnockout: { x: number; y: number; width: number; height: number } | null = null;
+  /** 轴消息判定缓存（specs/sequence-diagram §4.5）：render 时按锚定字段重算——
+   *  探针在 hover / 拖拽会话建立时被频繁调用，不每次扫查询 */
+  private axisKind: AxisMessageKind = null;
 
-  constructor() {
+  /** sequence = 轴只读查询（轴消息判定用；widgetRuntime 工厂晚绑定注入，未注入 = 不是） */
+  constructor(private readonly sequence: Pick<ISequenceLookup, 'axisOf'> | null = null) {
     super({
       id: '',
       type: 'LINE',
@@ -86,6 +92,7 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
     // root 在原点（线是世界坐标绝对绘制），命中以世界坐标进行
     this.root.position.set(0, 0);
     this.root.scale.set(1);
+    this.axisKind = axisMessageKind(next, (id) => this.sequence?.axisOf(id) ?? null);
     this.drawLine(
       next.points.map((p) => ({ x: p[0], y: p[1] })),
       next,
@@ -329,17 +336,45 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
     };
   }
 
+  /** 轴消息探针（specs/sequence-diagram §4.1）：两端都锚在生命线轴上、可沿轴平移
+   *  的线（水平消息与自消息）；判定见 lineAxisMessage.axisMessageKind */
+  isAxisMessage(): boolean {
+    return this.axisKind !== null;
+  }
+
   /** 线不可整体拖动/缩放（2026-09-20 用户拍板对齐既有设计，docs/08 §3 修订）：
    *  既有设计 LineModel.updateTransform 为空操作（「取消操作」实证）——四覆写
    *  即空操作语义：拖线身/键盘微移/整体缩放均无视觉反馈与落库；线的移动
    *  只能拖端点重锚定或随锚定节点移动。注意是覆写为空而非删覆写——删了
-   *  会回归 rect 型基类默认（updateRect 平移，松手弹回的旧 bug 形态）。 */
-  override applyDragPreview(_initBounds: IRect, _dx: number, _dy: number): void {
-    /* 空操作（对齐既有设计） */
+   *  会回归 rect 型基类默认（updateRect 平移，松手弹回的旧 bug 形态）。
+   *  例外：轴消息可沿轴平移（specs/sequence-diagram §4.5）——拖线身 / 上下微移
+   *  改时间位置；横向位移对它无意义（dx 忽略）。 */
+  override applyDragPreview(_initBounds: IRect, _dx: number, dy: number): void {
+    // 轴消息：root 纵向绝对定位（几何在 points 上，docs/14 规则 1）；其余线空操作
+    if (this.axisKind) this.root.position.set(0, dy);
   }
 
-  override commitDrag(_initBounds: IRect, _dx: number, _dy: number): void {
-    /* 空操作（对齐既有设计） */
+  override commitDrag(_initBounds: IRect, _dx: number, dy: number): void {
+    if (!this.axisKind || dy === 0) return;
+    const data = this.state;
+    const endOf = (id: string | null, port: number | undefined) => {
+      const axis = id ? (this.sequence?.axisOf(id) ?? null) : null;
+      return axis ? [{ axis, port: port ?? 0.5 }] : [];
+    };
+    const ends = [
+      ...endOf(data.startNodeId, data.startPort),
+      ...endOf(data.endNodeId, data.endPort),
+    ];
+    if (ends.length !== 2) return; // 判定与查询不一致（极端时序）：不写半截端口
+    // dy 先钳到两端都留在各自轴内；钳没了（顶到轴端）零写入
+    const shifted = shiftedAxisPorts(ends, dy);
+    if (shifted.dy === 0) return;
+    this.model?.update({
+      startPort: shifted.ports[0],
+      endPort: shifted.ports[1],
+      // 水平消息与自消息都是纯平移：现有 points 整体加 dy
+      points: data.points.map(([x, y]) => [r2(x), r2(y + shifted.dy)] as [number, number]),
+    } as never);
   }
 
   override applyResizePreview(_startRect: IRect, _nextRect: IRect): void {

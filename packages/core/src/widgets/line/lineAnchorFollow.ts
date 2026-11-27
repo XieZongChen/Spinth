@@ -138,6 +138,25 @@ export class LineAnchorFollow extends Disposable {
     this.respreadLines(() => false);
   }
 
+  /** 单线按锚点重算（轴消息平移后的兜底重算，specs/sequence-diagram §4.5——
+   *  激活条的条边让位接入后由它生效；samePoints 守卫 = 无变化零写入）。宿主几何
+   *  取 vm 当前值（respreadLines 同式）；未锚定的线不算 */
+  refreshLine(id: string): void {
+    const model = this.engine.getModelById(id);
+    if (!model) return;
+    const data = model.toJSON() as unknown as ILineAnchorData & { id: string };
+    if (!data.startNodeId && !data.endNodeId) return;
+    const geomOf = (nodeId: string | null): IHostGeom | null =>
+      nodeId ? (this.vmEngine.getVmById(nodeId)?.getHostGeom() ?? null) : null;
+    const pts = this.routeLinePoints(
+      data,
+      geomOf(data.startNodeId),
+      geomOf(data.endNodeId),
+      this.selfLoopSpans(),
+    );
+    if (pts && !samePoints(data.points, pts)) model.update({ points: pts } as never);
+  }
+
   /**
    * 拖拽预览期的连线实时跟随（docs/08 §3；用户实测「拖动中连线掉在原地、
    * 松手才跳」）：对锚定于被拖控件的线按**预览宿主几何**（getHostGeom

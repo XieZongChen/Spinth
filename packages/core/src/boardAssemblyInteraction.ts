@@ -176,7 +176,13 @@ export function assembleInteraction(sdk: BoardSDK): void {
     if (dx === 0 && dy === 0) return;
     for (const id of ids) {
       const vm = sdk.vmEngine?.getVmById(id);
-      if (!vm || vm.type === 'LINE') continue; // 线自身不触发（防自环）
+      if (!vm) continue;
+      if (vm.type === 'LINE') {
+        // 线自身不触发 reattach（防自环）；轴消息平移后按锚点兜底重算
+        // （specs/sequence-diagram §4.5——激活条的条边让位接入后由它生效）
+        if (vm.isAxisMessage?.()) sdk.lineService?.refreshLine(id);
+        continue;
+      }
       sdk.lineService?.reattach(id, vm.getHostGeom());
     }
   };

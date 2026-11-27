@@ -99,7 +99,10 @@ export interface ILineHoverHit {
  *   segmentBodyGrabbable 同源，防「光标说可拖但按下无反应」）；
  * - 光标 = 段身拖动方向（法向）的双向箭头——水平段上下拖 ↕ ns-resize /
  *   垂直段左右拖 ↔ ew-resize（与矩形缩放手柄同惯例：光标指拖向，
- *   2026-09-30 用户实测定向）；端点 = grab。
+ *   2026-09-30 用户实测定向）；端点 = grab；
+ * - axisMessage（轴消息，specs/sequence-diagram §4.5）：STRAIGHT 线身可上下平移——
+ *   距两端 >12/scale 且距线身 ≤8/scale 出 ns-resize，不出胶囊（无段语义）；
+ *   其余 STRAIGHT 线维持无光标。缺省 false = 现状。
  */
 export function resolveLineHover(
   pts: IPt[],
@@ -108,6 +111,7 @@ export function resolveLineHover(
   world: IPt,
   scale: number,
   anchored?: { start: boolean; end: boolean },
+  axisMessage = false,
 ): ILineHoverHit {
   const grab = 12 / scale;
   const dS = Math.hypot(world.x - pts[0]!.x, world.y - pts[0]!.y);
@@ -142,6 +146,12 @@ export function resolveLineHover(
     const a = pts[hoverSegIndex]!;
     const b = pts[hoverSegIndex + 1]!;
     hoverCursor = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? 'ns-resize' : 'ew-resize';
+  } else if (
+    axisMessage &&
+    lineType !== 'ELBOWED' &&
+    nearestSegBody(pts, world, SEGMENT_BODY_TOLERANCE / scale)
+  ) {
+    hoverCursor = 'ns-resize'; // 轴消息线身：只给光标，不亮胶囊
   }
   return { endpointActive, segmentActive, hoverSegIndex, hoverCursor };
 }

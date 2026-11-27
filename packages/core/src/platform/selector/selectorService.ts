@@ -257,8 +257,8 @@ export class SelectorService extends Disposable implements ISelectorService {
       const sessionIds = frames ? frames.expandForCascade(ids) : ids;
       // initial（per-id）= getLocalRect（commitDrag/预览的输入语义——数据矩形）；
       // initialUnion = 世界 AABB union（选区框视觉，θ≠0 外接矩形大于数据矩形）。
-      // 纯线选区在 createDragState 内部拒绝（空操作会话的 ActionBar 停隐
-      // 副作用——完整因果见 selectorDragOps 注释，2026-11 三轮审查下沉）
+      // 无可平移件的线选区在 createDragState 内部拒绝（空操作会话的 ActionBar
+      // 停隐副作用——完整因果见 selectorDragOps 注释，2026-11 三轮审查下沉）
       const dragState = createDragState(this.dragCtx, sessionIds, e, wasSelected, ids);
       if (dragState) this.dragState = dragState;
     } else {
