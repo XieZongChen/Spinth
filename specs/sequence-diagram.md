@@ -339,33 +339,37 @@ maxWidth, style, measurer)`。不放 `common/`——`common/README.md` 约定本
 轴锚定与悬停反馈、quick-add 资格（§4.8）同批落地，避免过渡期不一致。
 
 ```ts
-/** 轴的世界坐标（geom 缺省 = 当前宿主几何，预览敏感）；null = 无轴 */
-export function lifelineAxis(rect: IRect, head: LifelineHead): IAxisAnchor | null;
-// { x: rect.x + rect.width / 2, top: rect.y + 头高, bottom: rect.y + rect.height }
-
-/** 轴上高度 ↔ 端口 */
+// widgets/line/lineAxisAnchor.ts —— 纯函数（连线层通用；生命线与消息共用。
+// 连线层不能反向依赖 sequence，所以轴上几何不放 lifelineGeometry）
+/** 轴上高度 ↔ 点 */
 export function axisAnchorPoint(axis: IAxisAnchor, t: number): IPoint;
 export function axisJoinFor(axis: IAxisAnchor, p: IPoint): JoinDir; // p.x ≥ axis.x ? 'right' : 'left'
 export function axisPortFor(axis: IAxisAnchor, y: number): number; // clamp01((y − top) / (bottom − top))，r4
-
 /** 轴锚点：y = 轴上高度；x = 轴 + sign(join) × (barHalf − LINE_END_GAP) */
-export function lifelineAxisAnchor(
+export function axisAnchorWithInset(
   axis: IAxisAnchor,
   join: JoinDir,
   t: number,
   barHalf: number,
 ): IPoint;
+
+// widgets/sequence/lifelineGeometry.ts
+/** 轴的世界坐标；轴长 < 1 返回 null（按普通件处理） */
+export function lifelineAxis(rect: IRect, head: LifelineHead | undefined): IAxisAnchor | null;
+// { x: rect.x + rect.width / 2, top: rect.y + 头高, bottom: rect.y + rect.height }
 ```
 
 - `sign(join)`：right = +1、left = −1、top / bottom = 0。
 - **`barHalf`**：绑定在本生命线上、且纵向覆盖该高度的激活条的半宽（多条取最大），
   无覆盖为 0。由 `LifelineVm` 经构造注入的 `getBars()` 现查（返回各条 `getBounds()`，
-  预览敏感），VM 不持服务引用。
+  预览敏感），VM 不持服务引用。**批次 2 里 `barsOf` 恒空，barHalf = 0**（锚点让出一个
+  留隙）；激活条在批次 3 接入后让位量随之生效。
 - **为什么减 `LINE_END_GAP`**：连线两端视觉各收缩一个留隙（`linePath.insetEnds`）。
   锚点向内让出一个留隙后，线身与箭头恰好停在条边或轴上；不让位则箭头悬在轴外
-  5px，或被激活条盖住半个箭头。
-- `LifelineVm.getAnchorPoint(join, t, geom)` 覆写为上式（SYMBOL 图形区锚点同款）。
-  旋转恒 0，无 θ 回投。
+  5px，或被激活条盖住半个箭头。常量留在 `linePath.ts`（只有连线层用它，不上提 common）。
+- `LifelineVm.getAnchorPoint(join, t, geom)` 覆写为上式（SYMBOL 图形区锚点同款）：
+  对四个 join，`t` 都是轴上高度比例。旋转恒 0，无 θ 回投。`lifelineAxis` 返回 null
+  （轴长 < 1 的退化件）时回落基类的 bbox 锚点。
 - `LifelineVm.getAxisAnchor(geom)` 实现 §4.1 探针。
 
 ### 3.3 命中
@@ -439,36 +443,30 @@ Enter 恒提交、空文本 keep、`onExit` 时写过才 `stopCapturing`、只�
 ### 4.1 宿主探针（`types/base.ts`，`IBaseWidgetVm` 的可选成员）
 
 ```ts
-/** 缩放整形（§3.5；批次 1）：返回整形后的目标矩形，预览 / 编辑框 / 落库同源。
- *  缺省 = 不整形 */
-export interface IResizeConstrainVm {
-  constrainResize(start: IRect, next: IRect): IRect;
-}
-
+/** 轴的 world 几何：x = 轴，top / bottom = 轴段两端 */
 export interface IAxisAnchor {
   x: number;
   top: number;
   bottom: number;
 }
 
-/** 轴锚定宿主（LifelineVm 实现） */
-export interface IAxisAnchorVm {
-  getAxisAnchor(geom?: IHostGeom): IAxisAnchor | null;
-}
-/** false = 不作连线目标：hitWidget 跳过它继续取下层（ActivationVm 实现） */
-export interface IConnectionTargetVm {
-  isConnectionTarget(): boolean;
-}
+// IBaseWidgetVm 的可选成员（缺省 = 不是轴宿主 / 不具备该语义）
+/** 轴锚定宿主（LifelineVm 实现）；null = 无轴或非轴宿主 */
+getAxisAnchor?(geom?: IHostGeom): IAxisAnchor | null;
+/** false = 不作连线目标：hitWidget 跳过它继续取下层（ActivationVm 实现，批次 3） */
+isConnectionTarget?(): boolean;
 /** 本件移动 / 缩放 / 新建 / 删除后需要重路由的锚定宿主；缺省 = [自身 id]
- *  （ActivationVm 返回 [lifelineId]，未绑定返回 []） */
-export interface IAnchorFollowHostsVm {
-  anchorFollowHosts(): string[];
-}
+ *  （ActivationVm 返回 [lifelineId]，未绑定返回 []——批次 3） */
+anchorFollowHosts?(): string[];
 /** 两端都锚在生命线轴上的直线，可沿轴平移（LineVm 实现） */
-export interface IAxisMessageVm {
-  isAxisMessage(): boolean;
-}
+isAxisMessage?(): boolean;
+/** 缩放整形（§3.5；批次 1 已落地）：吸附后末位应用，θ ≠ 0 不调用 */
+constrainResize?(start: IRect, next: IRect, dir: ResizeDir): IRect;
 ```
+
+探针都是可选成员、以方法形式调用（`this` = vm）；服务层不按 type 分支（docs/14
+规则 6）。批次 2 落 `getAxisAnchor` / `isAxisMessage` 与 `isConnectionTarget` 的跳过
+判定（实现者是批次 3 的激活条）；`anchorFollowHosts` 随批次 3。
 
 ### 4.2 落点策略：按下点 / 松开点写显式端口
 
@@ -483,7 +481,9 @@ export function resolveAnchorPick(
 ```
 
 - 轴宿主：`join = axisJoinFor`（指针在轴的哪一侧），`port = axisPortFor`（r4）。
-- 其他宿主：`join = nearestJoin`，`port = undefined`——与今日逐字节一致。
+- 其他宿主：`join = nearestJoin`，`port = undefined`——与今日逐字节一致。创建数据只在
+  port 有值时才写 `startPort` / `endPort` 键（写 `undefined` 会在 Yjs 里留下键，
+  不再与今日逐字节相等）。
 - 消费点三处：`LineDrawSession.pointerDown` / `applyMove`（新增：port 有值即写入
   `startPort` / `endPort`）、`LineEndpointDrag.onMove`（替换其内联投影）。
 - **为什么是 4 位小数**：端点拖拽今天写两位小数。两位小数在 520 高的轴上量化到 5px，
@@ -526,13 +526,23 @@ STRAIGHT，自消息保留 ELBOWED。
 
 1. **按下**：命中轴宿主 → 起点 = 按下高度（§4.2），建草稿；命中非轴宿主或空白 →
    不建线，零写入。
-2. **拖动**：指针在轴宿主上 → 终点 = 钳到该轴范围的起点高度；不在 → 终点跟指针
-   （既有自由端预览）。
+2. **拖动**：指针在另一条轴上 → 终点 = 钳到该轴范围的起点高度，预览为两点直线；
+   在起点那条轴上且纵向间距 ≥ 8 → 预览为自消息环（§4.6），间距 < 8 不画环
+   （既有 `routeSelfLoop` 会把重合锚点撑成 80 的环，一按下就闪一个大环）；不在轴
+   宿主上 → 终点跟指针（既有自由端预览）。
 3. **松手**（`settle`）：
    - 在**另一条**轴上 → 写 `endNodeId / endJoin / endPort`，并把两端 join 按方向
      归一（起点 = 去向侧，终点 = 来向侧），线型改 STRAIGHT；一步撤销；工具保持激活。
    - 在**同一条**轴上且纵向间距 ≥ 8 → 自消息（§4.6）。
-   - 其他 → 删除草稿。时序图没有悬空消息。
+   - 其他 → 取消，什么都不留。时序图没有悬空消息。
+
+**草稿不入撤销栈**（批次 2 开工前拍板，人类确认）：草稿的创建与逐帧移动走非跟踪
+origin 的事务（`engine.transact(fn, 'sequence-draft')`——`Y.UndoManager` 只跟踪 origin
+为 null 的事务）。落定时在同一帧内先以非跟踪事务删草稿、再以跟踪事务建终线，之后才
+`onSettled` → `stopCapturing` → 选中：一步撤销 = 建出这条消息。取消 = 非跟踪删除，
+撤销栈零变化。原因：草稿入栈后取消会留一个空撤销步；拖动超过 0.5 秒（captureTimeout）
+时创建与删除落在不同撤销项，撤销会把已取消的草稿复活成悬空线。只在有策略时启用，
+默认连线路径不变（S8）。
 
 join 归一的理由：箭头让位方向由 join 决定（§3.2），而 `axisJoinFor` 取的是指针侧；
 不归一的话从轴右侧按下、向左画的消息，箭头会让向远侧。
@@ -541,18 +551,25 @@ join 归一的理由：箭头让位方向由 join 决定（§3.2），而 `axisJ
 
 - **判定**：S2。`LineVm.isAxisMessage()` 在 render 时按锚定字段重算并缓存。
 - **拖线身**：`createDragState` 的规则由「纯线选区不建会话」改为「没有任何可平移件
-  的线选区不建会话」。会话内全部是轴消息时置 `DragState.axis = 'v'`：
-  `applyDragMove` 把 dx 置 0，只做纵向吸附，选区框只动 y。
+  的线选区不建会话」。线选区里只要有轴消息就建会话：轴消息上下移动，普通线原地不动
+  （混选口径，批次 2 开工前拍板，人类确认）。线选区恒置 `DragState.axis = 'v'`：
+  `applyDragMove` 把 dx 置 0、只做纵向吸附、选区框只动 y（只有轴消息会动，它们只动
+  纵向）；含形状的混合选区照常（形状移动带动线跟随）。纵向吸附经 `snapForDrag` 的
+  轴向实参：消息端点本就对齐生命线中心线，不限制轴向的话每帧都会画竖参考线、还会把
+  dx 拉偏 5px。
 - **预览**：`LineVm.applyDragPreview` 对轴消息写 `root.position = (0, dy)`，其余线仍空操作。
 - **落库**：`LineVm.commitDrag` 写 `{ startPort, endPort, points }` 单次 update。dy 先
-  钳到「两端都留在各自轴内」的范围（`sequenceOps.shiftedAxisPorts`）；dy = 0 不写。
-  points 由两端宿主的 `getAnchorPoint` 现算（含条边让位）。
+  钳到「两端都留在各自轴内」的范围（`lineAxisMessage.shiftedAxisPorts`）；dy = 0 不写。
+  points 由现有 points 整体加 dy（水平消息与自消息都是纯平移）；组合根在
+  `onDragCommitted` 里对轴消息调 `lineService.refreshLine(id)` 按锚点兜底重算
+  （批次 3 的条边让位由此生效，samePoints 守卫零幻影写）。
 - **键盘**：`nudgeSelected` 已对所有选中件逐个调 `commitDrag`，↑ / ↓ 自动生效；
   ← / → 因 dy = 0 零写入。
 - **端点手柄照旧**：拖单个端点只改那一端（消息可以变斜）。
 - 线身抓取范围：距两端点 > 12 屏幕 px（端点手柄优先）。STRAIGHT 不进段滑移分支，
   `lineService.handleGestureDown` 无需改动。
-- **悬停光标**（批次 4）：轴消息线身——距两端 > 12 屏幕 px 且距线身 ≤ 8 屏幕 px——hover
+- **悬停光标**（批次 2；原定批次 4，人类拍板提前——拖线身落地却没有悬停提示，用户
+  不知道线身能拖）：轴消息线身——距两端 > 12 屏幕 px 且距线身 ≤ 8 屏幕 px——hover
   显示 `ns-resize`，不出胶囊高亮；其余 STRAIGHT 线维持无光标。`resolveLineHover`
   增可选实参 `axisMessage`（缺省 false = 现状），只在光标分支多一条；
   `lineHoverOverlay.ts`（已 397 行）只多传一个实参。
@@ -586,7 +603,10 @@ join 归一的理由：箭头让位方向由 join 决定（§3.2），而 `axisJ
 ### 4.8 目标拾取、quick-add、避障
 
 - `lineHitTest.hitWidget` 两段循环都加一条：`isConnectionTarget() === false` 的件跳过
-  （与 LINE / PEN 并列）。指针落在激活条上时取到下层的生命线。
+  （与 LINE / PEN 并列）。指针落在激活条上时取到下层的生命线（判定批次 2 落地，
+  实现者是批次 3 的激活条）。
+- 容差环对轴宿主按「到轴段的距离」算，不按包围盒：生命线包围盒 120 宽，贴包围盒
+  外沿 8px 按下离轴还有 50 多 px，不该起消息。头框是实心块，严格命中已覆盖。
 - `lineQuickAdd.maybeAnchorGrab` 与选中态连接点绘制共用资格判定 `canQuickAdd(vm)`：
   轴宿主与 `isConnectionTarget() === false` 的件返回 false——不出四向连接点，
   点击也不触发 quick-add。拉线悬停反馈（轴上的点）保留。
@@ -823,7 +843,7 @@ export function composeCascadeLookup(
 | 1   | `widgets/base/dragCreateServiceBase.ts`                                                                  | 处理器对象提为 `handlers`（前置重构）                                                                                                                          | 1         |
 | 2   | `widgets/line/lineService.ts` + `lineCollaborators.ts`                                                   | `drawHandlers`；协作者构造迁工厂（前置重构，净减行）                                                                                                           | 1         |
 | 3   | `platform/textEngine/labelText.ts`、`widgets/symbol/symbolGeometry.ts`、`widgets/frame/frameGeometry.ts` | 标签清洗 / 截断上提（前置重构）                                                                                                                                | 1         |
-| 4   | `common/geometry.ts`、`widgets/line/linePath.ts`                                                         | `LINE_END_GAP` 上提，linePath 改引用                                                                                                                           | 2         |
+| 4   | —（无改动）                                                                                              | `LINE_END_GAP` 留在 `linePath.ts`：只有连线层用它，不上提 common                                                                                               | 2         |
 | 5   | `types/widget.ts`                                                                                        | 两个 schema、`LineSchema.textSide`、注册表两项                                                                                                                 | 1 / 3 / 4 |
 | 6   | `types/base.ts`                                                                                          | `IAxisAnchor` + 四个可选探针；`constrainResize` 整形探针                                                                                                       | 1 / 2 / 3 |
 | 7   | `types/services.ts`                                                                                      | `CursorMode`；`onResizeCommitted` 三参；`IActivationLookup`；`ILineDrawPolicy`                                                                                 | 1 / 2 / 3 |
@@ -832,15 +852,16 @@ export function composeCascadeLookup(
 | 10  | `widgets/sequence/lifelineGeometry.ts`                                                                   | 常量 + §3.1–3.2 纯函数                                                                                                                                         | 1 / 2     |
 | 11  | `widgets/sequence/lifelineModel.ts` / `lifelineVm.ts`                                                    | 三件套前两件；命中、轴锚点、缩放整形、避障豁免                                                                                                                 | 1 / 2     |
 | 12  | `widgets/sequence/lifelineLabelEditor.ts`                                                                | plain 内核标签会话                                                                                                                                             | 1         |
-| 13  | `widgets/line/lineAxisAnchor.ts`                                                                         | 落点策略、`ILineDrawPolicy` 与预设、join 归一                                                                                                                  | 2         |
+| 13  | `widgets/line/lineAxisAnchor.ts`                                                                         | 轴上几何（`axisAnchorPoint` / `axisJoinFor` / `axisPortFor` / `axisAnchorWithInset`）、`isAxisHost`、`resolveAnchorPick`、`ILineDrawPolicy` 与预设、join 归一  | 2         |
 | 14  | `widgets/line/lineDrawSession.ts`                                                                        | 策略接入（§4.2–4.4、§4.6）                                                                                                                                     | 2         |
 | 15  | `widgets/line/lineEndpointDrag.ts`                                                                       | 改用 `resolveAnchorPick`                                                                                                                                       | 2         |
-| 16  | `widgets/line/lineHitTest.ts` / `lineQuickAdd.ts` / `lineHoverOverlay.ts` / `lineHoverMath.ts`           | 连接目标跳过；quick-add 资格单源；轴消息悬停光标                                                                                                               | 2 / 3 / 4 |
-| 17  | `widgets/sequence/sequenceOps.ts`                                                                        | 轴消息判定、端口平移、缩放后端口、绑定判定（纯函数）                                                                                                           | 2 / 3     |
+| 16  | `widgets/line/lineHitTest.ts` / `lineQuickAdd.ts` / `lineHoverOverlay.ts` / `lineHoverMath.ts`           | 连接目标跳过、轴容差环、`canQuickAdd` 资格单源、轴点悬停反馈、轴消息悬停光标                                                                                   | 2 / 3     |
+| 17  | `widgets/line/lineAxisMessage.ts`                                                                        | 轴消息判定、端口平移（纯函数；LineVm 在连线层，不能反向依赖 sequence）                                                                                         | 2         |
+| 17a | `widgets/sequence/sequenceOps.ts`                                                                        | 绑定判定（纯函数）                                                                                                                                             | 3         |
 | 18  | `widgets/line/lineVm.ts`                                                                                 | 轴消息平移两覆写 + `isAxisMessage`                                                                                                                             | 2         |
 | 19  | `platform/selector/selectorDragOps.ts`                                                                   | `createDragState` 规则；纵向会话                                                                                                                               | 2         |
 | 20  | `widgets/line/lineAxisResize.ts`                                                                         | `rewirePortsAfterResize`；`previewFollow` 的宿主扩展                                                                                                           | 2 / 3     |
-| 21  | `platform/rectEditor/rectEditorService.ts` + `rectEditorRotate.ts`                                       | 整形探针接线（批次 1）；旋转手势拆出协作者（前置重构，零行为）；`onResizeCommitted` 传 `start`                                                                 | 1 / 2     |
+| 21  | `platform/rectEditor/rectEditorService.ts` + `rectEditorRotate.ts`                                       | 整形探针接线（批次 1）；旋转手势拆出协作者（前置重构，零行为）；`onResizeCommitted` 传 `start`（公开字段，无接口类型）                                         | 1 / 2     |
 | 22  | `widgets/line/lineVmText.ts` / `lineTextEditor.ts` / `lineVmHit.ts`                                      | `textAnchorOf` 单源（§4.9）                                                                                                                                    | 4         |
 | 23  | `widgets/sequence/activationModel.ts` / `activationVm.ts`                                                | 激活条控件；锁宽缩放；两个探针                                                                                                                                 | 3         |
 | 24  | `widgets/sequence/sequenceCascade.ts`                                                                    | `IActivationLookup` 实现 + `composeCascadeLookup`                                                                                                              | 3         |
@@ -885,15 +906,15 @@ export interface ISequenceLookup {
   barsOf(lifelineId: string): IRect[];
 }
 
-// rectEditor：可选整形探针（§3.5；批次 1）——planResize 末位应用，θ ≠ 0 不调用
-constrainResize?(start: IRect, next: IRect): IRect;
-// 批次 2 起：缩放松手钩子带起始矩形
-onResizeCommitted?: (id: string, next: IRect, start: IRect) => void;
+// IBaseWidgetVm：可选整形探针（§3.5；批次 1）——planResize 吸附后末位应用，θ ≠ 0 不调用
+constrainResize?(start: IRect, next: IRect, dir: ResizeDir): IRect;
+// RectEditorService 的公开字段（无接口类型）；批次 2 起带起始矩形
+onResizeCommitted: ((id: string, next: IRect, start: IRect) => void) | null;
 
-// ---- widgets/sequence/sequenceOps.ts（纯函数） ----
+// ---- widgets/line/lineAxisMessage.ts（纯函数） ----
 export type AxisMessageKind = 'horizontal' | 'self' | null;
 export function axisMessageKind(
-  data: { lineType: string; startNodeId: string | null; endNodeId: string | null },
+  data: { lineType: string; pinned: boolean; startNodeId: string | null; endNodeId: string | null },
   axisOf: (id: string) => IAxisAnchor | null,
 ): AxisMessageKind;
 /** 两端 port 同移 dy；返回钳制后的 dy 与新 port（r4） */
@@ -901,7 +922,8 @@ export function shiftedAxisPorts(
   ends: ReadonlyArray<{ axis: IAxisAnchor; port: number }>,
   dy: number,
 ): { dy: number; ports: number[] };
-export function constrainLifelineResize(start: IRect, next: IRect): IRect;
+// widgets/sequence/lifelineGeometry.ts（批次 1 已落地，带手柄方向）
+export function constrainLifelineResize(start: IRect, next: IRect, dir: ResizeDir): IRect;
 
 // ---- widgets/sequence/sequenceService.ts ----
 export class SequenceService extends Disposable implements IActivationLookup, ISequenceLookup {
@@ -960,6 +982,7 @@ export function rewirePortsAfterResize(
 | 13  | 事务内读 `vm.getBounds()`                | 微任务合批旧值；`rectOf` 用算术或 `model.toJSON()`                                                                                                            |
 | 15  | 在 vm 的 diff 观察者里补写派生数据       | 并入触发它的命令事务：微任务相晚于 `stopCapturing` 会裂成独立撤销项，undo·redo 触发同一 diff 还会覆盖恢复出的状态并清空重做栈（specs/flowchart-closeout §24） |
 | 16  | 把生命线 / 激活条加进 `ParentIdField`    | 不带字段，归属结构上不可写（S5）                                                                                                                              |
+| 18  | 消息草稿入撤销栈、落空再删除             | 草稿走非跟踪 origin；落定才以跟踪事务建终线（§4.4）——入栈后取消留空撤销步，慢拖时撤销会复活草稿                                                               |
 | 17  | 贴着 400 行的文件直接加逻辑              | `lineService.ts` 先瘦身到 ≤ 370；`rectEditorService.ts` 批次 1 后 399 行、再动先拆旋转手势；`lineHoverOverlay.ts` 397 行：只加实参（§1.6）                    |
 
 ## 10. 性能
@@ -976,28 +999,29 @@ export function rewirePortsAfterResize(
 
 ### 11.1 单测（vitest）
 
-| 文件                                               | 覆盖                                                                                                                                                   |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `lifelineGeometry.test.ts`                         | 头框 / 轴派生；`axisAnchorPoint` 钳制；`axisJoinFor`；`axisPortFor`；锚点让位方向 × 条半宽；命中（头 / 轴带 / 轴旁 / 退化）                            |
-| `sequenceOps.test.ts`                              | `axisMessageKind` 全分支；`shiftedAxisPorts` 钳制与幂等；`resolveActivationHost`（容差内 / 外 / 无纵向重叠 / 多宿主取最上）；`constrainLifelineResize` |
-| `lineAxisAnchor.test.ts`                           | `resolveAnchorPick`：轴宿主与普通件；四类预设的内容；join 归一                                                                                         |
-| `lineDrawPolicy.test.ts`                           | 策略缺省 → 创建数据与现状逐字节相等（S8）；有策略 → 写显式 port / 预设 / 落空删除 / 自消息保留 ELBOWED                                                 |
-| `lineAxisResize.test.ts`                           | 轴加长 / 缩短 / 顶边下移后端点绝对高度不变；落轴外钳 1；port 不变零写入；非轴宿主 no-op                                                                |
-| `lineTextSide.test.ts`                             | 缺省锚点 = 路径点（现状）；above / below 偏移方向与距离                                                                                                |
-| `selectorDrag.test.ts`（扩）                       | 轴消息纯线选区建会话且 `axis = 'v'`；混有线与普通线仍不建；预览只动 y                                                                                  |
-| `sequenceService.test.ts`                          | 按种类转发到 `lifeline.handlers`、事件时解析目标种类（批次 1）；激活条创建带 `lifelineId` 且 x 归中；起点非轴不建；只读早退                            |
-| `lifelineLabelEditor.test.ts`                      | descriptor 形状；只读早退；点不在头框内拒绝；Enter 提交；空文本保留；写过才 `stopCapturing`；清洗（空白折一 / 截 64 字素）（批次 1）                   |
-| `labelText.test.ts`                                | 上提后的清洗与截断逐值不变（特征测试，批次 1）                                                                                                         |
-| `sequenceCascade.test.ts`                          | 复合查找的展开并集去重保序；reconcile / adopt 两者依次调用；其余直通 frame                                                                             |
-| `sequenceBinding.test.ts`                          | 拖入绑定并归中、拖出解绑、微移归中、孤儿不改写；真 Y.Doc + 真引擎下与移动同事务一步 undo                                                               |
-| `clipboardSequence.test.ts`                        | 同批 `lifelineId` 重映射；批外删键；粘贴收尾落点重绑；容器先入批顺序不受影响                                                                           |
-| `alignCommand.test.ts`（扩）                       | 生命线参与对齐时随行激活条同 delta；FRAME 仍被剔除                                                                                                     |
-| `frameService.test.ts`（扩）                       | LIFELINE / ACTIVATION 不被自动归属、不被拖放归属；`createPreset` 合并且缺省不变                                                                        |
-| `lineAnchorFollow.test.ts`（扩）                   | 拖激活条时消息端点视觉跟随；删激活条后端点让位复位；`rerouteLine` 对自消息不再被触发                                                                   |
-| `lineHoverMath.test.ts`（扩）                      | 轴消息线身 hover 光标 `ns-resize`；端点 12 屏幕 px 内仍 grab；普通 STRAIGHT 线无光标（现状）                                                           |
-| `lifelineVmRender.test.ts`、`activationVm.test.ts` | 渲染分支、主题双态、缩放整形、探针返回值；生命线另测：头框 ∪ 轴带命中、`isRouteObstacle()` 为 false、`constrainResize` 接纯函数（批次 1）              |
-| `shapeContrast.test.ts`（扩）                      | 生命线标签 / 激活条边框对各自填充 ≥ 4.5:1（#333333 对 #ffffff）                                                                                        |
-| `widgetRegistry.test.ts`                           | 十二类型清单；能力位；`TYPES_WHERE` 期望集                                                                                                             |
+| 文件                                               | 覆盖                                                                                                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lifelineGeometry.test.ts`                         | 头框 / 轴派生；`axisAnchorPoint` 钳制；`axisJoinFor`；`axisPortFor`；锚点让位方向 × 条半宽；命中（头 / 轴带 / 轴旁 / 退化）                                   |
+| `lineAxisMessage.test.ts`                          | `axisMessageKind` 全分支；`shiftedAxisPorts` 钳制与幂等（批次 2）                                                                                             |
+| `sequenceOps.test.ts`                              | `resolveActivationHost`（容差内 / 外 / 无纵向重叠 / 多宿主取最上）（批次 3）                                                                                  |
+| `lineAxisAnchor.test.ts`                           | `resolveAnchorPick`：轴宿主与普通件；四类预设的内容；join 归一                                                                                                |
+| `lineDrawPolicy.test.ts`                           | 策略缺省 → 创建数据与现状逐字节相等（S8）；有策略 → 写显式 port / 预设 / 落定归一 join 切 STRAIGHT / 自消息保留 ELBOWED；草稿不入撤销栈、落空取消后撤销栈不变 |
+| `lineAxisResize.test.ts`                           | 轴加长 / 缩短 / 顶边下移后端点绝对高度不变；落轴外钳 1；port 不变零写入；非轴宿主 no-op                                                                       |
+| `lineTextSide.test.ts`                             | 缺省锚点 = 路径点（现状）；above / below 偏移方向与距离                                                                                                       |
+| `selectorDrag.test.ts`（扩）                       | 轴消息纯线选区建会话且 `axis = 'v'`；混有普通线仍建会话、只有轴消息动；纯普通线选区不建；预览只动 y；纵向吸附不出横向命中                                     |
+| `sequenceService.test.ts`                          | 按种类转发到 `lifeline.handlers`、事件时解析目标种类（批次 1）；激活条创建带 `lifelineId` 且 x 归中；起点非轴不建；只读早退                                   |
+| `lifelineLabelEditor.test.ts`                      | descriptor 形状；只读早退；点不在头框内拒绝；Enter 提交；空文本保留；写过才 `stopCapturing`；清洗（空白折一 / 截 64 字素）（批次 1）                          |
+| `labelText.test.ts`                                | 上提后的清洗与截断逐值不变（特征测试，批次 1）                                                                                                                |
+| `sequenceCascade.test.ts`                          | 复合查找的展开并集去重保序；reconcile / adopt 两者依次调用；其余直通 frame                                                                                    |
+| `sequenceBinding.test.ts`                          | 拖入绑定并归中、拖出解绑、微移归中、孤儿不改写；真 Y.Doc + 真引擎下与移动同事务一步 undo                                                                      |
+| `clipboardSequence.test.ts`                        | 同批 `lifelineId` 重映射；批外删键；粘贴收尾落点重绑；容器先入批顺序不受影响                                                                                  |
+| `alignCommand.test.ts`（扩）                       | 生命线参与对齐时随行激活条同 delta；FRAME 仍被剔除                                                                                                            |
+| `frameService.test.ts`（扩）                       | LIFELINE / ACTIVATION 不被自动归属、不被拖放归属；`createPreset` 合并且缺省不变                                                                               |
+| `lineAnchorFollow.test.ts`（扩）                   | 拖激活条时消息端点视觉跟随；删激活条后端点让位复位；`rerouteLine` 对自消息不再被触发                                                                          |
+| `lineHoverMath.test.ts`（扩）                      | 轴消息线身 hover 光标 `ns-resize`；端点 12 屏幕 px 内仍 grab；普通 STRAIGHT 线无光标（现状）                                                                  |
+| `lifelineVmRender.test.ts`、`activationVm.test.ts` | 渲染分支、主题双态、缩放整形、探针返回值；生命线另测：头框 ∪ 轴带命中、`isRouteObstacle()` 为 false、`constrainResize` 接纯函数（批次 1）                     |
+| `shapeContrast.test.ts`（扩）                      | 生命线标签 / 激活条边框对各自填充 ≥ 4.5:1（#333333 对 #ffffff）                                                                                               |
+| `widgetRegistry.test.ts`                           | 十二类型清单；能力位；`TYPES_WHERE` 期望集                                                                                                                    |
 
 ### 11.2 E2E（`sequence.spec.ts`）
 
@@ -1006,34 +1030,35 @@ export function rewirePortsAfterResize(
 新增 `e2e/helpers/sequenceE2e.ts`：`createLifeline`、`axisScreenPoint`（轴上高度 →
 屏幕坐标）、`drawMessage`、`messageOf`，避免逐例手写手势。
 
-| 用例 | 断言                                                                                                                                                               |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Q-1  | 生命线创建：单击默认尺寸按下点居中、工具保持；拖拽画图松手选中并回选择工具；滑移 < 10px 仍按单击                                                                   |
-| Q-2  | 标签编辑：再点头框进编辑、Enter 落库；空标签保留；一步 undo；点轴不进编辑                                                                                          |
-| Q-3  | 同步消息：从 A 轴按下拖到 B 轴 → STRAIGHT、实心箭头、两端 `startPort` / `endPort` 等于按下高度、两端 y 相差 < 0.5                                                  |
-| Q-4  | 返回 / 异步消息预设：`dashed` 与 `endArrow` 落库值；消息标签在线上方（批次 4 追加）                                                                                |
-| Q-5  | 落空取消：松手在空白或非轴宿主 → 模型计数不变；起点不在轴上 → 不建线                                                                                               |
-| Q-6  | 自消息：同轴纵向拖 ≥ 8px → ELBOWED、4 点环、朝按下侧；间距 < 8px → 取消                                                                                            |
-| Q-7  | 消息平移：拖线身 +60 → 两端 y 同移、仍水平、一步 undo；↑ ↓ 微移有效、← → 零写入                                                                                    |
-| Q-8  | 加长保高度：拖生命线底边手柄 +200 → 其上消息 y 逐值不变（port 被重写）；缩短后钳底                                                                                 |
-| Q-9  | 生命线移动：水平拖 → 消息与激活条跟随；顶边对齐吸附到相邻生命线                                                                                                    |
-| Q-10 | 激活条：轴上创建并绑定；拖离解绑；拖回重绑并归中；删生命线连带删、一步 undo 全回                                                                                   |
-| Q-11 | 条边让位：无条时箭头停在轴上；建覆盖该高度的条后端点 x = 轴 ± 5；条加长后另一条消息翻转；消息数据不变                                                              |
-| Q-12 | 片段：预设落库（`fill: 'none'`、标题）；内部空白点击穿透到消息；拖片段不动生命线与激活条                                                                           |
-| Q-13 | 不进容器：片段内建生命线与激活条 → 文档无 `parentId`                                                                                                               |
-| Q-14 | 复制粘贴：复制生命线带激活条、`lifelineId` 指向副本；单独粘贴的条落在轴上重绑                                                                                      |
-| Q-15 | 流程图回归：两个普通形状间拉线仍落 0.5 中点且无 port；普通直线线身仍不可拖                                                                                         |
-| Q-16 | 只读：按 Q 被钳回 cursor、工具钮禁用、不进标签编辑、拖动不写                                                                                                       |
-| Q-17 | 项目文件往返 + 导出 PNG；刷新恢复                                                                                                                                  |
-| Q-18 | 390px：工具坞第 12 钮可达、三组二级菜单、无横向溢出；快捷键 Q 与种类切换                                                                                           |
-| Q-19 | 打磨（批次 4）：ActionBar「头部样式」切小人 → `head: 'actor'` 落库、一步 undo；轴消息线身 hover 光标 `ns-resize`（端点附近仍 grab）；普通 STRAIGHT 线 hover 无光标 |
-| Q-20 | 命中口径（批次 1）：点轴旁空白（bbox 内、轴带外）不选中、点轴选中；框选只碰头旁空白不入选、擦过轴带入选                                                            |
-| Q-21 | 缩放整形（批次 1）：拖 east 手柄宽度对称、轴 x 不变；拖到 60 以下钳 60；高度钳 120；拖拽中编辑框与图形贴合                                                         |
-| Q-22 | 不进容器与避障豁免（批次 1）：容器内建生命线 → 文档无 `parentId`；通用折线穿过生命线 bbox 不绕行                                                                   |
-| Q-23 | 刷新恢复与项目文件往返（批次 1：生命线与标签；后续批次追加消息 / 激活条 / 片段）                                                                                   |
+| 用例 | 断言                                                                                                                                                                   |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q-1  | 生命线创建：单击默认尺寸按下点居中、工具保持；拖拽画图松手选中并回选择工具；滑移 < 10px 仍按单击                                                                       |
+| Q-2  | 标签编辑：再点头框进编辑、Enter 落库；空标签保留；一步 undo；点轴不进编辑                                                                                              |
+| Q-3  | 同步消息：从 A 轴按下拖到 B 轴 → STRAIGHT、实心箭头、两端 `startPort` / `endPort` 等于按下高度、两端 y 相差 < 0.5                                                      |
+| Q-4  | 返回 / 异步消息预设：`dashed` 与 `endArrow` 落库值；消息标签在线上方（批次 4 追加）                                                                                    |
+| Q-5  | 落空取消：松手在空白或非轴宿主 → 模型计数不变；起点不在轴上 → 不建线                                                                                                   |
+| Q-6  | 自消息：同轴纵向拖 ≥ 8px → ELBOWED、4 点环、朝按下侧；间距 < 8px → 取消                                                                                                |
+| Q-7  | 消息平移：拖线身 +60 → 两端 y 同移、仍水平、一步 undo；↑ ↓ 微移有效、← → 零写入                                                                                        |
+| Q-8  | 加长保高度：拖生命线底边手柄 +200 → 其上消息 y 逐值不变（port 被重写）；缩短后钳底                                                                                     |
+| Q-9  | 生命线移动：水平拖 → 消息跟随；顶边对齐吸附到相邻生命线（激活条跟随随批次 3 追加）                                                                                     |
+| Q-10 | 激活条：轴上创建并绑定；拖离解绑；拖回重绑并归中；删生命线连带删、一步 undo 全回                                                                                       |
+| Q-11 | 条边让位：无条时箭头停在轴上；建覆盖该高度的条后端点 x = 轴 ± 5；条加长后另一条消息翻转；消息数据不变                                                                  |
+| Q-12 | 片段：预设落库（`fill: 'none'`、标题）；内部空白点击穿透到消息；拖片段不动生命线与激活条                                                                               |
+| Q-13 | 不进容器：片段内建生命线与激活条 → 文档无 `parentId`                                                                                                                   |
+| Q-14 | 复制粘贴：复制生命线带激活条、`lifelineId` 指向副本；单独粘贴的条落在轴上重绑                                                                                          |
+| Q-15 | 流程图回归：两个普通形状间拉线仍落 0.5 中点且无 port；普通直线线身仍不可拖                                                                                             |
+| Q-16 | 只读：按 Q 被钳回 cursor、工具钮禁用、不进标签编辑、拖动不写                                                                                                           |
+| Q-17 | 项目文件往返 + 导出 PNG；刷新恢复                                                                                                                                      |
+| Q-18 | 390px：工具坞第 12 钮可达、三组二级菜单、无横向溢出；快捷键 Q 与种类切换                                                                                               |
+| Q-19 | ActionBar「头部样式」切小人 → `head: 'actor'` 落库、一步 undo（批次 4）；轴消息线身 hover 光标 `ns-resize`（端点附近仍 grab）与普通 STRAIGHT 线 hover 无光标（批次 2） |
+| Q-20 | 命中口径（批次 1）：点轴旁空白（bbox 内、轴带外）不选中、点轴选中；框选只碰头旁空白不入选、擦过轴带入选                                                                |
+| Q-21 | 缩放整形（批次 1）：拖 east 手柄宽度对称、轴 x 不变；拖到 60 以下钳 60；高度钳 120；拖拽中编辑框与图形贴合                                                             |
+| Q-22 | 不进容器与避障豁免（批次 1）：容器内建生命线 → 文档无 `parentId`；通用折线穿过生命线 bbox 不绕行                                                                       |
+| Q-23 | 刷新恢复与项目文件往返（批次 1：生命线与标签；后续批次追加消息 / 激活条 / 片段）                                                                                       |
 
 批次与用例的对应：批次 1 = Q-1、Q-2、Q-16、Q-18（只验证图元组）、Q-20…Q-23；批次 2 =
-Q-3…Q-9、Q-15；批次 3 = Q-10、Q-11、Q-13、Q-14；批次 4 = Q-4 标签断言、Q-12、Q-19。
+Q-3…Q-9、Q-15、Q-19 的悬停光标部分（消息 E2E 放 `sequenceMessage.spec.ts`）；批次 3 =
+Q-10、Q-11、Q-13、Q-14、Q-9 的激活条部分；批次 4 = Q-4 标签断言、Q-12、Q-19 的 actor 头。
 Q-17、Q-18 随各批追加内容。
 
 ### 11.3 视觉基线
@@ -1093,9 +1118,9 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 | 批次 | 内容                                                                                                                                                         | 出口（断言）                                                                                |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | 1    | 地基 + 生命线：三笔零行为重构 → 生命线几何 → 缩放整形探针 → LIFELINE 控件 → 标签编辑 → SequenceService 与装配 → 工具坞入口与快捷键 Q → E2E → 视觉基线 → docs | Q-1、Q-2、Q-16、Q-18（图元组）、Q-20…Q-23 绿；`lineService.ts` ≤ 370 行；连线行为逐字节不变 |
-| 2    | 轴锚定 + 消息：落点策略、拉线策略、三类消息、quick-add 资格、轴消息平移、加长保高度、自消息；旋转手势拆出 `rectEditorService`                                | Q-3…Q-9、Q-15 绿                                                                            |
+| 2    | 轴锚定 + 消息：落点策略、拉线策略、三类消息、quick-add 资格、轴消息平移、加长保高度、自消息、轴消息悬停光标；旋转手势拆出 `rectEditorService`                | Q-3…Q-9、Q-15、Q-19 悬停光标部分绿                                                          |
 | 3    | 激活条：控件、绑定、复合查找、剪贴板、对齐随行                                                                                                               | Q-10、Q-11、Q-13、Q-14 绿                                                                   |
-| 4    | 组合片段（FRAME 预设 + 分隔线）+ 打磨：线上文字侧别、actor 头、轴消息悬停光标、ActionBar                                                                     | Q-4 标签断言、Q-12、Q-19 绿                                                                 |
+| 4    | 组合片段（FRAME 预设 + 分隔线）+ 打磨：线上文字侧别、actor 头、ActionBar                                                                                     | Q-4 标签断言、Q-12、Q-19 actor 头部分绿                                                     |
 | 5    | `sequence-sample` 视觉基线双平台 → 最终 docs 与 roadmap §4.5                                                                                                 | `verify` / `test:e2e` / `visual:linux` 全绿                                                 |
 
 批次 2–5 的细化到各自规划时再定。Q-4 的「消息标签在线上方」断言随批次 4 追加。
@@ -1204,7 +1229,10 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
       `lineHoverOverlay.ts` 都 < 400 行；旋转手势拆出后既有 rotate 单测全绿。
 - [x] 新增文件全部 < 400 行（最大 lifelineGeometry 194）；`types/widget.ts` 的增量只含 schema 与注册项。
 - [ ] 批次 2 起：`rectEditorService.ts` 已到 399 行，动它之前先拆旋转手势（§1.6）。
-- [ ] 批次 4 三项（线上文字侧别、actor 头、轴消息悬停光标）都在；Q-4 标签断言与 Q-19 绿。
+- [ ] 批次 4 两项（线上文字侧别、actor 头）都在；Q-4 标签断言、Q-12 与 Q-19 actor 头部分绿。
+- [ ] 批次 2：轴宿主判定没有 type 分支（`getAxisAnchor` / `isAxisMessage` 探针）；消息草稿不入撤销栈——
+      落空取消后 `canUndo` 不变、慢拖后撤销不复活草稿；`canQuickAdd` 是 quick-add 与四向连接点的唯一资格判定；
+      `lineService.ts` / `lineHoverOverlay.ts` / `lineVm.ts` / `lineDrawSession.ts` 都 < 400 行。
 - [x] 批次 1：生命线没有覆写 `getAnchorPoint`（轴锚定在批次 2；lifelineVmRender 有钉住现状的用例，批次 2 先改红）；`LifelineService.initialize()` 抛错有单测；缩放整形经 `constrainResize` 探针、θ ≠ 0 不调用，Q-21 的编辑框与图形贴合。
 - [x] 既有 11 张视觉基线逐字节不变（工具坞入镜的除外）——仅 theme 双态 × darwin/linux 4 张重生成，其余 9 张 linux 基线容器内重生成后逐字节相同。
 - [x] 公开面 71 成员不变；`BoardInternalMember` 的新增项（`sequence`、`lifeline`）分类正确（分类编译锁与 debugSurface 全绿）。
@@ -1257,3 +1285,23 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 | 10  | `78eaec5` | test：时序图 E2E（批次 1）                        | sequence.spec 8 例；3 处变异（避障豁免 / 整形 / 激活入口）各自转红                                      |
 | 11  | `1e0804e` | test：视觉基线随工具坞第 12 钮更新                | theme 双态 × darwin/linux 4 张；linux `--stability` 复跑 11 张全等                                      |
 | 12  | 本笔      | docs：文档同步                                    | 见 docs/15                                                                                              |
+
+### 19.2 批次 2：轴锚定 + 消息
+
+**开工前的拍板与订正（2026-11-27；正文已同步改写）**
+
+| 原文 / 事项                                                                                                       | 结论 / 实际做法                                                                                                    | 理由                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| §4.4：按下即建草稿入栈、落空删除（人类拍板）                                                                      | 草稿事务走非跟踪 origin；落定才以跟踪事务建终线                                                                    | 入栈后取消留空撤销步；慢拖（> 0.5 秒）时创建与删除落在不同撤销项，撤销会复活已取消的草稿 |
+| §4.5 正文与 §11.1 测试标题不一致（人类拍板）                                                                      | 线选区有轴消息即建会话，只动轴消息                                                                                 | 按 §4.5 正文「没有可平移件才不建」                                                       |
+| 悬停光标原定批次 4（人类拍板）                                                                                    | 提前到批次 2                                                                                                       | 拖线身落地却没有悬停提示，用户不知道线身能拖                                             |
+| §3.2 / §4.2 / §9.2 #4、#17：轴上几何放 `lifelineGeometry`、`LINE_END_GAP` 上提 common、轴消息判定放 `sequenceOps` | 轴上几何 / 策略 / 轴消息判定都放 `widgets/line/`（`lineAxisAnchor.ts`、`lineAxisMessage.ts`）；`LINE_END_GAP` 不动 | 连线层不能反向依赖 sequence；常量只有连线层用                                            |
+| §4.1 / §9.4：`constrainResize(start, next)`；`IRectEditorService`                                                 | 实为 `(start, next, dir)`；钩子是 `RectEditorService` 的公开字段                                                   | 批次 1 已定的事实                                                                        |
+| §4.8 quick-add 资格                                                                                               | `hitWidget` 容差环对轴宿主按到轴段的距离算                                                                         | 包围盒 120 宽，贴包围盒外沿按下离轴 50 多 px                                             |
+| Q-9 含激活条                                                                                                      | 本批只验消息跟随与顶边对齐                                                                                         | 激活条属批次 3                                                                           |
+| E2E 写在 `sequence.spec.ts`                                                                                       | 消息 E2E 另起 `sequenceMessage.spec.ts`                                                                            | 批次 1 的文件已 500 行                                                                   |
+
+**提交**（随各笔回填）
+
+| #   | 提交 | 内容 | 实测 |
+| --- | ---- | ---- | ---- |
