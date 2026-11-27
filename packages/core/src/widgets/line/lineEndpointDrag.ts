@@ -12,13 +12,13 @@ import {
   collectRouteObstacles,
   inverseRotatePoint,
   routeSelfLoop,
-  nearestJoin,
   nodeAnchorPoint,
   quantizeJoin,
   r2,
   routeElbow,
   type JoinDir,
 } from './lineMath';
+import { resolveAnchorPick } from './lineAxisAnchor';
 import { selfLoopSpanOf } from './lineSelfLoopSpan';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import type { LineVm } from './lineVm';
@@ -90,11 +90,14 @@ export class LineEndpointDrag extends Disposable {
     if (!model) return;
     const data = model.toJSON() as unknown as ILineAnchorData;
     const hit = this.host.hitTest(world);
-    const join = hit ? nearestJoin(hit.geom.rect, world, hit.geom.rotation) : null;
+    // 落点单源（specs/sequence-diagram §4.2）：轴宿主按指针所在侧选边、端口 = 轴上
+    // 比例（4 位小数）；普通件 = nearestJoin + 下面那段指针在最近边上的投影（不变）
+    const pick = hit ? resolveAnchorPick(this.vmEngine.getVmById(hit.id), hit.geom, world) : null;
+    const join = pick?.join ?? null;
+    let port: number | null = pick?.port ?? null;
     // 沿边参数（specs/flowchart-closeout §7.4）：指针在命中边上的投影 t ∈ [0,1]
     // （局部系，θ 感知——旋转宿主先逆变换再投影）；命中边 + port 一起落库固定该端
-    let port: number | null = null;
-    if (hit && join) {
+    if (hit && join && port === null) {
       const r = hit.geom.rect;
       const center = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
       const local =

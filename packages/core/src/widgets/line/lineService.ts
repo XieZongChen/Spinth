@@ -24,6 +24,7 @@ import type { LineAnchorFollow } from './lineAnchorFollow';
 import type { LineEndpointDrag } from './lineEndpointDrag';
 import type { LineSegTextSlide } from './lineSegTextSlide';
 import { LineTextEditor } from './lineTextEditor';
+import type { ILineDrawPolicy } from './lineAxisAnchor';
 import type { LineDrawSession } from './lineDrawSession';
 import { LINE_WIDTH_STEPS } from './lineOptions';
 import { nearestLineEndpoint } from './lineHitTest';
@@ -92,6 +93,9 @@ export class LineService extends Disposable {
   busyProbe: (() => boolean) | null = null;
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2；组合根注入。缺省关） */
   gridSnapOn: () => boolean = () => false;
+  /** 拉线策略探针（specs/sequence-diagram §4.3；时序图工具按图元种类注入——
+   *  SequenceService 转发 drawHandlers 时设值。缺省 / 返回 undefined = 既有连线路径） */
+  drawPolicyProbe: (() => ILineDrawPolicy | undefined) | null = null;
 
   /** line 模式的指针处理器（只读属性而非 initialize() 内联字面量）：多图元工具的
    *  转发者要拿到同一个对象按当前图元种类分发（specs/sequence-diagram §7.1——一个
@@ -167,6 +171,7 @@ export class LineService extends Disposable {
       getDefaultStrokeWidth: () => this.defaultWidth,
       getDefaultShapeType: () => this.quickAddShapeTypeProbe(),
       gridSnapOn: () => this.gridSnapOn(),
+      getDrawPolicy: () => this.drawPolicyProbe?.(),
       onSettled: () => this.anchorFollow?.reattachAll(),
     });
     // 协作者只构造、不登记（lineCollaborators）；登记序 = 释放序（Disposable 正向

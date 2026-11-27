@@ -1,5 +1,6 @@
 import type { IHostGeom, IPoint, JoinDir } from '../../common/geometry';
 import type { IAxisAnchor } from '../../types/base';
+import type { LineData } from '../../types';
 import { nearestJoin } from './lineGeometry';
 import { LINE_END_GAP } from './linePath';
 
@@ -89,4 +90,51 @@ export function resolveAnchorPick(
   const axis = isAxisHost(vm) ? vm.getAxisAnchor(geom) : null;
   if (!axis) return { join: nearestJoin(geom.rect, p, geom.rotation), port: undefined };
   return { join: axisJoinFor(axis, p), port: axisPortFor(axis, p.y) };
+}
+
+/**
+ * 拉线策略（specs/sequence-diagram §4.3）：有策略才走消息路径，缺省 undefined =
+ * 既有连线路径。时序图工具按图元种类选用预设（SequenceService 注入）。
+ */
+export interface ILineDrawPolicy {
+  /** 建线样式预设（字段优先于会话默认）。线上文字侧别随批次 4 接入 */
+  style: Partial<Pick<LineData, 'lineType' | 'startArrow' | 'endArrow' | 'dashed'>>;
+  /** 终点高度锁定为起点高度（钳到目标轴范围） */
+  horizontal: boolean;
+  /** 两端必须落在轴宿主上：起点不是 → 不建线；终点不是 → 松手取消草稿 */
+  requireAxisTargets: boolean;
+  /** 忽略控件命中，两端都落自由点（分隔线） */
+  freeEnds: boolean;
+  /** 同一宿主松手 = 自消息：纵向间距 ≥ 8 落 ELBOWED 自环，否则取消 */
+  selfMessage: boolean;
+}
+
+const MESSAGE_POLICY_BASE = {
+  horizontal: true,
+  requireAxisTargets: true,
+  freeEnds: false,
+  selfMessage: true,
+} as const;
+
+/** 同步消息：草稿按 ELBOWED 建（自消息需要自环路由），跨轴落定时改 STRAIGHT；实心箭头 */
+export const MESSAGE_SYNC_POLICY: ILineDrawPolicy = {
+  style: { lineType: 'ELBOWED', startArrow: 'none', endArrow: 'solid', dashed: false },
+  ...MESSAGE_POLICY_BASE,
+};
+/** 异步消息：开放箭头 */
+export const MESSAGE_ASYNC_POLICY: ILineDrawPolicy = {
+  ...MESSAGE_SYNC_POLICY,
+  style: { ...MESSAGE_SYNC_POLICY.style, endArrow: 'arrow' },
+};
+/** 返回消息：开放箭头 + 虚线 */
+export const MESSAGE_RETURN_POLICY: ILineDrawPolicy = {
+  ...MESSAGE_ASYNC_POLICY,
+  style: { ...MESSAGE_ASYNC_POLICY.style, dashed: true },
+};
+
+/** join 归一（specs/sequence-diagram §4.4）：跨轴消息起点 = 去向侧、终点 = 来向侧。
+ *  箭头让位方向由 join 决定，而 axisJoinFor 取的是指针侧——不归一的话从轴右侧
+ *  按下、向左画的消息，箭头会让向远侧 */
+export function normalizeMessageJoins(start: IPoint, end: IPoint): [JoinDir, JoinDir] {
+  return end.x >= start.x ? ['right', 'left'] : ['left', 'right'];
 }

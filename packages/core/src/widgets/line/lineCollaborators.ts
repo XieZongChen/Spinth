@@ -14,6 +14,7 @@ import { createQuickAddHost } from './lineQuickAddHost';
 import { LineAnchorFollow } from './lineAnchorFollow';
 import { LineEndpointDrag } from './lineEndpointDrag';
 import { LineSegTextSlide } from './lineSegTextSlide';
+import type { ILineDrawPolicy } from './lineAxisAnchor';
 import { hitWidget } from './lineHitTest';
 
 /**
@@ -49,6 +50,8 @@ export function createLineCollaborators(deps: {
   getDefaultShapeType(): ShapeType;
   /** 网格吸附开关探针（specs/flowchart-closeout §9.2 自由线端点；缺省关） */
   gridSnapOn(): boolean;
+  /** 拉线策略探针（specs/sequence-diagram §4.3；缺省 / undefined = 既有连线路径） */
+  getDrawPolicy?(): ILineDrawPolicy | undefined;
   /** 落定重排（拉线 / quick-add / 端点重锚定同源）：settle 事务内调用 = 一步撤销 */
   onSettled(): void;
 }): ILineCollaborators {
@@ -60,6 +63,7 @@ export function createLineCollaborators(deps: {
     getDefaultStrokeWidth: () => deps.getDefaultStrokeWidth(),
     // 网格吸附开关探针（specs/flowchart-closeout §9.2 自由线端点；缺省关）
     gridSnapOn: () => deps.gridSnapOn(),
+    getDrawPolicy: () => deps.getDrawPolicy?.(),
     // 落定重排（specs/flowchart-closeout §7.3）：同边余线让位 + 本线终路由
     // 单源（避障/spread/探针）；settle 事务内调用 = 一步撤销
     onSettled: () => deps.onSettled(),
