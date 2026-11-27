@@ -51,6 +51,19 @@ export function axisAnchorWithInset(
   return { x: p.x + joinSign(join) * (barHalf - LINE_END_GAP), y: p.y };
 }
 
+/** 拉线悬停轴宿主时的反馈点（§4.8）：轴上、指针高度（钳到轴段内）的单点——
+ *  消息起点是按下高度，四向连接点无从表达。非轴宿主 / 无轴 / 未给指针位置返回 null */
+export function axisHoverPoint(
+  vm: { getAxisAnchor?: IAxisHostVm['getAxisAnchor'] } | null | undefined,
+  geom: IHostGeom,
+  world: IPoint | undefined,
+): IPoint | null {
+  const axis = isAxisHost(vm) ? vm.getAxisAnchor(geom) : null;
+  if (!axis || !world) return null;
+  // 反馈点取指针原始高度（不经端口取整）：指示器贴着指针走，不随 r4 量化微跳
+  return { x: axis.x, y: Math.min(axis.bottom, Math.max(axis.top, world.y)) };
+}
+
 /** 轴宿主的最小形状：实现了 getAxisAnchor 探针（specs/sequence-diagram §4.1） */
 export interface IAxisHostVm {
   getAxisAnchor(geom?: IHostGeom): IAxisAnchor | null;

@@ -2,9 +2,12 @@ import { Disposable } from '../../base/disposable';
 import type { IHostGeom, IRect } from '../../common/geometry';
 import type { ISelectorService, IVmEngineService, IViewportService } from '../../types';
 import { capsuleAnchors, outlineAnchorsOf, type IPt, type JoinDir } from './lineMath';
+import { axisHoverPoint } from './lineAxisAnchor';
+import { canQuickAdd } from './lineHitTest';
 import {
   dotSnapshots,
   effectiveLinePts,
+  ghostBoundsOf,
   JOINS,
   lineAnchorFlags,
   nearestDot,
@@ -113,18 +116,7 @@ export class LineHoverOverlay extends Disposable {
     return this.ghostPreview.mode;
   }
   get ghostBounds(): string {
-    return this.ghostBoundsOf();
-  }
-  private ghostBoundsOf(): string {
-    const g = (
-      this.ghostPreview as unknown as {
-        g?: { bounds: { rectangle: { x: number; y: number; width: number; height: number } } };
-      }
-    ).g;
-    const r = g?.bounds.rectangle;
-    return r
-      ? `${[r.x, r.y, r.width, r.height].map((v) => v.toFixed(0))} vis=${this.ghostPreview.visible}`
-      : 'empty';
+    return ghostBoundsOf(this.ghostPreview as unknown as Parameters<typeof ghostBoundsOf>[0]);
   }
 
   // ---------- 选中态/悬停主流程（原 lineService 组⑥） ----------
@@ -168,15 +160,11 @@ export class LineHoverOverlay extends Disposable {
       this.targetSub = lvm.onStateChanged$.subscribe(() => update());
       return;
     }
-    // PEN 不出连接点/快捷创建（2026-10-08 用户拍板：画笔元素不应有快捷创建；
-    // 选中画笔只留选中框，无手柄无四点）
-    if (first.type === 'PEN') {
-      this.hideAll();
-      return;
-    }
-    // 旋转件不出四点（docs/05 §8 降级项：quick-add/连接点系对旋转件整体禁用；
-    // 既有锚定线跟随不受影响——锚定链 θ 感知）
-    if (first.getRotation() !== 0) {
+    // 不出四向连接点（只留选中框）：无 quick-add 资格——画笔（2026-10-08 用户
+    // 拍板）、轴宿主、不可作连线目标的件（specs/sequence-diagram §4.8）；或旋转件
+    // （docs/05 §8 降级项：quick-add/连接点系对旋转件整体禁用；既有锚定线跟随
+    // 不受影响——锚定链 θ 感知）
+    if (!canQuickAdd(first) || first.getRotation() !== 0) {
       this.hideAll();
       return;
     }
@@ -381,12 +369,21 @@ export class LineHoverOverlay extends Disposable {
   }
 
   /** 绘制/端点拖拽的吸附反馈：指示器紧贴轮廓锚点（outside:false）+ 锚点快照。
-   *  vmId 缺失（极端时序）回退 bbox 锚点——快照语义不变（E2E 探针消费）。 */
-  showDrawFeedback(vmId: string | null, geom: IHostGeom, activeIndex: number | null): void {
-    const anchors = outlineAnchorsOf(vmId ? this.vmEngine.getVmById(vmId) : null, geom);
-    this.indicator.show(anchors, geom, activeIndex, { outside: false });
+   *  vmId 缺失（极端时序）回退 bbox 锚点——快照语义不变（E2E 探针消费）。
+   *  world = 指针位置：轴宿主改出轴上指针高度的单点（specs/sequence-diagram §4.8） */
+  showDrawFeedback(vmId: string | null, geom: IHostGeom, active: number | null, world?: IPt): void {
+    const vm = vmId ? this.vmEngine.getVmById(vmId) : null;
+    const axisPoint = axisHoverPoint(vm, geom, world);
+    if (axisPoint) {
+      this.indicator.showPoint(axisPoint);
+      this.anchorHoverSnapshot = [{ x: axisPoint.x, y: axisPoint.y }];
+      this.anchorActiveSnapshot = 0;
+      return;
+    }
+    const anchors = outlineAnchorsOf(vm, geom);
+    this.indicator.show(anchors, geom, active, { outside: false });
     this.anchorHoverSnapshot = anchors.map((p) => ({ x: p.x, y: p.y }));
-    this.anchorActiveSnapshot = activeIndex;
+    this.anchorActiveSnapshot = active;
   }
 
   hideDrawFeedback(): void {

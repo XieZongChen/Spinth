@@ -146,7 +146,8 @@ export class LineDrawSession extends Disposable {
       const hit = hitWidget(this.vmEngine, this.viewport, e.world);
       if (hit) {
         const active = JOINS.indexOf(nearestJoin(hit.geom.rect, e.world, hit.geom.rotation));
-        this.host.overlay?.showDrawFeedback(hit.id, hit.geom, active); // 连线工具目标反馈：紧贴轮廓锚点
+        // 连线工具目标反馈：紧贴轮廓锚点；轴宿主 = 轴上指针高度的单点
+        this.host.overlay?.showDrawFeedback(hit.id, hit.geom, active, e.world);
       } else {
         this.host.overlay?.hideDrawFeedback();
       }
@@ -194,7 +195,7 @@ export class LineDrawSession extends Disposable {
     const join = hit ? nearestJoin(hit.geom.rect, e.world, hit.geom.rotation) : null;
     if (hit) {
       // 连线工具的目标反馈：连接点**紧贴轮廓锚点**（与选中态快速创建点是两套逻辑）
-      this.host.overlay?.showDrawFeedback(hit.id, hit.geom, JOINS.indexOf(join!));
+      this.host.overlay?.showDrawFeedback(hit.id, hit.geom, JOINS.indexOf(join!), e.world);
     } else {
       this.host.overlay?.hideDrawFeedback();
     }

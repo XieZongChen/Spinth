@@ -70,6 +70,17 @@ export function nearestDot(
     .sort((p, q) => p.d - q.d)[0]!;
 }
 
+/** 幽灵预览包围盒调试串（E2E 探针 lineGhostBounds 消费）："x y w h vis=" / empty */
+export function ghostBoundsOf(preview: {
+  g?: { bounds: { rectangle: { x: number; y: number; width: number; height: number } } };
+  visible: boolean;
+}): string {
+  const r = preview.g?.bounds.rectangle;
+  return r
+    ? `${[r.x, r.y, r.width, r.height].map((v) => v.toFixed(0))} vis=${preview.visible}`
+    : 'empty';
+}
+
 /** 连线 hover 判定结果：端点命中（0=起点/1=终点）、胶囊索引、段号、光标方向 */
 export interface ILineHoverHit {
   endpointActive: number | null;

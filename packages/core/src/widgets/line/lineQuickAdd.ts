@@ -22,7 +22,7 @@ import {
   type IPt,
   type JoinDir,
 } from './lineMath';
-import { nearestAnchorDot } from './lineHitTest';
+import { canQuickAdd, nearestAnchorDot } from './lineHitTest';
 import type { ILineQuickAddHost } from './lineQuickAddHost';
 import { Rectangle } from 'pixi.js';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
@@ -93,7 +93,9 @@ export class LineQuickAdd extends Disposable {
     const sel = this.selector.selected$.value;
     if (sel.length !== 1) return false;
     const vm = this.vmEngine.getVmById(sel[0]!);
-    if (!vm || vm.type === 'LINE' || vm.getRotation() !== 0) return false; // 旋转件不出四点（docs/05 §8）
+    // 资格单源（轴宿主 / 不可作目标的件不出四点，specs/sequence-diagram §4.8）；
+    // 旋转件不出四点（docs/05 §8）
+    if (!vm || !canQuickAdd(vm) || vm.getRotation() !== 0) return false;
     const geom = vm.getHostGeom();
     const anchors = outlineAnchorsOf(vm, geom);
     const scale = this.viewport.vpScale$.value || 1;

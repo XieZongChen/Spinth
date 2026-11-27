@@ -68,12 +68,26 @@ export class LineAnchorIndicator extends Container {
           ? JOIN_NORMALS[j]
           : rotatePointAround(JOIN_NORMALS[j], { x: 0, y: 0 }, geom.rotation);
       const p = { x: a.x + n.x * off, y: a.y + n.y * off };
-      const r = i === activeIndex ? DOT_RADIUS + 2 : DOT_RADIUS;
-      this.g
-        .circle(p.x, p.y, r)
-        .fill({ color: ANCHOR_COLOR })
-        .stroke({ width: 2, color: RING_COLOR });
+      this.dot(p, i === activeIndex ? DOT_RADIUS + 2 : DOT_RADIUS);
     });
+    this.reveal();
+  }
+
+  /** 轴宿主的悬停反馈（specs/sequence-diagram §4.8）：轴上、指针高度的放大单点 */
+  showPoint(p: IPt): void {
+    this.g.clear();
+    this.dot(p, DOT_RADIUS + 2);
+    this.reveal();
+  }
+
+  private dot(p: IPt, r: number): void {
+    this.g
+      .circle(p.x, p.y, r)
+      .fill({ color: ANCHOR_COLOR })
+      .stroke({ width: 2, color: RING_COLOR });
+  }
+
+  private reveal(): void {
     this.visible = true;
     markRender();
   }
