@@ -114,6 +114,77 @@ export async function modelCountOf(page: Page): Promise<number> {
   );
 }
 
+/** 连线文档 / vm 快照（消息断言用；可选键缺省 = 数据里没有这个键） */
+export interface LineSnap {
+  id: string;
+  type: string;
+  points: Array<[number, number]>;
+  startNodeId: string | null;
+  endNodeId: string | null;
+  startJoin: string | null;
+  endJoin: string | null;
+  startPort?: number;
+  endPort?: number;
+  lineType: string;
+  startArrow: string;
+  endArrow: string;
+  dashed: boolean;
+}
+
+export async function linesOf(page: Page): Promise<LineSnap[]> {
+  return (await vmStates(page)).filter((s) => s.type === 'LINE') as LineSnap[];
+}
+
+export async function lineDoc(page: Page, id: string): Promise<LineSnap | null> {
+  return docOf(page, id) as unknown as LineSnap | null;
+}
+
+/** 连线工具 / 选中态的连接点快照（E2E 探针 lineAnchors；null = 未显示） */
+export async function lineAnchorsOf(page: Page): Promise<Array<{ x: number; y: number }> | null> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: { lineAnchors: Array<{ x: number; y: number }> | null };
+          };
+        }
+      ).__spinthDebug.__debug.lineAnchors,
+  );
+}
+
+/** 最近一帧拖拽预览路由（E2E 探针 linePreview；null = 未在预览） */
+export async function linePreviewOf(page: Page): Promise<Array<[number, number]> | null> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: { linePreview: Array<[number, number]> | null };
+          };
+        }
+      ).__spinthDebug.__debug.linePreview,
+  );
+}
+
+/** 时序图二级菜单选图元（菜单项可访问名 = 选项 label），等到该项点亮 */
+export async function setSequenceKind(page: Page, label: string): Promise<void> {
+  const item = page
+    .locator('[data-spinth-tool-flyout]')
+    .getByRole('menuitemradio', { name: label });
+  await item.click();
+  await expect(item).toHaveAttribute('aria-checked', 'true');
+}
+
+/** 时序图消息工具：Q 进工具 + 二级菜单选消息种类 */
+export async function pressMessageTool(
+  page: Page,
+  kind: '同步消息' | '异步消息' | '返回消息' = '同步消息',
+): Promise<void> {
+  await pressSequenceTool(page);
+  await setSequenceKind(page, kind);
+}
+
 /** 快捷键 Q 进时序图工具，等到模式落地 */
 export async function pressSequenceTool(page: Page): Promise<void> {
   await page.keyboard.press('q');
