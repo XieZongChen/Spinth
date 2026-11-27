@@ -11,7 +11,8 @@ import type {
 } from '../../types';
 import { RectEditorVm } from './rectEditorVm';
 import { createResizeSnaps, planResize, type HandleDir } from './resizeMath';
-import { inverseRotatePoint, pointerAngle, snapAngle } from './rotateMath';
+import { inverseRotatePoint } from './rotateMath';
+import { RectEditorRotate, type IRectEditorRotateHost } from './rectEditorRotate';
 import type { RefLineService } from '../refLine/refLineService';
 
 interface ResizeState {
@@ -31,19 +32,6 @@ interface ResizeState {
   pointerId: number | undefined;
 }
 
-interface RotateState {
-  vmId: string;
-  /** 手势起点的宿主角度 + 起点指针角（θ = θ0 + Δ指针角，绕视觉中心） */
-  startTheta: number;
-  startPointerAngle: number;
-  /** 旋转中心（世界坐标，视觉/预览感知——取自 getHostGeom） */
-  center: { x: number; y: number };
-  /** 最近一帧角度：松手落库用它 */
-  lastTheta: number;
-  /** 手势指针（同 ResizeState.pointerId） */
-  pointerId: number | undefined;
-}
-
 /**
  * 单选缩放编辑（docs/05 §2/§4）：拖手柄视觉缩放（root.scale），
  * 松手 updateRect 落库。window 级监听保证拖出画布仍跟随。
@@ -52,7 +40,8 @@ export class RectEditorService extends Disposable {
   private vm!: RectEditorVm;
   private targetId: string | null = null;
   private resize: ResizeState | null = null;
-  private rotate: RotateState | null = null;
+  /** 旋转手势状态机（docs/05 §8；rectEditorRotate）——服务只留入口转发与取消收口 */
+  private readonly rotate: RectEditorRotate;
 
   /** 缩放手势逐帧通知（视觉预览已就位后发射）：连接点等覆盖层跟随用，
    *  与 selector.dragMove$ 同模式——缩放期 onStateChanged$ 不发射 */
@@ -88,12 +77,40 @@ export class RectEditorService extends Disposable {
     private refLine: RefLineService,
   ) {
     super();
+    this.rotate = new RectEditorRotate(this.rotateHost(), viewport, vmEngine, history);
+  }
+
+  /** 旋转手势的宿主适配：指针判定 / window 监听与缩放手势同一套；钩子经闭包
+   *  读字段——组合根在构造之后才赋值，必须读到调用时的最新值 */
+  private rotateHost(): IRectEditorRotateHost {
+    return {
+      isGesturePointer: (e, st, up) => this.isGesturePointer(e, st, up),
+      armWindowListeners: (move, up) => this.armWindowListeners(move, up),
+      endWindowListeners: (move, up) => this.endWindowListeners(move, up),
+      setClickSuppression: (on) => {
+        this.selector.suppressClickActivation = on;
+      },
+      followRotatePreview: (vm) => {
+        const g = vm.getHostGeom();
+        this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation);
+        this.selector.updateSelectionFrame(g.rect);
+      },
+      commitRotate: (vmId, vm, theta) => {
+        this.engine.transact(() => {
+          vm.commitRotate(theta);
+          this.onRotateCommitted?.(vmId, theta);
+        });
+      },
+      reposition: () => this.reposition(),
+      emitRotatePreview: () => this.onRotatePreview?.(),
+    };
   }
 
   initialize(): void {
     this.vm = new RectEditorVm(this.viewport.optionLayer);
     this.vm.onHandleDown = (dir, wx, wy, pointerId) => this.startResize(dir, wx, wy, pointerId);
-    this.vm.onRotateDown = (wx, wy, pointerId) => this.startRotate(wx, wy, pointerId);
+    this.vm.onRotateDown = (wx, wy, pointerId) =>
+      this.rotate.begin(this.targetId, wx, wy, pointerId);
 
     this.addDisposable(
       this.selector.selected$.subscribe((ids) => this.onSelectionChanged(ids)),
@@ -218,7 +235,7 @@ export class RectEditorService extends Disposable {
   /** 原生 pointercancel（触摸被系统接管/OS 抢指针）：仅手势指针匹配时取消——
    *  终止不落库（cancelGesture 回滚预览），抑制随之清除，手势不悬挂 */
   private onPointerCancel = (e: PointerEvent): void => {
-    const st = this.resize ?? this.rotate;
+    const st = this.resize ?? this.rotate.gesturePointer;
     if (!st || !this.isGesturePointer(e, st, false)) return;
     this.cancelGesture();
   };
@@ -226,7 +243,7 @@ export class RectEditorService extends Disposable {
   /** 捕获异常丢失（元素移除/浏览器收回）：手势已无法收到 up，按取消收口；
    *  正常 up 后的 lostpointercapture 到达时状态已清、监听已摘，天然 no-op */
   private onLostPointerCapture = (e: PointerEvent): void => {
-    const st = this.resize ?? this.rotate;
+    const st = this.resize ?? this.rotate.gesturePointer;
     if (!st || !this.isGesturePointer(e, st, false)) return;
     this.cancelGesture();
   };
@@ -295,9 +312,6 @@ export class RectEditorService extends Disposable {
     this.reposition();
   };
 
-  // ---------- 旋转手势（docs/05 §8）：preview 直写 root.rotation（零落库），
-  // 锚定线经 onRotatePreview 实时跟随；松手 commitRotate 单事务 = 一步 undo ----------
-
   /** 只读降级手势收口（docs/21 §4）：缩放/旋转是 window 级监听（拖出画布仍
    *  跟随），不经 viewport 路由——editable 闸门与 dispatchGestureCancel 都打不
    *  到这里，降级时必须显式取消：撤监听、视觉预览按手势起点回落（预览通道
@@ -321,79 +335,11 @@ export class RectEditorService extends Disposable {
       this.reposition();
       cancelled = true;
     }
-    if (this.rotate) {
-      this.endWindowListeners(this.onRotateMove, this.onRotateUp);
-      const { vmId, startTheta } = this.rotate;
-      const vm = this.vmEngine.getVmById(vmId);
-      if (vm) vm.applyRotatePreview(startTheta);
-      this.rotate = null;
-      // 锚定线重路由（与 onRotateMove 同款通知）：不上报则线停在预览角度
-      this.onRotatePreview?.();
-      this.reposition();
-      cancelled = true;
-    }
+    // 旋转手势：撤监听 + 预览回落 + 锚定线重路由都在手势机内（不上报则线停在
+    // 预览角度）；标脏由这里统一做
+    cancelled = this.rotate.cancel() || cancelled;
     // 预览复位是视觉变更：方法自带闭环，复用方不必靠别的状态变更兜底标脏
     // （只读降级路径正好有清选区触发重绘，但 Esc 之类复用路径不一定有）
     if (cancelled) markRender();
   }
-
-  private startRotate(worldX: number, worldY: number, pointerId?: number): void {
-    if (!this.targetId) return;
-    const vm = this.vmEngine.getVmById(this.targetId);
-    if (!vm) return;
-    const g = vm.getHostGeom(); // 视觉中心（拖拽/预览感知）
-    const center = { x: g.rect.x + g.rect.width / 2, y: g.rect.y + g.rect.height / 2 };
-    this.rotate = {
-      vmId: this.targetId,
-      startTheta: vm.getRotation(),
-      startPointerAngle: pointerAngle(center, { x: worldX, y: worldY }),
-      center,
-      lastTheta: vm.getRotation(),
-      pointerId,
-    };
-    this.selector.suppressClickActivation = true; // 同 startResize：抑制随手势生命周期
-    this.armWindowListeners(this.onRotateMove, this.onRotateUp);
-  }
-
-  private onRotateMove = (e: PointerEvent): void => {
-    if (!this.rotate || !this.isGesturePointer(e, this.rotate, false)) return;
-    if ((e.buttons & 1) === 0) return;
-    const vm = this.vmEngine.getVmById(this.rotate.vmId);
-    if (!vm) return;
-    const world = this.viewport.clientToWorld(e.clientX, e.clientY);
-    let theta =
-      this.rotate.startTheta +
-      (pointerAngle(this.rotate.center, world) - this.rotate.startPointerAngle);
-    if (e.shiftKey) theta = snapAngle(theta); // Shift 15° 步进（docs/05 §8）
-    this.rotate.lastTheta = theta;
-    vm.applyRotatePreview(theta);
-    // 编辑框/选区框跟随（旋转框）
-    const g = vm.getHostGeom();
-    this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation);
-    this.selector.updateSelectionFrame(g.rect);
-    // 锚定线实时跟随（用户拍板 2026-10-15）
-    this.onRotatePreview?.();
-    markRender();
-  };
-
-  private onRotateUp = (e: PointerEvent): void => {
-    // 异指针/副键 up 不终止（同 onWindowUp）
-    if (!this.rotate || !this.isGesturePointer(e, this.rotate, true)) return;
-    this.selector.suppressClickActivation = false; // 手势终止：抑制单源清除（同 onWindowUp）
-    this.endWindowListeners(this.onRotateMove, this.onRotateUp);
-    const { vmId, lastTheta } = this.rotate;
-    const vm = this.vmEngine.getVmById(vmId);
-    if (vm) {
-      // rotation 落库 + 锚定线急切重路由**同事务**（= 一步 undo）——比
-      // 「两事务靠 captureTimeout 窗口合并」结构性更强：实测窗口合并在
-      // 页面环境对紧邻两事务不稳定（E2E 实锤裂项），显式 transact 免疫
-      this.engine.transact(() => {
-        vm.commitRotate(lastTheta);
-        this.onRotateCommitted?.(vmId, lastTheta);
-      });
-    }
-    this.rotate = null;
-    this.history.stopCapturing();
-    this.reposition();
-  };
 }
