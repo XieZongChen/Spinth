@@ -6,6 +6,7 @@
 - 三种线型：STRAIGHT / ELBOWED / CURVE。
 - 箭头、线宽、颜色、虚线、线上文字可配。
 - 线不可整体拖动/缩放：交互 = 拖端点重锚定、拖段滑移、随锚定节点移动、ActionBar 改样式。
+  例外：轴消息（两端锚在生命线轴上）可沿轴上下平移（docs/04 §8.6）。
 
 ## 2. 数据结构
 
@@ -47,6 +48,12 @@ const LineSchema = z.object({
   （`shapeOutline.outlineAnchor`——diamond/triangle 等非矩形锚点贴轮廓，不悬空
   于 bbox 边上）。`geom` 可显式传入权威几何：几何命令事务后急切 reattach 时
   vm root 尚未应用新帧，读 vm 会滞后一拍产生幻影撤销项。
+- 轴宿主（`getAxisAnchor` 探针，生命线实现）的锚点在轴上：四个 join 的 t 都是轴上
+  高度比例，x 让出一个 `LINE_END_GAP`（`lineAxisAnchor.axisAnchorWithInset`）。
+  落点单源 `resolveAnchorPick`：轴宿主 = 指针在轴的哪一侧选边 + 端口 = 轴上比例
+  （4 位小数——两位在长轴上量化到 5…10px，重写端口时消息会可见地跳）；其他宿主 =
+  `nearestJoin`、无端口，与此前逐字节一致。创建数据只在端口有值时才写
+  `startPort/endPort` 键（写 undefined 会在 Yjs 里留下键）。
 - 沿边参数 t 的取值序：显式 `startPort/endPort`（端点拖拽落定投影落库）>
   0.5 边中点。**2026-11-15 产品拍板 B：同边多线不再自动错开**——同一锚边
   （含出发与进入两向）的所有线默认从中点同点引出（允许重叠；需要分开时
@@ -54,6 +61,10 @@ const LineSchema = z.object({
   1..n，跨度与车道深度同比放大（内环嵌外环分层不重叠；短边高倍钳顶后仍
   部分共线——挂账）；拉线落定 / quick-add 点击落定 / 端点重锚定 / 删线 /
   删节点余线均触发全量重排，samePoints 守卫保证零位移线零写入。
+- 连线拾取 `hitWidget`：`isConnectionTarget() === false` 的件跳过继续取下层；容差环
+  对轴宿主按到**轴段**的距离算（包围盒 120 宽，贴包围盒外沿按下不该起消息）。
+- quick-add 资格单源 `lineHitTest.canQuickAdd`：轴宿主与不可作连线目标的件不出四向
+  连接点、点击不触发 quick-add；连线工具悬停轴宿主时在轴上指针高度出单点。
 - 悬停 widget：连接点判定取四向外移点最近侧（外移 24px 屏幕恒定）；锚点
   指示器圆点、外移点快照、抓取热区与 quick-add ghost 起点共用同一轮廓锚点
   集合（`lineGeometry.outlineAnchorsOf` → `getAnchorPoint`，与真实锚定同
@@ -148,6 +159,14 @@ pointerup
   → 工具保持激活（Esc/V 切回）
 ```
 
+- **拉线策略**（`ILineDrawPolicy`，`LineService.drawPolicyProbe` 注入；缺省 = 上面
+  的既有流程）：时序图工具的消息种类要求两端落在轴宿主上——起点不在轴上不建线；
+  拖动中终点钳到起点高度（自消息取指针高度，同轴纵向 < 8 不画环）；松手在另一条
+  轴上 → STRAIGHT 两点直线、join 按方向归一，在同一条轴上且间距 ≥ 8 → ELBOWED
+  自环，其余取消。草稿走非跟踪 origin（`'sequence-draft'`）**不入撤销栈**：落定 =
+  非跟踪删草稿 + 跟踪事务建终线（一步撤销 = 建出这条消息），取消零痕迹
+  （specs/sequence-diagram §4.4；消息路径在 `lineMessageDraft.ts`）。
+
 - **自环**（`startNodeId === endNodeId !== null`）：显式环路，`routeSelfLoop`
   生成——同 join 出 U 形（锚点重合时按跨度 `max(80, 边长×0.5)` 展开在边内）、
   异 join 出矩形环（对边绕近侧车道、邻边走外角点）；全部线段轴对齐不自交。
@@ -171,6 +190,10 @@ pointerup
 | `lineAnchorFollow.ts` | 模型→路由域（reattach/rerouteLine/previewFollow/unbind） |
 | `lineEndpointDrag.ts` | 端点重锚定/解绑手势                                      |
 | `lineSegTextSlide.ts` | 文字滑移 + 段滑移 waypoint 两个手势会话                  |
+| `lineAxisAnchor.ts`   | 轴上几何 / 落点 / 拉线策略与预设（纯函数）               |
+| `lineMessageDraft.ts` | 有拉线策略时的终点 / 草稿路由 / 落定（消息路径）         |
+| `lineAxisMessage.ts`  | 轴消息判定（纯派生）与端口平移（纯函数）                 |
+| `lineAxisResize.ts`   | 轴宿主缩放后的端口重写（加长保高度）                     |
 
 ## 9. 挂账
 
@@ -191,7 +214,8 @@ pointerup
 
 - 单选连线不画 bbox 选区框（points bbox 对 U 形线会框住空区）。
 - 多选含线仍画 union 框；ActionBar 定位走独立 `getSelectionBounds`。
-- hover cursor：端点 grab / 段条 move。
+- hover cursor：端点 grab / 段条 move；轴消息线身（距两端 > 12 屏幕 px）`ns-resize`，
+  其余 STRAIGHT 线无光标。
 
 ### 10.3 拖段体验
 

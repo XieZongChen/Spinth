@@ -509,7 +509,8 @@ export interface ILineDrawPolicy {
 ```
 
 `ILineDrawHost` 增 `getDrawPolicy?(): ILineDrawPolicy | undefined`。缺省 undefined =
-既有行为。`LineService` 把自己的「line 模式处理器对象」提为只读属性 `drawHandlers`
+既有行为。`style` 的类型只含 schema 已有的四个字段——`textSide` 随批次 4 加进
+`LineSchema` 时再并入（§19.2）。`LineService` 把自己的「line 模式处理器对象」提为只读属性 `drawHandlers`
 （注册与被转发共用同一对象），`SequenceService` 直接转发（§7.1）。
 
 | 预设     | lineType | startArrow | endArrow | dashed | textSide | horizontal | requireAxisTargets | selfMessage |
@@ -838,44 +839,44 @@ export function composeCascadeLookup(
 
 ### 9.2 改动点（文件级，按实施顺序）
 
-| #   | 文件                                                                                                     | 改动                                                                                                                                                           | 批次      |
-| --- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 1   | `widgets/base/dragCreateServiceBase.ts`                                                                  | 处理器对象提为 `handlers`（前置重构）                                                                                                                          | 1         |
-| 2   | `widgets/line/lineService.ts` + `lineCollaborators.ts`                                                   | `drawHandlers`；协作者构造迁工厂（前置重构，净减行）                                                                                                           | 1         |
-| 3   | `platform/textEngine/labelText.ts`、`widgets/symbol/symbolGeometry.ts`、`widgets/frame/frameGeometry.ts` | 标签清洗 / 截断上提（前置重构）                                                                                                                                | 1         |
-| 4   | —（无改动）                                                                                              | `LINE_END_GAP` 留在 `linePath.ts`：只有连线层用它，不上提 common                                                                                               | 2         |
-| 5   | `types/widget.ts`                                                                                        | 两个 schema、`LineSchema.textSide`、注册表两项                                                                                                                 | 1 / 3 / 4 |
-| 6   | `types/base.ts`                                                                                          | `IAxisAnchor` + 四个可选探针；`constrainResize` 整形探针                                                                                                       | 1 / 2 / 3 |
-| 7   | `types/services.ts`                                                                                      | `CursorMode`；`onResizeCommitted` 三参；`IActivationLookup`；`ILineDrawPolicy`                                                                                 | 1 / 2 / 3 |
-| 8   | `types/index.ts`、`index.ts`                                                                             | 类型与选项常量导出                                                                                                                                             | 1 起      |
-| 9   | `tokens.ts`、`widgetRuntime.ts`                                                                          | `Tokens.SequenceLookup`；两项工厂（Vm 注入只读查询）                                                                                                           | 1 / 2 / 3 |
-| 10  | `widgets/sequence/lifelineGeometry.ts`                                                                   | 常量 + §3.1–3.2 纯函数                                                                                                                                         | 1 / 2     |
-| 11  | `widgets/sequence/lifelineModel.ts` / `lifelineVm.ts`                                                    | 三件套前两件；命中、轴锚点、缩放整形、避障豁免                                                                                                                 | 1 / 2     |
-| 12  | `widgets/sequence/lifelineLabelEditor.ts`                                                                | plain 内核标签会话                                                                                                                                             | 1         |
-| 13  | `widgets/line/lineAxisAnchor.ts`                                                                         | 轴上几何（`axisAnchorPoint` / `axisJoinFor` / `axisPortFor` / `axisAnchorWithInset`）、`isAxisHost`、`resolveAnchorPick`、`ILineDrawPolicy` 与预设、join 归一  | 2         |
-| 14  | `widgets/line/lineDrawSession.ts`                                                                        | 策略接入（§4.2–4.4、§4.6）                                                                                                                                     | 2         |
-| 15  | `widgets/line/lineEndpointDrag.ts`                                                                       | 改用 `resolveAnchorPick`                                                                                                                                       | 2         |
-| 16  | `widgets/line/lineHitTest.ts` / `lineQuickAdd.ts` / `lineHoverOverlay.ts` / `lineHoverMath.ts`           | 连接目标跳过、轴容差环、`canQuickAdd` 资格单源、轴点悬停反馈、轴消息悬停光标                                                                                   | 2 / 3     |
-| 17  | `widgets/line/lineAxisMessage.ts`                                                                        | 轴消息判定、端口平移（纯函数；LineVm 在连线层，不能反向依赖 sequence）                                                                                         | 2         |
-| 17a | `widgets/sequence/sequenceOps.ts`                                                                        | 绑定判定（纯函数）                                                                                                                                             | 3         |
-| 18  | `widgets/line/lineVm.ts`                                                                                 | 轴消息平移两覆写 + `isAxisMessage`                                                                                                                             | 2         |
-| 19  | `platform/selector/selectorDragOps.ts`                                                                   | `createDragState` 规则；纵向会话                                                                                                                               | 2         |
-| 20  | `widgets/line/lineAxisResize.ts`                                                                         | `rewirePortsAfterResize`；`previewFollow` 的宿主扩展                                                                                                           | 2 / 3     |
-| 21  | `platform/rectEditor/rectEditorService.ts` + `rectEditorRotate.ts`                                       | 整形探针接线（批次 1）；旋转手势拆出协作者（前置重构，零行为）；`onResizeCommitted` 传 `start`（公开字段，无接口类型）                                         | 1 / 2     |
-| 22  | `widgets/line/lineVmText.ts` / `lineTextEditor.ts` / `lineVmHit.ts`                                      | `textAnchorOf` 单源（§4.9）                                                                                                                                    | 4         |
-| 23  | `widgets/sequence/activationModel.ts` / `activationVm.ts`                                                | 激活条控件；锁宽缩放；两个探针                                                                                                                                 | 3         |
-| 24  | `widgets/sequence/sequenceCascade.ts`                                                                    | `IActivationLookup` 实现 + `composeCascadeLookup`                                                                                                              | 3         |
-| 25  | `platform/clipboard/clipboardService.ts`                                                                 | `lifelineId` 桶映射                                                                                                                                            | 3         |
-| 26  | `alignCommands.ts`、`boardHost.ts`、`boardPublicApi.ts`                                                  | `cascade` 成员；随行件按宿主位移                                                                                                                               | 3         |
-| 27  | `widgets/frame/frameOps.ts` / `frameService.ts`                                                          | 归属排除两类（批次 1 先排除 LIFELINE）；`createPreset`（批次 4）                                                                                               | 1 / 4     |
-| 28  | `widgets/sequence/sequenceService.ts`、`sequenceOptions.ts`                                              | 工具注册与转发、种类记忆；激活条手势与绑定实现随后续批次追加                                                                                                   | 1 起      |
-| 29  | `widgets/sequence/lifelineActionBar.ts`、`boardActionBar.ts`                                             | ActionBar 两项                                                                                                                                                 | 4         |
-| 30  | `app.ts`、`boardAssemblyInteraction.ts`、`boardAssemblyTools.ts`、`boardCommands.ts`、`boardTeardown.ts` | 装配、`onActivate` 分支（在 `boardAssemblyInteraction.ts`）、`setDefaultToolOption` 分支（在 `boardCommands.ts`）、销毁；`cascade` 组合与 Token 注册随后续批次 | 1 起      |
-| 31  | `platform/keyboard/shortcuts.ts` / `keyboardService.ts`、`platform/viewport/viewportService.ts`          | 快捷键 Q、光标                                                                                                                                                 | 1         |
-| 32  | react：`Toolbar.tsx`、`ToolGhost.tsx`、`Icon.tsx`、`a11y/announcement.ts`                                | 工具坞与播报                                                                                                                                                   | 1 起      |
-| 33  | `__tests__/widgetRegistry.test.ts` 及各新单测                                                            | §11.1                                                                                                                                                          | 1 起      |
-| 34  | `packages/app/e2e/sequence.spec.ts`、`helpers/sequenceE2e.ts`、`visual.spec.ts`                          | §11.2–11.3                                                                                                                                                     | 1 / 5     |
-| 35  | `docs/*`、`AGENTS.md`                                                                                    | §13；每批落地后同步该批事实                                                                                                                                    | 1 起      |
+| #   | 文件                                                                                                     | 改动                                                                                                                                                              | 批次      |
+| --- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 1   | `widgets/base/dragCreateServiceBase.ts`                                                                  | 处理器对象提为 `handlers`（前置重构）                                                                                                                             | 1         |
+| 2   | `widgets/line/lineService.ts` + `lineCollaborators.ts`                                                   | `drawHandlers`；协作者构造迁工厂（前置重构，净减行）                                                                                                              | 1         |
+| 3   | `platform/textEngine/labelText.ts`、`widgets/symbol/symbolGeometry.ts`、`widgets/frame/frameGeometry.ts` | 标签清洗 / 截断上提（前置重构）                                                                                                                                   | 1         |
+| 4   | —（无改动）                                                                                              | `LINE_END_GAP` 留在 `linePath.ts`：只有连线层用它，不上提 common                                                                                                  | 2         |
+| 5   | `types/widget.ts`                                                                                        | 两个 schema、`LineSchema.textSide`、注册表两项                                                                                                                    | 1 / 3 / 4 |
+| 6   | `types/base.ts`                                                                                          | `IAxisAnchor` + 四个可选探针；`constrainResize` 整形探针                                                                                                          | 1 / 2 / 3 |
+| 7   | `types/services.ts`                                                                                      | `CursorMode`；`onResizeCommitted` 三参；`IActivationLookup`；`ILineDrawPolicy`（`ISequenceLookup` 实际落在 `types/base.ts`——加进 services.ts 会到 402 行，§19.2） | 1 / 2 / 3 |
+| 8   | `types/index.ts`、`index.ts`                                                                             | 类型与选项常量导出                                                                                                                                                | 1 起      |
+| 9   | `tokens.ts`、`widgetRuntime.ts`                                                                          | `Tokens.SequenceLookup`；两项工厂（Vm 注入只读查询）                                                                                                              | 1 / 2 / 3 |
+| 10  | `widgets/sequence/lifelineGeometry.ts`                                                                   | 常量 + §3.1–3.2 纯函数                                                                                                                                            | 1 / 2     |
+| 11  | `widgets/sequence/lifelineModel.ts` / `lifelineVm.ts`                                                    | 三件套前两件；命中、轴锚点、缩放整形、避障豁免                                                                                                                    | 1 / 2     |
+| 12  | `widgets/sequence/lifelineLabelEditor.ts`                                                                | plain 内核标签会话                                                                                                                                                | 1         |
+| 13  | `widgets/line/lineAxisAnchor.ts`                                                                         | 轴上几何（`axisAnchorPoint` / `axisJoinFor` / `axisPortFor` / `axisAnchorWithInset`）、`isAxisHost`、`resolveAnchorPick`、`ILineDrawPolicy` 与预设、join 归一     | 2         |
+| 14  | `widgets/line/lineDrawSession.ts` + `lineMessageDraft.ts`                                                | 策略接入（§4.2–4.4、§4.6）；消息路径的终点 / 草稿路由 / 落定在 `lineMessageDraft.ts`（实施时拆出，§19.2）                                                         | 2         |
+| 15  | `widgets/line/lineEndpointDrag.ts`                                                                       | 改用 `resolveAnchorPick`                                                                                                                                          | 2         |
+| 16  | `widgets/line/lineHitTest.ts` / `lineQuickAdd.ts` / `lineHoverOverlay.ts` / `lineHoverMath.ts`           | 连接目标跳过、轴容差环、`canQuickAdd` 资格单源、轴点悬停反馈、轴消息悬停光标                                                                                      | 2 / 3     |
+| 17  | `widgets/line/lineAxisMessage.ts`                                                                        | 轴消息判定、端口平移（纯函数；LineVm 在连线层，不能反向依赖 sequence）                                                                                            | 2         |
+| 17a | `widgets/sequence/sequenceOps.ts`                                                                        | 绑定判定（纯函数）                                                                                                                                                | 3         |
+| 18  | `widgets/line/lineVm.ts`                                                                                 | 轴消息平移两覆写 + `isAxisMessage`                                                                                                                                | 2         |
+| 19  | `platform/selector/selectorDragOps.ts`                                                                   | `createDragState` 规则；纵向会话                                                                                                                                  | 2         |
+| 20  | `widgets/line/lineAxisResize.ts`                                                                         | `rewirePortsAfterResize`；`previewFollow` 的宿主扩展                                                                                                              | 2 / 3     |
+| 21  | `platform/rectEditor/rectEditorService.ts` + `rectEditorRotate.ts`                                       | 整形探针接线（批次 1）；旋转手势拆出协作者（前置重构，零行为）；`onResizeCommitted` 传 `start`（公开字段，无接口类型）                                            | 1 / 2     |
+| 22  | `widgets/line/lineVmText.ts` / `lineTextEditor.ts` / `lineVmHit.ts`                                      | `textAnchorOf` 单源（§4.9）                                                                                                                                       | 4         |
+| 23  | `widgets/sequence/activationModel.ts` / `activationVm.ts`                                                | 激活条控件；锁宽缩放；两个探针                                                                                                                                    | 3         |
+| 24  | `widgets/sequence/sequenceCascade.ts`                                                                    | `IActivationLookup` 实现 + `composeCascadeLookup`                                                                                                                 | 3         |
+| 25  | `platform/clipboard/clipboardService.ts`                                                                 | `lifelineId` 桶映射                                                                                                                                               | 3         |
+| 26  | `alignCommands.ts`、`boardHost.ts`、`boardPublicApi.ts`                                                  | `cascade` 成员；随行件按宿主位移                                                                                                                                  | 3         |
+| 27  | `widgets/frame/frameOps.ts` / `frameService.ts`                                                          | 归属排除两类（批次 1 先排除 LIFELINE）；`createPreset`（批次 4）                                                                                                  | 1 / 4     |
+| 28  | `widgets/sequence/sequenceService.ts`、`sequenceOptions.ts`                                              | 工具注册与转发、种类记忆；激活条手势与绑定实现随后续批次追加                                                                                                      | 1 起      |
+| 29  | `widgets/sequence/lifelineActionBar.ts`、`boardActionBar.ts`                                             | ActionBar 两项                                                                                                                                                    | 4         |
+| 30  | `app.ts`、`boardAssemblyInteraction.ts`、`boardAssemblyTools.ts`、`boardCommands.ts`、`boardTeardown.ts` | 装配、`onActivate` 分支（在 `boardAssemblyInteraction.ts`）、`setDefaultToolOption` 分支（在 `boardCommands.ts`）、销毁；`cascade` 组合与 Token 注册随后续批次    | 1 起      |
+| 31  | `platform/keyboard/shortcuts.ts` / `keyboardService.ts`、`platform/viewport/viewportService.ts`          | 快捷键 Q、光标                                                                                                                                                    | 1         |
+| 32  | react：`Toolbar.tsx`、`ToolGhost.tsx`、`Icon.tsx`、`a11y/announcement.ts`                                | 工具坞与播报                                                                                                                                                      | 1 起      |
+| 33  | `__tests__/widgetRegistry.test.ts` 及各新单测                                                            | §11.1                                                                                                                                                             | 1 起      |
+| 34  | `packages/app/e2e/sequence.spec.ts`、`helpers/sequenceE2e.ts`、`visual.spec.ts`                          | §11.2–11.3                                                                                                                                                        | 1 / 5     |
+| 35  | `docs/*`、`AGENTS.md`                                                                                    | §13；每批落地后同步该批事实                                                                                                                                       | 1 起      |
 
 ### 9.3 公开面
 
@@ -898,6 +899,7 @@ export interface IActivationLookup {
   adoptActivationsByLanding(ids: string[]): void;
 }
 
+// 实际落在 types/base.ts（VM 侧只读查询契约，与轴锚定探针同域；§19.2）
 /** VM 只读查询（LifelineVm / LineVm 经构造注入；组合根晚绑定注册 Tokens.SequenceLookup） */
 export interface ISequenceLookup {
   /** 轴宿主的轴；非轴宿主或未组装返回 null */
@@ -965,25 +967,25 @@ export function rewirePortsAfterResize(
 
 ### 9.6 必须避开的陷阱（逐条对账）
 
-| #   | 陷阱                                     | 正确做法                                                                                                                                                      |
-| --- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | 自消息草稿按 STRAIGHT 建、落定切 ELBOWED | 草稿按 ELBOWED 建；按 STRAIGHT 建的草稿拿不到自环路由，落定再切还多一次切型事务（§4.6）                                                                       |
-| 2   | 轴宿主端口沿用两位小数                   | 轴宿主 r4；普通件维持 r2（§4.2）                                                                                                                              |
-| 3   | 用 `nearestJoin` 给轴宿主选边            | `axisJoinFor`；前者对高瘦矩形返回 top / bottom                                                                                                                |
-| 4   | 锚点直接取轴上点                         | 让出一个 `LINE_END_GAP`，方向随 join（§3.2）                                                                                                                  |
-| 5   | 多个服务各自注册 `'sequence'`            | `handlers.set` 后者覆盖前者；只有 SequenceService 注册                                                                                                        |
-| 6   | `LifelineService.initialize()`           | 它的 scope 也是 `'sequence'`，会覆盖注册；方法直接抛错（§7.1）                                                                                                |
-| 7   | 激活条创建后再写 `lifelineId`            | 写进创建数据（陷阱 11）                                                                                                                                       |
-| 8   | 绑定写在拖拽事务之外                     | undo 裂项；在 `commitDrag` 的 transact 内（S7）                                                                                                               |
-| 9   | 对齐 / 分布只位移参与体                  | 生命线的随行激活条按宿主 delta 同事务位移（§1.2 G-11）                                                                                                        |
-| 10  | `previewFollow` 只认 `selected$`         | 拖激活条时把其生命线并入「移动宿主集」（§4.1 探针）                                                                                                           |
-| 11  | 在 `lineService.ts` 里写新逻辑           | 已 397 行；新行为落新协作者，本文件只留一行转发                                                                                                               |
-| 12  | 策略缺省时也走新分支                     | `getDrawPolicy()` 返回 undefined 即原路径；单测锁创建数据逐字节相等                                                                                           |
-| 13  | 事务内读 `vm.getBounds()`                | 微任务合批旧值；`rectOf` 用算术或 `model.toJSON()`                                                                                                            |
-| 15  | 在 vm 的 diff 观察者里补写派生数据       | 并入触发它的命令事务：微任务相晚于 `stopCapturing` 会裂成独立撤销项，undo·redo 触发同一 diff 还会覆盖恢复出的状态并清空重做栈（specs/flowchart-closeout §24） |
-| 16  | 把生命线 / 激活条加进 `ParentIdField`    | 不带字段，归属结构上不可写（S5）                                                                                                                              |
-| 18  | 消息草稿入撤销栈、落空再删除             | 草稿走非跟踪 origin；落定才以跟踪事务建终线（§4.4）——入栈后取消留空撤销步，慢拖时撤销会复活草稿                                                               |
-| 17  | 贴着 400 行的文件直接加逻辑              | `lineService.ts` 先瘦身到 ≤ 370；`rectEditorService.ts` 批次 1 后 399 行、再动先拆旋转手势；`lineHoverOverlay.ts` 397 行：只加实参（§1.6）                    |
+| #   | 陷阱                                     | 正确做法                                                                                                                                                                                        |
+| --- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 自消息草稿按 STRAIGHT 建、落定切 ELBOWED | 草稿按 ELBOWED 建；按 STRAIGHT 建的草稿拿不到自环路由，落定再切还多一次切型事务（§4.6）                                                                                                         |
+| 2   | 轴宿主端口沿用两位小数                   | 轴宿主 r4；普通件维持 r2（§4.2）                                                                                                                                                                |
+| 3   | 用 `nearestJoin` 给轴宿主选边            | `axisJoinFor`；前者对高瘦矩形返回 top / bottom                                                                                                                                                  |
+| 4   | 锚点直接取轴上点                         | 让出一个 `LINE_END_GAP`，方向随 join（§3.2）                                                                                                                                                    |
+| 5   | 多个服务各自注册 `'sequence'`            | `handlers.set` 后者覆盖前者；只有 SequenceService 注册                                                                                                                                          |
+| 6   | `LifelineService.initialize()`           | 它的 scope 也是 `'sequence'`，会覆盖注册；方法直接抛错（§7.1）                                                                                                                                  |
+| 7   | 激活条创建后再写 `lifelineId`            | 写进创建数据（陷阱 11）                                                                                                                                                                         |
+| 8   | 绑定写在拖拽事务之外                     | undo 裂项；在 `commitDrag` 的 transact 内（S7）                                                                                                                                                 |
+| 9   | 对齐 / 分布只位移参与体                  | 生命线的随行激活条按宿主 delta 同事务位移（§1.2 G-11）                                                                                                                                          |
+| 10  | `previewFollow` 只认 `selected$`         | 拖激活条时把其生命线并入「移动宿主集」（§4.1 探针）                                                                                                                                             |
+| 11  | 在 `lineService.ts` 里写新逻辑           | 已 397 行；新行为落新协作者，本文件只留一行转发                                                                                                                                                 |
+| 12  | 策略缺省时也走新分支                     | `getDrawPolicy()` 返回 undefined 即原路径；单测锁创建数据逐字节相等                                                                                                                             |
+| 13  | 事务内读 `vm.getBounds()`                | 微任务合批旧值；`rectOf` 用算术或 `model.toJSON()`                                                                                                                                              |
+| 15  | 在 vm 的 diff 观察者里补写派生数据       | 并入触发它的命令事务：微任务相晚于 `stopCapturing` 会裂成独立撤销项，undo·redo 触发同一 diff 还会覆盖恢复出的状态并清空重做栈（specs/flowchart-closeout §24）                                   |
+| 16  | 把生命线 / 激活条加进 `ParentIdField`    | 不带字段，归属结构上不可写（S5）                                                                                                                                                                |
+| 17  | 贴着 400 行的文件直接加逻辑              | `lineService.ts` 先瘦身到 ≤ 370；`rectEditorService.ts` 的旋转手势已拆出（批次 2，345 行）；`lineVm.ts` 397 / `lineHoverOverlay.ts` 395 / `selectorService.ts` 398 行：再动先下沉纯函数（§1.6） |
+| 18  | 消息草稿入撤销栈、落空再删除             | 草稿走非跟踪 origin；落定才以跟踪事务建终线（§4.4）——入栈后取消留空撤销步，慢拖时撤销会复活草稿                                                                                                 |
 
 ## 10. 性能
 
@@ -1217,22 +1219,31 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 
 ## 18. 审查清单（设计者复核时逐条核对）
 
-- [ ] 轴宿主判定没有落到 type 分支：连线、selector、rectEditor 的改动里没有
-      `=== 'LIFELINE'` / `=== 'ACTIVATION'`。
-- [ ] 策略缺省路径的创建数据与现状逐字节相等（单测在旧实现上跑过）。
-- [ ] 自消息草稿是 ELBOWED；没有依赖 `rerouteLine`。
-- [ ] 轴宿主端口 4 位小数；普通件端口仍是 2 位。
+- [x] 轴宿主判定没有落到 type 分支：连线、selector、rectEditor 的改动里没有
+      `=== 'LIFELINE'` / `=== 'ACTIVATION'`（批次 2 全量 grep：唯一命中是组合根 `onActivate`
+      的标签编辑分支，属批次 1 既有接线）。
+- [x] 策略缺省路径的创建数据与现状逐字节相等（`lineDrawPolicy.test`：普通件上 `engine.add`
+      直调、不包事务、无 `startPort` 键；`lineEndpointDragAxis.test`：普通形状端口仍是两位小数）。
+- [x] 自消息草稿是 ELBOWED；没有依赖 `rerouteLine`（`lineMessageDraft.settle` 只走
+      `routeSelfLoop` 与落定重排）。
+- [x] 轴宿主端口 4 位小数；普通件端口仍是 2 位（`lineAxisAnchor.test`、`lineEndpointDragAxis.test`、
+      E2E Q-3 的端口还原高度）。
 - [ ] 绑定写与移动同事务；粘贴收尾另起事务；undo / redo 不重判。
 - [ ] 对齐 / 分布带上了随行激活条；FRAME 仍被剔除。
-- [ ] 加长保高度在缩放同一撤销项内，且 port 不变时零写入。
-- [ ] `lineService.ts`、`selectorService.ts`、`boardActionBar.ts`、`rectEditorService.ts`、
-      `lineHoverOverlay.ts` 都 < 400 行；旋转手势拆出后既有 rotate 单测全绿。
+- [x] 加长保高度在缩放同一撤销项内，且 port 不变时零写入（E2E Q-8：加长后一步 undo 同时
+      回到旧高度与旧端口、重做一起回来；顶边拖回后端口回到原值；`rewiredPorts` 纯函数零写入分支）。
+- [x] `lineService.ts`、`selectorService.ts`、`boardActionBar.ts`、`rectEditorService.ts`、
+      `lineHoverOverlay.ts` 都 < 400 行；旋转手势拆出后既有 rotate 单测全绿（批次 2 实测：
+      379 / 398 / 382 / 347 / 395）。
 - [x] 新增文件全部 < 400 行（最大 lifelineGeometry 194）；`types/widget.ts` 的增量只含 schema 与注册项。
-- [ ] 批次 2 起：`rectEditorService.ts` 已到 399 行，动它之前先拆旋转手势（§1.6）。
+- [x] 批次 2 起：`rectEditorService.ts` 已到 399 行，动它之前先拆旋转手势（§1.6）
+      ——已拆到 `rectEditorRotate.ts`（零行为，特征测试 23 例不改一字全绿）。
 - [ ] 批次 4 两项（线上文字侧别、actor 头）都在；Q-4 标签断言、Q-12 与 Q-19 actor 头部分绿。
-- [ ] 批次 2：轴宿主判定没有 type 分支（`getAxisAnchor` / `isAxisMessage` 探针）；消息草稿不入撤销栈——
-      落空取消后 `canUndo` 不变、慢拖后撤销不复活草稿；`canQuickAdd` 是 quick-add 与四向连接点的唯一资格判定；
-      `lineService.ts` / `lineHoverOverlay.ts` / `lineVm.ts` / `lineDrawSession.ts` 都 < 400 行。
+- [x] 批次 2：轴宿主判定没有 type 分支（`getAxisAnchor` / `isAxisMessage` 探针）；消息草稿不入撤销栈——
+      落空取消后撤销栈不变、慢拖后撤销不复活草稿（单测用真 Yjs + UndoManager 取 captureTimeout 0；
+      E2E Q-5 把栈规整成一步后验一次撤销恰好清空）；`canQuickAdd` 是 quick-add 与四向连接点的唯一资格判定；
+      `lineService.ts` / `lineHoverOverlay.ts` / `lineVm.ts` / `lineDrawSession.ts` 都 < 400 行
+      （379 / 395 / 397 / 371）。
 - [x] 批次 1：生命线没有覆写 `getAnchorPoint`（轴锚定在批次 2；lifelineVmRender 有钉住现状的用例，批次 2 先改红）；`LifelineService.initialize()` 抛错有单测；缩放整形经 `constrainResize` 探针、θ ≠ 0 不调用，Q-21 的编辑框与图形贴合。
 - [x] 既有 11 张视觉基线逐字节不变（工具坞入镜的除外）——仅 theme 双态 × darwin/linux 4 张重生成，其余 9 张 linux 基线容器内重生成后逐字节相同。
 - [x] 公开面 71 成员不变；`BoardInternalMember` 的新增项（`sequence`、`lifeline`）分类正确（分类编译锁与 debugSurface 全绿）。
@@ -1301,7 +1312,37 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 | Q-9 含激活条                                                                                                      | 本批只验消息跟随与顶边对齐                                                                                         | 激活条属批次 3                                                                           |
 | E2E 写在 `sequence.spec.ts`                                                                                       | 消息 E2E 另起 `sequenceMessage.spec.ts`                                                                            | 批次 1 的文件已 500 行                                                                   |
 
-**提交**（随各笔回填）
+**实施偏差（相对本 spec 正文；正文已同步改写，这里记原因）**
 
-| #   | 提交 | 内容 | 实测 |
-| --- | ---- | ---- | ---- |
+| 事项                                           | 实际做法                                                                                                       | 原因                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| §9.4：`ISequenceLookup` 放 `types/services.ts` | 放 `types/base.ts`（与轴锚定探针同域）                                                                         | 加进去 `services.ts` 到 402 行，超 400 行铁律                       |
+| §9.2 #14：策略接入都写在 `lineDrawSession.ts`  | 消息路径（终点求解 / 草稿路由 / 落定）拆到新文件 `widgets/line/lineMessageDraft.ts`                            | 都写在一处到 478 行；拆后 371 + 150 行                              |
+| §4.3：`ILineDrawPolicy.style` 含 `textSide`    | 类型只含 `lineType / startArrow / endArrow / dashed`                                                           | `LineSchema.textSide` 属批次 4，schema 尚无该字段                   |
+| §10 Q-5：`canUndo` 不变                        | E2E 不断言按钮初值：`engineAdd` 搭建本身可撤销，先把栈全部撤销再重做规整成一步，再验取消后一次撤销恰好清空画板 | 搭建步骤的撤销步数取决于捕获窗口，直接断言「按钮禁用」不成立        |
+| §11.1：单测模拟「拖动超过捕获窗口」            | 测试里的 `Y.UndoManager` 取 `captureTimeout: 0`（每个被跟踪的事务各成一步）而不是 fake timers 推进             | vitest fake timers 推进不了 yjs 读的时钟（`lastChange` 走真实时间） |
+| 草稿 origin 常量                               | `LINE_DRAFT_ORIGIN = 'sequence-draft'`（`lineMessageDraft.ts`）                                                | 值不变；常量随消息路径搬家                                          |
+
+**提交**（每笔 pre-push `pnpm verify` 全绿后推送）
+
+| #   | 提交                  | 内容                                                                                        | 实测                                                                                                                           |
+| --- | --------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 0   | `b8ed4bd`             | docs(spec)：开工前订正（三项拍板 + 七处与代码不符）                                         | —                                                                                                                              |
+| 1   | `285afb1`             | refactor：旋转手势拆出 `rectEditorRotate.ts`（399 → 345 行，零行为）                        | `rectEditor.test` 23 例不改一字全绿；styleResize / rotateAnchor / alignAnchor / imageResize E2E 13/13                          |
+| 2   | `a7fb425`             | feat：轴锚定探针与几何（`IAxisAnchor` / 四探针 / `lineAxisAnchor.ts` / `ISequenceLookup`）  | +16 单测（lineAxisAnchor 10 / lifelineVmRender +3 / lifelineGeometry +1 / sequenceService +2）                                 |
+| 3   | `b5a8c77`             | feat：quick-add 资格单源与轴点悬停反馈（`canQuickAdd`、轴段容差环、轴上单点）               | +16 单测（lineAxisHover）；连线全量回归 E2E 107/107                                                                            |
+| 4   | `66b1d8b`             | feat：缩放松手钩子带起始矩形——加长保高度（`rewirePortsAfterResize`）                        | +12 单测（lineAxisResize）                                                                                                     |
+| 5   | `f9380f7`             | feat：轴消息判定与平移（`lineAxisMessage.ts`、线选区纵向会话、纵向吸附、悬停光标）          | +25 单测（lineAxisMessage 9 / lineVmAxisMessage 9 / selectorDrag +4 / lineHoverMath +2 / refLineService +1）                   |
+| 6   | `0836bc1`             | feat：消息拉线策略（`ILineDrawPolicy` + 三预设、草稿不入撤销栈、自消息、join 归一）         | +18 单测（lineDrawPolicy 15 / lineEndpointDragAxis 3）；变异验证：草稿入栈 → 7 例转红、去掉起点门控 → 1 例、不归一 join → 2 例 |
+| 7   | `01b5c73`             | feat：时序图工具「消息」三种图元（二级菜单动态组、三个图标、SequenceService 转发）          | +2 单测（sequenceService）+ react +2（toolbarSequence）；工具坞 / UI 回归 E2E 85 通过 + 2 跳过                                 |
+| 8   | `fe00e1e` + `66193a0` | test：时序图消息 E2E（`sequenceMessage.spec.ts` 10 例；Q-8 补「端口重写与缩放同一撤销项」） | 变异验证五处：无轴 / 不重写端口 / 线身不可拖 / 不注入策略 / 草稿入栈——对应用例各转红，还原后全绿                               |
+| 9   | 见 git                | docs：文档同步（docs/00 / 03 / 04 / 05 / 06 / 08 / 12 / 13 / 15、本 spec、AGENTS.md）       | 全量 E2E 见下方「批次收尾实测」                                                                                                |
+
+**批次收尾实测**：全量 E2E 主配置 353 例（351 通过 + 2 跳过，含 darwin `@visual` 10 例基线
+未变）+ pwa 7 例，0 failed；单测 1715（core 1589 + react 88 + app 38）。CI gate 与
+linux 视觉以 `main` 的 required check `gate` 与 dispatch 的 ci 为准。挂账（已报人类）：
+
+- `lineVm.ts` 397、`lineHoverOverlay.ts` 395、`selectorService.ts` 398 行——批次 3 再动先下沉纯函数。
+- `packages/react/src/components/Icon.tsx` 510 行（批次 2 前已 481 行，图标注册表），无自动行数门禁。
+- 批次 2 做完后消息的线上文字仍骑线镂空（文字侧别属批次 4，届时只对新建消息生效）。
+- 通用连线工具在生命线上的行为随轴锚定改变：按下按指针侧选边并写 4 位小数端口（spec §4.2 的既定设计，用户可见）。

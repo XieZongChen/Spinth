@@ -13,7 +13,12 @@
 
 ## 2. 当前基线
 
-- 单测：1624 passed（core 1500 + react 86 + app 38）。时序图批次 1 +97
+- 单测：1715 passed（core 1589 + react 88 + app 38）。时序图批次 2 +91
+  （lineDrawPolicy 15 / lineAxisHover 16 / lineAxisAnchor 10 / lineAxisMessage 9 /
+  lineVmAxisMessage 9 / lineAxisResize 12 / lineEndpointDragAxis 3 / sequenceService +4 /
+  selectorDrag +4 / lifelineVmRender +3 / lineHoverMath +2 / refLineService +1 /
+  lifelineGeometry +1 / toolbarSequence +2，specs/sequence-diagram §19.2）。时序图
+  批次 1 +97
   （lifelineGeometry 27 / lifelineVmRender 16 / lifelineLabelEditor 12 /
   sequenceService 9 / labelText 9 / resizeMath 6 / toolbarSequence 5 /
   rectEditor 2 / lineServiceWiring 2 / shapeContrast 2 / 其余 7 文件各 +1，
@@ -31,9 +36,12 @@
   announcement +2；lineAnchorFollow +6 / styleCommands 3，
   specs/flowchart-closeout §24；resizeMath 17 / rectEditorRatio 8，
   specs/image-ratio-lock §4）。
-- E2E：59 个 spec（主配置 58 + pwa 1）、350 例 = 主配置 343（--list 实测，
-  含 @visual 10）+ pwa 7。非 visual 全量 340 = 338 通过 + 2 跳过（旋转手柄
-  用例暂跳，specs/rotate-hide）——实测 0 failed。时序图批次 1 +8 例
+- E2E：60 个 spec（主配置 59 + pwa 1）、360 例 = 主配置 353（--list 实测，
+  含 @visual 10）+ pwa 7。全量实测 358 通过 + 2 跳过（旋转手柄用例暂跳，
+  specs/rotate-hide），0 failed。时序图批次 2 +10 例
+  （sequenceMessage.spec Q-3…Q-9、Q-15、Q-19 悬停光标部分、轴上悬停点；落空取消的
+  撤销栈断言先把撤销栈规整成一步、再验一次撤销恰好清空画板；五处关键门控做过变异
+  验证，specs/sequence-diagram §10）；时序图批次 1 +8 例
   （sequence.spec Q-1/Q-2/Q-16/Q-18/Q-20…Q-23；Q-22 以同尺寸实体墙作对照——
   生命线穿过、实体绕行，specs/sequence-diagram §10）；容器控件 +18 例
   （container.spec C-1..C-18；C-14/C-15 的归属断言读 `model.toJSON()` 文档

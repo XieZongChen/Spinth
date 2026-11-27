@@ -93,6 +93,9 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
 - **必须用拖拽状态里最后一帧吸附修正后的位移**（`lastDx/lastDy`），
   禁止从指针原始差值重算，否则「拖拽中对齐、松手跳回」（docs/14 规则 5）。
 - 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。
+- 纯线选区只在含**轴消息**时才建会话，且恒为纵向（`DragState.axis = 'v'`：dx 置 0、
+  参考线与网格只作用纵向、选区框只动 y）——轴消息上下移动，普通线原地不动；
+  没有任何可平移件的线选区不建（空会话只带来 ActionBar 停隐副作用）。
 - 树节点拖拽走独立通道（kind 落点策略 + 落点预览，docs/11/22）。
 
 ### 4.4 交互几何 per-type 契约
@@ -108,8 +111,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 | `commitResize(start, next)`       | `updateRect(next)`                        | `update({points: 重映射后的 points})`，线宽字段不动     |
 
 - 一切平移落库入口（选区拖拽、键盘微移、UI 命令）一律调 `vm.commitDrag`。
-- 缩放松手：`commitResize` 后、`stopCapturing` 前经 `onResizeCommitted`
-  急切重路由锚定线。
+- 缩放松手：`commitResize` 后、`stopCapturing` 前经 `onResizeCommitted(id, next, start)`
+  急切重路由锚定线（`start` = 手势起点矩形：轴宿主先按旧锚点高度重写消息端口再
+  重路由，docs/04 §8.5）。旋转手势的状态机在 `rectEditorRotate.ts`，经宿主回调
+  回流（指针判定 / window 监听 / 选区抑制 / 同事务落库）。
 - **比例锁**（能力位 `keepRatio`，当前仅 IMAGE）：手柄缩放**按住 Shift** 时按
   手势起点矩形的宽高比锁定（已拉歪的图按当前比例锁，不纠正）；不按 Shift 自由
   缩放。主轴 = 角柄取相对变化量大的一轴（各轴位移除以起点尺寸）、边柄取自身
@@ -125,6 +130,10 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   （宽度以轴对称、下限 60×120，docs/04 §8.5）。
 - **LINE 例外**：线不可整体拖动/缩放，四个覆写为空操作；线只随锚定节点移动或拖端点重锚定。
   自由线在对齐/分布命令中经 points 平移参与，不冲突。
+- 例外之例外——**轴消息**（两端锚在生命线轴上的直线或自环，`LineVm.isAxisMessage()`
+  纯派生，docs/04 §8.6）可沿轴平移：`applyDragPreview` 只写 `root.position = (0, dy)`，
+  `commitDrag` 一次写 `{ startPort, endPort, points }`，dy 先钳到两端都留在各自轴内；
+  横向位移忽略。键盘 ↑ ↓ 微移经同一入口生效。
 - `getBounds()`：rect 型返回旋转后的世界 AABB；points 型返回 points bbox + root 偏移。
   `getLocalRect()` 返回未旋转数据矩形，供 resize/锚定/微移使用。
 - `hitTestPoint`：points 型先减 root 偏移再判定。

@@ -65,8 +65,9 @@ class ShapeService extends DragCreateServiceBase {
   建草稿并跟手 → up 收尾；子类只声明 scope / 默认尺寸 / 阈值语义 / createWidget。
 - 多图元工具（sequence）：一个 `CursorMode` 只能注册一组处理器——`SequenceService`
   是 `'sequence'` 的唯一注册者，其 `handlers` 逐成员转发到当前图元的服务；图元
-  服务照常继承基类但不注册（`LifelineService.initialize()` 抛错防误调，
-  specs/sequence-diagram §7.1）。
+  服务照常继承基类但不注册（`LifelineService.initialize()` 抛错防误调）；消息种类
+  （同步 / 异步 / 返回）转发到 `lineService.drawHandlers` 并注入该种类的拉线策略
+  （specs/sequence-diagram §7.1）。
 - 单击与拖拽画图的分界：默认为位移 ≥ 10 屏幕 px（欧氏距离，每帧按缩放换算；与
   docs/05 §4.1 起拖阻尼 `DRAG_TRACTION_SCREEN` 同值）。低于分界一律按单击收尾
   （shape/sticky 一致）：默认尺寸、以**按下点**为中心、仅划撤销边界，不选中、工具
@@ -255,8 +256,8 @@ VmEngine.initialize():
 
 ### 8.5 生命线（LIFELINE，时序图）
 
-UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落地：当前只有生命线；
-消息、激活条、组合片段与轴锚定未做——生命线对连线工具是普通矩形控件。
+UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落地：当前有生命线
+与消息（轴锚定，§8.6）；激活条、组合片段与线上文字侧别未做。
 
 - 数据：`label`（参与者名，纯文本单行，落库清洗 ≤64 字素，空串只有头框）、`head`
   （`box` 缺省 / `actor`——小人绘制未做，此前按加高的头框渲染）、`groupId`；
@@ -272,9 +273,38 @@ UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落
 - 缩放：`constrainResize` 探针整形（docs/05 §4.4）——被拖边跟手，宽度 = 2 × 被拖边
   到轴的距离（轴不因缩放移动）。
 - 避障豁免：`isRouteObstacle()` 恒 false（docs/08 §4）——通用折线穿过生命线不绕行。
+- 轴锚定：`LifelineVm` 实现 `getAxisAnchor` 探针（轴 = 头框底边到 bbox 底边；轴长 < 1
+  的退化件返回 null），并覆写 `getAnchorPoint`——四个 join 的 t 都是**轴上高度**比例，
+  x 让出一个线端留隙 `LINE_END_GAP`（方向随 join；绑定激活条后再让出条半宽，当前无
+  激活条恒 0），无轴回落 bbox 锚点。连线因此落在轴上（docs/08 §3）。
+- 无 quick-add 资格：轴宿主不出四向连接点、点击也不触发 quick-add（资格单源
+  `lineHitTest.canQuickAdd`）；连线工具悬停时在轴上指针高度出单点。
+- 加长保高度：缩放松手钩子 `onResizeCommitted(id, next, start)` 先按旧锚点高度重写
+  消息端口（`lineAxisResize.rewirePortsAfterResize`，端口无变化零写入），再急切重路由，
+  两步同在 `stopCapturing` 之前 = 与缩放同一撤销项（docs/05 §4.4）——生命线加长 /
+  顶边移动时消息高度不变；轴变短时落到轴外的端钳到端点。
 - 工具：`LifelineService extends DragCreateServiceBase`（单击默认尺寸按下点居中、
   草稿下限 60×120、网格吸附接线），由 `SequenceService` 转发；工具坞「时序图 (Q)」
   单入口，图元种类经二级菜单选择、记忆走工具默认参数（docs/12）。
 - 标签编辑走自有 plain 内核会话（docs/17）：再点一次已选中的头框进入（点轴不算），
   Enter 恒提交，空标签保留，一次编辑一步 undo。
 - 不旋转；ActionBar 暂无样式项；老客户端按未知类型隔离。
+
+### 8.6 时序图消息（复用 LINE，时序图）
+
+消息不是新控件：两端锚在生命线轴上的 LINE（specs/sequence-diagram §4）。判定纯派生、
+不落标记（`lineAxisMessage.axisMessageKind`）：`horizontal` = STRAIGHT ∧ 非 pinned ∧
+两端锚定在两个不同的轴宿主；`self` = ELBOWED ∧ 非 pinned ∧ 两端锚定在同一条轴。
+
+- 创建：时序图工具二级菜单选「同步 / 异步 / 返回消息」，从一条轴拖到另一条轴松手。
+  高度 = 按下高度（终点钳到目标轴范围）；同轴纵向拖 ≥ 8 = 自消息（ELBOWED 自环，
+  朝按下侧）；其余落空取消——时序图没有悬空消息。草稿不入撤销栈（事务 origin
+  非跟踪），落定才建终线 = 一步撤销（docs/08 §7）。
+- 预设：同步 = 实心箭头；异步 = 开放箭头；返回 = 开放箭头 + 虚线。两端端口
+  `startPort/endPort` 4 位小数，join 按方向归一（起点 = 去向侧、终点 = 来向侧）。
+- 平移：拖线身或 ↑ ↓ 微移改时间位置——一次写 `{ startPort, endPort, points }`，dy
+  钳到两端都留在各自轴内；横向位移无意义（← → 零写入）。线身 hover 光标
+  `ns-resize`；端点手柄照旧（拖单个端点只改那一端）。
+- 随宿主：生命线移动 → 消息跟随（端口不变）；加长 / 顶边移动 → 按旧锚点高度重写
+  端口（docs/05 §4.4）。
+- 未做（后续批次）：激活条与条边让位、线上文字侧别（文字仍骑线镂空）、分隔线。
