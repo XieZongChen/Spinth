@@ -353,6 +353,16 @@ test('Q-8 加长保高度：拖底边加长 / 顶边下移 / 顶边拖回，消�
   near(await yOf(), 250);
   const portAfterGrow = await startPortOf();
   expect(portAfterGrow).toBeLessThan(m.startPort!);
+  // 端口重写与缩放同一撤销项：一步 undo 同时回到旧高度与旧端口，重做再一起回来
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => (await docOf(page, 'qa'))!.height).toBe(300);
+  expect(await startPortOf()).toBe(m.startPort);
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect.poll(async () => (await docOf(page, 'qa'))!.height).toBe(500);
+  expect(await startPortOf()).toBe(portAfterGrow);
+  // 重选（undo / redo 可能清选区）：点轴——再点已选中的头框会进标签编辑
+  await clickWorld(page, 300, 300);
+  await expect.poll(() => selectedIdsOf(page)).toEqual(['qa']);
 
   // 顶边手柄 (300, 100) 下移到 160：轴顶下移，消息高度不变
   await dragHandle(page, 300, 100, 300, 160);
