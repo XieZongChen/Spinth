@@ -63,10 +63,11 @@ IDocView  = Doc → Paragraph → Line → Span（带 rect 坐标的视图模型
   缓存键含 bold/italic/字号/字族，不含 color/underline。
 - 输出由 `DocDisplay` 消费产出 PIXI 显示树（每 span 一个 Text）。
 - 未实现：`overflow: hidden` / ellipsis（STICKY 纵向溢出靠换行约束）。
-  符号（SYMBOL）标签与容器标题不依赖它：`platform/textEngine/labelText` 的单行
-  截断（`truncateLabelToWidth` / `truncateWithEllipsis`，两者同一算法）在渲染前按
-  可用宽逐字素截断 + 省略号（数据恒存完整文本，加宽即恢复）；单行标签的落库清洗
-  `clampSingleLineLabel`（空白折一 + trim + 按字素截断）同在该模块。
+  符号（SYMBOL）标签、容器（FRAME）标题与生命线（LIFELINE）标签不依赖它：
+  `platform/textEngine/labelText` 的单行截断（`truncateLabelToWidth` /
+  `truncateWithEllipsis`，两者同一算法）在渲染前按可用宽逐字素截断 + 省略号
+  （数据恒存完整文本，加宽即恢复）；单行标签的落库清洗 `clampSingleLineLabel`
+  （空白折一 + trim + 按字素截断）同在该模块。
 
 ## 6. 两级文字渲染
 
@@ -110,6 +111,8 @@ editStyleOf` 统一「model override → 控件常量默认」。
 - 主题化默认色：`platform/textEngine/theme.ts`（light/dark 两套）；per-实例
   `textColor` 优先；STICKY/SHAPE 文字不主题化（底色固定）。
   切换经门面 `setTheme`（`createBoard()` 公共投影）→ `vmEngine.refreshAll()`。
+- 生命线（LIFELINE）标签：单行 14/20 居中，色写死 `#333333`（头框白底，不随主题）；
+  编辑 profile 见 docs/17（plain 内核居中）；落库是纯文本 `label`。
 - ActionBar 排版项（字号/对齐/文字色/行高）与改档高度重排见 docs/17 §4。
 - 符号（SYMBOL）标签：单行 16/24 居中、色随 `resolveSymbolColor`（缺省随
   主题、逐实例 color 优先且不反转）；编辑 profile 见 docs/17，落库是纯文本

@@ -95,11 +95,15 @@ type CursorMode =
   | 'eraser'
   | 'mind'
   | 'org'
-  | 'frame';
+  | 'frame'
+  | 'sequence';
 ```
 
 - `ViewportService.registerGlobalEventListener(mode, handlers)` 按模式注册
   `onPointerDown/Move/Up/UpOutside/RightClick`；工具切换 = 换 handler，不改事件管线。
+- 一个模式只能注册一组处理器。`sequence` 是多图元工具：SequenceService 是该
+  模式的唯一注册者，事件到达时才按当前图元种类转发到该图元自己的服务（生命线
+  服务不注册，其 `initialize()` 抛错防误调，specs/sequence-diagram §7.1）。
 - 所有 handler 入口检查 `editable$` 与 `editBlocked$`。
 - undo 边界（`stopCapturing`）由各服务在自身手势结束时调用，不在分发层统一处理。
 - 只读态：写工具禁用；选择/平移/缩放/复制仍可用。

@@ -328,18 +328,35 @@ darwin theme 基线强制重生成 + I2 口径改「运行时排除」+ ActionBa
 不再丢弃）、画笔与连线不参与自动归属（模型矩形是占位值）、粘贴落点归属（无父
 副本完全落进容器即归属，与粘贴同一步 undo），specs/container-frame §16。
 
-当前实测基线：`pnpm verify` 通过；1527 单测（core 1408 + react 81 + app 38）；
-E2E 58 spec / 342 例（主配置 335 --list 实测：非 visual 332 = 330 通过 +
+UML 时序图批次 1（地基 + 生命线）已落地（specs/sequence-diagram，实施记录
+见其 §19.1）：LIFELINE 控件——头框 + 居中标签 + 竖直虚线轴，命中 = 头框 ∪
+轴带（半宽按屏幕 px 折算，轴旁空白不命中），缩放经 `constrainResize` 探针整形
+（被拖边跟手、宽度以轴对称、下限 60×120），`isRouteObstacle()` 豁免避障，
+schema 不带 parentId 不进容器；批次 1 不覆写锚点，对连线工具是普通矩形控件。
+标签 plain 编辑（再点头框进入、Enter 恒提交、空标签保留；plain 内核补
+`textAlign`）。工具坞「时序图 (Q)」第 12 钮——`sequence` 光标模式由
+SequenceService 唯一注册并按图元种类转发，种类记忆走工具默认参数通道。
+通用底座：`planResize` 末位整形探针（签名带手柄方向，整形须保持被拖边）、
+`platform/textEngine/labelText` 单行标签清洗 / 截断单源、拖拽创建基类 `handlers`
+只读属性、连线服务六协作者迁 `lineCollaborators.ts`（lineService 397 → 368）。
+E2E sequence.spec 8 例（Q-1/Q-2/Q-16/Q-18/Q-20…Q-23）；theme 双态 4 张基线随
+工具坞第 12 钮重生成。批次 2–5（轴锚定与消息 / 激活条 / 组合片段与打磨 /
+视觉基线与收尾）待规划。挂账：暗色 theme linux 基线 `--stability` 首轮出现一次
+±1 抗锯齿抖动（复跑 11 张全等，根因未定位，specs §19.1）。
+
+当前实测基线：`pnpm verify` 通过；1624 单测（core 1500 + react 86 + app 38）；
+E2E 59 spec / 350 例（主配置 343 --list 实测：非 visual 340 = 338 通过 +
 2 跳过（旋转手柄暂跳 specs/rotate-hide）+ @visual 10；pwa 7 独立配置；
-全量实测 0 failed；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
+全量实测 0 failed；时序图批次 1 E2E +8 例（sequence.spec）+ 单测 +97
+（specs/sequence-diagram §19.1）；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
 网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
 多线/项目文件往返+PNG/只读；容器底座 +18 例 container.spec C-1..C-18 +
 单测 +105（specs/container-frame §8）；树形图族 19 例；flowchart 15 例；
 存量修复五项 E2E +6 例（lineStyle 线型切回折线 5、imageResize 1）+
 单测 +38（specs/flowchart-closeout §24、specs/image-ratio-lock）；
 视觉 10/10 双平台（11 张基线含 network-sample 网络拓扑样本——4.3 交付、
-container-sample 三泳道样本——4.4 交付；darwin theme 双态随工具坞容器钮
-重生成）；
+container-sample 三泳道样本——4.4 交付；theme 双态 darwin/linux 随工具坞
+时序图钮重生成）；
 图片/资产专项 12/12；a11y 6/6；mobile 9/9；a11yKeyboard 12/12；
 a11yLayout 10/10；textScale 6/6；touchPen 3/3；debugSurface 3/3；
 pwa 7/7 含 P7 零探针 + dev 不注册 1）。
@@ -350,9 +367,10 @@ check 为 `gate`。
 
 下一阶段：常见图能力续批（docs/13 阶段 4，按 跨职能 / 泳道 → UML 时序 →
 UML 类图 / ER → BPMN 顺序；标准流程图、树形图族、网络拓扑 4.3 已完成，
-Phase 4 可选增强见 specs/tree-diagrams §13；**UML 时序图（4.5）设计定稿、
-待实施**——specs/sequence-diagram.md，十项拍板已定，尚未动代码，实施从其
-§12 P0 起）→ 协同最后（docs/10，不进入默认启动路径）；
+Phase 4 可选增强见 specs/tree-diagrams §13；**UML 时序图（4.5）分批实施中——
+批次 1（地基 + 生命线）已落地**，下一步规划批次 2（轴锚定 + 消息；开工前
+先拆 `rectEditorService` 的旋转手势）——specs/sequence-diagram.md §12）→
+协同最后（docs/10，不进入默认启动路径）；
 1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
 
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与

@@ -13,7 +13,11 @@
 
 ## 2. 当前基线
 
-- 单测：1527 passed（core 1408 + react 81 + app 38）。容器控件 +105
+- 单测：1624 passed（core 1500 + react 86 + app 38）。时序图批次 1 +97
+  （lifelineGeometry 27 / lifelineVmRender 16 / lifelineLabelEditor 12 /
+  sequenceService 9 / labelText 9 / resizeMath 6 / toolbarSequence 5 /
+  rectEditor 2 / lineServiceWiring 2 / shapeContrast 2 / 其余 7 文件各 +1，
+  specs/sequence-diagram §19.1）。容器控件 +105
   （frameGeometry 15 / frameSchema 5 / frameVmRender 8 / frameOps 19 /
   frameService 20 / frameTitleEditor 7 / clipboardFrame 6 /
   frameAdoptionFidelity 6 / clipboardLanding 6（后两者真 Yjs + 真引擎 + 真历史）/
@@ -27,9 +31,11 @@
   announcement +2；lineAnchorFollow +6 / styleCommands 3，
   specs/flowchart-closeout §24；resizeMath 17 / rectEditorRatio 8，
   specs/image-ratio-lock §4）。
-- E2E：58 个 spec（主配置 57 + pwa 1）、342 例 = 主配置 335（--list 实测，
-  含 @visual 10）+ pwa 7。非 visual 全量 332 = 330 通过 + 2 跳过（旋转手柄
-  用例暂跳，specs/rotate-hide）——实测 0 failed。容器控件 +18 例
+- E2E：59 个 spec（主配置 58 + pwa 1）、350 例 = 主配置 343（--list 实测，
+  含 @visual 10）+ pwa 7。非 visual 全量 340 = 338 通过 + 2 跳过（旋转手柄
+  用例暂跳，specs/rotate-hide）——实测 0 failed。时序图批次 1 +8 例
+  （sequence.spec Q-1/Q-2/Q-16/Q-18/Q-20…Q-23；Q-22 以同尺寸实体墙作对照——
+  生命线穿过、实体绕行，specs/sequence-diagram §10）；容器控件 +18 例
   （container.spec C-1..C-18；C-14/C-15 的归属断言读 `model.toJSON()` 文档
   真值、C-16 另读 `vmPositions` 的 `root.zOrder`——粘贴批 / 恢复批后 vm 状态
   可能停在创建值，docs/02 容器归属不变量；C-18 连线不参与落点判定；
@@ -41,8 +47,8 @@
   （network.spec N-1..N-11，specs/network-diagram §12.1）；线型切回折线 +5 例
   （lineStyle.spec，断言读文档真值，specs/flowchart-closeout §24）；图片比例锁
   +1 例（imageResize.spec，specs/image-ratio-lock §4）。分层对账 = 主配置
-  335 − @visual 10 − @timing/@bench 5 = fast 320 + pwa 7 = CI gate 327；
-  四层全量 342（gate 327 + nightly @visual 10 + @timing/@bench 5）；
+  343 − @visual 10 − @timing/@bench 5 = fast 328 + pwa 7 = CI gate 335；
+  四层全量 350（gate 335 + nightly @visual 10 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：10/10（主配置 @visual 10 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 11 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；

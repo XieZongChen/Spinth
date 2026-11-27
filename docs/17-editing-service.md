@@ -4,13 +4,15 @@
 
 文字编辑能力统一到 `platform/textEngine/editingService.ts`：
 
-| 编排层                                | 服务控件      | 内核                 | 行为                                            |
-| ------------------------------------- | ------------- | -------------------- | ----------------------------------------------- |
-| `widgets/text/textService.ts`         | TEXT + STICKY | TipTap（html）       | enterEdit/34ms 节流/autoHeight/空删控件         |
-| `widgets/line/lineTextEditor.ts`      | LINE 文字     | TipTap（html）       | ratio 锚定/镂空喂框/空保线                      |
-| `widgets/tree/edit/treeNodeEditor.ts` | 树节点        | 裸 textarea（plain） | 树重排落库/Tab 建子/像素级对齐                  |
-| SHAPE 图形内文字                      | SHAPE         | TipTap（html）       | 内接矩形/autoHeight                             |
-| 符号外置标签                          | SYMBOL        | TipTap（html）       | 标签带中心/纯文本落库（specs/symbol-widget §5） |
+| 编排层                                    | 服务控件      | 内核                 | 行为                                                                                                             |
+| ----------------------------------------- | ------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `widgets/text/textService.ts`             | TEXT + STICKY | TipTap（html）       | enterEdit/34ms 节流/autoHeight/空删控件                                                                          |
+| `widgets/line/lineTextEditor.ts`          | LINE 文字     | TipTap（html）       | ratio 锚定/镂空喂框/空保线                                                                                       |
+| `widgets/tree/edit/treeNodeEditor.ts`     | 树节点        | 裸 textarea（plain） | 树重排落库/Tab 建子/像素级对齐                                                                                   |
+| SHAPE 图形内文字                          | SHAPE         | TipTap（html）       | 内接矩形/autoHeight                                                                                              |
+| 符号外置标签                              | SYMBOL        | TipTap（html）       | 标签带中心/纯文本落库（specs/symbol-widget §5）                                                                  |
+| `widgets/frame/frameTitleEditor.ts`       | FRAME 标题    | 裸 textarea（plain） | 标题带内定位（实时求值）/Enter 恒提交/空标题保留                                                                 |
+| `widgets/sequence/lifelineLabelEditor.ts` | LIFELINE 标签 | 裸 textarea（plain） | 头框标签区居中（`textAlign: 'center'`）/Enter 恒提交/空标签保留/落库清洗 ≤64 字素（specs/sequence-diagram §3.7） |
 
 抽取动机：34ms 节流器三份重复、跨控件编辑无显式互斥、空文本策略散落、排版常量四散。
 内核已经统一参数化——要抽的是编排层，不是重写编辑器。
@@ -70,15 +72,15 @@ onExit → 内核 detach`。
 
 ## 3. 双内核
 
-| 维度   | html 内核（TipTap）                    | plain 内核（textarea）                                  |
-| ------ | -------------------------------------- | ------------------------------------------------------- |
-| 控件   | TEXT / STICKY / LINE / SHAPE           | mind 节点                                               |
-| 数据   | TipTap HTML 字符串                     | 纯字符串                                                |
-| 落库   | `model.update({ text })`               | `MindNodeModel.setText` → observeSelf → 树重排          |
-| 定位   | attachAndRemember + 视口重放           | commit 后重取 getRect 重定位                            |
-| 键位   | Esc 退出 / Cmd+Z 转发 Yjs / Enter 换行 | Enter 提交退出 / Shift+Enter 换行 / Tab 建子 / Esc 丢弃 |
-| IME    | TipTap 承载；同内容重入不重建          | 同节点重入不重建；首键竞态走“进编辑 + 全选”             |
-| 空文本 | emptyTextPolicy 声明                   | keep（删节点走 Delete）                                 |
+| 维度   | html 内核（TipTap）                    | plain 内核（textarea）                                                                                 |
+| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 控件   | TEXT / STICKY / LINE / SHAPE           | mind 节点 / FRAME 标题 / LIFELINE 标签                                                                 |
+| 数据   | TipTap HTML 字符串                     | 纯字符串                                                                                               |
+| 落库   | `model.update({ text })`               | `MindNodeModel.setText` → observeSelf → 树重排                                                         |
+| 定位   | attachAndRemember + 视口重放           | commit 后重取 getRect 重定位                                                                           |
+| 键位   | Esc 退出 / Cmd+Z 转发 Yjs / Enter 换行 | Enter 提交退出 / Shift+Enter 换行 / Tab 建子 / Esc 丢弃（FRAME、LIFELINE 单行：Enter 含 Shift 恒提交） |
+| IME    | TipTap 承载；同内容重入不重建          | 同节点重入不重建；首键竞态走“进编辑 + 全选”                                                            |
+| 空文本 | emptyTextPolicy 声明                   | keep（删节点走 Delete；FRAME / LIFELINE 空文本保留控件）                                               |
 
 ## 4. profile 与 per-实例排版
 

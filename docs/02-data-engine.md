@@ -22,7 +22,7 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 // TEXT/STICKY/LINE/SHAPE：排版 override 平铺在主 Y.Map（TypoFields，docs/17 §4）
 // 自由七类（SHAPE/TEXT/STICKY/IMAGE/PEN/SYMBOL/LINE）：可选 parentId 容器归属
 //   标记（specs/container-frame §2.2——optional 无 default，旧文档零迁移；
-//   锚定线运行时排除，FRAME/树控件不带该字段）
+//   锚定线运行时排除，FRAME/树控件/生命线不带该字段）
 // MIND_MAP：root（Y.Map）+ 节点 children（Y.Array）递归树（docs/11）
 ```
 
@@ -39,6 +39,9 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
   归属；undo·redo 恢复不重判，已带 parentId 的新件不重判（粘贴桶映射 / 快照
   给足）。橡皮拆段在事务内新建笔迹段，创建数据继承 parentId。纯文本 / 图片粘贴
   走事务外 engine.add，由创建即归属处理。
+- 时序图件不进容器：LIFELINE 的 schema 不带 `parentId`，自动归属与落点判定
+  双重拒绝（`isAutoAdoptableType` / `reconcileOne`）——完全落进容器也不归属
+  （specs/sequence-diagram §2.5 S5）。
 - 画笔与连线不参与自动归属：两类模型矩形是占位值（几何在 points），按矩形判定
   会误收。落点判定（拖放 / 微移）用真实包围盒：画笔随拖拽平移，拖入才归属；
   连线不随拖拽 / 微移平移，一律不参与落点判定（调用方的 `rectOf` 对它是
@@ -49,7 +52,7 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 - 同一外层事务内「创建新件后紧接写入」对新件的 vm 观察者不可见（Yjs 不为本事务
   新建的类型登记变更）：vm.state 与 `root.zOrder` 停在创建值而文档已变。新件的
   事实必须写进创建数据，或移到事务外写。
-- 老客户端打开新文档：FRAME 进未知类型隔离、parentId 作为未知键保留。
+- 老客户端打开新文档：FRAME / LIFELINE 进未知类型隔离、parentId 作为未知键保留。
 
 ### zOrder：fractional indexing
 

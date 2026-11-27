@@ -118,6 +118,11 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   放大。每帧只看当前 Shift 状态，手势中途按下 / 松开即时切换；旋转态同样生效
   （不吸附）。单帧目标矩形由 `resizeMath.planResize` 统一产出（无跨帧状态）。
   移动端无修饰键，恒自由缩放。
+- **缩放整形探针** `IBaseWidgetVm.constrainResize?(start, next, dir)`：吸附 / 量化之后
+  在 `resizeMath.planResize` 末位应用一次——预览、编辑框、选区框、落库拿到同一个
+  矩形。整形须保持被拖边的位置（吸附落点，挪了命中线就对不上）；θ ≠ 0 的旋转态
+  不调用（需要整形的控件都不可旋转）。当前实现：LIFELINE 按被拖边到轴的距离定宽
+  （宽度以轴对称、下限 60×120，docs/04 §8.5）。
 - **LINE 例外**：线不可整体拖动/缩放，四个覆写为空操作；线只随锚定节点移动或拖端点重锚定。
   自由线在对齐/分布命令中经 points 平移参与，不冲突。
 - `getBounds()`：rect 型返回旋转后的世界 AABB；points 型返回 points bbox + root 偏移。

@@ -8,7 +8,7 @@
 ## 2. 参照线模型
 
 - 参照物：可视区内能力位 `referenceable` 为真的控件（SHAPE / STICKY / TEXT / IMAGE /
-  SYMBOL / FRAME，由注册表派生；连线/画笔/树形图不参与），
+  SYMBOL / FRAME / LIFELINE，由注册表派生；连线/画笔/树形图不参与），
   剔除当前选中集与旋转件（AABB 边不是视觉边，docs/05 §8 降级项）。
 - 每个参照矩形生成 6 条线：
   - 垂直：左缘、水平中心、右缘；

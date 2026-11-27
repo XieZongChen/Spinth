@@ -68,6 +68,7 @@ interface IShortcutDef {
 | v / h                 | 选择 / 抓手                                                                          |
 | r / n / t / l / p / s | 形状 / 符号 / 文本 / 连线 / 画笔 / 便签（脑图 m、组织架构 o；橡皮 e）                |
 | c                     | 容器（specs/container-frame；f 已被「适应屏幕」占用）                                |
+| q                     | 时序图（specs/sequence-diagram；图元种类经工具坞二级菜单选）                         |
 | ] / [                 | 橡皮增大 / 减小（步进 4 屏幕 px，4~40 钳制；仅 eraser 模式）                         |
 | space（按住）         | 临时抓手                                                                             |
 | cmd/ctrl+z            | 撤销；shift+cmd/ctrl+z 重做                                                          |

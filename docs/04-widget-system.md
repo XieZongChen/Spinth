@@ -63,6 +63,10 @@ class ShapeService extends DragCreateServiceBase {
 
 - 创建型工具（shape/sticky）继承 `DragCreateServiceBase`：down 记起点 → move 过阈值
   建草稿并跟手 → up 收尾；子类只声明 scope / 默认尺寸 / 阈值语义 / createWidget。
+- 多图元工具（sequence）：一个 `CursorMode` 只能注册一组处理器——`SequenceService`
+  是 `'sequence'` 的唯一注册者，其 `handlers` 逐成员转发到当前图元的服务；图元
+  服务照常继承基类但不注册（`LifelineService.initialize()` 抛错防误调，
+  specs/sequence-diagram §7.1）。
 - 单击与拖拽画图的分界：默认为位移 ≥ 10 屏幕 px（欧氏距离，每帧按缩放换算；与
   docs/05 §4.1 起拖阻尼 `DRAG_TRACTION_SCREEN` 同值）。低于分界一律按单击收尾
   （shape/sticky 一致）：默认尺寸、以**按下点**为中心、仅划撤销边界，不选中、工具
@@ -70,7 +74,7 @@ class ShapeService extends DragCreateServiceBase {
   两轴各 ≥ 24 屏幕 px，回缩冻结。
 - 非创建型交互（pen/line/text/eraser）自行 `registerGlobalEventListener`。
 - 工具默认参数是 Service 会话态（不落库、不持久化）：shapeType、lineType、penColor、
-  stickyColor、fontSize、eraserRadius。SDK 聚合为 `defaultToolOptions$` +
+  stickyColor、fontSize、eraserRadius、时序图图元种类（sequence kind）。SDK 聚合为 `defaultToolOptions$` +
   `setDefaultToolOption(tool, key, value)`；ActionBar / ToolFlyout 同源消费。
 
 ## 3. 注册表与组合根
@@ -88,6 +92,7 @@ export const WIDGET_REGISTRY = {
   IMAGE: { schema: ImageSchema, capabilities: { ... } },
   SYMBOL: { schema: SymbolSchema, capabilities: { ... } },
   FRAME: { schema: FrameSchema, capabilities: { ... } },
+  LIFELINE: { schema: LifelineSchema, capabilities: { ... } },
 } as const;
 ```
 
@@ -121,6 +126,7 @@ referenceable / erasable`
 | IMAGE     | —†   | ✓    | ✓    | —      | ✓      | —    |
 | SYMBOL    | —    | ✓    | ✓    | ✓      | ✓      | —    |
 | FRAME     | —    | —    | ✓    | —*     | ✓      | —    |
+| LIFELINE  | —    | ✓    | ✓    | —*     | ✓      | —    |
 | LINE      | —    | ✓*   | —    | —      | —      | —    |
 | PEN       | —    | ✓    | ✓    | —      | —      | ✓    |
 | MIND_MAP  | —    | —    | —    | —      | —      | —    |
@@ -130,6 +136,9 @@ referenceable / erasable`
 - FRAME（specs/container-frame）：不可编组（几何归属与选择聚合两套语义不混用）；
   标题走自有 plain 内核会话（`editable: false`，同 LINE 线上文字先例——不走
   统一编辑会话通道）；命中 = 标题带 ∪ 边框环（内部空白不命中，docs/05 §3）。
+- LIFELINE（specs/sequence-diagram）：标签走自有 plain 内核会话（`editable: false`，
+  FRAME 同款）；命中 = 头框 ∪ 轴带（§8.5）；缩放经 `constrainResize` 探针整形
+  （docs/05 §4.4）；避障豁免（docs/08 §4）；不带 `parentId`（不进容器，docs/02）。
 - † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。SHAPE/TEXT/
   STICKY/IMAGE 四类支持 rotation 数据，入口暂时隐藏而置 false；渲染/命中/缩放/
   锚定等数据能力保留，恢复 = 四类改回 true（docs/05 §8）。SYMBOL 无 rotation 字段、
@@ -180,6 +189,7 @@ VmEngine.initialize():
 | IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）                              |
 | SYMBOL    | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget）                 |
 | FRAME     | 容器：标题带 + 背景 + 边框，子元素 parentId 归属/级联（specs/container-frame） |
+| LIFELINE  | 时序图生命线：参与者头框 + 竖直虚线轴（§8.5，specs/sequence-diagram）          |
 | MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                                    |
 | ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）                              |
 | ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）                              |
@@ -242,3 +252,29 @@ VmEngine.initialize():
 - 标签编辑走统一编辑会话（docs/17 SYMBOL profile：标签带中心 anchor
   center、纯文本落库、渲染期单行截断 + 省略号——数据恒存完整 64 字素）。
 - 项目文件零资产条目（与 IMAGE 的关键差别）；不旋转、无 autoHeight。
+
+### 8.5 生命线（LIFELINE，时序图）
+
+UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落地：当前只有生命线；
+消息、激活条、组合片段与轴锚定未做——生命线对连线工具是普通矩形控件。
+
+- 数据：`label`（参与者名，纯文本单行，落库清洗 ≤64 字素，空串只有头框）、`head`
+  （`box` 缺省 / `actor`——小人绘制未做，此前按加高的头框渲染）、`groupId`；
+  **不带 `parentId`**（不进容器，docs/02）。几何 = 整条（头 + 轴）的 bbox，轴在
+  水平中心；默认 120×520。
+- 几何单源 `lifelineGeometry.ts`（纯函数）：头区高 36（actor 72）、轴自头区底边到
+  bbox 底边、缩放下限 60×120；点命中 / 框选 = 头框 ∪ 轴带（半宽 = 屏幕 6px 按
+  vpScale 折算、钳 6…24，每帧现算）——bbox 内轴旁空白不命中，框选只擦过轴旁空白
+  不入选。
+- 渲染：头框 `#ffffff` 填充 + 1px `#333333` 描边，居中单行标签（14/20，超宽逐字素
+  截断 + 省略号，数据恒存完整标签），轴为 1px 虚线（手工点划）、色随主题墨色
+  （快速路径以主题版本守卫）。高度不足头区高时不画轴、宽度 < 24 时标签为空。
+- 缩放：`constrainResize` 探针整形（docs/05 §4.4）——被拖边跟手，宽度 = 2 × 被拖边
+  到轴的距离（轴不因缩放移动）。
+- 避障豁免：`isRouteObstacle()` 恒 false（docs/08 §4）——通用折线穿过生命线不绕行。
+- 工具：`LifelineService extends DragCreateServiceBase`（单击默认尺寸按下点居中、
+  草稿下限 60×120、网格吸附接线），由 `SequenceService` 转发；工具坞「时序图 (Q)」
+  单入口，图元种类经二级菜单选择、记忆走工具默认参数（docs/12）。
+- 标签编辑走自有 plain 内核会话（docs/17）：再点一次已选中的头框进入（点轴不算），
+  Enter 恒提交，空标签保留，一次编辑一步 undo。
+- 不旋转；ActionBar 暂无样式项；老客户端按未知类型隔离。
