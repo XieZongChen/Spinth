@@ -14,6 +14,7 @@ import { LifelineService } from './widgets/sequence/lifelineService';
 import { SequenceService } from './widgets/sequence/sequenceService';
 import { countDanglingLines } from './widgets/line/linePrune';
 import { ViewportService } from './platform/viewport/viewportService';
+import { Tokens } from './tokens';
 import type { IBoardConfig } from './boardConfig';
 import type { BoardSDK } from './app';
 
@@ -167,8 +168,14 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.editingService!,
   );
   sdk.lifeline.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
-  sdk.sequence = new SequenceService(sdk.viewport!, sdk.lifeline);
+  sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline);
   sdk.sequence.initialize();
+  // VM 只读查询（specs/sequence-diagram §9.5）：注册晚绑定门面而非服务本体——
+  // registry 缓存单例并在 dispose 时逐个 dispose，注册本体会让服务被二次 dispose
+  sdk.registry.registerSingleton(Tokens.SequenceLookup, () => ({
+    axisOf: (id) => sdk.sequence?.axisOf(id) ?? null,
+    barsOf: (id) => sdk.sequence?.barsOf(id) ?? [],
+  }));
   sdk.sequence.kind$.subscribe((v) => sdk.syncToolOption('sequence', 'kind', v));
 
   // awareness（docs/10 §3）：仅协同模式（wsProvider 存在）；本地模式零开销

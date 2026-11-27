@@ -4,6 +4,7 @@ import type {
   IEditingService,
   IHistoryService,
   ISelectorService,
+  ISequenceLookup,
   IViewportService,
   IVmEngineService,
 } from './types';
@@ -23,4 +24,7 @@ export const Tokens = {
   EditingService: token<IEditingService>('EditingService'),
 
   DataProcessor: token<DataProcessor>('DataProcessor'),
+  /** 时序图 VM 只读查询（specs/sequence-diagram §9.5）：组合根晚绑定注册门面，
+   *  Vm 工厂在求值时才 resolve */
+  SequenceLookup: token<ISequenceLookup>('SequenceLookup'),
 } as const;

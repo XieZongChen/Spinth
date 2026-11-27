@@ -1,0 +1,78 @@
+import type { IHostGeom, IPoint, JoinDir } from '../../common/geometry';
+import type { IAxisAnchor } from '../../types/base';
+import { nearestJoin } from './lineGeometry';
+import { LINE_END_GAP } from './linePath';
+
+/**
+ * 轴上几何与落点（specs/sequence-diagram §3.2 / §4.2）：连线层的纯函数，生命线
+ * 与消息共用。连线层不能反向依赖 sequence，所以轴上几何不放 lifelineGeometry
+ * （那里只留「矩形 → 轴」的 lifelineAxis）。
+ */
+
+/** 轴上高度 ↔ 点：t ∈ [0,1] 沿轴段插值 */
+export function axisAnchorPoint(axis: IAxisAnchor, t: number): IPoint {
+  return { x: axis.x, y: axis.top + (axis.bottom - axis.top) * t };
+}
+
+/** 指针在轴的哪一侧：p.x ≥ 轴取 right（轴上按下按右侧） */
+export function axisJoinFor(axis: IAxisAnchor, p: IPoint): JoinDir {
+  return p.x >= axis.x ? 'right' : 'left';
+}
+
+/** 端口取 4 位小数：端点拖拽今天写两位小数，两位在 520 高的轴上量化到 5px、
+ *  在 1000 高的轴上量化到 10px——「加长保高度」重写端口时消息会可见地跳。
+ *  普通件维持两位不变（lineGeometry.r2） */
+export function r4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+/** 高度 → 轴上比例（钳到 [0,1]，4 位小数）；退化轴（长 ≤ 0）不产生 NaN */
+export function axisPortFor(axis: IAxisAnchor, y: number): number {
+  const len = axis.bottom - axis.top;
+  return len > 0 ? r4(Math.min(1, Math.max(0, (y - axis.top) / len))) : 0;
+}
+
+/** 出线侧的横向符号：right = +1、left = −1、top / bottom = 0 */
+function joinSign(join: JoinDir): number {
+  return join === 'right' ? 1 : join === 'left' ? -1 : 0;
+}
+
+/** 轴锚点：y = 轴上高度；x = 轴 + sign(join) × (barHalf − LINE_END_GAP)。
+ *  连线两端视觉各收缩一个留隙（linePath.insetEnds）——锚点向内让出一个留隙后，
+ *  线身与箭头恰好停在条边或轴上；不让位则箭头悬在轴外 5px，或被激活条盖住半个
+ *  箭头。barHalf = 绑定在本生命线上、且纵向覆盖该高度的激活条的半宽（无则 0） */
+export function axisAnchorWithInset(
+  axis: IAxisAnchor,
+  join: JoinDir,
+  t: number,
+  barHalf: number,
+): IPoint {
+  const p = axisAnchorPoint(axis, t);
+  return { x: p.x + joinSign(join) * (barHalf - LINE_END_GAP), y: p.y };
+}
+
+/** 轴宿主的最小形状：实现了 getAxisAnchor 探针（specs/sequence-diagram §4.1） */
+export interface IAxisHostVm {
+  getAxisAnchor(geom?: IHostGeom): IAxisAnchor | null;
+}
+
+/** 是否轴宿主 = 有 getAxisAnchor 探针（服务层不按 type 分支，docs/14 规则 6） */
+export function isAxisHost(vm: { getAxisAnchor?: unknown } | null | undefined): vm is IAxisHostVm {
+  return typeof vm?.getAxisAnchor === 'function';
+}
+
+/**
+ * 拉线落点：轴宿主按指针所在侧选边、端口 = 轴上比例（r4）；其他宿主 = nearestJoin
+ * + 无端口——与轴锚定之前逐字节一致。geom 透传给探针（急刻重路由以落库后的
+ * 权威几何为准）。调用方只在 port !== undefined 时才写 startPort / endPort 键
+ * （写 undefined 会在 Yjs 里留下键）。
+ */
+export function resolveAnchorPick(
+  vm: { getAxisAnchor?: IAxisHostVm['getAxisAnchor'] } | null | undefined,
+  geom: IHostGeom,
+  p: IPoint,
+): { join: JoinDir; port: number | undefined } {
+  const axis = isAxisHost(vm) ? vm.getAxisAnchor(geom) : null;
+  if (!axis) return { join: nearestJoin(geom.rect, p, geom.rotation), port: undefined };
+  return { join: axisJoinFor(axis, p), port: axisPortFor(axis, p.y) };
+}

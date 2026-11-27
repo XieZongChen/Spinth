@@ -4,13 +4,15 @@ import { markRender } from '../../common/render';
 import { hexToNum } from '../../common/color';
 import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 import { defaultTextColor, textThemeVersion } from '../../platform/textEngine/theme';
-import { type IHostGeom, type IRect } from '../../common/geometry';
-import type { LifelineData, ResizeDir } from '../../types';
+import { type IHostGeom, type IPoint, type IRect, type JoinDir } from '../../common/geometry';
+import type { IAxisAnchor, ISequenceLookup, LifelineData, ResizeDir } from '../../types';
+import { axisAnchorPoint, axisAnchorWithInset } from '../line/lineAxisAnchor';
 import {
   constrainLifelineResize,
   LIFELINE_HEAD_BORDER,
   LIFELINE_HEAD_COLOR,
   LIFELINE_LABEL_FONT_SIZE,
+  lifelineAxis,
   lifelineAxisDashSegments,
   lifelineAxisHitHalf,
   lifelineAxisOf,
@@ -26,8 +28,9 @@ import {
  * 单行标签 + 自头框底边到 bbox 底边的竖直虚线轴（色 = 主题墨色）。head 'actor'
  * 的绘制属批次 4，本批一律画矩形头框（数据字段先落）。
  * 命中 = 头框 ∪ 轴带（§3.3），轴带半宽按屏幕 px 折算（getScale 构造注入，现算不
- * 缓存）。对连线工具是普通矩形控件：不覆写锚点（轴锚定属批次 2），但豁免避障
- * （否则通用折线会绕开每一条生命线）。缩放整形经 constrainResize 探针（§3.5）。
+ * 缓存）。连线落在轴上（§3.2 轴锚点：四个 join 的 t 都是轴上高度比例，横向让出
+ * 一个线端留隙），并豁免避障（否则通用折线会绕开每一条生命线）。缩放整形经
+ * constrainResize 探针（§3.5）。
  */
 export class LifelineVm extends BaseWidgetVm<LifelineData & IRect> {
   /** 头框与轴共用一块 Graphics（全量重绘 = clear + 重画） */
@@ -40,8 +43,12 @@ export class LifelineVm extends BaseWidgetVm<LifelineData & IRect> {
    *  无守卫会被快速路径吞掉 */
   private renderedThemeVer = 0;
 
-  /** vpScale 注入（widgetRuntime 工厂经 Tokens.ViewportService 解析；缺省 1） */
-  constructor(private readonly getScale: () => number = () => 1) {
+  /** vpScale 注入（widgetRuntime 工厂经 Tokens.ViewportService 解析；缺省 1）；
+   *  sequence = 激活条只读查询（锚点让位用，VM 不持服务引用；未注入 = 无条） */
+  constructor(
+    private readonly getScale: () => number = () => 1,
+    private readonly sequence: Pick<ISequenceLookup, 'barsOf'> | null = null,
+  ) {
     super({
       id: '',
       type: 'LIFELINE',
@@ -179,6 +186,32 @@ export class LifelineVm extends BaseWidgetVm<LifelineData & IRect> {
   /** 避障豁免（§3.6，无填充 SHAPE 同款）：生命线只有一条轴，没有可遮挡的实体 */
   isRouteObstacle(): boolean {
     return false;
+  }
+
+  /** 轴锚定宿主探针（§4.1）：轴 = 头框底边到 bbox 底边；轴长 < 1 的退化件返回
+   *  null（连线按普通件处理）。geom 显式传入以该几何为准（急刻重路由） */
+  getAxisAnchor(geom?: IHostGeom): IAxisAnchor | null {
+    const r = (geom ?? this.getHostGeom()).rect;
+    return lifelineAxis(r, this.state.head);
+  }
+
+  /** 轴锚点（§3.2）：y = 轴上高度；x = 轴 + sign(join) × (激活条半宽 − 线端留隙)。
+   *  旋转恒 0，无 θ 回投；无轴回落基类的 bbox 锚点 */
+  override getAnchorPoint(join: JoinDir, t: number, geom?: IHostGeom): IPoint {
+    const g = geom ?? this.getHostGeom();
+    const axis = this.getAxisAnchor(g);
+    if (!axis) return super.getAnchorPoint(join, t, g);
+    return axisAnchorWithInset(axis, join, t, this.barHalfAt(axisAnchorPoint(axis, t).y));
+  }
+
+  /** 纵向覆盖该高度的激活条的最大半宽（现查——条的位置预览敏感）；无条 = 0 */
+  private barHalfAt(y: number): number {
+    let half = 0;
+    for (const bar of this.sequence?.barsOf(this.id) ?? []) {
+      if (y < bar.y || y > bar.y + bar.height) continue;
+      half = Math.max(half, bar.width / 2);
+    }
+    return half;
   }
 
   /** 缩放整形（§3.5）：宽度以轴对称、下限 60×120——纯函数单源 */

@@ -1,6 +1,14 @@
 import { BehaviorSubject } from 'rxjs';
 import { Disposable } from '../../base/disposable';
-import type { IPointerEventInfo, IPointerHandlers, IViewportService } from '../../types';
+import type { IRect } from '../../common/geometry';
+import type {
+  IAxisAnchor,
+  IPointerEventInfo,
+  IPointerHandlers,
+  ISequenceLookup,
+  IViewportService,
+  IVmEngineService,
+} from '../../types';
 import type { LifelineService } from './lifelineService';
 import { isSequenceKind, SEQUENCE_DEFAULT_KIND, type SequenceKind } from './sequenceOptions';
 
@@ -13,16 +21,31 @@ import { isSequenceKind, SEQUENCE_DEFAULT_KIND, type SequenceKind } from './sequ
  *
  * 种类记忆是会话级（不落库不持久化），经 kind$ 汇入工具默认参数表——工具坞
  * 二级菜单读写同一个值（docs/04 §2 工具默认参数节）。
+ *
+ * 兼任 ISequenceLookup（specs/sequence-diagram §9.4）：VM（生命线锚点让位、轴消息
+ * 平移）经构造注入的只读查询——组合根注册的是晚绑定门面（Tokens.SequenceLookup），
+ * VM 不持服务引用。
  */
-export class SequenceService extends Disposable {
+export class SequenceService extends Disposable implements ISequenceLookup {
   private kind: SequenceKind = SEQUENCE_DEFAULT_KIND;
   readonly kind$ = new BehaviorSubject<SequenceKind>(SEQUENCE_DEFAULT_KIND);
 
   constructor(
     private readonly viewport: IViewportService,
+    private readonly vmEngine: IVmEngineService,
     private readonly lifeline: LifelineService,
   ) {
     super();
+  }
+
+  /** 轴宿主的轴（视觉感知）；非轴宿主 / vm 缺失返回 null */
+  axisOf(id: string): IAxisAnchor | null {
+    return this.vmEngine.getVmById(id)?.getAxisAnchor?.() ?? null;
+  }
+
+  /** 绑定在某条生命线上的激活条：激活条属后续批次，当前恒空（每次新数组） */
+  barsOf(_lifelineId: string): IRect[] {
+    return [];
   }
 
   get currentKind(): SequenceKind {

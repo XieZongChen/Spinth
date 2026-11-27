@@ -4,6 +4,15 @@ import type { Container, Point, Rectangle } from 'pixi.js';
 import type { IHostGeom, IPoint, IRect, JoinDir } from '../common/geometry';
 import type { IWidgetData } from './widget';
 
+/** 轴的 world 几何（specs/sequence-diagram §4.1）：x = 轴，top / bottom = 轴段两端。
+ *  轴锚定宿主（生命线）经 getAxisAnchor 探针给出；连线落点、消息平移、加长保高度
+ *  都以它为坐标系 */
+export interface IAxisAnchor {
+  x: number;
+  top: number;
+  bottom: number;
+}
+
 /** 状态变化事件：diff 为字段级增量；local 区分本地/远端来源（协同语义的关键透传） */
 export interface IOnStateChangedInfo {
   diff: Record<string, unknown>;
@@ -84,11 +93,39 @@ export interface IBaseWidgetVm<D extends IWidgetData = IWidgetData> {
    *  θ ≠ 0 的旋转态不调用：需要整形的控件都不可旋转。缺省 = 不整形 */
   constrainResize?(start: IRect, next: IRect, dir: ResizeDir): IRect;
 
+  /* ---- 轴锚定探针（specs/sequence-diagram §4.1）：可选成员、以方法形式调用
+   * （this = vm）；服务层不按 type 分支（docs/14 规则 6）。缺省 = 不是轴宿主 /
+   * 不具备该语义 ---- */
+
+  /** 轴锚定宿主（LifelineVm 实现）；null = 无轴（退化件）或非轴宿主。
+   *  geom 显式传入 = 以该宿主几何为准（急刻重路由传落库后的权威几何）；
+   *  缺省 = getHostGeom()（预览敏感，拖拽 / 缩放跟随用） */
+  getAxisAnchor?(geom?: IHostGeom): IAxisAnchor | null;
+  /** false = 不作连线目标：连线拾取跳过它继续取下层（ActivationVm 实现） */
+  isConnectionTarget?(): boolean;
+  /** 本件移动 / 缩放 / 新建 / 删除后需要重路由的锚定宿主；缺省 = [自身 id]
+   *  （ActivationVm 返回 [lifelineId]，未绑定返回 []） */
+  anchorFollowHosts?(): string[];
+  /** 两端都锚在生命线轴上的直线，可沿轴平移（LineVm 实现；§4.5） */
+  isAxisMessage?(): boolean;
+
   readonly onStateChanged$: Subject<IOnStateChangedInfo>;
   readonly onSelected$: BehaviorSubject<boolean>;
   readonly onRemoved$: Subject<void>;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** 时序图 VM 只读查询（specs/sequence-diagram §9.4 / §9.5）：LifelineVm / LineVm
+ *  经构造注入，组合根晚绑定注册 Tokens.SequenceLookup（门面闭包读服务——直接
+ *  注册服务本体会在 registry.dispose 时被二次 dispose）。实现是 SequenceService；
+ *  widgets/line 不能反向依赖 widgets/sequence，所以经此接口（分层纪律同
+ *  IFrameLookup 先例）。未组装（无时序图的组合）axisOf 返回 null */
+export interface ISequenceLookup {
+  /** 轴宿主的轴（视觉感知，预览期跟随）；非轴宿主 / vm 缺失返回 null */
+  axisOf(id: string): IAxisAnchor | null;
+  /** 绑定在某条生命线上的激活条的世界矩形（预览敏感） */
+  barsOf(lifelineId: string): IRect[];
+}
 
 /** 缩放手柄方向（角 = 双轴，边 = 单轴）：整形探针的入参，rectEditor 的 HandleDir 沿用 */
 export type ResizeDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';

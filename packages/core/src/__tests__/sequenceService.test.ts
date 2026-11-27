@@ -43,7 +43,7 @@ describe('SequenceService：转发与种类记忆', () => {
       onPointerCancel: (e) => seen.push(['cancel', e]),
     };
     const lifeline = { handlers: lifelineHandlers } as unknown as LifelineService;
-    const svc = new SequenceService(viewport as never, lifeline);
+    const svc = new SequenceService(viewport as never, {} as never, lifeline);
     return { svc, registered, viewport, seen, lifelineHandlers };
   }
 
@@ -83,6 +83,7 @@ describe('SequenceService：转发与种类记忆', () => {
     const bare = { handlers: {} };
     const svc = new SequenceService(
       { registerGlobalEventListener: vi.fn() } as never,
+      {} as never,
       bare as never,
     );
     for (const k of HANDLER_KEYS) expect(typeof svc.handlers[k], k).toBe('function');
@@ -106,6 +107,28 @@ describe('SequenceService：转发与种类记忆', () => {
     h.svc.setKind('lifeline'); // 同值
     expect(h.svc.currentKind).toBe('lifeline');
     expect(emissions).toEqual([]);
+  });
+
+  it('axisOf（ISequenceLookup，§9.4）：轴宿主返回其轴；普通件 / vm 缺失返回 null', () => {
+    const axis = { x: 260, top: 136, bottom: 620 };
+    const vms: Record<string, object> = {
+      l1: { getAxisAnchor: () => axis },
+      s1: {},
+    };
+    const svc = new SequenceService(
+      { registerGlobalEventListener: vi.fn() } as never,
+      { getVmById: (id: string) => vms[id] } as never,
+      { handlers: {} } as never,
+    );
+    expect(svc.axisOf('l1')).toEqual(axis);
+    expect(svc.axisOf('s1')).toBeNull();
+    expect(svc.axisOf('missing')).toBeNull();
+  });
+
+  it('barsOf：本批恒空（激活条属批次 3），且每次返回新数组', () => {
+    const h = makeHarness();
+    expect(h.svc.barsOf('l1')).toEqual([]);
+    expect(h.svc.barsOf('l1')).not.toBe(h.svc.barsOf('l1'));
   });
 
   it('命令通道：setDefaultToolOption(sequence, kind) → SequenceService.setKind', () => {

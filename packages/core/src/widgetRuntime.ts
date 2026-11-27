@@ -13,7 +13,7 @@
  * 的显式时序是语义，强行注册化是伪收益（docs/04 §3）。
  */
 import { token, type ServiceRegistry, type Token } from './platform/registry/serviceRegistry';
-import type { IBaseModel, IBaseWidgetVm } from './types';
+import type { IBaseModel, IBaseWidgetVm, ISequenceLookup } from './types';
 import { Tokens } from './tokens';
 import { WIDGET_REGISTRY } from './types/widget';
 import { ShapeModel } from './widgets/shape/shapeModel';
@@ -94,8 +94,12 @@ export const WIDGET_RUNTIME = {
     vmToken: token<IBaseWidgetVm>('LifelineVm'),
     createModel: (r: ServiceRegistry) => new LifelineModel(r.resolve(Tokens.DataProcessor)),
     // 轴带命中半宽按屏幕 px 折算需要 vpScale（FRAME 命中环同款）
+    // 轴锚点让位要查绑定激活条（specs/sequence-diagram §3.2）：查询晚绑定——
+    //  Tokens.SequenceLookup 在 SequenceService 构造后才注册，求值时才 resolve
     createVm: (r: ServiceRegistry) =>
-      new LifelineVm(() => r.resolve(Tokens.ViewportService).vpScale$.value),
+      new LifelineVm(() => r.resolve(Tokens.ViewportService).vpScale$.value, {
+        barsOf: (id) => sequenceLookup(r)?.barsOf(id) ?? [],
+      }),
   },
   MIND_MAP: {
     modelToken: token<IBaseModel>('MindMapModel'),
@@ -118,6 +122,17 @@ export const WIDGET_RUNTIME = {
     createVm: (r: ServiceRegistry) => IBaseWidgetVm;
   }
 >;
+
+/** 时序图查询的晚绑定解析（specs/sequence-diagram §9.5）：Tokens.SequenceLookup
+ *  在 SequenceService 构造后才注册，工厂只在求值时 resolve；token 未注册（无时序图
+ *  装配的组合 / 桩环境）按无轴处理，锚点求值不抛错 */
+function sequenceLookup(r: ServiceRegistry): ISequenceLookup | null {
+  try {
+    return r.resolve(Tokens.SequenceLookup);
+  } catch {
+    return null;
+  }
+}
 
 /** 注册表之外多出来的类型（satisfies 只能查漏，这里查多） */
 type AssertNever<T extends never> = T;

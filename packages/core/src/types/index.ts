@@ -1,7 +1,9 @@
 export type {
+  IAxisAnchor,
   IBaseModel,
   IBaseWidgetVm,
   IOnStateChangedInfo,
+  ISequenceLookup,
   IWidgetCapabilities,
   ResizeDir,
 } from './base';

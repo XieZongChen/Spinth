@@ -10,10 +10,12 @@ import {
 } from '../widgets/sequence/lifelineGeometry';
 import { setTextTheme } from '../platform/textEngine/theme';
 import { collectRouteObstacles } from '../widgets/line/lineRoute';
+import { LINE_END_GAP } from '../widgets/line/linePath';
 import type { IRect } from '../common/geometry';
 
 /**
- * LifelineVm 渲染 / 命中 / 探针（specs/sequence-diagram §3.3 / §3.5 / §3.6，批次 1）。
+ * LifelineVm 渲染 / 命中 / 探针（specs/sequence-diagram §3.3 / §3.5 / §3.6，批次 1；
+ * 轴锚点 §3.2 / §4.1，批次 2）。
  * 世界矩形 (200,100,120,520)：头框 y 100…136，轴 x = 260、y 136…620。
  */
 
@@ -32,8 +34,11 @@ const state = {
 const labelOf = (vm: LifelineVm): Text | undefined =>
   vm.root.children.find((c) => !(c instanceof Graphics)) as Text | undefined;
 
-function make(getScale: () => number = () => 1): LifelineVm {
-  const vm = new LifelineVm(getScale);
+function make(
+  getScale: () => number = () => 1,
+  barsOf: (id: string) => IRect[] = () => [],
+): LifelineVm {
+  const vm = new LifelineVm(getScale, { barsOf });
   vm.setState({ ...state });
   vm.flushUpdate();
   return vm;
@@ -224,10 +229,51 @@ describe('几何（rect 型语义，旋转恒 0）', () => {
     expect(vm.getRotation()).toBe(0);
   });
 
-  it('批次 1 不覆写锚点：连线仍落在 bbox 边上（轴锚定属批次 2）', () => {
+  it('轴锚点（§3.2）：四个 join 的 t 都是轴上高度比例；横向让出一个线端留隙', () => {
     const vm = make();
+    // 轴 x = 260、轴段 y 136…620：t=0.5 → 378、t=0.25 → 257
+    expect(vm.getAnchorPoint('top', 0.5)).toEqual({ x: 260, y: 378 });
+    expect(vm.getAnchorPoint('bottom', 0)).toEqual({ x: 260, y: 136 });
+    expect(vm.getAnchorPoint('right', 0.25)).toEqual({ x: 260 - LINE_END_GAP, y: 257 });
+    expect(vm.getAnchorPoint('left', 1)).toEqual({ x: 260 + LINE_END_GAP, y: 620 });
+  });
+
+  it('getAxisAnchor（§4.1 探针）：轴 = 头框底边到 bbox 底边；显式几何优先', () => {
+    const vm = make();
+    expect(vm.getAxisAnchor()).toEqual({ x: 260, top: 136, bottom: 620 });
+    expect(
+      vm.getAxisAnchor({ rect: { x: 0, y: 0, width: 100, height: 200 }, rotation: 0 }),
+    ).toEqual({ x: 50, top: 36, bottom: 200 });
+    // 轴长 < 1 = 无轴
+    expect(
+      vm.getAxisAnchor({ rect: { x: 0, y: 0, width: 100, height: 36.5 }, rotation: 0 }),
+    ).toBeNull();
+  });
+
+  it('退化件（轴长 < 1）回落基类的 bbox 锚点', () => {
+    const vm = make();
+    vm.setState({ ...state, height: 30 });
+    vm.flushUpdate();
+    expect(vm.getAxisAnchor()).toBeNull();
     expect(vm.getAnchorPoint('top', 0.5)).toEqual({ x: 260, y: 100 });
-    expect(vm.getAnchorPoint('left', 0.5)).toEqual({ x: 200, y: 360 });
+    expect(vm.getAnchorPoint('left', 0.5)).toEqual({ x: 200, y: 115 });
+  });
+
+  it('激活条让位：纵向覆盖锚点高度的条取最大半宽（本批 barsOf 恒空，查询经构造注入）', () => {
+    const vm = make(
+      () => 1,
+      // 桩环境没有 model（vm.id 为 ''）——查询不按 id 过滤
+      () => [
+        { x: 255, y: 300, width: 10, height: 100 }, // 覆盖 y 300…400，半宽 5
+        { x: 248, y: 600, width: 24, height: 10 }, // 覆盖 y 600…610，半宽 12
+      ],
+    );
+    // y = 378 被第一条覆盖：x = 轴 + (5 − 留隙) = 轴（箭头停在条边）
+    expect(vm.getAnchorPoint('right', 0.5)).toEqual({ x: 260, y: 378 });
+    // y ≈ 604.6 被第二条覆盖：x = 轴 + (12 − 留隙)
+    expect(vm.getAnchorPoint('right', 0.969)).toEqual({ x: 267, y: 136 + 484 * 0.969 });
+    // y = 136 不被任何条覆盖：让出一个留隙
+    expect(vm.getAnchorPoint('right', 0)).toEqual({ x: 260 - LINE_END_GAP, y: 136 });
   });
 
   it('dispose 不抛错', () => {

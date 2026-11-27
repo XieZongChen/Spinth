@@ -15,6 +15,7 @@ import {
   lifelineHitTest,
   lifelineHitTestRect,
   lifelineLabelRect,
+  lifelineAxis,
   truncateLifelineLabel,
 } from '../widgets/sequence/lifelineGeometry';
 
@@ -214,6 +215,23 @@ describe('生命线几何：缩放整形（被拖边跟手、宽度以轴对称�
     expect(
       constrainLifelineResize(start, { x: 200, y: 60, width: 180, height: 560 }, 'ne'),
     ).toEqual({ x: 140, y: 60, width: 240, height: 560 });
+  });
+});
+
+describe('生命线几何：轴锚定几何（§3.2）', () => {
+  it('lifelineAxis：轴 = 头区底边到 bbox 底边；轴长 < 1 的退化件返回 null（按普通件处理）', () => {
+    expect(lifelineAxis(RECT)).toEqual({ x: 260, top: 136, bottom: 620 });
+    expect(lifelineAxis({ x: 200, y: 100, width: 120, height: 36.5 })).toBeNull();
+    expect(lifelineAxis({ x: 200, y: 100, width: 120, height: 37 })).toEqual({
+      x: 260,
+      top: 136,
+      bottom: 137,
+    });
+    expect(lifelineAxis({ x: 200, y: 100, width: 120, height: 200 }, 'actor')).toEqual({
+      x: 260,
+      top: 172,
+      bottom: 300,
+    });
   });
 });
 

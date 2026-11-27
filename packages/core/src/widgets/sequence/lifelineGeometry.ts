@@ -3,14 +3,15 @@
  * 轴、命中（头框 ∪ 轴带）、标签区、缩放整形、轴虚线分段、标签截断——全部纯函数，
  * 单测直测。纯模块（无 PIXI）：渲染 Vm / 标签编辑链 / 命中测试共用。
  *
- * 轴锚定（连线落在轴上、按下点写端口）属批次 2，本文件暂不提供锚点函数——批次 1
- * 的生命线对连线工具是普通矩形控件。
+ * 轴锚定（specs/sequence-diagram §3.2）本文件只提供「矩形 → 轴」（lifelineAxis）；
+ * 轴上取点、选边、端口在连线层（widgets/line/lineAxisAnchor——生命线与消息共用，
+ * 连线层不能反向依赖 sequence）。
  */
 import type { IPoint, IRect } from '../../common/geometry';
 import { rectsIntersect } from '../../common/geometry';
 import { truncateLabelToWidth } from '../../platform/textEngine/labelText';
 import { createCanvasMeasurer, type ITextStyleProps } from '../../platform/textEngine/measure';
-import type { ResizeDir } from '../../types/base';
+import type { IAxisAnchor, ResizeDir } from '../../types/base';
 
 /** 头部样式：box = 矩形头框；actor = 小人（批次 4 绘制；几何先定，标签在小人下方） */
 export type LifelineHead = 'box' | 'actor';
@@ -64,6 +65,13 @@ export function lifelineAxisOf(rect: IRect, head?: LifelineHead): ILifelineAxis 
     top: rect.y + lifelineHeadHeight(head),
     bottom: rect.y + rect.height,
   };
+}
+
+/** 轴锚定几何（§3.2）：轴长 < 1 的退化件返回 null——连线按普通件处理
+ *  （锚点回落 bbox）；≥ 1 才是可落线的轴 */
+export function lifelineAxis(rect: IRect, head?: LifelineHead): IAxisAnchor | null {
+  const axis = lifelineAxisOf(rect, head);
+  return axis.bottom - axis.top < 1 ? null : axis;
 }
 
 /** 轴虚线的实线段 [y0, y1]（世界坐标，自上而下）：从轴顶按 [实, 空] 点划，末段
