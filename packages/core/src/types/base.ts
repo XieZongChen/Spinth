@@ -130,6 +130,21 @@ export interface ISequenceLookup {
   barsOf(lifelineId: string): IRect[];
 }
 
+/** 激活条随生命线的级联钩子（specs/sequence-diagram §5.3 / §9.4）：与 IFrameLookup
+ *  同款的分层纪律——平台层不 import widgets/sequence，经 composeCascadeLookup 把它
+ *  与容器钩子合成同一个 IFrameLookup 后消费。实现是 SequenceService */
+export interface IActivationLookup {
+  /** 生命线 → 并入其绑定的激活条（zOrder 升序；非激活条的入参原样由合成方保留） */
+  expandActivations(ids: string[]): string[];
+  /** 落点绑定判定并落库（§5.1）：条中心线贴合某条轴即绑定并归中，否则解绑。
+   *  **只在事务内调用**（S7：绑定写与触发操作同一事务）；rectOf 事务内不许读 vm
+   *  （state 是微任务合批旧值）——宿主轴同样由 rectOf 算术推导 */
+  reconcileActivations(ids: string[], rectOf: (id: string) => IRect): void;
+  /** 粘贴收尾：无绑定的激活条副本落在轴上即绑定并归中（§5.4）。
+   *  **只在事务内调用**；矩形直读 model */
+  adoptActivationsByLanding(ids: string[]): void;
+}
+
 /** 缩放手柄方向（角 = 双轴，边 = 单轴）：整形探针的入参，rectEditor 的 HandleDir 沿用 */
 export type ResizeDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 

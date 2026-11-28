@@ -14,6 +14,7 @@ import type {
   IVmEngineService,
   IHistoryService,
   ISelectorService,
+  IFrameLookup,
 } from './types';
 import type { DataEngineService } from './platform/dataEngine/dataEngineService';
 import type { ServiceRegistry } from './platform/registry/serviceRegistry';
@@ -68,6 +69,10 @@ export interface IBoardServices {
   frame: FrameService | null;
   sequence: SequenceService | null;
   lifeline: LifelineService | null;
+  /** 级联复合查找（specs/sequence-diagram §5.3）：容器钩子 ∪ 激活条随行钩子。
+   *  selector / clipboard / layer 的注入点与 alignCommands 都指向它；未组装
+   *  （无时序图的组合）为 null，调用方回落到 frame */
+  cascade: IFrameLookup | null;
   refLine: RefLineService | null;
   layer: LayerService | null;
   group: GroupService | null;

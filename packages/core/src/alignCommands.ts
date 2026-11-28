@@ -42,7 +42,8 @@ export function nudgeSelected(
   if (!ctx.viewport?.editable$.value) return;
   const ids = ctx.selector?.selected$.value ?? [];
   if (ids.length === 0) return;
-  const frames = ctx.frame;
+  // 级联查找：容器 ∪ 激活条随行（specs/sequence-diagram §5.3）；未合成时回落 frame
+  const frames = ctx.cascade ?? ctx.frame;
   const expanded = frames ? frames.expandForCascade(ids) : ids;
   ctx.engine!.transact(() => {
     for (const id of expanded) {

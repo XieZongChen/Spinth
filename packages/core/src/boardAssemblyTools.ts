@@ -12,6 +12,7 @@ import { ImageService } from './widgets/image/imageService';
 import { TreeService } from './widgets/tree/service/treeService';
 import { LifelineService } from './widgets/sequence/lifelineService';
 import { SequenceService } from './widgets/sequence/sequenceService';
+import { composeCascadeLookup } from './widgets/sequence/sequenceCascade';
 import { countDanglingLines } from './widgets/line/linePrune';
 import { ViewportService } from './platform/viewport/viewportService';
 import { Tokens } from './tokens';
@@ -134,8 +135,9 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.selector!,
     sdk.viewport!,
     sdk.history!,
-    // 容器复制带子/粘贴重映射惰性解环（specs/container-frame §4.7）
-    () => sdk.frame,
+    // 容器复制带子 / 粘贴重映射惰性解环（specs/container-frame §4.7）；级联复合查找
+    // （specs/sequence-diagram §5.3）在下方时序图装配段合成，未合成时回落 frame
+    () => sdk.cascade ?? sdk.frame,
   );
   sdk.clipboard.initialize();
   sdk.clipboard.onPasteImage = (blob) => sdk.imageService?.pasteImage(blob);
@@ -175,6 +177,10 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     selector: sdk.selector!,
   });
   sdk.sequence.initialize();
+  // 级联复合查找（specs/sequence-diagram §5.3）：容器钩子 ∪ 激活条随行钩子。selector /
+  // layer（交互装配）/ clipboard（上方）的惰性 getter 与命令宿主的 cascade 都在调用时
+  // 才读它——这里合成晚于它们的构造，但早于任何用户操作
+  sdk.cascade = sdk.frame ? composeCascadeLookup(sdk.frame, sdk.sequence) : null;
   // VM 只读查询（specs/sequence-diagram §9.5）：注册晚绑定门面而非服务本体——
   // registry 缓存单例并在 dispose 时逐个 dispose，注册本体会让服务被二次 dispose
   sdk.registry.registerSingleton(Tokens.SequenceLookup, () => ({

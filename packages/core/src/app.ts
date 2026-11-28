@@ -68,6 +68,7 @@ import type {
   ShapeType,
   IViewportService,
   IVmEngineService,
+  IFrameLookup,
 } from './types';
 import type { TreeOrientation } from './types/tree';
 
@@ -110,6 +111,9 @@ export class BoardSDK extends BoardFacade implements IBoardCommandHost {
   sequence: SequenceService | null = null;
   /** 生命线工具（不注册，由 sequence 转发） */
   lifeline: LifelineService | null = null;
+  /** 级联复合查找（specs/sequence-diagram §5.3）：容器钩子 ∪ 激活条随行钩子——
+   *  selector / clipboard / layer 的注入点与 alignCommands 都指向它 */
+  cascade: IFrameLookup | null = null;
   rectEditor: RectEditorService | null = null;
   refLine: RefLineService | null = null;
   layer: LayerService | null = null;

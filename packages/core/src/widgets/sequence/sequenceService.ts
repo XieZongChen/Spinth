@@ -4,6 +4,7 @@ import type { IRect } from '../../common/geometry';
 import type { ILineDrawPolicy } from '../line/lineAxisAnchor';
 import type { LineService } from '../line/lineService';
 import type {
+  IActivationLookup,
   IAxisAnchor,
   IDataEngineService,
   IHistoryService,
@@ -49,7 +50,7 @@ export interface ISequenceTools {
  * 平移）经构造注入的只读查询——组合根注册的是晚绑定门面（Tokens.SequenceLookup），
  * VM 不持服务引用。
  */
-export class SequenceService extends Disposable implements ISequenceLookup {
+export class SequenceService extends Disposable implements IActivationLookup, ISequenceLookup {
   private kind: SequenceKind = SEQUENCE_DEFAULT_KIND;
   readonly kind$ = new BehaviorSubject<SequenceKind>(SEQUENCE_DEFAULT_KIND);
 
@@ -96,6 +97,24 @@ export class SequenceService extends Disposable implements ISequenceLookup {
   /** 绑定在某条生命线上的激活条：激活条属后续批次，当前恒空（每次新数组） */
   barsOf(_lifelineId: string): IRect[] {
     return [];
+  }
+
+  // ---- IActivationLookup（specs/sequence-diagram §5.3）：激活条随生命线的级联钩子。
+  // 绑定实装属下一笔——这里先落外壳，复合查找因此等价于纯容器行为 ----
+
+  /** 生命线 → 并入其绑定的激活条（外壳：无并入） */
+  expandActivations(_ids: string[]): string[] {
+    return [];
+  }
+
+  /** 落点绑定判定并落库（外壳：no-op） */
+  reconcileActivations(_ids: string[], _rectOf: (id: string) => IRect): void {
+    // no-op
+  }
+
+  /** 粘贴收尾落点重绑（外壳：no-op） */
+  adoptActivationsByLanding(_ids: string[]): void {
+    // no-op
   }
 
   get currentKind(): SequenceKind {

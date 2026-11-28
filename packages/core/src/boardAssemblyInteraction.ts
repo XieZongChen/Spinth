@@ -66,8 +66,9 @@ export function assembleInteraction(sdk: BoardSDK): void {
     () => sdk.group!,
     sdk.edgeScroll,
     // 容器归属惰性解环（specs/container-frame §6.5，getGroups 同款）：sdk.frame
-    // 在下方 editingService 之后才构造，调用时已就绪
-    () => sdk.frame,
+    // 在下方 editingService 之后才构造，调用时已就绪；sdk.cascade（容器 ∪ 激活条
+    // 随行，specs/sequence-diagram §5.3）在工具装配阶段才合成——未合成时回落 frame
+    () => sdk.cascade ?? sdk.frame,
   );
   // 编组（docs/18）：选择聚合层服务——点击扩展/框选口径/建组解组命令
   sdk.group = new GroupService(sdk.engine!, sdk.vmEngine!, sdk.selector!, sdk.history!);
@@ -98,7 +99,7 @@ export function assembleInteraction(sdk: BoardSDK): void {
     sdk.selector!,
     sdk.history!,
     // 容器钳制惰性解环（specs/container-frame §4.8）：sdk.frame 后构造
-    () => sdk.frame,
+    () => sdk.cascade ?? sdk.frame,
   );
   // 统一编辑会话（docs/17 批 1：TEXT/STICKY 先接入；LINE 批 2、mind 批 3）
   sdk.editingService = new EditingService(sdk.viewport!, sdk.engine!, sdk.selector!, sdk.history!);

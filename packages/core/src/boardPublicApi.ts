@@ -109,6 +109,7 @@ export type BoardInternalMember =
   | 'frame'
   | 'sequence'
   | 'lifeline'
+  | 'cascade'
   | 'rectEditor'
   | 'refLine'
   | 'layer'
