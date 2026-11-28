@@ -170,11 +170,13 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.editingService!,
   );
   sdk.lifeline.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
-  // tools = 激活条手势的写入面（创建 / 撤销边界 / 选中）：'sequence' 模式仍由本服务唯一注册
+  // tools = 激活条手势的写入面（创建 / 撤销边界 / 选中）+ 片段转发的容器工具
+  // （sdk.frame 在交互装配里已建好）：'sequence' 模式仍由本服务唯一注册
   sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline, sdk.lineService!, {
     engine: sdk.engine!,
     history: sdk.history!,
     selector: sdk.selector!,
+    frame: sdk.frame,
   });
   sdk.sequence.initialize();
   // 级联复合查找（specs/sequence-diagram §5.3）：容器钩子 ∪ 激活条随行钩子。selector /

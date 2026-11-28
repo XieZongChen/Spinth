@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Point } from 'pixi.js';
 import { SequenceService } from '../widgets/sequence/sequenceService';
 import { LifelineService } from '../widgets/sequence/lifelineService';
-import { MESSAGE_RETURN_POLICY } from '../widgets/line/lineAxisAnchor';
+import { MESSAGE_RETURN_POLICY, DIVIDER_POLICY } from '../widgets/line/lineAxisAnchor';
+import {
+  SEQUENCE_ELEMENT_KINDS,
+  SEQUENCE_ELEMENT_OPTIONS,
+  SEQUENCE_FRAGMENT_OPTIONS,
+  SEQUENCE_MESSAGE_OPTIONS,
+} from '../widgets/sequence/sequenceOptions';
 import { BoardCommands } from '../boardCommands';
 import type { IBoardCommandHost } from '../boardHost';
 import type { IPointerEventInfo, IPointerHandlers } from '../types';
@@ -36,6 +42,7 @@ describe('SequenceService：转发与种类记忆', () => {
       registerGlobalEventListener: vi.fn((mode: string, h: IPointerHandlers) => {
         registered.set(mode, h);
       }),
+      cursorMode$: new BehaviorSubject('sequence'),
     };
     const seen: Array<[string, IPointerEventInfo]> = [];
     const lifelineHandlers: IPointerHandlers = {
@@ -357,5 +364,113 @@ describe('LifelineService：不自行注册、创建与标签编辑入口', () =
     expect(h.svc.editingLabelId).toBe('l1');
     expect(h.svc.enterLabelEdit('l1', { x: 160, y: 300 })).toBe(false); // 点轴不算
     expect(begun).toHaveLength(1);
+  });
+});
+
+describe('SequenceService：分隔线与片段的转发（specs/sequence-diagram §6.1 / §7.1，批次 4）', () => {
+  function makeKindHarness() {
+    const cursorMode$ = new BehaviorSubject('sequence');
+    const registered = new Map<string, IPointerHandlers>();
+    const viewport = {
+      registerGlobalEventListener: vi.fn((mode: string, h: IPointerHandlers) => {
+        registered.set(mode, h);
+      }),
+      cursorMode$,
+    };
+    const lineSeen: number[] = [];
+    const line = {
+      drawHandlers: { onPointerDown: (e: IPointerEventInfo) => lineSeen.push(e.world.x) },
+      drawPolicyProbe: null as (() => unknown) | null,
+    };
+    const frameSeen: number[] = [];
+    const frame = {
+      handlers: { onPointerDown: (e: IPointerEventInfo) => frameSeen.push(e.world.x) },
+      createPreset: null as (() => Record<string, unknown>) | null,
+    };
+    const lifeline = { handlers: { onPointerDown: () => lineSeen.push(-1) } };
+    const svc = new SequenceService(
+      viewport as never,
+      { getAllVms: () => [] } as never,
+      lifeline as never,
+      line as never,
+      { frame } as never,
+    );
+    return { svc, line, frame, lineSeen, frameSeen, cursorMode$, registered, viewport };
+  }
+
+  it('分隔线：指针转发到连线拉线管线，策略 = DIVIDER_POLICY（仅时序图工具激活时给）', () => {
+    const h = makeKindHarness();
+    h.svc.setKind('divider');
+    const probe = h.line.drawPolicyProbe as () => unknown;
+    expect(probe()).toEqual(DIVIDER_POLICY);
+    h.cursorMode$.next('line'); // 通用连线工具与分隔线共用 drawHandlers，不能被劫持
+    expect(probe()).toBeUndefined();
+    h.cursorMode$.next('sequence');
+    h.svc.handlers.onPointerDown?.(evt(7));
+    expect(h.lineSeen).toEqual([7]);
+    expect(h.frameSeen).toEqual([]);
+    expect(h.frame.createPreset).toBeNull();
+  });
+
+  it('片段：转发到容器工具的 handlers，并逐事件刷新预设为该种类的关键字预设', () => {
+    const h = makeKindHarness();
+    const kinds = [
+      ['fragment-alt', 'alt'],
+      ['fragment-opt', 'opt'],
+      ['fragment-loop', 'loop'],
+      ['fragment-par', 'par'],
+    ] as const;
+    for (const [kind, title] of kinds) {
+      h.svc.setKind(kind);
+      h.svc.handlers.onPointerDown?.(evt(1));
+      expect(h.frame.createPreset!()).toEqual({ title, fill: 'none' });
+    }
+    expect(h.frameSeen).toEqual([1, 1, 1, 1]);
+    expect(h.lineSeen).toEqual([]);
+  });
+
+  it('切回非片段种类即清预设（容器工具不会建出无填充的片段）', () => {
+    const h = makeKindHarness();
+    h.svc.setKind('fragment-par');
+    h.svc.handlers.onPointerDown?.(evt(1));
+    expect(h.frame.createPreset).not.toBeNull();
+    h.svc.setKind('lifeline');
+    h.svc.handlers.onPointerDown?.(evt(2));
+    expect(h.frame.createPreset).toBeNull();
+    h.svc.setKind('divider');
+    h.svc.handlers.onPointerMove?.(evt(3));
+    expect(h.frame.createPreset).toBeNull();
+  });
+
+  it('initialize：离开 sequence 模式即清预设；回来后由下一次事件按当前种类刷新', () => {
+    const h = makeKindHarness();
+    h.svc.initialize();
+    expect(h.registered.get('sequence')).toBe(h.svc.handlers);
+    h.svc.setKind('fragment-loop');
+    h.svc.handlers.onPointerDown?.(evt(1));
+    expect(h.frame.createPreset).not.toBeNull();
+    // 切到容器工具（C）时不会再有时序图事件——只能靠模式订阅清
+    h.cursorMode$.next('cursor');
+    expect(h.frame.createPreset).toBeNull();
+    h.cursorMode$.next('sequence');
+    expect(h.frame.createPreset).toBeNull();
+    h.svc.handlers.onPointerMove?.(evt(2));
+    expect(h.frame.createPreset!()).toEqual({ title: 'loop', fill: 'none' });
+  });
+
+  it('种类表与三组选项表一一对应：每个种类恰在一组、每个选项都是合法种类', () => {
+    const all = [
+      ...SEQUENCE_ELEMENT_OPTIONS,
+      ...SEQUENCE_MESSAGE_OPTIONS,
+      ...SEQUENCE_FRAGMENT_OPTIONS,
+    ].map((o) => o.id);
+    expect([...all].sort()).toEqual([...SEQUENCE_ELEMENT_KINDS].sort());
+    expect(new Set(all).size).toBe(all.length);
+    // 图元组顺序即菜单顺序：生命线 / 激活条 / 分隔线
+    expect(SEQUENCE_ELEMENT_OPTIONS.map((o) => o.id)).toEqual([
+      'lifeline',
+      'activation',
+      'divider',
+    ]);
   });
 });

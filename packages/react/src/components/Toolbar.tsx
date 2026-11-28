@@ -17,6 +17,7 @@ import {
   TREE_KIND_OPTIONS,
   SEQUENCE_ELEMENT_OPTIONS,
   SEQUENCE_MESSAGE_OPTIONS,
+  SEQUENCE_FRAGMENT_OPTIONS,
   type CursorMode,
   type IActionBarOption,
 } from '@spinth/core';
@@ -233,6 +234,13 @@ export function Toolbar() {
       },
       {
         options: SEQUENCE_MESSAGE_OPTIONS,
+        current: sequenceKind,
+        activeClass: TONE_ACTIVE.shape,
+        onPick: pickSequenceKind,
+      },
+      {
+        // 组合片段（specs/sequence-diagram §8.1）：alt / opt / loop / par，文字项
+        options: SEQUENCE_FRAGMENT_OPTIONS,
         current: sequenceKind,
         activeClass: TONE_ACTIVE.shape,
         onPick: pickSequenceKind,

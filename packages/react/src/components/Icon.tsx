@@ -87,6 +87,7 @@ export type IconName =
   | 'sequence-message-async' // 异步消息（开放箭头）
   | 'sequence-message-return' // 返回消息（虚线 + 开放箭头）
   | 'sequence-activation' // 激活条（虚线轴 + 贴轴窄条）
+  | 'sequence-divider' // 分隔线（横向虚线，两端自由）
   | 'undo'
   | 'redo'
   | 'trash'
@@ -273,7 +274,13 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
   'sequence-activation': svgIcon(
     <>
       <line x1="12" y1="2.5" x2="12" y2="21.5" strokeDasharray="2.5 2.5" />
-      <rect x="9.5" y="7.5" width="5" height="9" fill="currentColor" />
+      <rect x="9.5" y1="7.5" width="5" height="9" fill="currentColor" />
+    </>,
+  ),
+  // 分隔线（specs/sequence-diagram §6.2）：一条两端自由的横向虚线（else 分隔）
+  'sequence-divider': svgIcon(
+    <>
+      <line x1="2.5" y1="12" x2="21.5" y2="12" strokeDasharray="3 2.4" />
     </>,
   ),
   orgchart: Network,

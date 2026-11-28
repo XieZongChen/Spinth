@@ -17,26 +17,31 @@ import type {
   LifelineData,
 } from '../../types';
 import { isAxisHost } from '../line/lineAxisAnchor';
+import type { FrameService } from '../frame/frameService';
 import type { LifelineService } from './lifelineService';
 import { ActivationService } from './activationService';
 import { lifelineAxis } from './lifelineGeometry';
 import { activationBind, ACTIVATION_WIDTH, resolveActivationHost } from './sequenceOps';
 import {
+  isFragmentKind,
   isSequenceKind,
   SEQUENCE_DEFAULT_KIND,
   SEQUENCE_DRAW_POLICIES,
+  SEQUENCE_FRAGMENT_PRESETS,
   type SequenceKind,
 } from './sequenceOptions';
 
 /** 连线服务的结构子集：消息借用的拉线管线 + 条边让位的重路由入口 */
 export type ISequenceLine = Pick<LineService, 'drawHandlers' | 'drawPolicyProbe' | 'reattach'>;
 
-/** 激活条手势要写的协作者（组合根注入）。缺省 = 无激活条图元：'activation' 种类
- *  转发为 no-op（桩环境 / 未组装时序图的组合） */
+/** 时序图工具要写的协作者（组合根注入）。缺省 = 无激活条图元 / 无片段：'activation'
+ *  转发为 no-op，片段种类转发为 no-op（桩环境 / 未组装时序图的组合） */
 export interface ISequenceTools {
   engine: IDataEngineService;
   history: IHistoryService;
   selector: ISelectorService;
+  /** 容器工具（片段 = 容器手势 + 创建预设，§6.1）。它的 handlers 与 C 工具共用同一对象 */
+  frame?: Pick<FrameService, 'handlers' | 'createPreset'> | null;
 }
 
 /**
@@ -44,8 +49,9 @@ export interface ISequenceTools {
  * 多种图元。一个模式只能注册一组处理器——本服务是 'sequence' 的**唯一注册者**，
  * 事件到达时才解析当前图元种类并转发到该图元自己的服务（它们不注册；
  * LifelineService / ActivationService 的 initialize 抛错防误调）：生命线 → 生命线
- * 服务；激活条 → 本服务持有的激活条手势（activationService）；消息 → 连线拉线
- * 管线（lineService.drawHandlers）+ 种类对应的拉线策略；片段随后续批次追加。
+ * 服务；激活条 → 本服务持有的激活条手势（activationService）；消息 / 分隔线 →
+ * 连线拉线管线（lineService.drawHandlers）+ 种类对应的拉线策略；片段 → 容器工具的
+ * 手势（frameService.handlers）+ 创建预设。
  *
  * 种类记忆是会话级（不落库不持久化），经 kind$ 汇入工具默认参数表——工具坞
  * 二级菜单读写同一个值（docs/04 §2 工具默认参数节）。
@@ -63,6 +69,8 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
   private readonly activation: ActivationService | null = null;
   /** 绑定写入面（tools 注入时才有；缺省 = 三个级联钩子 no-op） */
   private readonly engine: IDataEngineService | null = null;
+  /** 容器工具（tools 注入时才有）：片段转发它的手势、逐事件刷新它的创建预设 */
+  private readonly frame: ISequenceTools['frame'] = null;
 
   constructor(
     private readonly viewport: IViewportService,
@@ -81,6 +89,7 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
       : null;
     if (this.activation) this.addDisposable(this.activation);
     this.engine = tools?.engine ?? null;
+    this.frame = tools?.frame ?? null;
   }
 
   private drawPolicy(): ILineDrawPolicy | undefined {
@@ -89,8 +98,17 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
       : undefined;
   }
 
-  /** 种类 → 处理器：生命线走生命线服务，激活条走本服务持有的手势，消息走连线管线 */
+  /** 种类 → 处理器：生命线走生命线服务，激活条走本服务持有的手势，消息 / 分隔线走
+   *  连线管线，片段走容器工具 */
   private targetOf(kind: SequenceKind): IPointerHandlers {
+    if (isFragmentKind(kind)) {
+      // 片段 = 容器工具的手势 + 预设（§6.1）。预设逐事件刷新：frame.handlers 与容器
+      // 工具（C）共用同一对象，不清会串到 C 工具上——其余种类在这里清，离开本工具
+      // 由 initialize 的模式订阅清
+      if (this.frame) this.frame.createPreset = SEQUENCE_FRAGMENT_PRESETS[kind] ?? null;
+      return this.frame?.handlers ?? {};
+    }
+    if (this.frame) this.frame.createPreset = null;
     if (kind === 'lifeline') return this.lifeline.handlers;
     if (kind === 'activation') return this.activation?.handlers ?? {};
     return this.line?.drawHandlers ?? {};
@@ -216,5 +234,11 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
 
   initialize(): void {
     this.viewport.registerGlobalEventListener('sequence', this.handlers);
+    // 离开时序图工具即清片段预设：切到容器工具（C）后不会再有时序图事件来清，
+    // 留着会让 C 工具建出无填充的片段（两者共用同一组 handlers）
+    const modeSub = this.viewport.cursorMode$.subscribe((mode) => {
+      if (mode !== 'sequence' && this.frame) this.frame.createPreset = null;
+    });
+    this.addDisposable(() => modeSub.unsubscribe());
   }
 }

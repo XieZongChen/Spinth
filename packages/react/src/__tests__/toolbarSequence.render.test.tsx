@@ -78,13 +78,18 @@ describe('工具坞「时序图」入口', () => {
     const items = [
       ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
     ];
-    // 两组：图元（生命线 / 激活条）+ 消息（同步 / 异步 / 返回）
+    // 三组：图元（生命线 / 激活条 / 分隔线）+ 消息（同步 / 异步 / 返回）+ 片段（alt / opt / loop / par）
     expect(items.map((i) => i.getAttribute('aria-label'))).toEqual([
       '生命线',
       '激活条',
+      '分隔线',
       '同步消息',
       '异步消息',
       '返回消息',
+      'alt',
+      'opt',
+      'loop',
+      'par',
     ]);
     expect(items[0]!.getAttribute('aria-checked')).toBe('true'); // 当前种类点亮
     expect(items.slice(1).every((i) => i.getAttribute('aria-checked') === 'false')).toBe(true);
@@ -96,7 +101,7 @@ describe('工具坞「时序图」入口', () => {
     expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'activation');
   });
 
-  it('两组共用一个当前值：记忆为消息种类时只有消息组的一项点亮，图元组不亮', () => {
+  it('三组共用一个当前值：记忆为消息种类时只有消息组的一项点亮，图元组与片段组不亮', () => {
     render(<Toolbar />);
     act(() =>
       useSpinthStore.setState({
@@ -111,8 +116,43 @@ describe('工具坞「时序图」入口', () => {
       .filter((i) => i.getAttribute('aria-checked') === 'true')
       .map((i) => i.getAttribute('aria-label'));
     expect(lit).toEqual(['异步消息']);
-    // 组间有一条分隔线（浮层根的直接子节点；图标自身的 aria-hidden 在更深层）
-    expect(document.querySelectorAll('[data-spinth-tool-flyout] > [aria-hidden]').length).toBe(1);
+    // 三组之间有两条分隔线（浮层根的直接子节点；图标自身的 aria-hidden 在更深层）
+    expect(document.querySelectorAll('[data-spinth-tool-flyout] > [aria-hidden]').length).toBe(2);
+  });
+
+  it('记忆为片段种类时片段组的关键字项点亮', () => {
+    render(<Toolbar />);
+    act(() =>
+      useSpinthStore.setState({
+        cursorMode: 'sequence',
+        defaultToolOptions: { sequence: { kind: 'fragment-loop' } },
+      }),
+    );
+    const lit = [
+      ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [aria-checked="true"]'),
+    ].map((i) => i.getAttribute('aria-label'));
+    expect(lit).toEqual(['loop']);
+  });
+
+  it('点分隔线 / 片段项 → setDefaultToolOption(sequence, kind, 对应 id)；片段项以关键字文字呈现', () => {
+    const setOpt = vi.spyOn(spinthCommands, 'setDefaultToolOption');
+    render(<Toolbar />);
+    act(() => useSpinthStore.setState({ cursorMode: 'sequence' }));
+    const byName = (n: string) =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-spinth-tool-flyout] [role="menuitemradio"]',
+        ),
+      ].find((i) => i.getAttribute('aria-label') === n)!;
+    click(byName('分隔线'));
+    expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'divider');
+    for (const kw of ['alt', 'opt', 'loop', 'par']) {
+      click(byName(kw));
+      expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', `fragment-${kw}`);
+      // 文字项：按钮内是关键字本身，不是图标位
+      expect(byName(kw).textContent).toBe(kw);
+      expect(byName(kw).querySelector('svg')).toBeNull();
+    }
   });
 
   it('记忆为激活条时图元组的「激活条」点亮', () => {
