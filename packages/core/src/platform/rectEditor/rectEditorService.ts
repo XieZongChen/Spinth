@@ -135,6 +135,17 @@ export class RectEditorService extends Disposable {
     return this.vm.debugRotateHandle;
   }
 
+  /** dev 调试：当前生效的边热区方向（只沿纵轴缩放的件不出左右两条） */
+  get __edgeDirs(): HandleDir[] {
+    return this.vm.debugEdgeDirs;
+  }
+
+  /** 只沿纵轴缩放的件（resizeAxis 探针，specs/sequence-diagram §3.5）：吸附只取纵向
+   *  分量、不出左右边热区。能力位式读法，无类型分支 */
+  private verticalOnlyOf(id: string): boolean {
+    return this.vmEngine.getVmById(id)?.resizeAxis?.() === 'v';
+  }
+
   /** 缩放手势进行中（悬停指示器抑制用——docs/08 §10 批次 2） */
   get isResizing(): boolean {
     return this.resize !== null;
@@ -181,7 +192,13 @@ export class RectEditorService extends Disposable {
     // 旋转柄走能力位闸门
     const g = vm.getHostGeom();
     const canRotate = this.engine.getModelById(this.targetId)?.capabilities.rotatable !== false;
-    this.vm.show(g.rect, this.viewport.vpScale$.value, g.rotation, canRotate);
+    this.vm.show(
+      g.rect,
+      this.viewport.vpScale$.value,
+      g.rotation,
+      canRotate,
+      this.verticalOnlyOf(this.targetId),
+    );
   }
 
   private startResize(dir: HandleDir, worldX: number, worldY: number, pointerId?: number): void {
@@ -285,7 +302,13 @@ export class RectEditorService extends Disposable {
     // 视觉反馈：per-type 预览（rect 型 position+scale；points 世界坐标型
     // 端点/采样点重映射重绘，避免拉伸线宽/箭头）
     vm.applyResizePreview(this.resize.start, next);
-    this.vm.show(next, this.viewport.vpScale$.value, th);
+    this.vm.show(
+      next,
+      this.viewport.vpScale$.value,
+      th,
+      true,
+      this.verticalOnlyOf(this.resize.vmId),
+    );
     // 选区框实时跟随被缩放的形状（否则框冻结在旧尺寸）
     this.selector.updateSelectionFrame(next);
     this.resizeMove$.next();

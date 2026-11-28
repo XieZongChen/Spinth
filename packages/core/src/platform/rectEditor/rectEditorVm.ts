@@ -131,10 +131,16 @@ export class RectEditorVm {
   private rect: IRect | null = null;
   private scale = 1;
   private rotation = 0;
+  private verticalOnly = false;
 
   /** dev 调试：当前编辑框矩形 */
   get debugRect(): IRect | null {
     return this.rect;
+  }
+
+  /** dev 调试：当前生效的边热区方向（只沿纵轴缩放的件不出左右两条） */
+  get debugEdgeDirs(): HandleDir[] {
+    return [...this.edgeZones].filter(([, z]) => z.hitArea !== null).map(([dir]) => dir);
   }
 
   /** dev 调试：旋转柄世界坐标（E2E 定位用）+ 可见性（入口隐藏时 visible=false——
@@ -146,11 +152,14 @@ export class RectEditorVm {
   }
 
   /** rect = 视觉局部矩形（getHostGeom 语义）；rotation = 绕中心角（docs/05 §8）；
-   *  canRotate = 能力位闸门（LINE/PEN/MIND_MAP 不出旋转柄） */
-  show(rect: IRect, vpScale: number, rotation = 0, canRotate = true): void {
+   *  canRotate = 能力位闸门（LINE/PEN/MIND_MAP 不出旋转柄）；verticalOnly = 只沿
+   *  纵轴缩放的件（IBaseWidgetVm.resizeAxis 探针）不出左右边热区——这两条对它毫无
+   *  作用，却会盖满恒宽 10 的激活条条身，使已选中的条抓不住、拖不动 */
+  show(rect: IRect, vpScale: number, rotation = 0, canRotate = true, verticalOnly = false): void {
     this.rect = rect;
     this.scale = vpScale;
     this.rotation = rotation;
+    this.verticalOnly = verticalOnly;
     this.rotateDot.visible = canRotate;
     this.root.visible = true;
     this.redraw();
@@ -218,7 +227,7 @@ export class RectEditorVm {
     const t = EDGE_HOT_SIZE / s;
     const axisAligned = th === 0;
     for (const [dir, z] of this.edgeZones) {
-      if (!axisAligned) {
+      if (!axisAligned || (this.verticalOnly && (dir === 'e' || dir === 'w'))) {
         z.hitArea = null;
         continue;
       }

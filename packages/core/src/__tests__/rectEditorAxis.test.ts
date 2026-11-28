@@ -57,6 +57,7 @@ function makeHarness(opts: { vertical?: boolean; snapWidth?: number; snapHeight?
   );
   svc.initialize();
   return {
+    svc,
     vmStub,
     refLine,
     handleDown: (dir: string, x: number, y: number): void => {
@@ -106,5 +107,12 @@ describe('RectEditor 纵轴缩放（resizeAxis 探针，specs/sequence-diagram �
     h.move(345, 420);
     h.up();
     expect(h.refLine.snapForResize.mock.calls[0]![1]).toBe('se');
+  });
+});
+
+describe('RectEditor 边热区与 resizeAxis 探针', () => {
+  it('只沿纵轴缩放的件不出左右边热区（条身中点留给拖拽）；未声明探针的件四边俱全', () => {
+    expect(makeHarness({ vertical: true }).svc.__edgeDirs).toEqual(['n', 's']);
+    expect(makeHarness().svc.__edgeDirs).toEqual(['n', 'e', 's', 'w']);
   });
 });
