@@ -111,8 +111,10 @@ editStyleOf` 统一「model override → 控件常量默认」。
 - 主题化默认色：`platform/textEngine/theme.ts`（light/dark 两套）；per-实例
   `textColor` 优先；STICKY/SHAPE 文字不主题化（底色固定）。
   切换经门面 `setTheme`（`createBoard()` 公共投影）→ `vmEngine.refreshAll()`。
-- 生命线（LIFELINE）标签：单行 14/20 居中，色写死 `#333333`（头框白底，不随主题）；
-  编辑 profile 见 docs/17（plain 内核居中）；落库是纯文本 `label`。
+- 生命线（LIFELINE）标签：单行 14/20 居中，色写死 `#333333`（矩形头白底、actor
+  小人无底，均不随主题；标签落在矩形头框内 / 小人下方的标签带）；
+  编辑 profile 见 docs/17（plain 内核居中；矩形头编辑器白底、actor 透明底）；落库是纯文本 `label`。
+- 连线（LINE）线上文字的位置（线上 / 上方 / 下方）见 docs/08 §6（`textSide`）。
 - ActionBar 排版项（字号/对齐/文字色/行高）与改档高度重排见 docs/17 §4。
 - 符号（SYMBOL）标签：单行 16/24 居中、色随 `resolveSymbolColor`（缺省随
   主题、逐实例 color 优先且不反转）；编辑 profile 见 docs/17，落库是纯文本

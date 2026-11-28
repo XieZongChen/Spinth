@@ -23,6 +23,8 @@ rect: Y.Array<{ key: 'x' | 'y' | 'width' | 'height'; val: number }>
 // 自由七类（SHAPE/TEXT/STICKY/IMAGE/PEN/SYMBOL/LINE）：可选 parentId 容器归属
 //   标记（specs/container-frame §2.2——optional 无 default，旧文档零迁移；
 //   锚定线运行时排除，FRAME/树控件/生命线不带该字段）
+// LINE：可选 textSide（线上文字位置，docs/08 §6）——「线上」= 写 undefined：
+//   Yjs 对 undefined 不删键，键以 undefined 值留存、读回即缺省（清除类字段同款）
 // MIND_MAP：root（Y.Map）+ 节点 children（Y.Array）递归树（docs/11）
 ```
 

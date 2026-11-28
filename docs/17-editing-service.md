@@ -72,15 +72,15 @@ onExit → 内核 detach`。
 
 ## 3. 双内核
 
-| 维度   | html 内核（TipTap）                    | plain 内核（textarea）                                                                                 |
-| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 控件   | TEXT / STICKY / LINE / SHAPE           | mind 节点 / FRAME 标题 / LIFELINE 标签                                                                 |
-| 数据   | TipTap HTML 字符串                     | 纯字符串                                                                                               |
-| 落库   | `model.update({ text })`               | `MindNodeModel.setText` → observeSelf → 树重排                                                         |
-| 定位   | attachAndRemember + 视口重放           | commit 后重取 getRect 重定位                                                                           |
-| 键位   | Esc 退出 / Cmd+Z 转发 Yjs / Enter 换行 | Enter 提交退出 / Shift+Enter 换行 / Tab 建子 / Esc 丢弃（FRAME、LIFELINE 单行：Enter 含 Shift 恒提交） |
-| IME    | TipTap 承载；同内容重入不重建          | 同节点重入不重建；首键竞态走“进编辑 + 全选”                                                            |
-| 空文本 | emptyTextPolicy 声明                   | keep（删节点走 Delete；FRAME / LIFELINE 空文本保留控件）                                               |
+| 维度   | html 内核（TipTap）                                                                                                                                             | plain 内核（textarea）                                                                                 |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 控件   | TEXT / STICKY / LINE / SHAPE                                                                                                                                    | mind 节点 / FRAME 标题 / LIFELINE 标签                                                                 |
+| 数据   | TipTap HTML 字符串                                                                                                                                              | 纯字符串                                                                                               |
+| 落库   | `model.update({ text })`                                                                                                                                        | `MindNodeModel.setText` → observeSelf → 树重排                                                         |
+| 定位   | attachAndRemember + 视口重放；量到首帧框高后重取一次 `getRect`，矩形变了才重定位（`getRect` 依赖框尺寸的描述符用——LINE 侧别文字的编辑框离线 = 框高 / 2 + 留隙） | commit 后重取 getRect 重定位                                                                           |
+| 键位   | Esc 退出 / Cmd+Z 转发 Yjs / Enter 换行                                                                                                                          | Enter 提交退出 / Shift+Enter 换行 / Tab 建子 / Esc 丢弃（FRAME、LIFELINE 单行：Enter 含 Shift 恒提交） |
+| IME    | TipTap 承载；同内容重入不重建                                                                                                                                   | 同节点重入不重建；首键竞态走“进编辑 + 全选”                                                            |
+| 空文本 | emptyTextPolicy 声明                                                                                                                                            | keep（删节点走 Delete；FRAME / LIFELINE 空文本保留控件）                                               |
 
 ## 4. profile 与 per-实例排版
 

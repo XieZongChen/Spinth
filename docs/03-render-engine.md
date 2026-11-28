@@ -103,9 +103,10 @@ type CursorMode =
   `onPointerDown/Move/Up/UpOutside/RightClick`；工具切换 = 换 handler，不改事件管线。
 - 一个模式只能注册一组处理器。`sequence` 是多图元工具：SequenceService 是该
   模式的唯一注册者，事件到达时才按当前图元种类转发到该图元自己的服务（生命线
-  服务不注册，其 `initialize()` 抛错防误调；消息种类转发到连线服务的拉线处理器
+  服务不注册，其 `initialize()` 抛错防误调；消息与分隔线转发到连线服务的拉线处理器
   `lineService.drawHandlers`，并经 `drawPolicyProbe` 注入该种类的拉线策略——只在
-  `sequence` 模式下给，通用连线工具共用同一组处理器、不被策略劫持；
+  `sequence` 模式下给，通用连线工具共用同一组处理器、不被策略劫持；组合片段转发到
+  容器工具的处理器并在每个事件前刷新它的创建预设，离开本模式即清；
   specs/sequence-diagram §7.1）。
 - 所有 handler 入口检查 `editable$` 与 `editBlocked$`。
 - undo 边界（`stopCapturing`）由各服务在自身手势结束时调用，不在分发层统一处理。

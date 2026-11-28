@@ -635,7 +635,14 @@ join 归一的理由：箭头让位方向由 join 决定（§3.2），而 `axisJ
   编辑期 = 编辑器框高（编辑框没有 Text 节点）。
 - 侧别文字**不切线**（`knockout` 为空），但文字盒仍作胶囊手柄与 `lineKnockout` 探针的
   参照——手柄与探针都骑在 `knockoutRectDebug` 上，置空会让有字线丢手柄、探针返回 null。
-  文字盒不与线相交，胶囊回到路径中点口径。
+  侧别的文字盒 = **字形盒不外扩**（留隙已经落在字形与线之间：带内边距的盒边恰好压回
+  线上，`capsuleAnchors` 拿它切路径会把整条线切没）；盒不与线相交，胶囊回到路径中点
+  口径。文字命中同口径（侧别 = 字形盒，留隙里的点不算文字）。
+- 编辑框首帧定位：富文本编辑器在会话开始时读一次 `getRect()` 定位、随后才量框高。
+  `getRect` 依赖框尺寸的描述符（侧别文字的编辑框离线 = 框高 / 2 + 留隙）靠
+  `EditingService.begin` 量到首帧框高后重取一次 `getRect` 并重定位
+  （`RichTextEditor.move`：只重放几何 / 样式、不回灌内容；矩形没变不动，其余描述符
+  零行为变化）。
 - ActionBar：LINE 增「文字位置」popover（线上 / 上方 / 下方，id = `textSide`，
   走 `updateSelectedStyle` 通用通道）。选项 id 是字符串，「线上」的 id `on` 不是合法
   枚举值——`styleCommands` 把它转写为 `textSide: undefined`（Yjs 对 undefined 不删键：
@@ -974,12 +981,22 @@ export function constrainLifelineResize(start: IRect, next: IRect, dir: ResizeDi
 // ---- widgets/sequence/sequenceService.ts ----
 export class SequenceService extends Disposable implements IActivationLookup, ISequenceLookup {
   readonly kind$: BehaviorSubject<SequenceKind>;
-  initialize(): void; // 唯一注册 'sequence' 模式
+  initialize(): void; // 唯一注册 'sequence' 模式；订阅 cursorMode$，离开即清片段预设
   expandActivations(ids: string[]): string[];
   reconcileActivations(ids: string[], rectOf: (id: string) => IRect): void;
   adoptActivationsByLanding(ids: string[]): void;
   axisOf(id: string): IAxisAnchor | null;
   barsOf(lifelineId: string): IRect[];
+  // 批次 4（§7.2 末行）：只在 updateSelectedStyle 的事务内、写入 head 之后调用
+  onHeadChanged(id: string, oldHead: LifelineData['head']): void;
+}
+
+// SequenceService 的构造注入（批次 3 激活条 / 批次 4 片段）
+export interface ISequenceTools {
+  engine: IDataEngineService;
+  history: IHistoryService;
+  selector: ISelectorService;
+  frame?: Pick<FrameService, 'handlers' | 'createPreset'> | null;
 }
 
 // ---- widgets/line/lineAxisResize.ts ----
@@ -1288,7 +1305,15 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 - [x] 新增文件全部 < 400 行（最大 lifelineGeometry 194）；`types/widget.ts` 的增量只含 schema 与注册项。
 - [x] 批次 2 起：`rectEditorService.ts` 已到 399 行，动它之前先拆旋转手势（§1.6）
       ——已拆到 `rectEditorRotate.ts`（零行为，特征测试 23 例不改一字全绿）。
-- [ ] 批次 4 两项（线上文字侧别、actor 头）都在；Q-4 标签断言、Q-12 与 Q-19 actor 头部分绿。
+- [x] 批次 4 两项（线上文字侧别、actor 头）都在；Q-4 标签断言、Q-12 与 Q-19 actor 头部分绿。
+      （`sequenceFragment.spec` 5 例 + `sequenceMessage.spec` +2 例 + `sequence.spec` +1 例与 Q-18
+      扩三组；五处关键门控做过变异验证——freeEnds 落定分支 / 模式订阅清预设 / createPreset
+      合并 / onHeadChanged / 法向翻转；`sequenceHeadChange.test` 真 Yjs + 真引擎 + 真 VM +
+      真 LineAnchorFollow：消息高度不变、端口重写、带内钳到新轴顶、一步 undo 同回。）
+- [x] 批次 4：`lineVm.ts` 396 / `boardActionBar.ts` 340 / `lineDrawSession.ts` 375 /
+      `lineHoverOverlay.ts` 395 / `selectorService.ts` 398，新增文件最大 `sequenceService.ts`
+      272；`selectorService.ts` / `lineRoute.ts` / `lineRouteSelfLoop.ts` / `FrameService` 的归属
+      方法零改动；公开面 71 不变。
 - [x] 批次 2：轴宿主判定没有 type 分支（`getAxisAnchor` / `isAxisMessage` 探针）；消息草稿不入撤销栈——
       落空取消后撤销栈不变、慢拖后撤销不复活草稿（单测用真 Yjs + UndoManager 取 captureTimeout 0；
       E2E Q-5 把栈规整成一步后验一次撤销恰好清空）；`canQuickAdd` 是 quick-add 与四向连接点的唯一资格判定；
@@ -1486,3 +1511,53 @@ spec + `sequence` / `sequenceMessage` 37/37（提交 7 后）、缩放类 5 个 
 | §7.2（未写）：切换头部样式后的锚定消息                                  | 同一事务内重写端口并重路由（加长保高度同款）；旧轴顶下方带内的消息钳到新轴顶        | 轴顶 136 → 172，按端口比例跟随会让消息下移约 24px                                              |
 | §11.2：用例文件                                                         | 新 `sequenceFragment.spec.ts`；Q-4 标签、Q-19 actor、Q-18 三组追加在各自既有文件    | 按既有分文件                                                                                   |
 | `lineStyle.spec` 收窄护栏注记（「下次样式项再挤入时应转次级 popover」） | 按 §4.9 / §8.2 落为一级 popover，护栏 430 → 480                                     | 人类确认：与 spec 一致；次级收纳需给 PopoverControl 加多控件面板（§8.3 排除）                  |
+
+**实施偏差与实施发现（相对本 spec 正文；正文已同步改写，这里记原因）**
+
+| 事项                             | 实际做法                                                                                           | 原因                                                                                                                                                 |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §4.9：侧别文字的「文字盒」       | 字形盒，不外扩 `KNOCKOUT_PADDING`（骑线的镂空矩形才外扩）                                          | 偏移量「盒高 / 2 + 内边距」把留隙落在字形与线之间——带内边距的盒边恰好压回线上，`capsuleAnchors` 拿它切路径会把整条线切没（手柄全丢）；文字命中同口径 |
+| §4.9：编辑框定位（未写）         | `EditingService.begin` 量到首帧框高后重取一次 `getRect`，矩形变了才重定位（`RichTextEditor.move`） | 富文本编辑器只在会话开始时读一次 `getRect` 定位、随后才量框高——侧别文字的编辑框首帧拿不到自己的高度，会压在线上                                      |
+| §4.9：`textAnchorOf` 的盒高来源  | 渲染 / 命中 = Text 实测高；编辑期 = 编辑器框高（`onFrameChange` 喂入）                             | 见开工前订正；用文字高会让比文字高一圈的编辑框压线                                                                                                   |
+| §9.4：`SequenceService` 签名清单 | 增 `onHeadChanged(id, oldHead)`；构造注入 `ISequenceTools` 增 `frame?`                             | 切换头部样式的事务内重算与片段转发是本批新增，签名已补进 §9.4                                                                                        |
+| §7.1：分隔线的按下点             | 不要求空白——策略忽略控件命中，在轴上 / 形状上按下也落自由点                                        | `freeEnds` 的语义就是「两端都落自由点」；在轴上按下被吸走会让「从第一条轴拖到最后一条轴」画不出来                                                    |
+| §8.2：LINE 操作栏宽度            | 第 9 个一级项，实测 451px；`lineStyle.spec` 护栏 430 → 480                                         | 人类确认按 spec 落一级项；390px 靠既有 flex-wrap（`mobile.spec` / `a11yLayout.spec` 实测通过）                                                       |
+| §9.3：包入口导出                 | 只新增 `SEQUENCE_FRAGMENT_OPTIONS`（`SequenceKind` 已导出，片段种类并进同一联合）                  | Toolbar 只消费选项表                                                                                                                                 |
+
+**存量观察（不在本批处理）**
+
+- `lineHitTest.hitWidget` 的容差环按到 AABB 的距离判定，FRAME 内部空白会拾到 FRAME：只影响
+  消息手势的悬停反馈与被取消的预览终点（分隔线的手势走 `freeEnds`，不受影响）。
+- PNG 选区导出的外接矩形取 `LineVm.getBounds()`（只有 points），侧别文字不在内（骑线文字
+  横向超出 points 时同款）；画布导出不受影响。
+- 切换头部样式不重判激活条绑定：条与轴段的纵向重叠判定不受轴顶移动影响，只有整条落在
+  旧轴顶下方 36px 带内的条（最矮 16px）会在下一次 reconcile 时解绑。
+
+**提交**（每笔 pre-push `pnpm verify` 全绿后推送）
+
+| #   | 提交      | 内容                                                                                                         | 实测                                                                                                                                                                   |
+| --- | --------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | `cd65cd7` | docs(spec)：开工前订正，打开 §19.4                                                                           | —                                                                                                                                                                      |
+| 1   | `b3a3902` | refactor：LINE 操作栏八项原样抽到 `widgets/line/lineActionBar.ts`（382 → 335 行）                            | `boardActionBar.test`「LINE：8 项顺序固定」不改一字全绿                                                                                                                |
+| 2   | `9b0d956` | feat：`LineSchema.textSide` + 锚点单源 `textAnchorOf` + `textBox`；命中 / 编辑框跟随；编辑器首帧重定位       | +18 单测（lineTextSide 16 / editingService +2）；新用例在旧实现上 14 + 2 例红                                                                                          |
+| 3   | `a1ad12e` | feat：消息预设带 `textSide: 'above'`、LINE「文字位置」、`styleCommands` 转写、护栏 480                       | +4 单测（lineAxisAnchor +2 / styleCommands +2）；既有 lineDrawPolicy / boardActionBar 用例补 textSide 断言；回归面 112 E2E（连线 / 容器 / 移动端 / 文本编辑 / 时序图） |
+| 4   | `8bae9ad` | feat：`FrameService.createPreset`                                                                            | +1 单测（frameService）                                                                                                                                                |
+| 5   | `d64944b` | feat：`DIVIDER_POLICY`、freeEnds 落定、悬停门控                                                              | +5 单测（lineDrawPolicy +4 / lineAxisAnchor +1）                                                                                                                       |
+| 6   | `b348e93` | feat：二级菜单三组、片段种类与预设表、SequenceService 转发与预设生命周期、`sequence-divider` 图标            | +7 单测（sequenceService +5 / toolbarSequence +2）；回归面 89 E2E                                                                                                      |
+| 7a  | `6fa0fe4` | feat：actor 头绘制、标签编辑器透明底、`getAxisAnchor` 读模型                                                 | +7 单测（lifelineGeometry +3 / lifelineVmRender +3 / lifelineLabelEditor +1）                                                                                          |
+| 7b  | `3dc3daf` | feat：LIFELINE「头部样式」、`styleCommands` head 分支、`SequenceService.onHeadChanged`                       | +9 单测（sequenceHeadChange 5 / styleCommands +3 / boardActionBar +1）                                                                                                 |
+| 8   | `1de4bc8` | test：E2E +8 例（`sequenceFragment.spec` 5 / `sequenceMessage.spec` +2 / `sequence.spec` +1 与 Q-18 扩三组） | 五处变异转红，见 §18 批次 4 行                                                                                                                                         |
+| 9   | 见 git    | docs：文档同步（docs/00 / 02 / 03 / 04 / 07 / 08 / 12 / 13 / 15 / 17、本 spec、AGENTS.md）                   | 见 docs/15                                                                                                                                                             |
+
+**批次收尾实测**：单测 1844（core 1715 + react 91 + app 38，+51）。全量 E2E 主配置 371 例
+（`--retries=0`）369 通过 + 2 跳过（旋转手柄用例暂跳，specs/rotate-hide），0 failed，
+darwin `@visual` 10 例基线未变（按钮数不变、二级菜单只在工具激活时入镜）；pwa 7 例
+紧接主配置连跑 7/7。回归面（分笔跑）：提交 3 后连线 / 容器 / 移动端 / 文本编辑 /
+时序图 112 例，提交 6 后工具坞 / 移动端 / 无障碍布局 / 快捷键 / 时序图 89 例，提交 8 后
+四个时序图 spec + `container.spec` 54 例。挂账（已报人类）：
+
+- LINE 操作栏九个一级位实测 451px（护栏 480）；再挤入样式项须转次级收纳。
+- `hitWidget` 容差环在 FRAME 内部空白会拾到 FRAME；PNG 选区导出不含侧别文字；
+  切换头部样式不重判激活条绑定（见上「存量观察」）。
+- 批次 3 的挂账不变：最矮激活条可抓区域约 8px、激活条 ActionBar 空栏、不钳层级、
+  `nudgeSelected` 对普通件无急刻重路由、「片段自动置底」。

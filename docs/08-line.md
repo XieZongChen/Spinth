@@ -4,7 +4,7 @@
 
 - 连线可锚定到任意 widget 的边，跟随移动自动重算路由。
 - 三种线型：STRAIGHT / ELBOWED / CURVE。
-- 箭头、线宽、颜色、虚线、线上文字可配。
+- 箭头、线宽、颜色、虚线、线上文字（可置于线上 / 上方 / 下方）可配。
 - 线不可整体拖动/缩放：交互 = 拖端点重锚定、拖段滑移、随锚定节点移动、ActionBar 改样式。
   例外：轴消息（两端锚在生命线轴上）可沿轴上下平移（docs/04 §8.6）。
 
@@ -36,6 +36,8 @@ const LineSchema = z.object({
 
   text: z.string().default(''),
   textRatio: z.number().min(0).max(1).default(0.5),
+  // 线上文字位置（§6）：缺省 = 骑线镂空；above / below = 线上方 / 线下方，不切线
+  textSide: z.enum(['above', 'below']).optional(),
   fontSize: z.number().optional(),
   textColor: z.string().optional(),
 });
@@ -151,6 +153,18 @@ routeElbow(start, startJoin, end, endJoin, startNode?, endNode?, obstacles?):
   虚线同理分段（`slicePathByDash`），相位跨拐点连续。
 - 文字沿路径拖：按住文字沿路径拖动，ratioAtPoint 实时反算（钳制 0.05~0.95），
   preview 零模型写，松手单事务落库 textRatio；位移 < 4px 无操作。
+- **文字位置**（`textSide`，specs/sequence-diagram §4.9；可选键，缺省 = 骑线镂空、
+  旧文档逐字节不变）：`above` / `below` = 文字在线上方 / 下方，**不切线**。锚点单源
+  `lineVmText.textAnchorOf(pts, style, 盒高)`——路径点沿法向偏移「盒高 / 2 + 4px」；
+  法向 = 路径方向的左侧法向，路径朝左时翻转（近水平线段的「上方」恒为视觉上方，
+  右→左画的消息与左→右同款；竖直线段退化为沿线一侧）。渲染、编辑框（`getRect`）、
+  文字命中（`lineVmHit`）三处共用，各给自己的盒高：渲染与命中 = Text 实测高，
+  编辑期 = 编辑器框高（编辑框没有 Text 节点）。时序图工具建的消息带 `textSide: 'above'`。
+- 侧别文字的参照盒是字形盒（不外扩 4px）：留隙已经落在字形与线之间，再外扩盒边会
+  压回线上，胶囊手柄拿它切路径会把整条线切没。胶囊因此回到路径中点口径。
+- 操作栏「文字位置」（线上 / 上方 / 下方）走 `updateSelectedStyle`：「线上」的选项
+  id `on` 不是合法枚举值，由 `styleCommands` 转写为 `textSide: undefined`（Yjs 对
+  undefined 不删键：键以 undefined 值留存，读回即缺省）。
 
 ## 7. 交互流程
 
@@ -172,6 +186,11 @@ pointerup
   自环，其余取消。草稿走非跟踪 origin（`'sequence-draft'`）**不入撤销栈**：落定 =
   非跟踪删草稿 + 跟踪事务建终线（一步撤销 = 建出这条消息），取消零痕迹
   （specs/sequence-diagram §4.4；消息路径在 `lineMessageDraft.ts`）。
+  `freeEnds` 策略（时序图的分隔线）两端都落自由点：忽略控件命中，落定保留草稿首尾
+  两点（不足 4px 取消），同样不入撤销栈；悬停不出连接点反馈。
+- 编辑框首帧定位：富文本编辑器在会话开始时读一次 `getRect()` 定位、随后才量框高——
+  `getRect` 依赖框尺寸的描述符（LINE 侧别文字）靠 `EditingService` 量到首帧框高后
+  重取一次 `getRect` 并重定位（矩形没变不动，其余描述符零行为变化）。
 
 - **自环**（`startNodeId === endNodeId !== null`）：显式环路，`routeSelfLoop`
   生成——同 join 出 U 形（锚点重合时按跨度 `max(80, 边长×0.5)` 展开在边内）、
@@ -200,6 +219,7 @@ pointerup
 | `lineMessageDraft.ts` | 有拉线策略时的终点 / 草稿路由 / 落定（消息路径）         |
 | `lineAxisMessage.ts`  | 轴消息判定（纯派生）与端口平移（纯函数）                 |
 | `lineAxisResize.ts`   | 轴宿主缩放后的端口重写（加长保高度）                     |
+| `lineActionBar.ts`    | 连线操作栏样式项（含「文字位置」选项表）                 |
 
 ## 9. 挂账
 

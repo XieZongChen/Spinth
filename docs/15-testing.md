@@ -13,7 +13,12 @@
 
 ## 2. 当前基线
 
-- 单测：1793 passed（core 1666 + react 89 + app 38）。时序图批次 3 +78
+- 单测：1844 passed（core 1715 + react 91 + app 38）。时序图批次 4 +51
+  （lineTextSide 16 / sequenceHeadChange 5（真 Yjs + 真引擎 + 真 VM + 真
+  LineAnchorFollow）/ lineDrawPolicy +4 / sequenceService +5 / styleCommands +5 /
+  lineAxisAnchor +3 / lifelineGeometry +3 / lifelineVmRender +3 / editingService +2 /
+  boardActionBar +1 / frameService +1 / lifelineLabelEditor +1 / toolbarSequence +2，
+  specs/sequence-diagram §19.4）。时序图批次 3 +78
   （sequenceOps 17 / sequenceBinding 10（真 Yjs + 真引擎 + 真 VM）/ activationService 10 /
   activationVm 8 / clipboardSequence 5 / sequenceCascade 4 / rectEditorAxis 4 /
   dragCreateBase +5 / alignCommand +5 / lineAnchorFollow +3 / sequenceService +2 /
@@ -41,9 +46,14 @@
   announcement +2；lineAnchorFollow +6 / styleCommands 3，
   specs/flowchart-closeout §24；resizeMath 17 / rectEditorRatio 8，
   specs/image-ratio-lock §4）。
-- E2E：61 个 spec（主配置 60 + pwa 1）、370 例 = 主配置 363（--list 实测，
-  含 @visual 10）+ pwa 7。全量实测 368 通过 + 2 跳过（旋转手柄用例暂跳，
-  specs/rotate-hide），0 failed。时序图批次 3 +10 例
+- E2E：62 个 spec（主配置 61 + pwa 1）、378 例 = 主配置 371（--list 实测，
+  含 @visual 10）+ pwa 7。全量实测 376 通过 + 2 跳过（旋转手柄用例暂跳，
+  specs/rotate-hide），0 failed。时序图批次 4 +8 例
+  （sequenceFragment.spec 5 例——Q-12 预设落库 / 框内穿透与拖片段不动 / 分隔线 /
+  分隔线在片段内 / 预设不泄漏；sequenceMessage.spec +2 例——Q-4 标签在线上方与
+  「文字位置」往返、右→左标签方向；sequence.spec +1 例 Q-19 actor 头并把 Q-18 扩到
+  三组二级菜单；片段与分隔线的落库断言读 `model.toJSON()` 文档真值；五处关键门控
+  做过变异验证，specs/sequence-diagram §18 / §19.4）；时序图批次 3 +10 例
   （sequenceActivation.spec Q-10 / Q-11 / Q-13 / Q-14 与 Q-9 的激活条部分——创建手势
   与门禁、拖离解绑 / 拖回复绑、级联删除、条边让位与加长翻转、删条复位、不进容器、
   复制粘贴重绑、刷新恢复；绑定与让位断言读 `model.toJSON()` 文档真值，急切重路由
@@ -65,8 +75,8 @@
   （network.spec N-1..N-11，specs/network-diagram §12.1）；线型切回折线 +5 例
   （lineStyle.spec，断言读文档真值，specs/flowchart-closeout §24）；图片比例锁
   +1 例（imageResize.spec，specs/image-ratio-lock §4）。分层对账 = 主配置
-  363 − @visual 10 − @timing/@bench 5 = fast 348 + pwa 7 = CI gate 355；
-  四层全量 370（gate 355 + nightly @visual 10 + @timing/@bench 5）；
+  371 − @visual 10 − @timing/@bench 5 = fast 356 + pwa 7 = CI gate 363；
+  四层全量 378（gate 363 + nightly @visual 10 + @timing/@bench 5）；
   混跑不作门禁，各层跑法见 `.github/workflows/ci.yml`。
 - 视觉：10/10（主配置 @visual 10 例，darwin 系统 Chrome / linux 容器 Chromium，双平台基线 11 张齐全
   （+mind-horizontal/mind-vertical/org-sample，specs/tree-diagrams §14.3；

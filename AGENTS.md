@@ -386,11 +386,37 @@ layer 注入点零改动，命令宿主增内部成员 `cascade`（公开面 71 
 宿主（宿主探针 `anchorFollowHosts` 读模型不读 vm 状态），删除复用连线既有的
 `onModelRemoved$ → respreadLines`，拖动与缩放条时消息预览跟随。剪贴板 `lifelineId`
 同批指向副本、批外删键并按落点重绑（粘贴入批序改层级排序：容器最先、生命线先于
-激活条）。批次 4–5（组合片段与打磨 / 视觉基线与收尾）待规划。
+激活条）。
 
-当前实测基线：`pnpm verify` 通过；1793 单测（core 1666 + react 89 + app 38）；
-E2E 61 spec / 370 例（主配置 363 --list 实测，含 @visual 10；pwa 7 独立配置；
-全量实测 368 通过 + 2 跳过（旋转手柄暂跳 specs/rotate-hide），0 failed；时序图批次 3 E2E +10 例（sequenceActivation.spec）+ 单测 +78
+UML 时序图批次 4（组合片段 + 打磨）已落地（specs/sequence-diagram，实施记录与偏差
+见其 §19.4）：组合片段 = FRAME 预设——`FrameService.createPreset` 会话态，`createWidget`
+逐次合并其返回值（缺省 null 容器工具不变）；alt / opt / loop / par 四类
+`{ title: 关键字, fill: 'none' }`（无填充只有边框与标题，创建手势同容器工具）。预设由
+`SequenceService` 管：转发每个指针事件前刷新、其余种类置 null、离开 `sequence` 模式即清
+——`FrameService.handlers` 与容器工具共用同一对象，不清会让 C 工具建出无填充的片段。
+片段不收养也不带动时序图件、内部空白不拦截指针（框内消息点得到、分隔线起止点不被
+吸走）、缺省在最上层（「自动置底」挂账）。分隔线 = 两端自由的虚线直线（`DIVIDER_POLICY`
+的 `freeEnds`：落定保留草稿首尾两点、不足 4px 取消、草稿不入撤销栈、悬停不出连接点；
+在轴上 / 形状上按下也落自由点）。线上文字位置：`LineSchema.textSide`（缺省骑线镂空）+
+锚点单源 `lineVmText.textAnchorOf`——近水平线段恒为**视觉上方**（路径朝左时翻转法向，
+右→左画的消息同款；竖直线段退化为沿线一侧），渲染 / 编辑框 / 命中三处共用、盒高各给
+（Text 实测高 / 编辑器框高）；侧别文字不切线，参照盒取字形盒（带内边距的盒边恰好压回
+线上，胶囊手柄拿它切路径会把整条线切没）；消息预设带 `textSide: 'above'`；LINE 操作栏
+「文字位置」（「线上」的选项 id `on` 经 `styleCommands` 转写为 `textSide: undefined`）；
+富文本编辑器补「量到首帧框高后重取 getRect 重定位」（`RichTextEditor.move`，矩形没变
+不动）。actor 头：`head: 'actor'` 画主题墨色的小人（几何单源 `lifelineActorFigure`，
+总高 44）、不画框，标签编辑器透明底，`getAxisAnchor` 的头部样式改读模型；LIFELINE
+操作栏「头部样式」（矩形 / 小人）——切换时轴顶 36 ↔ 72 移动，`updateSelectedStyle` 在
+同一事务内调 `SequenceService.onHeadChanged` 按新轴重写端口并重路由（消息保住高度、
+旧轴顶下方带内的钳到新轴顶，一步 undo 同回；几何观察者的 diff 键不含 head，不能等它
+来算）。工具坞二级菜单三组（图元含分隔线 / 消息 / 片段——片段项以关键字文字呈现）。
+操作栏 LINE 八项抽 `lineActionBar.ts`、LIFELINE 一项在 `lifelineActionBar.ts`（LINE 栏
+宽护栏 430 → 480，实测 451）。批次 5（`sequence-sample` 视觉基线与收尾）待规划。
+
+当前实测基线：`pnpm verify` 通过；1844 单测（core 1715 + react 91 + app 38）；
+E2E 62 spec / 378 例（主配置 371 --list 实测，含 @visual 10；pwa 7 独立配置；
+全量实测 376 通过 + 2 跳过（旋转手柄暂跳 specs/rotate-hide），0 failed；时序图批次 4 E2E +8 例（sequenceFragment.spec 5、sequenceMessage +2、sequence +1）+ 单测 +51
+（specs/sequence-diagram §19.4）；时序图批次 3 E2E +10 例（sequenceActivation.spec）+ 单测 +78
 （specs/sequence-diagram §19.3）；时序图批次 2 E2E +10 例（sequenceMessage.spec）+ 单测 +91
 （specs/sequence-diagram §19.2）；时序图批次 1 E2E +8 例（sequence.spec）+ 单测 +97
 （specs/sequence-diagram §19.1）；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
@@ -413,12 +439,14 @@ check 为 `gate`。
 下一阶段：常见图能力续批（docs/13 阶段 4，按 跨职能 / 泳道 → UML 时序 →
 UML 类图 / ER → BPMN 顺序；标准流程图、树形图族、网络拓扑 4.3 已完成，
 Phase 4 可选增强见 specs/tree-diagrams §13；**UML 时序图（4.5）分批实施中——
-批次 1（地基 + 生命线）、批次 2（轴锚定 + 消息）、批次 3（激活条）已落地**，下一步
-规划批次 4（组合片段 = FRAME 预设 + 分隔线；打磨：线上文字侧别、actor 头、ActionBar；
-动 lineVm / lineHoverOverlay / selectorService 前先下沉纯函数）——
-specs/sequence-diagram.md §12）→
-协同最后（docs/10，不进入默认启动路径）；
-1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
+批次 1（地基 + 生命线）、批次 2（轴锚定 + 消息）、批次 3（激活条）、批次 4（组合片段
+
+- 打磨）已落地**，下一步规划批次 5（`sequence-sample` 视觉基线双平台 → 最终 docs 与
+  roadmap §4.5；涉及工具坞入镜内容变化的基线按 specs/container-frame 的做法强制重生成；
+  动 lineVm / lineHoverOverlay / selectorService 前先下沉纯函数）——
+  specs/sequence-diagram.md §12）→
+  协同最后（docs/10，不进入默认启动路径）；
+  1.0 后可访问性与平台遗留按资源并行（docs/13 §3）。
 
 可访问性遗留（画布内容朗读/幽灵对比度等）见 docs/13 §3 与
 specs/a11y-closeout §13.5；PWA 安装与移动端真机待人工项见 specs/pwa.md §14
