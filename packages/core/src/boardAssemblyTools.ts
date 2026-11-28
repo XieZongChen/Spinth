@@ -168,7 +168,12 @@ export function assembleTools(sdk: BoardSDK, config: IBoardConfig): void {
     sdk.editingService!,
   );
   sdk.lifeline.bindGridSnap(() => sdk.gridSnap?.enabled ?? false);
-  sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline, sdk.lineService!);
+  // tools = 激活条手势的写入面（创建 / 撤销边界 / 选中）：'sequence' 模式仍由本服务唯一注册
+  sdk.sequence = new SequenceService(sdk.viewport!, sdk.vmEngine!, sdk.lifeline, sdk.lineService!, {
+    engine: sdk.engine!,
+    history: sdk.history!,
+    selector: sdk.selector!,
+  });
   sdk.sequence.initialize();
   // VM 只读查询（specs/sequence-diagram §9.5）：注册晚绑定门面而非服务本体——
   // registry 缓存单例并在 dispose 时逐个 dispose，注册本体会让服务被二次 dispose

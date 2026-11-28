@@ -78,9 +78,10 @@ describe('工具坞「时序图」入口', () => {
     const items = [
       ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
     ];
-    // 两组：图元（生命线）+ 消息（同步 / 异步 / 返回）
+    // 两组：图元（生命线 / 激活条）+ 消息（同步 / 异步 / 返回）
     expect(items.map((i) => i.getAttribute('aria-label'))).toEqual([
       '生命线',
+      '激活条',
       '同步消息',
       '异步消息',
       '返回消息',
@@ -91,6 +92,8 @@ describe('工具坞「时序图」入口', () => {
     const setOpt = vi.spyOn(spinthCommands, 'setDefaultToolOption');
     click(items[0]!);
     expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'lifeline');
+    click(items[1]!);
+    expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'activation');
   });
 
   it('两组共用一个当前值：记忆为消息种类时只有消息组的一项点亮，图元组不亮', () => {
@@ -112,16 +115,33 @@ describe('工具坞「时序图」入口', () => {
     expect(document.querySelectorAll('[data-spinth-tool-flyout] > [aria-hidden]').length).toBe(1);
   });
 
+  it('记忆为激活条时图元组的「激活条」点亮', () => {
+    render(<Toolbar />);
+    act(() =>
+      useSpinthStore.setState({
+        cursorMode: 'sequence',
+        defaultToolOptions: { sequence: { kind: 'activation' } },
+      }),
+    );
+    const lit = [
+      ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [aria-checked="true"]'),
+    ].map((i) => i.getAttribute('aria-label'));
+    expect(lit).toEqual(['激活条']);
+  });
+
   it('点消息项 → setDefaultToolOption(sequence, kind, 消息种类 id)', () => {
     const setOpt = vi.spyOn(spinthCommands, 'setDefaultToolOption');
     render(<Toolbar />);
     act(() => useSpinthStore.setState({ cursorMode: 'sequence' }));
-    const items = [
-      ...document.querySelectorAll<HTMLElement>('[data-spinth-tool-flyout] [role="menuitemradio"]'),
-    ];
-    click(items[3]!);
+    const byName = (n: string) =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-spinth-tool-flyout] [role="menuitemradio"]',
+        ),
+      ].find((i) => i.getAttribute('aria-label') === n)!;
+    click(byName('返回消息'));
     expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'message-return');
-    click(items[2]!);
+    click(byName('异步消息'));
     expect(setOpt).toHaveBeenCalledWith('sequence', 'kind', 'message-async');
   });
 

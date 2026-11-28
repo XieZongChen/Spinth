@@ -11,6 +11,7 @@ import {
  *  sequenceService.test 锁 */
 export const SEQUENCE_ELEMENT_KINDS = [
   'lifeline',
+  'activation',
   'message-sync',
   'message-async',
   'message-return',
@@ -22,6 +23,7 @@ export const SEQUENCE_DEFAULT_KIND: SequenceKind = 'lifeline';
 /** 工具坞二级菜单「图元」组（顺序即菜单顺序；icon = @spinth/react Icon 语义名） */
 export const SEQUENCE_ELEMENT_OPTIONS: IActionBarOption[] = [
   { id: 'lifeline', label: '生命线', icon: 'sequence' },
+  { id: 'activation', label: '激活条', icon: 'sequence-activation' },
 ];
 
 /** 工具坞二级菜单「消息」组（specs/sequence-diagram §4.3 / §8.1）：图标区分箭头

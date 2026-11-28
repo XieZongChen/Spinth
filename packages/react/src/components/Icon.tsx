@@ -86,6 +86,7 @@ export type IconName =
   | 'sequence-message-sync' // 同步消息（实心箭头）
   | 'sequence-message-async' // 异步消息（开放箭头）
   | 'sequence-message-return' // 返回消息（虚线 + 开放箭头）
+  | 'sequence-activation' // 激活条（虚线轴 + 贴轴窄条）
   | 'undo'
   | 'redo'
   | 'trash'
@@ -266,6 +267,13 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
       <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2.5 2.5" />
       <line x1="5.5" y1="12" x2="19" y2="12" strokeDasharray="3 2.4" />
       <path d="M15.8 8.8 L19.2 12 L15.8 15.2" />
+    </>,
+  ),
+  // 激活条（specs/sequence-diagram §3.6）：虚线轴 + 贴轴的窄条——与画布上的条同语义
+  'sequence-activation': svgIcon(
+    <>
+      <line x1="12" y1="2.5" x2="12" y2="21.5" strokeDasharray="2.5 2.5" />
+      <rect x="9.5" y="7.5" width="5" height="9" fill="currentColor" />
     </>,
   ),
   orgchart: Network,

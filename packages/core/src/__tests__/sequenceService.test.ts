@@ -26,6 +26,8 @@ const HANDLER_KEYS = [
 
 const evt = (x: number): IPointerEventInfo =>
   ({ world: new Point(x, 0), screen: new Point(x, 0), shiftKey: false, metaKey: false }) as never;
+const evtAt = (x: number, y: number): IPointerEventInfo =>
+  ({ world: new Point(x, y), screen: new Point(x, y), shiftKey: false, metaKey: false }) as never;
 
 describe('SequenceService：转发与种类记忆', () => {
   function makeHarness() {
@@ -182,6 +184,83 @@ describe('SequenceService：转发与种类记忆', () => {
     const h = makeHarness();
     expect(h.svc.barsOf('l1')).toEqual([]);
     expect(h.svc.barsOf('l1')).not.toBe(h.svc.barsOf('l1'));
+  });
+
+  it('激活条种类：注入 tools 时转发到激活条手势（不走生命线、无拉线策略）', () => {
+    const seen: string[] = [];
+    const added: Array<Record<string, unknown>> = [];
+    const AXIS = { x: 300, top: 136, bottom: 656 };
+    const lifelineVm = {
+      id: 'l1',
+      type: 'LIFELINE',
+      getAxisAnchor: () => AXIS,
+      getHostGeom: () => ({ rect: { x: 240, y: 100, width: 120, height: 600 }, rotation: 0 }),
+    };
+    const lifeline = { handlers: { onPointerDown: () => seen.push('lifeline') } };
+    const line = {
+      drawHandlers: { onPointerDown: () => seen.push('line') },
+      drawPolicyProbe: null as (() => unknown) | null,
+      reattach: vi.fn(),
+    };
+    const svc = new SequenceService(
+      {
+        registerGlobalEventListener: vi.fn(),
+        vpScale$: new BehaviorSubject(1),
+        cursorMode$: new BehaviorSubject('sequence'),
+        editable$: new BehaviorSubject(true),
+        setCursorMode: vi.fn(),
+      } as never,
+      {
+        getVmById: (id: string) => (id === 'l1' ? lifelineVm : undefined),
+        getVmByPoint: (p: Point) => (Math.abs(p.x - AXIS.x) <= 6 ? [lifelineVm] : []),
+        getVmsInRect: () => [],
+      } as never,
+      lifeline as never,
+      line as never,
+      {
+        engine: {
+          add: vi.fn((d: Record<string, unknown>) => {
+            added.push(d);
+            return {};
+          }),
+          getModelById: () => ({ updateRect: vi.fn() }),
+          genInitialOrder: () => 'a0',
+        },
+        history: { stopCapturing: vi.fn() },
+        selector: { setSelected: vi.fn() },
+      } as never,
+    );
+    svc.setKind('activation');
+    expect(line.drawPolicyProbe!()).toBeUndefined(); // 激活条不是拉线图元
+    svc.handlers.onPointerDown?.(evtAt(300, 300));
+    svc.handlers.onPointerUp?.(evtAt(300, 300));
+    expect(seen).toEqual([]);
+    expect(added).toEqual([
+      {
+        id: expect.stringMatching(/^[\da-z]{12}$/),
+        type: 'ACTIVATION',
+        zOrder: 'a0',
+        x: 295,
+        y: 300,
+        width: 10,
+        height: 80,
+        lifelineId: 'l1',
+      },
+    ]);
+    expect(line.reattach).toHaveBeenCalledWith('l1', lifelineVm.getHostGeom());
+  });
+
+  it('激活条种类未注入 tools（桩环境）：转发为 no-op，不抛错', () => {
+    const lifeline = { handlers: { onPointerDown: vi.fn() } };
+    const svc = new SequenceService(
+      { registerGlobalEventListener: vi.fn() } as never,
+      {} as never,
+      lifeline as never,
+    );
+    svc.setKind('activation');
+    expect(svc.currentKind).toBe('activation');
+    for (const k of HANDLER_KEYS) expect(() => svc.handlers[k]?.(evtAt(300, 300))).not.toThrow();
+    expect(lifeline.handlers.onPointerDown).not.toHaveBeenCalled();
   });
 
   it('命令通道：setDefaultToolOption(sequence, kind) → SequenceService.setKind', () => {
