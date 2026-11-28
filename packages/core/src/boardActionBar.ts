@@ -8,23 +8,22 @@ import type { IActionBarHost } from './boardHost';
 import { SHAPE_TYPE_OPTIONS } from './widgets/shape/shapeService';
 import { SYMBOL_OPTIONS } from './widgets/symbol/symbolService';
 import { resolveSymbolColor } from './widgets/symbol/symbolGeometry';
-import { TEXT_COLOR_PALETTE } from './actionBarOptions';
-import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './widgets/line/lineService';
 import { PEN_WIDTH_OPTIONS } from './widgets/pen/penService';
 import { STICKY_COLOR_OPTIONS } from './widgets/sticky/stickyVm';
 import { BRANCH_COLORS } from './widgets/tree/model/treeMapModel';
 import { TREE_ORIENTATION_OPTIONS } from './widgets/tree/kinds/mind';
 import {
-  ARROW_BAR_OPTIONS,
   LINE_PALETTE,
   SHAPE_PALETTE,
   SHAPE_BORDER_PALETTE,
   SHAPE_BORDER_WIDTH_OPTIONS,
   swatches,
+  TEXT_COLOR_PALETTE,
   typoItems,
 } from './actionBarOptions';
 import { darkenHex, numToHex } from './common/color';
 import { frameActionBarItems } from './widgets/frame/frameActionBar';
+import { lineActionBarItems } from './widgets/line/lineActionBar';
 
 /**
  * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
@@ -207,55 +206,9 @@ export function buildActionBarSchema(
       // widgets/frame/frameActionBar（审查返工 400 行拆分）
       return { type: vm.type, items: frameActionBarItems(data) };
     case 'LINE':
-      return {
-        type: vm.type,
-        items: [
-          // 选项与工具坞二级菜单同源（LINE_TYPE_OPTIONS 单源，2026-10-11）
-          {
-            id: 'lineType',
-            kind: 'popover',
-            label: '线型',
-            value: String(data.lineType ?? 'STRAIGHT'),
-            options: LINE_TYPE_OPTIONS,
-          },
-          {
-            id: 'strokeWidth',
-            kind: 'popover',
-            label: '线宽',
-            value: String(data.strokeWidth ?? 2),
-            options: LINE_WIDTH_OPTIONS,
-          },
-          {
-            id: 'dashed',
-            kind: 'toggle',
-            label: '虚线',
-            icon: 'select-all',
-            value: Boolean(data.dashed),
-          },
-          {
-            id: 'startArrow',
-            kind: 'popover',
-            label: '起点箭头',
-            value: String(data.startArrow ?? 'none'),
-            options: ARROW_BAR_OPTIONS,
-          },
-          {
-            id: 'endArrow',
-            kind: 'popover',
-            label: '终点箭头',
-            value: String(data.endArrow ?? 'arrow'),
-            options: ARROW_BAR_OPTIONS,
-          },
-          {
-            id: 'color',
-            kind: 'popover',
-            label: '颜色',
-            value: String(data.color ?? ''),
-            options: swatches(LINE_PALETTE),
-          },
-          ...typoItems(data, { fontSize: 12, align: 'left', lineHeight: 1.4 }, false, false),
-        ],
-      };
+      // 连线样式项——items 拆至 widgets/line/lineActionBar（时序图批次 4：
+      // boardActionBar 已 382 行，文字位置项与生命线头部样式项同批加入）
+      return { type: vm.type, items: lineActionBarItems(data) };
     case 'PEN':
       return {
         type: vm.type,
