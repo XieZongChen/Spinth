@@ -8,6 +8,7 @@ import {
 } from '../widgets/shape/shapeVm';
 import { SHAPE_PALETTE, TEXT_COLOR_PALETTE } from '../actionBarOptions';
 import { LIFELINE_HEAD_BORDER, LIFELINE_HEAD_COLOR } from '../widgets/sequence/lifelineGeometry';
+import { ACTIVATION_BORDER, ACTIVATION_FILL } from '../widgets/sequence/sequenceOps';
 import { defaultTextColor } from '../platform/textEngine/theme';
 
 /**
@@ -119,5 +120,11 @@ describe('生命线配色（specs/sequence-diagram §3.6）', () => {
     } finally {
       setTextTheme('light');
     }
+  });
+});
+
+describe('激活条配色（specs/sequence-diagram §3.6）', () => {
+  it('描边色对白填充 ≥ 4.5:1（写死配色，绑定与否、明暗主题都相同）', () => {
+    expect(contrastRatio(ACTIVATION_BORDER, ACTIVATION_FILL)).toBeGreaterThanOrEqual(4.5);
   });
 });

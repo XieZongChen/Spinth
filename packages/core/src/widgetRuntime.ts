@@ -34,6 +34,8 @@ import { FrameModel } from './widgets/frame/frameModel';
 import { FrameVm } from './widgets/frame/frameVm';
 import { LifelineModel } from './widgets/sequence/lifelineModel';
 import { LifelineVm } from './widgets/sequence/lifelineVm';
+import { ActivationModel } from './widgets/sequence/activationModel';
+import { ActivationVm } from './widgets/sequence/activationVm';
 import { MindMapModel, OrgChartModel } from './widgets/tree/model/treeMapModel';
 import { MindMapVm, OrgChartVm } from './widgets/tree/vm/treeMapVm';
 
@@ -102,6 +104,13 @@ export const WIDGET_RUNTIME = {
       new LifelineVm(() => r.resolve(Tokens.ViewportService).vpScale$.value, {
         barsOf: (id) => sequenceLookup(r)?.barsOf(id) ?? [],
       }),
+  },
+  ACTIVATION: {
+    modelToken: token<IBaseModel>('ActivationModel'),
+    vmToken: token<IBaseWidgetVm>('ActivationVm'),
+    createModel: (r: ServiceRegistry) => new ActivationModel(r.resolve(Tokens.DataProcessor)),
+    // 激活条不持服务引用：绑定读自身模型，条边让位由宿主（生命线）那一侧查 barsOf
+    createVm: () => new ActivationVm(),
   },
   MIND_MAP: {
     modelToken: token<IBaseModel>('MindMapModel'),

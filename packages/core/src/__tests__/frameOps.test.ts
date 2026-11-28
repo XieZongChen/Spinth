@@ -262,12 +262,12 @@ describe('mergeFramesIntoSelection 框选归并（§4.3 四条规则）', () => 
 });
 
 describe('isAutoAdoptableType（创建 / 粘贴落点的参与资格，§2.4）', () => {
-  it('自由七类可归属；FRAME / 树 / 画笔 / 连线 / LIFELINE 不参与', () => {
+  it('自由七类可归属；FRAME / 树 / 画笔 / 连线 / LIFELINE / ACTIVATION 不参与', () => {
     for (const t of ['SHAPE', 'TEXT', 'STICKY', 'IMAGE', 'SYMBOL']) {
       expect(isAutoAdoptableType(t), t).toBe(true);
     }
-    // 生命线不进容器（specs/sequence-diagram §2.5 S5：schema 无 parentId + 双重拒绝）
-    for (const t of ['FRAME', 'MIND_MAP', 'ORG_CHART', 'PEN', 'LINE', 'LIFELINE']) {
+    // 时序图件不进容器（specs/sequence-diagram §2.5 S5：schema 无 parentId + 双重拒绝）
+    for (const t of ['FRAME', 'MIND_MAP', 'ORG_CHART', 'PEN', 'LINE', 'LIFELINE', 'ACTIVATION']) {
       expect(isAutoAdoptableType(t), t).toBe(false);
     }
   });

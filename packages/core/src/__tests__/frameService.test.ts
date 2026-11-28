@@ -222,6 +222,19 @@ describe('reconcileParents 归属判定与写入（§2.4/§4.2）', () => {
     expect(env.updates).toEqual([]);
   });
 
+  it('ACTIVATION 同样不归属（S5：绑定归生命线，不归容器）——拖放 / 创建 / 粘贴落点三路零写', () => {
+    const env = makeEnv([
+      W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),
+      W('lf', 'LIFELINE', 'a1', [500, 500, 120, 520]),
+      W('bar', 'ACTIVATION', 'a2', [495, 600, 10, 80], { parentId: undefined }),
+    ]);
+    env.svc.reconcileParents(['bar'], () => ({ x: 140, y: 100, width: 10, height: 80 }));
+    expect(env.updates).toEqual([]);
+    env.svc.adoptByLanding(['bar']);
+    env.svc.adoptOnCreate('bar');
+    expect(env.updates).toEqual([]);
+  });
+
   it('连线不参与落点判定：带 parentId 的自由线按虚拟位置「完全离开」也不清父', () => {
     const env = makeEnv([
       W('f1', 'FRAME', 'a0', [0, 0, 300, 300]),

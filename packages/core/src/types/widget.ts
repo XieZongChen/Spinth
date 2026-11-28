@@ -285,6 +285,20 @@ export const LifelineSchema = z.object({
 });
 export type LifelineData = z.infer<typeof LifelineSchema>;
 
+/** 激活条（specs/sequence-diagram §2.2）：贴在生命线轴上的细条，宽度恒定（§3.4）。
+ *  外观固定（§3.6）不设颜色字段。带 groupId（可编组）；**不带 parentId**：激活条
+ *  不进容器（§2.5 S5，frameOps / frameService 双重拒绝）——它随绑定的生命线走 */
+export const ActivationSchema = z.object({
+  id: z.string(),
+  type: z.literal('ACTIVATION'),
+  zOrder: z.string(),
+  /** 绑定的生命线；缺省 = 未绑定（孤儿 / 批外粘贴 / 自由条）。至多绑定一个存活
+   *  LIFELINE；孤儿值读取侧按未绑定处理、不改写数据（S4） */
+  lifelineId: z.string().optional(),
+  ...GroupIdField,
+});
+export type ActivationData = z.infer<typeof ActivationSchema>;
+
 /** 控件实现族（specs/tree-diagrams D1）：family 是引擎层的唯一判据——
  *  `family: 'tree'` 的唯一含义是「节点不是 widget、几何由树布局派生、
  *  空间索引与 culling 豁免」。vmEngine/culling/selector 只认 family，
@@ -500,6 +514,24 @@ export const WIDGET_REGISTRY = {
       // 标签走自有 plain 内核会话（§3.7，FRAME 标题先例——不走富文本通道）
       editable: false,
       // 参考线可吸附（头框顶对齐、轴 = bbox 中心线，docs/06 §2）
+      referenceable: true,
+      erasable: false,
+    },
+  },
+  ACTIVATION: {
+    family: 'widget',
+    schema: ActivationSchema,
+    capabilities: {
+      // 不旋转（specs/sequence-diagram §2.4：条恒贴竖直轴）
+      rotatable: false,
+      groupable: true,
+      // 只改高度、宽恒定：经 constrainResize 探针锁宽（§3.5）
+      resizable: true,
+      movable: true,
+      selectable: true,
+      keepRatio: false,
+      editable: false,
+      // 参考线可吸附：条的垂直中心线吸到生命线的中心参考线，沿轴拖天然保持贴合
       referenceable: true,
       erasable: false,
     },

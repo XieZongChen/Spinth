@@ -108,6 +108,9 @@ export interface IBaseWidgetVm<D extends IWidgetData = IWidgetData> {
   anchorFollowHosts?(): string[];
   /** 两端都锚在生命线轴上的直线，可沿轴平移（LineVm 实现；§4.5） */
   isAxisMessage?(): boolean;
+  /** 只沿纵轴缩放的件（ActivationVm 实现，specs/sequence-diagram §3.5）：缩放吸附
+   *  只取手柄方向的纵向分量（se → s），横向不参与参考线吸附与网格量化 */
+  resizeAxis?(): 'v' | null;
 
   readonly onStateChanged$: Subject<IOnStateChangedInfo>;
   readonly onSelected$: BehaviorSubject<boolean>;

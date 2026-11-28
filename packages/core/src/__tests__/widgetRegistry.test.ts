@@ -17,8 +17,9 @@ import type { IRect } from '../common/geometry';
  * 任一侧加字段/加类型未同步即此处编译红/测红（防两套真相漂移）。
  */
 describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
-  it('注册表覆盖全部十一类型', () => {
+  it('注册表覆盖全部十二类型', () => {
     expect(Object.keys(WIDGET_REGISTRY).sort()).toEqual([
+      'ACTIVATION',
       'FRAME',
       'IMAGE',
       'LIFELINE',
@@ -47,10 +48,11 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
     }
   });
 
-  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照七类（含 FRAME、LIFELINE）/可擦一类', async () => {
+  it('TYPES_WHERE 派生集（第五刀）：编辑四类/参照八类（含 FRAME、LIFELINE、ACTIVATION）/可擦一类', async () => {
     const { TYPES_WHERE } = await import('../types/widget');
     expect(TYPES_WHERE('editable').sort()).toEqual(['SHAPE', 'STICKY', 'SYMBOL', 'TEXT']);
     expect(TYPES_WHERE('referenceable').sort()).toEqual([
+      'ACTIVATION',
       'FRAME',
       'IMAGE',
       'LIFELINE',
@@ -104,6 +106,31 @@ describe('WIDGET_REGISTRY + WidgetDataUnion', () => {
       referenceable: true,
       erasable: false,
     });
+    // ACTIVATION（specs/sequence-diagram §2.4）：能力位与生命线一致——可缩放
+    // （只改高度，经 constrainResize 锁宽）、中心线吸生命线中心参考线
+    expect(WIDGET_REGISTRY.ACTIVATION.capabilities).toEqual(WIDGET_REGISTRY.LIFELINE.capabilities);
+  });
+
+  it('ACTIVATION：lifelineId 可缺省（未绑定）；groupId 保留；parentId 被 schema 剥离（不进容器，S5）', () => {
+    const bare = WidgetDataUnion.safeParse({ id: 'a1', type: 'ACTIVATION', zOrder: 'a0' });
+    expect(bare.success).toBe(true);
+    if (bare.success) expect(bare.data).toEqual({ id: 'a1', type: 'ACTIVATION', zOrder: 'a0' });
+    const bound = WidgetDataUnion.safeParse({
+      id: 'a2',
+      type: 'ACTIVATION',
+      zOrder: 'a1',
+      lifelineId: 'l1',
+      groupId: 'g1',
+      parentId: 'f1',
+    });
+    if (bound.success) {
+      expect(bound.data).toMatchObject({ lifelineId: 'l1', groupId: 'g1' });
+      expect(bound.data).not.toHaveProperty('parentId');
+    }
+    expect(
+      WidgetDataUnion.safeParse({ id: 'a3', type: 'ACTIVATION', zOrder: 'a2', lifelineId: 7 })
+        .success,
+    ).toBe(false);
   });
 
   it('discriminatedUnion 按 type 分派 parse（抽样 SHAPE/未知拒绝）', () => {

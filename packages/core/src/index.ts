@@ -38,6 +38,7 @@ export type {
   ImageData,
   SymbolData,
   LifelineData,
+  ActivationData,
   IActionBarSchema,
   IActionBarItem,
   IActionBarOption,
