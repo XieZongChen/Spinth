@@ -14,9 +14,13 @@ import type {
   ISelectorService,
   IViewportService,
   IVmEngineService,
+  LifelineData,
 } from '../../types';
+import { isAxisHost } from '../line/lineAxisAnchor';
 import type { LifelineService } from './lifelineService';
 import { ActivationService } from './activationService';
+import { lifelineAxis } from './lifelineGeometry';
+import { activationBind, ACTIVATION_WIDTH, resolveActivationHost } from './sequenceOps';
 import {
   isSequenceKind,
   SEQUENCE_DEFAULT_KIND,
@@ -57,6 +61,8 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
   private readonly line: ISequenceLine | null = null;
   /** 激活条创建手势（tools 注入时才有；随本服务释放） */
   private readonly activation: ActivationService | null = null;
+  /** 绑定写入面（tools 注入时才有；缺省 = 三个级联钩子 no-op） */
+  private readonly engine: IDataEngineService | null = null;
 
   constructor(
     private readonly viewport: IViewportService,
@@ -74,6 +80,7 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
       ? new ActivationService(viewport, tools.engine, tools.history, tools.selector, vmEngine, line)
       : null;
     if (this.activation) this.addDisposable(this.activation);
+    this.engine = tools?.engine ?? null;
   }
 
   private drawPolicy(): ILineDrawPolicy | undefined {
@@ -94,27 +101,95 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
     return this.vmEngine.getVmById(id)?.getAxisAnchor?.() ?? null;
   }
 
-  /** 绑定在某条生命线上的激活条：激活条属后续批次，当前恒空（每次新数组） */
-  barsOf(_lifelineId: string): IRect[] {
-    return [];
+  /** 绑定在某条生命线上的激活条的世界矩形（预览敏感）。绑定经条 VM 的宿主探针读
+   *  模型（不是微任务合批的 state）；每次新数组 */
+  barsOf(lifelineId: string): IRect[] {
+    const out: IRect[] = [];
+    for (const vm of this.vmEngine.getAllVms()) {
+      if (vm.anchorFollowHosts?.()?.[0] !== lifelineId) continue;
+      out.push(vm.getBounds());
+    }
+    return out;
   }
 
-  // ---- IActivationLookup（specs/sequence-diagram §5.3）：激活条随生命线的级联钩子。
-  // 绑定实装属下一笔——这里先落外壳，复合查找因此等价于纯容器行为 ----
+  // ---- IActivationLookup（specs/sequence-diagram §5.3）：激活条随生命线的级联钩子 ----
 
-  /** 生命线 → 并入其绑定的激活条（外壳：无并入） */
-  expandActivations(_ids: string[]): string[] {
-    return [];
+  /** 生命线 → 并入其绑定的激活条（zOrder 升序）。非激活条的入参由合成方原样保留 */
+  expandActivations(ids: string[]): string[] {
+    const wanted = new Set(ids);
+    const bars: Array<{ id: string; z: string }> = [];
+    for (const vm of this.vmEngine.getAllVms()) {
+      const host = vm.anchorFollowHosts?.()?.[0];
+      if (host === undefined || !wanted.has(host)) continue;
+      bars.push({ id: vm.id, z: this.engine?.getModelById(vm.id)?.toJSON().zOrder ?? '' });
+    }
+    return bars.sort((a, b) => (a.z < b.z ? -1 : a.z > b.z ? 1 : 0)).map((b) => b.id);
   }
 
-  /** 落点绑定判定并落库（外壳：no-op） */
-  reconcileActivations(_ids: string[], _rectOf: (id: string) => IRect): void {
-    // no-op
+  /** 落点绑定判定并落库（§5.1）——只在事务内调用（S7）。只看选区里的激活条；条与
+   *  宿主的几何全走 rectOf / 模型（陷阱 13）：绑定写 update({ lifelineId })，归中
+   *  另走 updateRect({ x })——update 会丢弃几何键 */
+  reconcileActivations(ids: string[], rectOf: (id: string) => IRect): void {
+    const engine = this.engine;
+    if (!engine) return;
+    let hosts: ReadonlyArray<{ id: string; axis: IAxisAnchor }> | null = null;
+    for (const id of ids) {
+      const vm = this.vmEngine.getVmById(id);
+      if (!vm?.anchorFollowHosts) continue; // 只有激活条参与
+      const model = engine.getModelById(id);
+      if (!model) continue;
+      hosts ??= this.axisHosts(rectOf);
+      const rect = rectOf(id);
+      const hostId = resolveActivationHost(rect, hosts);
+      const bind = activationBind(
+        rect,
+        hosts.find((h) => h.id === hostId),
+        vm.anchorFollowHosts()[0],
+      );
+      if (!bind) continue;
+      if ('lifelineId' in bind) model.update({ lifelineId: bind.lifelineId } as never);
+      if (bind.x !== undefined) model.updateRect({ x: bind.x });
+    }
   }
 
-  /** 粘贴收尾落点重绑（外壳：no-op） */
-  adoptActivationsByLanding(_ids: string[]): void {
-    // no-op
+  /** 粘贴收尾（§5.4）——只在事务内调用：无绑定的副本落在轴上即绑定并归中，随后
+   *  重路由宿主（条边让位并进粘贴这一步撤销）。宿主 vm 可能还没渲染，几何用模型矩形 */
+  adoptActivationsByLanding(ids: string[]): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const modelRectOf = (id: string): IRect => {
+      const d = engine.getModelById(id)?.toJSON() as Partial<IRect> | undefined;
+      return { x: d?.x ?? 0, y: d?.y ?? 0, width: d?.width ?? 0, height: d?.height ?? 0 };
+    };
+    const fresh = ids.filter((id) => {
+      const vm = this.vmEngine.getVmById(id);
+      return !!vm?.anchorFollowHosts && vm.anchorFollowHosts().length === 0;
+    });
+    if (fresh.length === 0) return;
+    const hosts = this.axisHosts(modelRectOf);
+    for (const id of fresh) {
+      const model = engine.getModelById(id);
+      if (!model) continue;
+      const rect = modelRectOf(id);
+      const hit = hosts.find((h) => h.id === resolveActivationHost(rect, hosts));
+      if (!hit) continue;
+      model.update({ lifelineId: hit.id } as never);
+      model.updateRect({ x: hit.axis.x - ACTIVATION_WIDTH / 2 });
+      this.line?.reattach(hit.id, { rect: modelRectOf(hit.id), rotation: 0 });
+    }
+  }
+
+  /** 轴宿主清单（zOrder 降序 = 多条命中取最上）。轴由 rectOf + 模型 head 算术推导：
+   *  事务内不读 vm——生命线与它的条同选同拖时，vm 几何还是拖拽前的旧值 */
+  private axisHosts(rectOf: (id: string) => IRect): Array<{ id: string; axis: IAxisAnchor }> {
+    const out: Array<{ id: string; z: string; axis: IAxisAnchor }> = [];
+    for (const vm of this.vmEngine.getAllVms()) {
+      if (!isAxisHost(vm)) continue;
+      const data = this.engine?.getModelById(vm.id)?.toJSON() as Partial<LifelineData> | undefined;
+      const axis = data ? lifelineAxis(rectOf(vm.id), data.head) : null;
+      if (axis) out.push({ id: vm.id, z: data?.zOrder ?? '', axis });
+    }
+    return out.sort((a, b) => (a.z < b.z ? 1 : a.z > b.z ? -1 : 0));
   }
 
   get currentKind(): SequenceKind {

@@ -5,6 +5,7 @@ import {
   ACTIVATION_DEFAULT_DROP,
   ACTIVATION_MIN_HEIGHT,
   ACTIVATION_WIDTH,
+  activationBind,
   activationDropRect,
   constrainActivationResize,
   resolveActivationHost,
@@ -56,6 +57,29 @@ describe('resolveActivationHost（§5.1 绑定判定）', () => {
     expect(resolveActivationHost(barAt(301, 300), both)).toBe('l1');
     expect(resolveActivationHost(barAt(640, 300), both)).toBe('l2');
     expect(resolveActivationHost(barAt(300, 300), [])).toBeUndefined();
+  });
+});
+
+describe('activationBind（§5.1 绑定落库判定）', () => {
+  const L1 = HOSTS[1]!;
+  const at = (cx: number) => barAt(cx, 300);
+
+  it('未绑定 → 命中：写入绑定并归中（x = 轴 − 半宽）', () => {
+    expect(activationBind(at(303), L1, undefined)).toEqual({ lifelineId: 'l1', x: 295 });
+  });
+
+  it('已绑定在该宿主：已居中 → null（零写）；偏离中心 → 只归中、不动绑定', () => {
+    expect(activationBind(at(300), L1, 'l1')).toBeNull();
+    expect(activationBind(at(303), L1, 'l1')).toEqual({ x: 295 });
+  });
+
+  it('命中别的宿主 → 换绑并归中；无命中且当前有绑定 → 解绑（lifelineId: undefined 删键）', () => {
+    expect(activationBind(at(300), L1, 'l9')).toEqual({ lifelineId: 'l1', x: 295 });
+    expect(activationBind(at(380), undefined, 'l1')).toEqual({ lifelineId: undefined });
+  });
+
+  it('无命中且本就未绑定 → null（零写）', () => {
+    expect(activationBind(at(380), undefined, undefined)).toBeNull();
   });
 });
 

@@ -46,7 +46,7 @@ describe('SequenceService：转发与种类记忆', () => {
       onPointerCancel: (e) => seen.push(['cancel', e]),
     };
     const lifeline = { handlers: lifelineHandlers } as unknown as LifelineService;
-    const svc = new SequenceService(viewport as never, {} as never, lifeline);
+    const svc = new SequenceService(viewport as never, { getAllVms: () => [] } as never, lifeline);
     return { svc, registered, viewport, seen, lifelineHandlers };
   }
 
@@ -180,7 +180,7 @@ describe('SequenceService：转发与种类记忆', () => {
     expect(svc.axisOf('missing')).toBeNull();
   });
 
-  it('barsOf：本批恒空（激活条属批次 3），且每次返回新数组', () => {
+  it('barsOf：没有绑定在该生命线上的条时为空，且每次返回新数组', () => {
     const h = makeHarness();
     expect(h.svc.barsOf('l1')).toEqual([]);
     expect(h.svc.barsOf('l1')).not.toBe(h.svc.barsOf('l1'));

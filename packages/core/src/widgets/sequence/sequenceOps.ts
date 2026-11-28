@@ -38,6 +38,25 @@ export function resolveActivationHost(
   return undefined;
 }
 
+/** 绑定落库的判定结果（§5.1）。调用方按模型写入口拆开：绑定走 update({ lifelineId })
+ *  （undefined = 删键），归中走 updateRect({ x })——update 会丢弃几何键 */
+export interface IActivationBind {
+  lifelineId?: string | undefined;
+  x?: number;
+}
+
+/** 绑定落库判定：无命中且当前有绑定 → 解绑；命中且已绑定在该宿主 → 只在偏离
+ *  中心时归中；命中别的宿主 → 换绑并归中。返回 null = 无需写入（同值零写） */
+export function activationBind(
+  rect: IRect,
+  hit: { id: string; axis: IAxisAnchor } | undefined,
+  current: string | undefined,
+): IActivationBind | null {
+  if (!hit) return current === undefined ? null : { lifelineId: undefined };
+  const x = hit.axis.x - ACTIVATION_WIDTH / 2;
+  return hit.id === current ? (rect.x === x ? null : { x }) : { lifelineId: hit.id, x };
+}
+
 /** 创建落点（§7.1）：x 归中到轴、顶 = 按下高度、高度 = drop 钳到
  *  [下限, 轴底 − 按下高度]（向下拖出 80 / 向上拖钳到下限 / 底不出轴底）。
  *  按下点距轴底不足下限时两条钳制不可同时满足——返回 null = 不建 */
