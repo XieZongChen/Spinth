@@ -19,9 +19,14 @@ import { quantizeGrid } from '../../common/grid';
  * 松手收尾：单击（未建草稿）按默认尺寸落件、仅划撤销边界，工具保持（可连击
  * 放置）；拖拽画图 stopCapturing + 选中新控件 + 回选择工具。
  * 子类只声明 scope / 默认尺寸 / 阈值与下限，并实现 createWidget 落库。
+ *
+ * 基类不认识的语义留成 protected 钩子，缺省实现 = 既有行为（specs/sequence-diagram
+ * §7.1，批次 3 前置重构）：按下门禁（onPointerDown）、单击矩形（clickRect）、
+ * 草稿矩形（draftRect）、落库后收尾（afterCreate）。
  */
 export abstract class DragCreateServiceBase extends Disposable {
-  private start: Point | null = null;
+  /** 手势起点（按下点）；null = 本次手势不建件。子类的门禁 / 矩形钩子要读它 */
+  protected start: Point | null = null;
   private editingId: string | null = null;
 
   protected constructor(
@@ -70,17 +75,8 @@ export abstract class DragCreateServiceBase extends Disposable {
    *  只能注册一组处理器，LIFELINE 这类自己不注册、由 SequenceService 转发到它）。
    *  成员是箭头函数，只在事件到达时读 this 的会话状态，字段初始化序不敏感 */
   readonly handlers: IPointerHandlers = {
-    // 手势取消（Batch 1 · 1.9）：start/editingId 悬空会使下次 down 覆写 start、
-    // 草稿跳变——cancel 显式复位（草稿已成形者 editingId 分支走 up 同款收尾）
-    onPointerCancel: () => {
-      // 只清会话状态（start/editingId）——不落库（up 会按坐标建件，占位坐标
-      // 会产出怪件）；已实时落库的草稿由 undo 回退（stopCapturing 由下次操作切）
-      this.start = null;
-      this.editingId = null;
-    },
-    onPointerDown: (e) => {
-      this.start = e.world.clone();
-    },
+    onPointerCancel: () => this.onPointerCancel(),
+    onPointerDown: (e) => this.onPointerDown(e),
     onPointerMove: (e) => this.onPointerMove(e),
     onPointerUp: () => this.onPointerUp(),
     onPointerUpOutside: () => this.onPointerUp(),
@@ -88,6 +84,21 @@ export abstract class DragCreateServiceBase extends Disposable {
 
   initialize(): void {
     this.viewport.registerGlobalEventListener(this.scope, this.handlers);
+  }
+
+  /** 按下：记起点。子类覆写做前置门禁——不调 super 则 start 保持 null，本次手势的
+   *  move / up 全部空转（时序图激活条：按下必须命中轴宿主） */
+  protected onPointerDown(e: IPointerEventInfo): void {
+    this.start = e.world.clone();
+  }
+
+  /** 手势取消（Batch 1 · 1.9）：start/editingId 悬空会使下次 down 覆写 start、
+   *  草稿跳变——cancel 显式复位（草稿已成形者 editingId 分支走 up 同款收尾）。
+   *  只清会话状态——不落库（up 会按坐标建件，占位坐标会产出怪件）；已实时落库的
+   *  草稿由 undo 回退（stopCapturing 由下次操作切） */
+  protected onPointerCancel(): void {
+    this.start = null;
+    this.editingId = null;
   }
 
   private onPointerMove(e: IPointerEventInfo): void {
@@ -99,11 +110,13 @@ export abstract class DragCreateServiceBase extends Disposable {
       // 触发瞬间以「起点为锚、当前为对角」建草稿（含下限钳制）；
       // 等值写入由 yRectSet 守卫去重，创建帧无需再跟手写一次
       const r = this.draftRect(dx, dy);
+      if (!r) return;
       this.editingId = this.createWidget(r.x, r.y, r.width, r.height);
       return;
     }
     if (this.shouldFollowDraft(dx, dy)) {
-      this.engine.getModelById(this.editingId)?.updateRect(this.draftRect(dx, dy));
+      const r = this.draftRect(dx, dy);
+      if (r) this.engine.getModelById(this.editingId)?.updateRect(r);
     }
   }
 
@@ -111,26 +124,18 @@ export abstract class DragCreateServiceBase extends Disposable {
    *  落件，拖拽画图的几何已由最后一帧 move 写入 */
   private onPointerUp(): void {
     if (this.start && !this.editingId) {
-      // 单击：默认尺寸，以按下点为中心——按下点是用户瞄准处；单击容许
-      // 分界内的滑移，松手点可能偏出近 10 屏幕 px。网格开时量化左上角
-      // （先按中心算矩形再取整，最多偏 8px，specs/flowchart-closeout §4.3）
-      const d = this.defaultSize;
-      const rect = {
-        x: this.start.x - d.width / 2,
-        y: this.start.y - d.height / 2,
-        width: d.width,
-        height: d.height,
-      };
-      if (this.gridSnapOn()) {
-        rect.x = quantizeGrid(rect.x);
-        rect.y = quantizeGrid(rect.y);
+      const rect = this.clickRect();
+      if (rect) {
+        this.afterCreate(this.createWidget(rect.x, rect.y, rect.width, rect.height));
+        // 撤销项切分（Batch 1 · 1.11②）：单击创建此前无 stopCapturing——与 500ms
+        // 内的下一操作（如随手拖动新件）并成一个 undo 项，「建件+拖动」一起消失
+        this.history.stopCapturing();
       }
-      this.createWidget(rect.x, rect.y, rect.width, rect.height);
-      // 撤销项切分（Batch 1 · 1.11②）：单击创建此前无 stopCapturing——与 500ms
-      // 内的下一操作（如随手拖动新件）并成一个 undo 项，「建件+拖动」一起消失
-      this.history.stopCapturing();
     }
     if (this.editingId) {
+      // 收尾钩子夹在落库之后、stopCapturing 之前：钩子里的派生写入（如激活条触发的
+      // 连线重路由）与创建并成同一步撤销
+      this.afterCreate(this.editingId);
       this.history.stopCapturing();
       // 创建完成即回选择工具并选中新控件——否则用户画完想拖动时
       // 仍在工具模式，每次拖动都误创建新控件
@@ -141,10 +146,29 @@ export abstract class DragCreateServiceBase extends Disposable {
     this.editingId = null;
   }
 
+  /** 单击落件矩形：默认尺寸，以按下点为中心——按下点是用户瞄准处；单击容许
+   *  分界内的滑移，松手点可能偏出近 10 屏幕 px。网格开时量化左上角（先按中心算
+   *  矩形再取整，最多偏 8px，specs/flowchart-closeout §4.3）。
+   *  返回 null = 本次单击不落件（也不切撤销边界） */
+  protected clickRect(): IRect | null {
+    const d = this.defaultSize;
+    const rect = {
+      x: this.start!.x - d.width / 2,
+      y: this.start!.y - d.height / 2,
+      width: d.width,
+      height: d.height,
+    };
+    if (this.gridSnapOn()) {
+      rect.x = quantizeGrid(rect.x);
+      rect.y = quantizeGrid(rect.y);
+    }
+    return rect;
+  }
+
   /** 草稿矩形：起点锚定 + 当前为对角 + 下限钳制。网格开时起止两角量化到
    *  格点（specs/flowchart-closeout §9.2 拖拽创建行——预览即量化后几何，
-   *  最后一帧输出落库，不出现「松手跳一格」） */
-  private draftRect(dx: number, dy: number): IRect {
+   *  最后一帧输出落库，不出现「松手跳一格」）。返回 null = 本帧不建 / 不更新 */
+  protected draftRect(dx: number, dy: number): IRect | null {
     const s = this.start!;
     const m = this.minDraftSize;
     let x2 = s.x + dx;
@@ -164,4 +188,8 @@ export abstract class DragCreateServiceBase extends Disposable {
       height: Math.max(m.height, Math.abs(y2 - y1)),
     };
   }
+
+  /** 落库后、stopCapturing 之前的收尾钩子（单击与拖拽两条路径都调）。缺省空；
+   *  需要随创建同一步撤销的派生写入放这里（激活条：重路由宿主生命线上的消息） */
+  protected afterCreate(_id: string): void {}
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import { Point } from 'pixi.js';
-import type { IPointerHandlers } from '../types';
+import type { CursorMode, IPointerEventInfo, IPointerHandlers } from '../types';
+import type { IRect } from '../common/geometry';
+import { DragCreateServiceBase } from '../widgets/base/dragCreateServiceBase';
 import { ShapeService } from '../widgets/shape/shapeService';
 import { StickyService } from '../widgets/sticky/stickyService';
 
@@ -14,7 +16,46 @@ import { StickyService } from '../widgets/sticky/stickyService';
  */
 
 type Handler = (e: { world: Point }) => void;
-type CreateServiceCtor = typeof ShapeService | typeof StickyService;
+
+/**
+ * 钩子最小子类（specs/sequence-diagram §7.1，批次 3 前置重构）：基类把「按下门禁 /
+ * 单击矩形 / 草稿矩形 / 落库后收尾」留成 protected 方法，缺省实现 = 既有行为。
+ * 这里全部覆写并把调用序记进 calls，与 history.stopCapturing 的相对顺序可断言。
+ */
+class GatedService extends DragCreateServiceBase {
+  readonly calls: string[] = [];
+  allowPress = false;
+  click: IRect | null = { x: 5, y: 100, width: 10, height: 80 };
+  protected readonly scope: CursorMode = 'sequence';
+  protected readonly defaultSize = { width: 10, height: 80 };
+  protected override readonly minDraftSize = { width: 10, height: 16 };
+
+  /** 门禁：不调 super = start 保持 null */
+  protected override onPointerDown(e: IPointerEventInfo): void {
+    if (this.allowPress) super.onPointerDown(e);
+  }
+
+  protected override clickRect(): IRect | null {
+    return this.click;
+  }
+
+  /** 草稿：下拉不足 16 不建（每帧继续询问） */
+  protected override draftRect(_dx: number, dy: number): IRect | null {
+    return dy < 16 ? null : { x: 5, y: 100, width: 10, height: dy };
+  }
+
+  protected override afterCreate(id: string): void {
+    this.calls.push(`after:${id}`);
+  }
+
+  protected createWidget(): string {
+    const id = `n${this.calls.length}`;
+    this.calls.push(`create:${id}`);
+    return id;
+  }
+}
+
+type CreateServiceCtor = typeof ShapeService | typeof StickyService | typeof GatedService;
 
 function makeHarness(scale = 1, Ctor: CreateServiceCtor = ShapeService) {
   const handlers: Record<string, Handler | undefined> = {};
@@ -42,7 +83,7 @@ function makeHarness(scale = 1, Ctor: CreateServiceCtor = ShapeService) {
   const selector = { setSelected: vi.fn() };
   const svc = new Ctor(viewport as never, engine as never, history as never, selector as never);
   svc.initialize();
-  return { handlers, registered, added, model, viewport, history, selector, svc };
+  return { handlers, registered, added, model, engine, viewport, history, selector, svc };
 }
 
 const at = (x: number, y: number): { world: Point } => ({ world: new Point(x, y) });
@@ -127,5 +168,76 @@ describe('拖拽创建基类：便签（两轴各 ≥ 24 屏幕 px 门控，单�
     expect(h.added).toHaveLength(0);
     h.handlers.onPointerMove!(at(24, 24));
     expect(h.added).toHaveLength(1);
+  });
+});
+
+/** 钩子用例的公共驱动：calls 里同时记 history.stopCapturing（'stop'）的调用序 */
+function makeGated(scale = 1) {
+  const h = makeHarness(scale, GatedService);
+  const svc = h.svc as GatedService;
+  h.history.stopCapturing.mockImplementation(() => svc.calls.push('stop'));
+  return { ...h, svc };
+}
+
+describe('拖拽创建基类：零行为钩子（按下门禁 / 单击矩形 / 草稿矩形 / 落库后收尾）', () => {
+  it('按下门禁：子类不调 super → move / up 全部空转，不建件、不切撤销边界', () => {
+    const h = makeGated();
+    h.handlers.onPointerDown!(at(300, 200));
+    h.handlers.onPointerMove!(at(300, 260));
+    h.handlers.onPointerUp!(at(300, 260));
+    expect(h.svc.calls).toEqual([]);
+    expect(h.history.stopCapturing).not.toHaveBeenCalled();
+    expect(h.selector.setSelected).not.toHaveBeenCalled();
+  });
+
+  it('clickRect 返回 null：单击不落件，也不 stopCapturing', () => {
+    const h = makeGated();
+    h.svc.allowPress = true;
+    h.svc.click = null;
+    h.handlers.onPointerDown!(at(300, 200));
+    h.handlers.onPointerUp!(at(300, 200));
+    expect(h.svc.calls).toEqual([]);
+    // 手势已复位：再次按下（这次给矩形）照常落件
+    h.svc.click = { x: 5, y: 200, width: 10, height: 80 };
+    h.handlers.onPointerDown!(at(300, 300));
+    h.handlers.onPointerUp!(at(300, 300));
+    expect(h.svc.calls).toEqual(['create:n0', 'after:n0', 'stop']);
+  });
+
+  it('draftRect 返回 null：本帧不建草稿并继续逐帧询问；非 null 才建、跟手、收尾', () => {
+    const h = makeGated();
+    h.svc.allowPress = true;
+    h.handlers.onPointerDown!(at(300, 100));
+    h.handlers.onPointerMove!(at(300, 110)); // 10px 过阈值但下拉 < 16
+    expect(h.svc.calls).toEqual([]);
+    h.handlers.onPointerMove!(at(300, 130));
+    expect(h.svc.calls).toEqual(['create:n0']);
+    expect(h.engine.getModelById).not.toHaveBeenCalled(); // 创建帧无需跟手写
+    h.handlers.onPointerMove!(at(300, 150));
+    expect(h.model.updateRect).toHaveBeenLastCalledWith({ x: 5, y: 100, width: 10, height: 50 });
+    h.handlers.onPointerUp!(at(300, 150));
+    expect(h.svc.calls).toEqual(['create:n0', 'after:n0', 'stop']);
+    expect(h.selector.setSelected).toHaveBeenCalledWith(['n0']);
+    expect(h.viewport.setCursorMode).toHaveBeenCalledWith('cursor');
+  });
+
+  it('收尾钩子在 stopCapturing 之前、选区与模式切换之前（钩子里的重路由并入同一步撤销）', () => {
+    const h = makeGated();
+    h.svc.allowPress = true;
+    h.selector.setSelected.mockImplementation(() => h.svc.calls.push('select'));
+    h.viewport.setCursorMode.mockImplementation(() => h.svc.calls.push('cursor'));
+    h.handlers.onPointerDown!(at(300, 100));
+    h.handlers.onPointerMove!(at(300, 150));
+    h.handlers.onPointerUp!(at(300, 150));
+    expect(h.svc.calls).toEqual(['create:n0', 'after:n0', 'stop', 'select', 'cursor']);
+  });
+
+  it('取消：子类经 super 复位会话状态——取消后的 up 不落件', () => {
+    const h = makeGated();
+    h.svc.allowPress = true;
+    h.handlers.onPointerDown!(at(300, 100));
+    h.handlers.onPointerCancel!({ world: new Point(300, 100) } as never);
+    h.handlers.onPointerUp!(at(300, 100));
+    expect(h.svc.calls).toEqual([]);
   });
 });
