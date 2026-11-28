@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { IRect } from '../common/geometry';
 import {
   LIFELINE_ACTOR_HEAD_HEIGHT,
+  LIFELINE_ACTOR_HEIGHT,
   LIFELINE_HEAD_HEIGHT,
   LIFELINE_LABEL_MIN_WIDTH,
   LIFELINE_MIN_HEIGHT,
   LIFELINE_MIN_WIDTH,
   constrainLifelineResize,
+  lifelineActorFigure,
   lifelineAxisDashSegments,
   lifelineAxisHitHalf,
   lifelineAxisOf,
@@ -136,6 +138,45 @@ describe('生命线几何：标签区', () => {
 
   it('窄到放不下内边距时宽度不为负', () => {
     expect(lifelineLabelRect(10).width).toBe(0);
+  });
+});
+
+describe('actor 小人几何（§3.6）', () => {
+  it('以轴为中线、自头区顶起总高 44：头圆 r 7、躯干 / 两臂 / 两腿五笔', () => {
+    const f = lifelineActorFigure(120);
+    expect(f.head).toEqual({ cx: 60, cy: 7, r: 7 });
+    expect(f.strokes).toHaveLength(5);
+    // 躯干自头圆底到胯
+    expect(f.strokes[0]).toEqual([60, 14, 60, 28]);
+    expect(Math.max(...f.strokes.map(([, , , y2]) => y2))).toBe(LIFELINE_ACTOR_HEIGHT);
+  });
+
+  it('左右对称；全部落在 [0, 44] × [0, 宽] 内（最小宽 60 也放得下）', () => {
+    for (const w of [120, LIFELINE_MIN_WIDTH]) {
+      const f = lifelineActorFigure(w);
+      const cx = w / 2;
+      const key = (x1: number, y1: number, x2: number, y2: number): string =>
+        [x1, y1, x2, y2].map((n) => Math.round(n * 1e6) / 1e6).join();
+      const mirrored = new Set(f.strokes.map((s) => key(...s)));
+      for (const [x1, y1, x2, y2] of f.strokes) {
+        expect(mirrored.has(key(2 * cx - x1, y1, 2 * cx - x2, y2))).toBe(true);
+        for (const x of [x1, x2, f.head.cx - f.head.r, f.head.cx + f.head.r]) {
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(w);
+        }
+        for (const y of [y1, y2]) {
+          expect(y).toBeGreaterThanOrEqual(0);
+          expect(y).toBeLessThanOrEqual(LIFELINE_ACTOR_HEIGHT);
+        }
+      }
+    }
+  });
+
+  it('头圆、躯干、两臂都在标签带顶（36）之上；带内只有两腿的末端', () => {
+    const f = lifelineActorFigure(120);
+    expect(f.head.cy + f.head.r).toBeLessThanOrEqual(36);
+    expect(f.strokes.slice(0, 3).every(([, y1, , y2]) => y1 <= 36 && y2 <= 36)).toBe(true);
+    expect(LIFELINE_ACTOR_HEAD_HEIGHT - LIFELINE_HEAD_HEIGHT).toBe(36);
   });
 });
 

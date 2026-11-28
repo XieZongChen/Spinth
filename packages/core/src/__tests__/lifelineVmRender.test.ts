@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Graphics, Point, Rectangle, Text } from 'pixi.js';
 import { LifelineVm } from '../widgets/sequence/lifelineVm';
+import { hexToNum } from '../common/color';
 import {
   constrainLifelineResize,
   lifelineAxisHitHalf,
@@ -86,13 +87,56 @@ describe('渲染（§3.6：头框 + 居中标签 + 竖直虚线轴）', () => {
     }
   });
 
-  it("head 'actor' 不抛错：本批按头区 72 的框渲染，标签落在小人下方的标签带", () => {
-    const vm = new LifelineVm();
-    expect(() => {
+  it("head 'actor'：不画头框、画小人（头圆 + 五笔线条），标签落在小人下方的标签带", () => {
+    const rectSpy = vi.spyOn(Graphics.prototype, 'rect');
+    const circleSpy = vi.spyOn(Graphics.prototype, 'circle');
+    try {
+      const vm = new LifelineVm();
       vm.setState({ ...state, head: 'actor' });
       vm.flushUpdate();
-    }).not.toThrow();
-    expect(labelOf(vm)?.y).toBe(36 + 18);
+      expect(rectSpy).not.toHaveBeenCalled();
+      expect(circleSpy).toHaveBeenCalledTimes(1);
+      expect(circleSpy.mock.calls[0]!.slice(0, 3)).toEqual([60, 7, 7]); // 圆心在轴上
+      expect(labelOf(vm)?.y).toBe(36 + 18);
+    } finally {
+      rectSpy.mockRestore();
+      circleSpy.mockRestore();
+    }
+  });
+
+  it('head 缺省（矩形）：画头框（填充 + 描边两次 rect）、不画圆', () => {
+    const rectSpy = vi.spyOn(Graphics.prototype, 'rect');
+    const circleSpy = vi.spyOn(Graphics.prototype, 'circle');
+    try {
+      make();
+      expect(rectSpy).toHaveBeenCalledTimes(2);
+      expect(rectSpy.mock.calls[0]).toEqual([0, 0, 120, 36]);
+      expect(circleSpy).not.toHaveBeenCalled();
+    } finally {
+      rectSpy.mockRestore();
+      circleSpy.mockRestore();
+    }
+  });
+
+  it('小人颜色 = 主题墨色（与轴同源）：light #333333、dark #ededf2', () => {
+    const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke');
+    try {
+      const vm = new LifelineVm();
+      vm.setState({ ...state, head: 'actor' });
+      vm.flushUpdate();
+      const colors = (): number[] =>
+        strokeSpy.mock.calls.map((c) => (c[0] as { color?: number } | undefined)?.color ?? NaN);
+      expect(colors()).toContain(hexToNum('#333333'));
+      setTextTheme('dark');
+      try {
+        vm.refresh();
+        expect(colors()).toContain(hexToNum('#ededf2'));
+      } finally {
+        setTextTheme('light');
+      }
+    } finally {
+      strokeSpy.mockRestore();
+    }
   });
 
   it('退化尺寸不抛错（宽 < 24 标签为空；高 < 头高无轴）', () => {
@@ -248,6 +292,20 @@ describe('几何（rect 型语义，旋转恒 0）', () => {
     expect(
       vm.getAxisAnchor({ rect: { x: 0, y: 0, width: 100, height: 36.5 }, rotation: 0 }),
     ).toBeNull();
+  });
+
+  it('getAxisAnchor 的头部样式读模型（事务内真值）：head 刚写入、state 还没合批时已是新轴', () => {
+    // 切换头部样式的命令事务里要立刻按新轴重算消息（§7.2）——那时 state.head 还是旧投影
+    const vm = make();
+    expect(vm.getAxisAnchor()?.top).toBe(136);
+    Object.defineProperty(vm, 'model', {
+      value: { yData: { get: (k: string) => (k === 'head' ? 'actor' : undefined) } },
+    });
+    expect(vm.state.head).toBeUndefined();
+    expect(vm.getAxisAnchor()?.top).toBe(172);
+    expect(
+      vm.getAxisAnchor({ rect: { x: 0, y: 0, width: 100, height: 200 }, rotation: 0 })?.top,
+    ).toBe(72);
   });
 
   it('退化件（轴长 < 1）回落基类的 bbox 锚点', () => {

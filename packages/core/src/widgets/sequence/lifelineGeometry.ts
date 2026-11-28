@@ -13,7 +13,7 @@ import { truncateLabelToWidth } from '../../platform/textEngine/labelText';
 import { createCanvasMeasurer, type ITextStyleProps } from '../../platform/textEngine/measure';
 import type { IAxisAnchor, ResizeDir } from '../../types/base';
 
-/** 头部样式：box = 矩形头框；actor = 小人（批次 4 绘制；几何先定，标签在小人下方） */
+/** 头部样式：box = 矩形头框；actor = 小人（标签在小人下方） */
 export type LifelineHead = 'box' | 'actor';
 
 // —— 常量（§3.1） ——
@@ -22,6 +22,9 @@ export type LifelineHead = 'box' | 'actor';
 export const LIFELINE_HEAD_HEIGHT = 36;
 /** actor 头区高（小人 44 + 标签带） */
 export const LIFELINE_ACTOR_HEAD_HEIGHT = 72;
+/** actor 小人总高（世界 px；自头区顶起，以轴为中线）与线宽 */
+export const LIFELINE_ACTOR_HEIGHT = 44;
+export const LIFELINE_ACTOR_STROKE = 2;
 /** 单击创建默认尺寸 */
 export const LIFELINE_DEFAULT_WIDTH = 120;
 export const LIFELINE_DEFAULT_HEIGHT = 520;
@@ -49,6 +52,29 @@ export const LIFELINE_LABEL_MAX_CHARS = 64;
 /** 头区高（数据缺省 / 未知值按 box） */
 export function lifelineHeadHeight(head?: LifelineHead): number {
   return head === 'actor' ? LIFELINE_ACTOR_HEAD_HEIGHT : LIFELINE_HEAD_HEIGHT;
+}
+
+/** actor 小人（§3.6）：头圆 + 躯干 + 两臂 + 两腿。局部系原点 = 头区左上；x 相对给定
+ *  宽度取中（= 轴），不随控件宽高缩放——头圆 / 躯干 / 两臂全在标签带顶（36）之上，
+ *  带内只有两腿的末端，标签文字（带内垂直居中）落在脚下方 */
+export interface ILifelineActorFigure {
+  head: { cx: number; cy: number; r: number };
+  /** 躯干 / 左臂 / 右臂 / 左腿 / 右腿（各一条线段，世界 px） */
+  strokes: ReadonlyArray<readonly [number, number, number, number]>;
+}
+
+export function lifelineActorFigure(width: number): ILifelineActorFigure {
+  const cx = width / 2;
+  return {
+    head: { cx, cy: 7, r: 7 },
+    strokes: [
+      [cx, 14, cx, 28],
+      [cx, 16, cx - 11, 26],
+      [cx, 16, cx + 11, 26],
+      [cx, 28, cx - 9, LIFELINE_ACTOR_HEIGHT],
+      [cx, 28, cx + 9, LIFELINE_ACTOR_HEIGHT],
+    ],
+  };
 }
 
 /** 竖直轴（世界坐标）：x = 水平中心；轴段 = 头区底边到 bbox 底边。高度不足时

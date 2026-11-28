@@ -2,7 +2,7 @@
 import { BehaviorSubject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { LifelineLabelEditor } from '../widgets/sequence/lifelineLabelEditor';
-import type { IEditSessionDescriptor, IEditingService } from '../types';
+import type { IEditSessionDescriptor, IEditingService, IPlainEditorStyle } from '../types';
 import {
   LIFELINE_HEAD_BORDER,
   LIFELINE_HEAD_COLOR,
@@ -110,6 +110,18 @@ describe('LifelineLabelEditor（§3.7）', () => {
     h.data.head = 'actor';
     h.editor.enterLabelEdit('l1');
     expect(h.getDescriptor()!.getRect()).toEqual({ x: 108, y: 86, width: 104, height: 36 });
+  });
+
+  it('编辑器底色：矩形头 = 头框白底；actor 头 = 透明（画布上的标签没有底，暗色主题下白块突兀）', () => {
+    const box = makeHarness();
+    box.editor.enterLabelEdit('l1');
+    expect((box.getDescriptor()!.style as IPlainEditorStyle).background).toBe(LIFELINE_HEAD_COLOR);
+    box.editor.exitLabelEdit(false);
+    const actor = makeHarness();
+    actor.data.head = 'actor';
+    actor.editor.enterLabelEdit('l1');
+    expect((actor.getDescriptor()!.style as IPlainEditorStyle).background).toBe('transparent');
+    actor.editor.exitLabelEdit(false);
   });
 
   it('getRect 实时求值：落库 / 拖拽后跟随数据几何', () => {

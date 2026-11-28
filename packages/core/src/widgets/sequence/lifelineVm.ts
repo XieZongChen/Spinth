@@ -9,9 +9,11 @@ import type { IAxisAnchor, ISequenceLookup, LifelineData, ResizeDir } from '../.
 import { axisAnchorPoint, axisAnchorWithInset } from '../line/lineAxisAnchor';
 import {
   constrainLifelineResize,
+  LIFELINE_ACTOR_STROKE,
   LIFELINE_HEAD_BORDER,
   LIFELINE_HEAD_COLOR,
   LIFELINE_LABEL_FONT_SIZE,
+  lifelineActorFigure,
   lifelineAxis,
   lifelineAxisDashSegments,
   lifelineAxisHitHalf,
@@ -24,10 +26,10 @@ import {
 } from './lifelineGeometry';
 
 /**
- * 生命线视图层（specs/sequence-diagram §3.6）：头框（白底 + 1px 深描边）+ 居中
- * 单行标签 + 自头框底边到 bbox 底边的竖直虚线轴（色 = 主题墨色）。head 'actor'
- * 的绘制属批次 4，本批一律画矩形头框（数据字段先落）。
- * 命中 = 头框 ∪ 轴带（§3.3），轴带半宽按屏幕 px 折算（getScale 构造注入，现算不
+ * 生命线视图层（specs/sequence-diagram §3.6）：头区（box = 白底 + 1px 深描边的头框 +
+ * 居中单行标签；actor = 主题墨色的小人，标签在小人下方）+ 自头区底边到 bbox 底边的
+ * 竖直虚线轴（色 = 主题墨色）。
+ * 命中 = 头区 ∪ 轴带（§3.3），轴带半宽按屏幕 px 折算（getScale 构造注入，现算不
  * 缓存）。连线落在轴上（§3.2 轴锚点：四个 join 的 t 都是轴上高度比例，横向让出
  * 一个线端留隙），并豁免避障（否则通用折线会绕开每一条生命线）。缩放整形经
  * constrainResize 探针（§3.5）。
@@ -97,12 +99,30 @@ export class LifelineVm extends BaseWidgetVm<LifelineData & IRect> {
     }
     this.renderedThemeVer = textThemeVersion();
     this.g.clear();
-    // 头框：整条宽 × 头区高（高度不足头区高时就是整个 bbox；零尺寸不画）
+    // 头区：box = 整条宽 × 头区高的头框（高度不足头区高时就是整个 bbox）；actor = 小人
+    // （不画框，头区透明，线色 = 主题墨色与轴同源）；零尺寸不画
     const headH = Math.min(lifelineHeadHeight(next.head), Math.max(next.height, 0));
     if (next.width > 0 && headH > 0) {
-      this.g.rect(0, 0, next.width, headH).fill({ color: hexToNum(LIFELINE_HEAD_COLOR) });
-      this.g.setStrokeStyle({ width: 1, color: hexToNum(LIFELINE_HEAD_BORDER) });
-      this.g.rect(0, 0, next.width, headH).stroke();
+      if (next.head === 'actor') {
+        const ink = hexToNum(defaultTextColor());
+        const figure = lifelineActorFigure(next.width);
+        this.g
+          .circle(figure.head.cx, figure.head.cy, figure.head.r)
+          .stroke({ width: LIFELINE_ACTOR_STROKE, color: ink });
+        for (const [x1, y1, x2, y2] of figure.strokes) {
+          this.g.moveTo(x1, y1).lineTo(x2, y2);
+        }
+        this.g.stroke({
+          width: LIFELINE_ACTOR_STROKE,
+          color: ink,
+          cap: 'round',
+          join: 'round',
+        });
+      } else {
+        this.g.rect(0, 0, next.width, headH).fill({ color: hexToNum(LIFELINE_HEAD_COLOR) });
+        this.g.setStrokeStyle({ width: 1, color: hexToNum(LIFELINE_HEAD_BORDER) });
+        this.g.rect(0, 0, next.width, headH).stroke();
+      }
     }
     // 轴：虚线手工点划（PIXI 8 Graphics 无原生虚线，FRAME 虚线边框同款）；局部系
     // 原点 = 矩形左上，轴在 width / 2
@@ -188,11 +208,15 @@ export class LifelineVm extends BaseWidgetVm<LifelineData & IRect> {
     return false;
   }
 
-  /** 轴锚定宿主探针（§4.1）：轴 = 头框底边到 bbox 底边；轴长 < 1 的退化件返回
-   *  null（连线按普通件处理）。geom 显式传入以该几何为准（急刻重路由） */
+  /** 轴锚定宿主探针（§4.1）：轴 = 头区底边到 bbox 底边；轴长 < 1 的退化件返回
+   *  null（连线按普通件处理）。geom 显式传入以该几何为准（急刻重路由）。
+   *  头部样式读模型：切换头部样式的命令事务里（§7.2）要立刻按新轴重算消息，
+   *  那时 state.head 还是微任务合批前的旧投影；没有模型（单测直构造）回落 state */
   getAxisAnchor(geom?: IHostGeom): IAxisAnchor | null {
     const r = (geom ?? this.getHostGeom()).rect;
-    return lifelineAxis(r, this.state.head);
+    const head =
+      (this.model?.yData.get('head') as LifelineData['head'] | undefined) ?? this.state.head;
+    return lifelineAxis(r, head);
   }
 
   /** 轴锚点（§3.2）：y = 轴上高度；x = 轴 + sign(join) × (激活条半宽 − 线端留隙)。

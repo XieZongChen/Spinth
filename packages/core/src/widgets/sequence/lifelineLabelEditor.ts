@@ -86,7 +86,9 @@ export class LifelineLabelEditor extends Disposable {
         // 行高对齐 pixi 渲染（像素值 = 常量行高，倍数行高编辑瞬间重影）
         lineHeightPx: LIFELINE_LABEL_LINE_HEIGHT,
         color: LIFELINE_HEAD_BORDER,
-        background: LIFELINE_HEAD_COLOR,
+        // 矩形头：编辑器 = 头框白底；actor 头：画布上的标签没有底，编辑器透明
+        // （暗色主题下白底块会突兀地压在小人下方）
+        background: data.head === 'actor' ? 'transparent' : LIFELINE_HEAD_COLOR,
         // 画布标签居中：编辑器同向，提交不跳位
         textAlign: 'center',
         paddingX: 0, // 文字区已含内边距（getRect 从 PAD 起），编辑器不再叠
