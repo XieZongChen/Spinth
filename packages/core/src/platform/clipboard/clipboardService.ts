@@ -170,11 +170,12 @@ export class ClipboardService extends Disposable {
     // 容器副本的 key 必然低于批内全部子元素——层级在创建数据里即正确。不能改成
     // 「全部 add 后再 update 钳制」：外层事务内紧随创建的写入对刚挂上的 vm 观察者
     // 不可见（yjs 不为本事务新建的类型登记变更），结果是文档钳了、root.zOrder
-    // 没动——白底容器盖住子副本直到刷新（E2E container C-16）
-    const ordered = [
-      ...prepared.filter((p) => p.data.type === 'FRAME'),
-      ...prepared.filter((p) => p.data.type !== 'FRAME'),
-    ];
+    // 没动——白底容器盖住子副本直到刷新（E2E container C-16）。
+    // 生命线同理先于激活条（specs/sequence-diagram §5.4）：选区序可能条在前，
+    // 白底条必须压在生命线的虚线轴之上。其余保持快照序（稳定排序）
+    const batchRank = (type: string): number =>
+      type === 'FRAME' ? 0 : type === 'LIFELINE' ? 1 : 2;
+    const ordered = [...prepared].sort((a, b) => batchRank(a.data.type) - batchRank(b.data.type));
     // 容器归属桶重映射（specs/container-frame §4.7，groupIdMap 同款内联）：
     // 批内父 → 该容器的新 id（一拷贝一容器）；批外父（复制了子没复制容器）
     // → undefined——原归属关系不随副本走，否则粘贴体指向原容器，拖原件会带走
@@ -209,6 +210,14 @@ export class ClipboardService extends Disposable {
             data.startNodeId && idMap.has(data.startNodeId) ? idMap.get(data.startNodeId)! : null;
           line.endNodeId =
             data.endNodeId && idMap.has(data.endNodeId) ? idMap.get(data.endNodeId)! : null;
+        }
+        // 激活条绑定修正（specs/sequence-diagram §5.4，LINE 端点同款）：同批生命线 →
+        // 指向副本；批外（宿主没一起复制）→ 删键，落点重绑由收尾的 adoptByLanding 判
+        if (data.type === 'ACTIVATION') {
+          const bar = moved as unknown as { lifelineId?: string };
+          const srcHost = (data as { lifelineId?: string }).lifelineId;
+          if (srcHost && idMap.has(srcHost)) bar.lifelineId = idMap.get(srcHost);
+          else delete bar.lifelineId;
         }
         // 组标记重映射（docs/18 §5）：桶内新 groupId；无组快照显式清字段——
         // 源对象组籍不随复制扩散到无组粘贴件
