@@ -1,7 +1,9 @@
 /** UML 时序图 E2E——批次 1：生命线（specs/sequence-diagram §10 Q-1 / Q-2 / Q-16 /
- *  Q-18 / Q-20…Q-23）。断言走 __spinthDebug.__debug 探针（世界坐标），指针坐标经
- *  公开查询 toScreenPoint 现算；批量路径后的断言读 model.toJSON() 文档真值。
- *  轴锚定 / 消息 / 激活条 / 片段属后续批次，不在本 spec。 */
+ *  Q-18 / Q-20…Q-23）；批次 4 追加 Q-18 的三组二级菜单与 Q-19 的 actor 头。断言走
+ *  __spinthDebug.__debug 探针（世界坐标），指针坐标经公开查询 toScreenPoint 现算；
+ *  批量路径后的断言读 model.toJSON() 文档真值。
+ *  轴锚定 / 消息 / 激活条 / 片段的手势用例在各自的 spec（sequenceMessage /
+ *  sequenceActivation / sequenceFragment），不在本 spec。 */
 import { expect, test } from '@playwright/test';
 import { openBoardDoc, waitForSynced } from './helpers/boardE2e';
 import {
@@ -14,9 +16,12 @@ import {
   editorFrameOf,
   engineAdd,
   lifelinesOf,
+  lineDoc,
+  linesOf,
   modelCountOf,
   type LifelineSnap,
   obstaclesOf,
+  pressMessageTool,
   pressSequenceTool,
   rectOf,
   selectedIdsOf,
@@ -31,8 +36,14 @@ import {
   waitForImportedNav,
 } from './helpers/projectFileE2e';
 import { MOBILE, boxWithin, noDocHScroll, openBoard } from './helpers/layoutE2e';
+import { barPick } from './helpers/widgetProbeE2e';
 
 const docIdOf = (tag: string): string => `e2e-seq-${tag}-${Date.now()}`;
+
+/** |a − b| < tol（端口 4 位小数还原高度的容差） */
+function near(a: number, b: number, tol = 0.5): void {
+  expect(Math.abs(a - b), `${a} 应约等于 ${b}（±${tol}）`).toBeLessThan(tol);
+}
 
 /** 已选中控件的某个手柄从世界 (x1, y1) 拖到 (x2, y2)；onDrag 在按住时回调（断言拖拽中状态） */
 async function dragHandle(
@@ -211,12 +222,39 @@ test.describe('Q-18 390px', () => {
     await boxWithin(flyout, MOBILE, 8);
     await boxWithin(dock, MOBILE, 0);
     await noDocHScroll(page);
-    // 图元组（批次 1 只有生命线）：唯一项即当前种类；点选不越界、工具不切走
+    // 图元组：首项即当前种类；点选不越界、工具不切走
     const item = flyout.getByRole('menuitemradio', { name: '生命线' });
     await expect(item).toHaveAttribute('aria-checked', 'true');
     await item.click();
     await expect(item).toHaveAttribute('aria-checked', 'true');
     expect(await cursorModeOf(page)).toBe('sequence');
+    // 三组（批次 4）：图元 / 消息 / 片段——十项、两道分隔线；选片段项点亮、工具不切走、
+    // 面板仍在视口内
+    expect(
+      await flyout
+        .getByRole('menuitemradio')
+        .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label'))),
+    ).toEqual([
+      '生命线',
+      '激活条',
+      '分隔线',
+      '同步消息',
+      '异步消息',
+      '返回消息',
+      'alt',
+      'opt',
+      'loop',
+      'par',
+    ]);
+    expect(await flyout.locator(':scope > [aria-hidden]').count()).toBe(2);
+    const par = flyout.getByRole('menuitemradio', { name: 'par' });
+    await par.click();
+    await expect(par).toHaveAttribute('aria-checked', 'true');
+    await expect(item).toHaveAttribute('aria-checked', 'false');
+    expect(await cursorModeOf(page)).toBe('sequence');
+    await boxWithin(flyout, MOBILE, 8);
+    await item.click(); // 切回生命线：下面的单击创建仍落生命线
+    await expect(item).toHaveAttribute('aria-checked', 'true');
 
     // 390 视口内单击创建（视口原点经 toScreenPoint 现算，不依赖硬编码偏移）
     const l = await clickCreateLifeline(page, 195, 300);
@@ -227,6 +265,60 @@ test.describe('Q-18 390px', () => {
     await pressSequenceTool(page);
     await cleanupDoc(page, docId);
   });
+});
+
+test('Q-19（批次 4）ActionBar「头部样式」切小人：head 落库、其上消息高度不变、一步 undo 同回；点小人进标签编辑；切回矩形', async ({
+  page,
+}) => {
+  const docId = docIdOf('q19');
+  await openBoardDoc(page, docId);
+  // 两条生命线 (240,40,120,520) / (560,40,120,520)：轴 x = 300 / 620，头框 y 40…76
+  await pressSequenceTool(page);
+  const a = await clickCreateLifeline(page, 300, 300);
+  await clickCreateLifeline(page, 620, 300);
+  expect([a.x, a.y, a.width, a.height]).toEqual([240, 40, 120, 520]);
+  // A → B 的一条消息（y = 300）
+  await pressMessageTool(page, '同步消息');
+  await dragWorld(page, 302, 300, 622, 300);
+  await expect.poll(async () => (await linesOf(page)).length).toBe(1);
+  const m = (await linesOf(page))[0]!;
+  const m0 = (await lineDoc(page, m.id))!;
+  expect(m0.startNodeId).toBe(a.id);
+  await backToCursor(page);
+
+  // 点 A 的头框选中 → 操作栏「头部样式」→ 小人
+  await clickWorld(page, 300, 58);
+  await expect.poll(() => selectedIdsOf(page)).toEqual([a.id]);
+  await expect(page.locator('[data-spinth-action-bar]')).toBeVisible();
+  await barPick(page, '头部样式', '小人');
+  await expect.poll(async () => (await docOf(page, a.id))!.head).toBe('actor');
+  // 轴顶从头区底边移到 72：其上消息高度逐值不变（起点端口按新轴重写，终点不动）
+  const m1 = (await lineDoc(page, m.id))!;
+  near(m1.points[0]![1], 300);
+  near(m1.points[1]![1], 300);
+  expect(m1.startPort).not.toBe(m0.startPort);
+  expect(m1.endPort).toBe(m0.endPort);
+
+  // 点小人（头区内）→ 进标签编辑；Esc 丢弃
+  await clickWorld(page, 300, 64);
+  const ta = page.locator('textarea');
+  await expect(ta).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(ta).toBeHidden();
+
+  // 一步 undo：head 回到不存在、消息端口与端点同回
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(async () => 'head' in (await docOf(page, a.id))!).toBe(false);
+  expect(await lineDoc(page, m.id)).toEqual(m0);
+
+  // 切回矩形：显式写 box；端口回到原值
+  await expect(page.locator('[data-spinth-action-bar]')).toBeVisible();
+  await barPick(page, '头部样式', '矩形');
+  await expect.poll(async () => (await docOf(page, a.id))!.head).toBe('box');
+  const m2 = (await lineDoc(page, m.id))!;
+  expect(m2.startPort).toBe(m0.startPort);
+  near(m2.points[0]![1], 300);
+  await cleanupDoc(page, docId);
 });
 
 test('Q-20 命中口径：点轴旁空白不选中、点轴选中；框选只碰头旁空白不入选、擦过轴带入选', async ({

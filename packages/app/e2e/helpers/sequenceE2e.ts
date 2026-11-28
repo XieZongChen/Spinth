@@ -10,6 +10,7 @@ export interface LifelineSnap {
   id: string;
   type: string;
   label?: string;
+  head?: string;
   parentId?: string;
   zOrder?: string;
   x: number;
@@ -129,6 +130,29 @@ export interface LineSnap {
   startArrow: string;
   endArrow: string;
   dashed: boolean;
+  /** 线上文字（HTML）与其侧别（缺省 = 骑线镂空，数据里没有这个键或值为 undefined） */
+  text?: string;
+  textRatio?: number;
+  textSide?: 'above' | 'below';
+}
+
+/** 最近一次的线上文字盒（E2E 探针 lineKnockout）：骑线 = 镂空矩形（字形 + 内边距），
+ *  侧别 = 字形盒；无字 / 未选中线 = null */
+export async function lineKnockoutOf(
+  page: Page,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __spinthDebug: {
+            __debug: {
+              lineKnockout: { x: number; y: number; width: number; height: number } | null;
+            };
+          };
+        }
+      ).__spinthDebug.__debug.lineKnockout,
+  );
 }
 
 export async function linesOf(page: Page): Promise<LineSnap[]> {
@@ -291,6 +315,31 @@ export async function activationDoc(page: Page, id: string): Promise<ActivationS
 export async function pressActivationTool(page: Page): Promise<void> {
   await pressSequenceTool(page);
   await setSequenceKind(page, '激活条');
+}
+
+/** 时序图工具 + 二级菜单选任意种类的图元（分隔线 / 片段 alt·opt·loop·par 等；
+ *  菜单项可访问名 = 选项 label——片段项就是关键字本身） */
+export async function pressSequenceKind(page: Page, label: string): Promise<void> {
+  await pressSequenceTool(page);
+  await setSequenceKind(page, label);
+}
+
+/** 容器快照（组合片段 = FRAME 预设，specs/sequence-diagram §6.1）：fill / title 可选 */
+export interface FrameSnap {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title?: string;
+  fill?: string;
+  color?: string;
+  parentId?: string;
+}
+
+export async function framesOf(page: Page): Promise<FrameSnap[]> {
+  return (await vmStates(page)).filter((s) => s.type === 'FRAME') as FrameSnap[];
 }
 
 /** 撤销 / 重做可用性（公开输出流 canUndo$ / canRedo$ 的当前值） */

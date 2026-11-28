@@ -1,7 +1,8 @@
 /** UML 时序图 E2E——批次 2：轴锚定 + 消息（specs/sequence-diagram §10 Q-3…Q-9、Q-15、
  *  Q-19 悬停光标部分）。生命线用 engineAdd 搭建；消息一律经 UI 手势画出（时序图工具 →
  *  二级菜单选消息种类 → 轴上按下拖到另一条轴）；落库断言读 model.toJSON() 文档真值。
- *  激活条 / 片段 / 线上文字侧别属后续批次，不在本 spec。 */
+ *  批次 4 追加 Q-4 的标签断言（消息标签在线上方）与右→左消息的标签方向。
+ *  激活条 / 片段的手势用例在各自的 spec（sequenceActivation / sequenceFragment）。 */
 import { expect, test, type Page } from '@playwright/test';
 import { openBoardDoc } from './helpers/boardE2e';
 import {
@@ -13,6 +14,7 @@ import {
   engineAdd,
   lineAnchorsOf,
   lineDoc,
+  lineKnockoutOf,
   linesOf,
   linePreviewOf,
   modelCountOf,
@@ -22,6 +24,7 @@ import {
   toPage,
 } from './helpers/sequenceE2e';
 import { cleanupDoc } from './helpers/projectFileE2e';
+import { barPick } from './helpers/widgetProbeE2e';
 
 const docIdOf = (tag: string): string => `e2e-seqmsg-${tag}-${Date.now()}`;
 
@@ -577,5 +580,87 @@ test('轴宿主不再出四向连接点；连线工具悬停生命线时连接�
   // 包围盒内、轴带外（离轴 50）：无悬停点
   await hover(350, 300);
   expect(await lineAnchorsOf(page)).toBeNull();
+  await cleanupDoc(page, docId);
+});
+
+/** 给已画好的消息加线上文字（lineText.spec 同款）：回选择工具 → 点线身选中 → 隔开
+ *  双击窗口 → 双击线身建字 → 输入 → Esc 落库。结束后该线仍是单选（操作栏在） */
+async function labelLine(page: Page, body: [number, number], text: string): Promise<void> {
+  await backToCursor(page);
+  const p = await toPage(page, body[0], body[1]);
+  await page.mouse.click(p.x, p.y);
+  await page.waitForTimeout(1200);
+  await page.mouse.dblclick(p.x, p.y);
+  await page.keyboard.type(text);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+}
+
+test('Q-4（批次 4）消息标签在线上方：双击线身建字 → textSide above、文字盒在线上方且线完整；操作栏「文字位置」可切回线上 / 下方', async ({
+  page,
+}) => {
+  const docId = docIdOf('q4label');
+  // 轴 x = 300 / 620，轴段 y 136…620
+  await setup(page, docId, [
+    { id: 'qa', x: 240 },
+    { id: 'qb', x: 560 },
+  ]);
+  await pressMessageTool(page, '同步消息');
+  const m = await drawMessage(page, [302, 300], [622, 300]);
+  // 新建的消息就带侧别预设
+  expect(m.textSide).toBe('above');
+
+  // 线身 1/4 处（x = 295 + 330 / 4 = 377.5；避开中点胶囊）双击建字
+  await labelLine(page, [378, 300], 'login');
+  const d = (await lineDoc(page, m.id))!;
+  expect(d.text).toContain('login');
+  expect(d.textSide).toBe('above');
+  // 文字盒在线上方：盒底 + 内边距 4 = 线 y（线的实际高度——4 位小数端口还原后与按下
+  // 点差 < 0.05）；水平居中在双击处的 ratio 上
+  const lineY = d.points[0]![1];
+  near(lineY, 300);
+  const above = (await lineKnockoutOf(page))!;
+  expect(above).not.toBeNull();
+  expect(above.width).toBeGreaterThan(20);
+  near(above.y + above.height + 4, lineY, 0.1);
+  near(above.x + above.width / 2, 377.5, 12);
+
+  // 操作栏「文字位置」→ 线上：骑线镂空（textSide 读回缺省），文字盒跨线
+  await barPick(page, '文字位置', '线上');
+  await expect.poll(async () => (await lineDoc(page, m.id))!.textSide).toBeUndefined();
+  const onLine = (await lineKnockoutOf(page))!;
+  expect(onLine.y).toBeLessThan(lineY);
+  expect(onLine.y + onLine.height).toBeGreaterThan(lineY);
+  // → 下方：盒顶 − 内边距 4 = 线 y
+  await barPick(page, '文字位置', '下方');
+  await expect.poll(async () => (await lineDoc(page, m.id))!.textSide).toBe('below');
+  const below = (await lineKnockoutOf(page))!;
+  near(below.y - 4, lineY, 0.1);
+  // 文字内容与位置比例不随侧别变
+  const d2 = (await lineDoc(page, m.id))!;
+  expect(d2.text).toBe(d.text);
+  expect(d2.textRatio).toBe(d.textRatio);
+  await cleanupDoc(page, docId);
+});
+
+test('右→左画的消息：标签同样在线上方（侧别按视觉方向取，不随画法翻到线下）', async ({ page }) => {
+  const docId = docIdOf('q4rtl');
+  await setup(page, docId, [
+    { id: 'qa', x: 240 },
+    { id: 'qb', x: 560 },
+  ]);
+  await pressMessageTool(page, '返回消息');
+  // 从 B 轴按下拖到 A 轴：起点在右
+  const m = await drawMessage(page, [618, 220], [302, 260]);
+  expect(m.startNodeId).toBe('qb');
+  expect(m.endNodeId).toBe('qa');
+  // 路径自右向左：靠 B 侧 1/4 处（x = 625 − 330 / 4 = 542.5）
+  await labelLine(page, [542, 220], 'reply');
+  const d = (await lineDoc(page, m.id))!;
+  expect(d.textSide).toBe('above');
+  const lineY = d.points[0]![1];
+  const box = (await lineKnockoutOf(page))!;
+  near(box.y + box.height + 4, lineY, 0.1); // 视觉上方：盒在离线 4px 之上
+  near(box.x + box.width / 2, 542.5, 12);
   await cleanupDoc(page, docId);
 });
