@@ -203,7 +203,11 @@ export class LineDrawSession extends Disposable {
     if (!this.drawingId) {
       // 悬停连接点指示器（仅未绘制时）：最近连接点放大高亮（视觉响应替代 hover
       // 态——指示器本身不可命中）
-      const hit = hitWidget(this.vmEngine, this.viewport, e.world);
+      // 分隔线（freeEnds）两端自由，不出连接点反馈。读探针而不是 this.policy——
+      // 那是上一次按下时定格的值，切走工具后还留着
+      const hit = this.host.getDrawPolicy?.()?.freeEnds
+        ? null
+        : hitWidget(this.vmEngine, this.viewport, e.world);
       if (hit) {
         // 连线工具目标反馈：紧贴轮廓锚点；轴宿主 = 轴上指针高度的单点
         this.host.overlay?.showDrawFeedback(

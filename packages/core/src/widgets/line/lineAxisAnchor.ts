@@ -138,6 +138,15 @@ export const MESSAGE_RETURN_POLICY: ILineDrawPolicy = {
   ...MESSAGE_ASYNC_POLICY,
   style: { ...MESSAGE_ASYNC_POLICY.style, dashed: true },
 };
+/** 分隔线（specs/sequence-diagram §6.2）：两端自由的虚线直线——忽略控件命中（在轴上 /
+ *  形状上按下也落自由点）、不锁高度、不作自消息；落定保留首尾两点 */
+export const DIVIDER_POLICY: ILineDrawPolicy = {
+  style: { lineType: 'STRAIGHT', startArrow: 'none', endArrow: 'none', dashed: true },
+  horizontal: false,
+  requireAxisTargets: false,
+  freeEnds: true,
+  selfMessage: false,
+};
 
 /** join 归一（specs/sequence-diagram §4.4）：跨轴消息起点 = 去向侧、终点 = 来向侧。
  *  箭头让位方向由 join 决定，而 axisJoinFor 取的是指针侧——不归一的话从轴右侧

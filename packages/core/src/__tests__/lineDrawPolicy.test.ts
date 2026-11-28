@@ -5,6 +5,7 @@ import { BehaviorSubject } from 'rxjs';
 import { LineDrawSession } from '../widgets/line/lineDrawSession';
 import {
   axisAnchorWithInset,
+  DIVIDER_POLICY,
   MESSAGE_ASYNC_POLICY,
   MESSAGE_RETURN_POLICY,
   MESSAGE_SYNC_POLICY,
@@ -28,10 +29,15 @@ import type { JoinDir } from '../widgets/line/lineMathTypes';
 const AXES = { l1: 260, l2: 660 };
 const SHAPE: IRect = { x: 800, y: 100, width: 120, height: 80 };
 
-/** barHalfAt：某条生命线在某高度上的激活条半宽（缺省恒 0 = 无条）——草稿终点的条边让位 */
+/** barHalfAt：某条生命线在某高度上的激活条半宽（缺省恒 0 = 无条）——草稿终点的条边让位。
+ *  overlay：悬停反馈桩（缺省 null = 不观察；分隔线的悬停门控用例传入） */
 function makeHarness(
   policy?: ILineDrawPolicy,
   barHalfAt?: (lifelineId: string, y: number) => number,
+  overlay: {
+    showDrawFeedback: ReturnType<typeof vi.fn>;
+    hideDrawFeedback: ReturnType<typeof vi.fn>;
+  } | null = null,
 ) {
   const yDoc = new Y.Doc();
   const yWidgets = yDoc.getArray<Y.Map<unknown>>();
@@ -140,7 +146,7 @@ function makeHarness(
   };
   const setSelected = vi.fn((ids: string[]) => order.push(`select:${ids[0] ?? ''}`));
   const host = {
-    overlay: null,
+    overlay,
     getDefaultLineType: () => 'ELBOWED' as const,
     getDefaultStrokeWidth: () => 2,
     gridSnapOn: () => false,
@@ -464,5 +470,99 @@ describe('有策略：自消息', () => {
     expect(h.ids()).toEqual(['pre']);
     expect(h.undo.undoStack.length).toBe(1);
     expect(h.setSelected).not.toHaveBeenCalled();
+  });
+});
+
+describe('分隔线策略：freeEnds（specs/sequence-diagram §4.3 / §6.2，批次 4）', () => {
+  const finalOf = (h: ReturnType<typeof makeHarness>, call = 1): Record<string, unknown> =>
+    h.engine.add.mock.calls[call]![0] as Record<string, unknown>;
+
+  it('空白按下拖出 → 落定：STRAIGHT / 无箭头 / 虚线、两端自由（无锚定无端口），选中收窗；一步撤销', () => {
+    const h = makeHarness(DIVIDER_POLICY);
+    h.baseline(); // engine.add 的第 0 次调用是基线件——草稿 = 1、终线 = 2
+    h.draw([120, 400], [800, 450]);
+    const draftId = (h.engine.add.mock.calls[1]![0] as { id: string }).id;
+    const final = finalOf(h, 2);
+    expect(final).toMatchObject({
+      type: 'LINE',
+      lineType: 'STRAIGHT',
+      startArrow: 'none',
+      endArrow: 'none',
+      dashed: true,
+      startNodeId: null,
+      endNodeId: null,
+      startJoin: null,
+      endJoin: null,
+      // 终线取草稿首尾两点（拖动中的拐点不带入）
+      points: [
+        [120, 400],
+        [800, 450],
+      ],
+    });
+    expect('startPort' in final).toBe(false);
+    expect('endPort' in final).toBe(false);
+    expect(h.order).toEqual([
+      `add:${draftId}`,
+      `remove:${draftId}`,
+      `add:${String(final.id)}`,
+      'onSettled',
+      'stopCapturing',
+      `select:${String(final.id)}`,
+    ]);
+    // 草稿的建立 / 移动 / 删除全走非跟踪 origin；终线是本手势唯一入栈的事务
+    // （栈里另一步是基线件）
+    expect(h.transactOrigins.every((o) => o === 'sequence-draft')).toBe(true);
+    expect(h.undo.undoStack.length).toBe(2);
+    h.undo.undo();
+    expect(h.ids()).toEqual(['pre']);
+    expect(h.undo.undoStack.length).toBe(1);
+    h.undo.redo();
+    expect(h.ids()).toEqual(['pre', final.id]);
+  });
+
+  it('按下在轴上 / 形状上、拖到轴上：都落自由点，不被轴或形状吸附', () => {
+    const h = makeHarness(DIVIDER_POLICY);
+    h.draw([260, 300], [660, 300]); // A 轴按下 → B 轴上松手
+    expect(finalOf(h)).toMatchObject({
+      startNodeId: null,
+      endNodeId: null,
+      points: [
+        [260, 300],
+        [660, 300],
+      ],
+    });
+    h.draw([905, 105], [805, 175]); // 形状 S 内按下
+    expect(finalOf(h, 3)).toMatchObject({
+      startNodeId: null,
+      endNodeId: null,
+      points: [
+        [905, 105],
+        [805, 175],
+      ],
+    });
+  });
+
+  it('单击 / 拖动不足 4px：取消，模型与撤销栈不变、不选中不收窗', () => {
+    const h = makeHarness(DIVIDER_POLICY);
+    h.baseline();
+    h.session.pointerDown(h.evt(300, 300));
+    h.session.pointerUp(h.evt(300, 300));
+    h.draw([300, 300], [302, 301]);
+    expect(h.ids()).toEqual(['pre']);
+    expect(h.undo.undoStack.length).toBe(1);
+    expect(h.setSelected).not.toHaveBeenCalled();
+    expect(h.order).not.toContain('stopCapturing');
+    expect(h.order).not.toContain('onSettled');
+  });
+
+  it('悬停不出连接点反馈（freeEnds 门控）；消息策略的悬停反馈照常', () => {
+    const overlay = { showDrawFeedback: vi.fn(), hideDrawFeedback: vi.fn() };
+    const d = makeHarness(DIVIDER_POLICY, undefined, overlay);
+    d.session.pointerMove(d.evt(905, 105)); // 悬停形状 S
+    d.session.pointerMove(d.evt(262, 300)); // 悬停轴
+    expect(overlay.showDrawFeedback).not.toHaveBeenCalled();
+    const m = makeHarness(MESSAGE_SYNC_POLICY, undefined, overlay);
+    m.session.pointerMove(m.evt(905, 105));
+    expect(overlay.showDrawFeedback).toHaveBeenCalledTimes(1);
   });
 });

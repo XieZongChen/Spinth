@@ -4,6 +4,7 @@ import {
   axisAnchorWithInset,
   axisJoinFor,
   axisPortFor,
+  DIVIDER_POLICY,
   isAxisHost,
   MESSAGE_ASYNC_POLICY,
   MESSAGE_RETURN_POLICY,
@@ -21,13 +22,23 @@ import { LINE_END_GAP } from '../widgets/line/linePath';
 const AXIS = { x: 260, top: 136, bottom: 620 };
 const GEOM = { rect: { x: 200, y: 100, width: 120, height: 520 }, rotation: 0 };
 
-describe('拉线策略预设（§4.3）', () => {
+describe('拉线策略预设（§4.3 四类）', () => {
   const ON_AXIS = {
     horizontal: true,
     requireAxisTargets: true,
     freeEnds: false,
     selfMessage: true,
   };
+
+  it('分隔线：直线 / 无箭头 / 虚线，两端自由（不锁高度、不要求落轴、不作自消息）', () => {
+    expect(DIVIDER_POLICY).toEqual({
+      style: { lineType: 'STRAIGHT', startArrow: 'none', endArrow: 'none', dashed: true },
+      horizontal: false,
+      requireAxisTargets: false,
+      freeEnds: true,
+      selfMessage: false,
+    });
+  });
 
   it('同步消息：ELBOWED 草稿、实心箭头、标签在线上方、两端必须落轴', () => {
     expect(MESSAGE_SYNC_POLICY).toEqual({

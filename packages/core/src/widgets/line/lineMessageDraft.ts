@@ -24,6 +24,9 @@ import { rotatedRectBounds } from '../../platform/rectEditor/rotateMath';
 export const LINE_DRAFT_ORIGIN = 'sequence-draft';
 /** 自消息的最小纵向间距（§4.6）：routeSelfLoop 对 <8 的重合锚点会撑成 80 的环 */
 const SELF_MESSAGE_MIN_GAP = 8;
+/** 自由线（分隔线）的最短落库长度：不足即「未拖出」，落定取消——与无策略路径
+ *  settleDefault 的同值判定一致（单击不留意出一条零长线） */
+const FREE_LINE_MIN_LENGTH = 4;
 
 /** 起点锚定（按下时定格）；port = 起点端口（轴宿主才有） */
 export interface IStartAnchor {
@@ -114,20 +117,28 @@ export class LineMessageDraft {
    * 落定（§4.4 第 3 步）：终点在另一条轴上 → 跨轴消息（改 STRAIGHT、join 按
    *  方向归一、两点直线）；在同一条轴上且纵向间距 ≥ 8 → 自消息（保留 ELBOWED 自环，
    *  两端 join = 按下侧）；其余取消——时序图没有悬空消息。
-   *  落定 = 非跟踪删草稿 + 跟踪事务建终线（一步撤销 = 建出这条消息；撤销不让草稿
+   *  分隔线（freeEnds，§6.2）：两端自由——拖出不足 4px（单击 / 手抖）取消，否则保留
+   *  草稿首尾两点（拖动中的拐点不进终线），不写 join 归一与端口。
+   *  落定 = 非跟踪删草稿 + 跟踪事务建终线（一步撤销 = 建出这条线；撤销不让草稿
    *  复活）；取消 = 非跟踪删除，撤销栈零变化。
    */
   settle(policy: ILineDrawPolicy, draftId: string, draft: IMessageDraft): void {
     const cancel = (): void => {
       this.engine.transact(() => this.engine.removeByIds([draftId]), LINE_DRAFT_ORIGIN);
     };
+    // 自消息是 4 点环：间距 / 终点端口都按**末点**量（第二点已是第一个拐点）
+    const a = draft.points[0];
+    const b = draft.points[draft.points.length - 1];
+    if (policy.freeEnds) {
+      const len = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0;
+      if (len < FREE_LINE_MIN_LENGTH) return cancel();
+      this.commit(draftId, { ...draft, id: genId(), points: [a, b] });
+      return;
+    }
     const axisOf = (id: string | null): IAxisAnchor | null =>
       id ? (this.vmEngine.getVmById(id)?.getAxisAnchor?.() ?? null) : null;
     const startAxis = axisOf(draft.startNodeId);
     const endAxis = axisOf(draft.endNodeId);
-    // 自消息是 4 点环：间距 / 终点端口都按**末点**量（第二点已是第一个拐点）
-    const a = draft.points[0];
-    const b = draft.points[draft.points.length - 1];
     if (!a || !b || !startAxis || !endAxis) return cancel();
     const self = draft.startNodeId === draft.endNodeId;
     if (self && !(policy.selfMessage && Math.abs(b[1] - a[1]) >= SELF_MESSAGE_MIN_GAP)) {
@@ -138,11 +149,9 @@ export class LineMessageDraft {
     const [startJoin, endJoin] = self
       ? [draft.startJoin, draft.startJoin]
       : normalizeMessageJoins({ x: a[0], y: a[1] }, { x: b[0], y: b[1] });
-    const finalId = genId();
-    this.engine.transact(() => this.engine.removeByIds([draftId]), LINE_DRAFT_ORIGIN);
-    this.engine.add({
+    this.commit(draftId, {
       ...draft,
-      id: finalId,
+      id: genId(),
       startJoin,
       endJoin,
       startPort: axisPortFor(startAxis, a[1]),
@@ -150,7 +159,14 @@ export class LineMessageDraft {
       // 跨轴消息 = 两点直线；自消息保留草稿的 ELBOWED 自环路由
       lineType: self ? draft.lineType : 'STRAIGHT',
       points: self ? draft.points : [a, b],
-    } as never);
+    });
+  }
+
+  /** 落定收尾：非跟踪删草稿 → 跟踪事务建终线 → 重排 → 收窗 → 选中（工具保持激活） */
+  private commit(draftId: string, data: Record<string, unknown>): void {
+    const finalId = String(data.id);
+    this.engine.transact(() => this.engine.removeByIds([draftId]), LINE_DRAFT_ORIGIN);
+    this.engine.add(data as never);
     this.sink.onSettled();
     this.sink.stopCapturing();
     this.sink.select(finalId);
