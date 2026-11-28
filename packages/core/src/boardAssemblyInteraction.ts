@@ -180,11 +180,16 @@ export function assembleInteraction(sdk: BoardSDK): void {
       if (!vm) continue;
       if (vm.type === 'LINE') {
         // 线自身不触发 reattach（防自环）；轴消息平移后按锚点兜底重算
-        // （specs/sequence-diagram §4.5——激活条的条边让位接入后由它生效）
+        // （specs/sequence-diagram §4.5——纵向挪过激活条的上下沿时端点让位随之变）
         if (vm.isAxisMessage?.()) sdk.lineService?.refreshLine(id);
         continue;
       }
-      sdk.lineService?.reattach(id, vm.getHostGeom());
+      // 本件移动后要重路由的锚定宿主（specs/sequence-diagram §4.1 探针，缺省 = 自身）；
+      // 激活条 = 绑定的生命线：条边让位与拖拽同一步撤销。宿主未动，几何取它自己的
+      for (const host of vm.anchorFollowHosts?.() ?? [id]) {
+        const hostVm = host === id ? vm : sdk.vmEngine?.getVmById(host);
+        if (hostVm) sdk.lineService?.reattach(host, hostVm.getHostGeom());
+      }
     }
   };
   // 缩放松手的锚定线急切重路由（docs/05 §4.4）：next = commitResize 落库的
@@ -204,6 +209,12 @@ export function assembleInteraction(sdk: BoardSDK): void {
       { engine: sdk.engine!, vmEngine: sdk.vmEngine! },
     );
     sdk.lineService?.reattach(id, { rect: next, rotation });
+    // 探针给出的其他宿主（激活条 → 生命线）：条的纵向范围变了，消息让位随之变
+    for (const host of vm?.anchorFollowHosts?.() ?? []) {
+      if (host === id) continue;
+      const hostVm = sdk.vmEngine?.getVmById(host);
+      if (hostVm) sdk.lineService?.reattach(host, hostVm.getHostGeom());
+    }
   };
   // 旋转手势（docs/05 §8）：拖拽中锚定线实时跟随（用户拍板 2026-10-15——
   // previewFollow 对 root.rotation 预览敏感）；松手急切重路由并同撤销项
@@ -219,5 +230,13 @@ export function assembleInteraction(sdk: BoardSDK): void {
   sdk.lineService.busyProbe = () => sdk.rectEditor?.isResizing ?? false;
   sdk.lineService.initialize();
   // 缩放手势期间四向连接点跟随（缩放期 onStateChanged$ 不发射——拖拽同款问题）
-  sdk.rectEditor.resizeMove$.subscribe(() => sdk.lineService?.followQuickDots());
+  sdk.rectEditor.resizeMove$.subscribe(() => {
+    sdk.lineService?.followQuickDots();
+    // 激活条缩放 = 其生命线的条边让位在变：消息实时预览跟随（探针门控——其他件的
+    // 缩放期连线行为不变，docs/08 的「缩放期无连线跟随」挂账照旧）
+    const only = sdk.selector!.selected$.value[0];
+    if (only && sdk.vmEngine?.getVmById(only)?.anchorFollowHosts) {
+      sdk.lineService?.previewFollow();
+    }
+  });
 }

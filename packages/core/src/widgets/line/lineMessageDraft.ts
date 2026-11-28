@@ -3,6 +3,7 @@ import type { IDataEngineService, IVmEngineService, LineType } from '../../types
 import type { IAxisAnchor } from '../../types/base';
 import type { IHostGeom, IPoint } from '../../common/geometry';
 import { routeSelfLoop, type JoinDir } from './lineMath';
+import { nodeAnchorPoint } from './lineGeometry';
 import {
   axisAnchorWithInset,
   axisPortFor,
@@ -56,11 +57,14 @@ export class LineMessageDraft {
   ) {}
 
   /** 落在轴宿主上的终点（§4.4 第 2 步）：跨轴消息钳到起点高度、自消息取指针高度
-   *  （钳到轴段内）；join 取朝向起点的一侧（箭头让位方向随 join），端口 = 轴上比例 */
+   *  （钳到轴段内）；join 取朝向起点的一侧（箭头让位方向随 join），端口 = 轴上比例。
+   *  点位经宿主锚点单源（vm.getAnchorPoint：终点高度上有激活条时让到条边，与落定
+   *  后的重路由同一口径）；vm 缺失回落轴上点 */
   endAnchor(
     axis: IAxisAnchor,
     start: IStartAnchor,
     hitId: string,
+    geom: IHostGeom,
     world: IPoint,
     policy: ILineDrawPolicy,
   ): IPoint {
@@ -70,7 +74,11 @@ export class LineMessageDraft {
         ? Math.min(axis.bottom, Math.max(axis.top, start.point.y))
         : world.y;
     const endJoin = self ? start.join! : normalizeMessageJoins(start.point, { x: axis.x, y })[1];
-    return axisAnchorWithInset(axis, endJoin, axisPortFor(axis, y), 0);
+    const port = axisPortFor(axis, y);
+    return (
+      nodeAnchorPoint(this.vmEngine, hitId, geom, endJoin, port) ??
+      axisAnchorWithInset(axis, endJoin, port, 0)
+    );
   }
 
   /** 草稿路由：跨轴 = 两点直线预览（horizontal）；同轴 = 自消息环（§4.6；纵向间距

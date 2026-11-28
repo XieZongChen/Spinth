@@ -167,6 +167,13 @@ export class LineAnchorFollow extends Disposable {
   readonly previewFollow = (): void => {
     const moving = new Set(this.selector.selected$.value);
     if (moving.size === 0) return;
+    // 激活条拖动 = 其生命线的锚点在变（条边让位，§4.1 宿主探针）：把探针给出的宿主
+    // 并入「移动宿主集」——锚定其上的消息按条边预览。缺省探针（无）= 既有行为
+    for (const id of moving) {
+      for (const host of this.vmEngine.getVmById(id)?.anchorFollowHosts?.() ?? []) {
+        moving.add(host);
+      }
+    }
     this.previewFollowLast = null;
     const loops = this.selfLoopSpans();
     for (const lvm of this.vmEngine.getAllVms()) {

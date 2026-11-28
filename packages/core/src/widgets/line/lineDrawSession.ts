@@ -273,7 +273,7 @@ export class LineDrawSession extends Disposable {
         ? axisOfVm(this.vmEngine.getVmById(hit.id), hit.geom)
         : null;
     const end = (hit && axis
-      ? this.message.endAnchor(axis, start, hit.id, e.world, policy!)
+      ? this.message.endAnchor(axis, start, hit.id, hit.geom, e.world, policy!)
       : null) ??
       this.anchorPointOf(hit, join, pick?.port) ?? {
         // 自由终点：网格开时量化（specs/flowchart-closeout §9.2 自由线端点——

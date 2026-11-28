@@ -28,7 +28,11 @@ import type { JoinDir } from '../widgets/line/lineMathTypes';
 const AXES = { l1: 260, l2: 660 };
 const SHAPE: IRect = { x: 800, y: 100, width: 120, height: 80 };
 
-function makeHarness(policy?: ILineDrawPolicy) {
+/** barHalfAt：某条生命线在某高度上的激活条半宽（缺省恒 0 = 无条）——草稿终点的条边让位 */
+function makeHarness(
+  policy?: ILineDrawPolicy,
+  barHalfAt?: (lifelineId: string, y: number) => number,
+) {
   const yDoc = new Y.Doc();
   const yWidgets = yDoc.getArray<Y.Map<unknown>>();
   const undo = new Y.UndoManager(yWidgets, { ignoreRemoteMapChanges: true, captureTimeout: 0 });
@@ -83,7 +87,13 @@ function makeHarness(policy?: ILineDrawPolicy) {
       getHostGeom: () => ({ rect, rotation: 0 }),
       isRouteObstacle: () => false,
       getAxisAnchor: () => axis,
-      getAnchorPoint: (join: JoinDir, t = 0.5) => axisAnchorWithInset(axis, join, t, 0),
+      getAnchorPoint: (join: JoinDir, t = 0.5) =>
+        axisAnchorWithInset(
+          axis,
+          join,
+          t,
+          barHalfAt?.(id, axis.top + (axis.bottom - axis.top) * t) ?? 0,
+        ),
     };
   };
   const shape = {
@@ -278,6 +288,25 @@ describe('有策略：按下、草稿与落定', () => {
       points: [
         [255, 299.98],
         [665, 299.98],
+      ],
+    });
+    h.session.pointerUp(h.evt(662, 350));
+  });
+
+  it('草稿终点经宿主锚点单源（条边让位）：终点高度上有激活条 → 草稿终点停在条边', () => {
+    // l2 轴上、终点高度处有半宽 5 的条：锚点 x = 轴 + (5 − 留隙 5) = 轴（无条是 665）
+    const h = makeHarness(MESSAGE_SYNC_POLICY, (id, y) =>
+      id === 'l2' && Math.abs(y - 299.98) < 0.01 ? 5 : 0,
+    );
+    h.session.pointerDown(h.evt(262, 300));
+    const draftId = h.ids()[0] as string;
+    h.session.pointerMove(h.evt(662, 350));
+    vi.advanceTimersByTime(34);
+    expect(h.engine.getModelById(draftId)!.toJSON()).toMatchObject({
+      endNodeId: 'l2',
+      points: [
+        [255, 299.98],
+        [660, 299.98],
       ],
     });
     h.session.pointerUp(h.evt(662, 350));

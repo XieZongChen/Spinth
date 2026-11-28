@@ -91,7 +91,16 @@ export function assembleCore(sdk: BoardSDK): void {
       // 路由并清空重做栈。由 updateSelectedStyle 在切型事务内同步触发
       if (vm.type === 'LINE') return;
       const geomChanged = ['x', 'y', 'width', 'height', 'rotation'].some((k) => k in diff);
-      if (geomChanged) sdk.lineService?.reattach(vm.id, vm.getHostGeom());
+      if (geomChanged) {
+        // 本件几何变化后要重路由的锚定宿主（specs/sequence-diagram §4.1 探针，缺省 =
+        // 自身）。激活条（含 undo/redo 恢复出来的）→ 绑定的生命线：此时急切路径已把
+        // 同一口径的 points 写进同一撤销项，这里恒同值零写——只兜「条先于宿主恢复」
+        // 之外的批量路径（粘贴收尾事务里已重路由，同样零写）
+        for (const host of vm.anchorFollowHosts?.() ?? [vm.id]) {
+          const hostVm = host === vm.id ? vm : sdk.vmEngine?.getVmById(host);
+          if (hostVm) sdk.lineService?.reattach(host, hostVm.getHostGeom());
+        }
+      }
     });
   });
   sdk.textRender.initialize();

@@ -1,6 +1,10 @@
 import { BehaviorSubject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { LineAnchorFollow } from '../widgets/line/lineAnchorFollow';
+import { axisAnchorPoint, axisAnchorWithInset, axisPortFor } from '../widgets/line/lineAxisAnchor';
+import type { IAxisAnchor } from '../types/base';
+import type { IRect } from '../common/geometry';
+import type { JoinDir } from '../widgets/line/lineMathTypes';
 
 /**
  * 锚定跟随协作者守卫（2026-10-10 审计补测——此前零直接单测）：
@@ -637,5 +641,119 @@ describe('LineAnchorFollow.rerouteLine 切回 ELBOWED（与锚定跟随同一路
     follow.rerouteLine('LF');
     expect(models.get('LS')!.model.update).not.toHaveBeenCalled();
     expect(models.get('LF')!.model.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('LineAnchorFollow 条边让位（specs/sequence-diagram §3.2 / §4.5，批次 3）', () => {
+  /** 轴宿主桩：锚点走连线层的同一纯函数，条半宽按「纵向覆盖该高度的条」取最大 */
+  function axisHost(id: string, axis: IAxisAnchor, bars: () => IRect[]) {
+    const geom = { rect: { x: axis.x - 60, y: 100, width: 120, height: 600 }, rotation: 0 };
+    return {
+      id,
+      type: 'LIFELINE',
+      getAxisAnchor: () => axis,
+      getHostGeom: () => geom,
+      getAnchorPoint: (join: JoinDir, t: number) => {
+        const port = axisPortFor(axis, axisAnchorPoint(axis, t).y);
+        const y = axisAnchorPoint(axis, port).y;
+        let half = 0;
+        for (const b of bars()) {
+          if (y >= b.y && y <= b.y + b.height) half = Math.max(half, b.width / 2);
+        }
+        return axisAnchorWithInset(axis, join, port, half);
+      },
+    };
+  }
+  /** 夹具：消息 M 从 A（轴 300）right 到 B（轴 640）left，高度 418（两端 port 0.5） */
+  function make() {
+    let bars: IRect[] = [{ x: 295, y: 400, width: 10, height: 36 }]; // 覆盖 418
+    const A = axisHost('A', { x: 300, top: 136, bottom: 700 }, () => bars);
+    const B = axisHost('B', { x: 640, top: 136, bottom: 700 }, () => []);
+    const bar = {
+      id: 'bar',
+      type: 'ACTIVATION',
+      anchorFollowHosts: () => ['A'],
+      getHostGeom: () => ({ rect: { x: 295, y: 400, width: 10, height: 36 }, rotation: 0 }),
+    };
+    const msg = statefulLineModel({
+      lineType: 'STRAIGHT',
+      startNodeId: 'A',
+      endNodeId: 'B',
+      startJoin: 'right',
+      endJoin: 'left',
+      points: [
+        [295, 418],
+        [645, 418],
+      ],
+    });
+    const lineVm = { id: 'M', type: 'LINE', previewRoute: vi.fn() };
+    const selected$ = new BehaviorSubject<string[]>(['bar']);
+    const plain = {
+      id: 's1',
+      type: 'SHAPE',
+      getHostGeom: () => ({ rect: { x: 800, y: 100, width: 50, height: 50 }, rotation: 0 }),
+    };
+    const byId: Record<string, object> = { A, B, bar, s1: plain };
+    const follow = new LineAnchorFollow(
+      { getModelById: (id: string) => (id === 'M' ? msg.model : undefined) } as never,
+      {
+        getAllVms: () => [lineVm, A, B, bar, plain],
+        getVmById: (id: string) => byId[id],
+      } as never,
+      { selected$ } as never,
+    );
+    return { follow, msg, lineVm, selected$, setBars: (b: IRect[]) => (bars = b) };
+  }
+
+  it('拖激活条：其生命线并入「移动宿主集」——消息端点按条边预览（视觉通道，零模型写）', () => {
+    const h = make();
+    h.follow.previewFollow();
+    // 起点让到条边：锚点 x = 轴 + (5 − 5) = 300（无条是 295）；终点不动
+    expect(h.lineVm.previewRoute).toHaveBeenCalledWith([
+      { x: 300, y: 418 },
+      { x: 645, y: 418 },
+    ]);
+    expect(h.msg.model.update).not.toHaveBeenCalled();
+    // 条纵向拖走（不再覆盖消息高度）→ 端点复位到轴 − 5
+    h.setBars([{ x: 295, y: 500, width: 10, height: 36 }]);
+    h.follow.previewFollow();
+    expect(h.lineVm.previewRoute).toHaveBeenLastCalledWith([
+      { x: 295, y: 418 },
+      { x: 645, y: 418 },
+    ]);
+  });
+
+  it('未实现宿主探针的件不扩宿主集（既有行为不变）：选普通形状拖动，锚定在别处的消息不预览', () => {
+    const h = make();
+    h.selected$.next(['s1']);
+    h.follow.previewFollow();
+    expect(h.lineVm.previewRoute).not.toHaveBeenCalled();
+    // 空选区照旧早退
+    h.selected$.next([]);
+    expect(() => h.follow.previewFollow()).not.toThrow();
+  });
+
+  it('删激活条后端点让位复位：条不再覆盖该高度 → reattach 把端点写回轴 − 5', () => {
+    const h = make();
+    // 条在：端点已在条边（300）→ 同值零写
+    h.msg.store.data = {
+      ...h.msg.store.data,
+      points: [
+        [300, 418],
+        [645, 418],
+      ],
+    };
+    h.follow.reattach('A', { rect: { x: 240, y: 100, width: 120, height: 600 }, rotation: 0 });
+    expect(h.msg.model.update).not.toHaveBeenCalled();
+    // 条被删：宿主重路由 → 写回
+    h.setBars([]);
+    h.follow.reattach('A', { rect: { x: 240, y: 100, width: 120, height: 600 }, rotation: 0 });
+    expect(h.msg.model.update).toHaveBeenCalledTimes(1);
+    expect(h.msg.calls[0]).toEqual({
+      points: [
+        [295, 418],
+        [645, 418],
+      ],
+    });
   });
 });
