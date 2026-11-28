@@ -94,6 +94,7 @@ export const WIDGET_REGISTRY = {
   SYMBOL: { schema: SymbolSchema, capabilities: { ... } },
   FRAME: { schema: FrameSchema, capabilities: { ... } },
   LIFELINE: { schema: LifelineSchema, capabilities: { ... } },
+  ACTIVATION: { schema: ActivationSchema, capabilities: { ... } },
 } as const;
 ```
 
@@ -119,19 +120,20 @@ referenceable / erasable`
 `isTreeWidgetType()`）；树种类差异在 `widgets/tree/registry.ts` 的
 `TREE_KINDS`（编译锁：键集 ≡ family 'tree' 类型集）。
 
-| 类型      | 旋转 | 编组 | 缩放 | 可编辑 | 参考线 | 橡皮 |
-| --------- | ---- | ---- | ---- | ------ | ------ | ---- |
-| SHAPE     | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| TEXT      | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| STICKY    | —†   | ✓    | ✓    | ✓      | ✓      | —    |
-| IMAGE     | —†   | ✓    | ✓    | —      | ✓      | —    |
-| SYMBOL    | —    | ✓    | ✓    | ✓      | ✓      | —    |
-| FRAME     | —    | —    | ✓    | —*     | ✓      | —    |
-| LIFELINE  | —    | ✓    | ✓    | —*     | ✓      | —    |
-| LINE      | —    | ✓*   | —    | —      | —      | —    |
-| PEN       | —    | ✓    | ✓    | —      | —      | ✓    |
-| MIND_MAP  | —    | —    | —    | —      | —      | —    |
-| ORG_CHART | —    | —    | —    | —      | —      | —    |
+| 类型       | 旋转 | 编组 | 缩放 | 可编辑 | 参考线 | 橡皮 |
+| ---------- | ---- | ---- | ---- | ------ | ------ | ---- |
+| SHAPE      | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| TEXT       | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| STICKY     | —†   | ✓    | ✓    | ✓      | ✓      | —    |
+| IMAGE      | —†   | ✓    | ✓    | —      | ✓      | —    |
+| SYMBOL     | —    | ✓    | ✓    | ✓      | ✓      | —    |
+| FRAME      | —    | —    | ✓    | —*     | ✓      | —    |
+| LIFELINE   | —    | ✓    | ✓    | —*     | ✓      | —    |
+| ACTIVATION | —    | ✓    | ✓    | —*     | ✓      | —    |
+| LINE       | —    | ✓*   | —    | —      | —      | —    |
+| PEN        | —    | ✓    | ✓    | —      | —      | ✓    |
+| MIND_MAP   | —    | —    | —    | —      | —      | —    |
+| ORG_CHART  | —    | —    | —    | —      | —      | —    |
 
 - LINE 类型级可组，锚定态由 `groupOps` 运行时判定。
 - FRAME（specs/container-frame）：不可编组（几何归属与选择聚合两套语义不混用）；
@@ -140,6 +142,9 @@ referenceable / erasable`
 - LIFELINE（specs/sequence-diagram）：标签走自有 plain 内核会话（`editable: false`，
   FRAME 同款）；命中 = 头框 ∪ 轴带（§8.5）；缩放经 `constrainResize` 探针整形
   （docs/05 §4.4）；避障豁免（docs/08 §4）；不带 `parentId`（不进容器，docs/02）。
+- ACTIVATION（specs/sequence-diagram）：能力位与 LIFELINE 相同；命中 = 条身（外扩
+  2 世界 px）；缩放只改高度（`constrainResize` 锁宽 + `resizeAxis` 探针只沿纵轴吸附，
+  docs/05 §4.4）；不作连线目标、避障豁免（docs/08 §3）；不带 `parentId`。
 - † `rotatable` 是旋转手柄入口闸门（唯一消费点 rectEditorService）。SHAPE/TEXT/
   STICKY/IMAGE 四类支持 rotation 数据，入口暂时隐藏而置 false；渲染/命中/缩放/
   锚定等数据能力保留，恢复 = 四类改回 true（docs/05 §8）。SYMBOL 无 rotation 字段、
@@ -180,20 +185,21 @@ VmEngine.initialize():
 
 ## 8. 控件清单
 
-| 控件      | 说明                                                                           |
-| --------- | ------------------------------------------------------------------------------ |
-| SHAPE     | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect                           |
-| STICKY    | 便签，共享文本测量/渲染管线                                                    |
-| TEXT      | 富文本，三态模型（docs/07）                                                    |
-| LINE      | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08）                     |
-| PEN       | 画笔，60ms 采样，points 增量写                                                 |
-| IMAGE     | 图片，本地资产引用 + 失败回退 data URL（docs/19）                              |
-| SYMBOL    | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget）                 |
-| FRAME     | 容器：标题带 + 背景 + 边框，子元素 parentId 归属/级联（specs/container-frame） |
-| LIFELINE  | 时序图生命线：参与者头框 + 竖直虚线轴（§8.5，specs/sequence-diagram）          |
-| MIND_MAP  | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                                    |
-| ORG_CHART | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）                              |
-| ERASER    | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）                              |
+| 控件       | 说明                                                                               |
+| ---------- | ---------------------------------------------------------------------------------- |
+| SHAPE      | 20 型形状（四基础 + 16 扩展），图形内文字，默认 rect                               |
+| STICKY     | 便签，共享文本测量/渲染管线                                                        |
+| TEXT       | 富文本，三态模型（docs/07）                                                        |
+| LINE       | 直线/正交/曲线，锚定、箭头、线上文字、quick-add（docs/08）                         |
+| PEN        | 画笔，60ms 采样，points 增量写                                                     |
+| IMAGE      | 图片，本地资产引用 + 失败回退 data URL（docs/19）                                  |
+| SYMBOL     | 符号：内置矢量图标 + 外置单行标签（§8.4，specs/symbol-widget）                     |
+| FRAME      | 容器：标题带 + 背景 + 边框，子元素 parentId 归属/级联（specs/container-frame）     |
+| LIFELINE   | 时序图生命线：参与者头框 + 竖直虚线轴（§8.5，specs/sequence-diagram）              |
+| ACTIVATION | 时序图激活条：贴在生命线轴上的恒宽细条，随生命线走（§8.7，specs/sequence-diagram） |
+| MIND_MAP   | 脑图，节点级选中/拖拽重排/快捷键（docs/11）                                        |
+| ORG_CHART  | 组织架构图，层级对齐布局/正交总线/折叠（docs/22）                                  |
+| ERASER     | 纯工具型，无 Model/Vm；只擦 PEN，分段擦除（§8.1）                                  |
 
 ### 8.1 橡皮
 
@@ -256,8 +262,8 @@ VmEngine.initialize():
 
 ### 8.5 生命线（LIFELINE，时序图）
 
-UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落地：当前有生命线
-与消息（轴锚定，§8.6）；激活条、组合片段与线上文字侧别未做。
+UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落地：当前有生命线、
+消息（轴锚定，§8.6）与激活条（§8.7）；组合片段与线上文字侧别未做。
 
 - 数据：`label`（参与者名，纯文本单行，落库清洗 ≤64 字素，空串只有头框）、`head`
   （`box` 缺省 / `actor`——小人绘制未做，此前按加高的头框渲染）、`groupId`；
@@ -275,8 +281,8 @@ UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落
 - 避障豁免：`isRouteObstacle()` 恒 false（docs/08 §4）——通用折线穿过生命线不绕行。
 - 轴锚定：`LifelineVm` 实现 `getAxisAnchor` 探针（轴 = 头框底边到 bbox 底边；轴长 < 1
   的退化件返回 null），并覆写 `getAnchorPoint`——四个 join 的 t 都是**轴上高度**比例，
-  x 让出一个线端留隙 `LINE_END_GAP`（方向随 join；绑定激活条后再让出条半宽，当前无
-  激活条恒 0），无轴回落 bbox 锚点。连线因此落在轴上（docs/08 §3）。
+  x 让出一个线端留隙 `LINE_END_GAP`（方向随 join；该高度上有绑定的激活条时再让出
+  条半宽——条边让位，§8.7），无轴回落 bbox 锚点。连线因此落在轴上（docs/08 §3）。
 - 无 quick-add 资格：轴宿主不出四向连接点、点击也不触发 quick-add（资格单源
   `lineHitTest.canQuickAdd`）；连线工具悬停时在轴上指针高度出单点。
 - 加长保高度：缩放松手钩子 `onResizeCommitted(id, next, start)` 先按旧锚点高度重写
@@ -307,4 +313,43 @@ UML 时序图的参与者图元（specs/sequence-diagram）。时序图按批落
   `ns-resize`；端点手柄照旧（拖单个端点只改那一端）。
 - 随宿主：生命线移动 → 消息跟随（端口不变）；加长 / 顶边移动 → 按旧锚点高度重写
   端口（docs/05 §4.4）。
-- 未做（后续批次）：激活条与条边让位、线上文字侧别（文字仍骑线镂空）、分隔线。
+- 条边让位：消息经过的轴段上有绑定的激活条时，端点锚点 x = 轴（箭尖停在条边）；
+  无条时锚点 x = 轴 ± 一个留隙（箭尖停在轴上）。见 §8.7。
+- 未做（后续批次）：线上文字侧别（文字仍骑线镂空）、分隔线、组合片段。
+
+### 8.7 激活条（ACTIVATION，时序图）
+
+贴在生命线轴上的细条，表示参与者处于激活期间（specs/sequence-diagram §2–§5）。
+
+- 数据：`lifelineId`（绑定的生命线，缺省 = 未绑定）、`groupId`；**不带 `parentId`**
+  （不进容器，docs/02）。几何走独立 rect，宽度恒 10（世界 px），高度下限 16。
+- 绑定判据：条中心线贴合某条生命线的轴（|条中心 x − 轴 x| ≤ 6）且与轴段有纵向重叠
+  → 绑定；多条命中取 zOrder 最上者。绑定成立时同一次写入把条 x 归中到轴
+  （`sequenceOps.resolveActivationHost` / `activationBind` 纯函数）。解绑写
+  `lifelineId: undefined`（groupId / parentId 清除同款）。
+- 写入时机：工具创建时写进创建数据；拖放 / 微移 / 对齐在落库事务内判定（经级联
+  复合查找，S7）；粘贴收尾另起事务做落点重绑；undo / redo 不重判。宿主轴一律由
+  算术矩形推导（事务内不读 vm 状态）。
+- 随生命线走：拖动 / 微移 / 对齐分布 / 删除 / 复制剪切都经 `IActivationLookup`
+  （`composeCascadeLookup` 与容器钩子合成同一个 `IFrameLookup`，selector / clipboard /
+  layer 的注入点零改动）。消息不在级联内。
+- 绑定读取走条 VM 的 `anchorFollowHosts()` 探针，读模型不读 vm 状态（微任务合批的
+  投影会漏掉「刚绑上」的宿主）；未绑定返回空。孤儿 `lifelineId`（宿主已不存在）
+  读取侧按未绑定处理、不改写数据。
+- 条边让位：条的新建 / 拖动 / 缩放 / 微移 / 对齐 / 粘贴都在各自的命令事务或捕获窗内
+  重路由宿主生命线上的消息（`anchorFollowHosts` 探针，缺省 = 自身）；删除复用连线的
+  `onModelRemoved$ → respreadLines`。拖动与缩放条的过程中消息实时预览跟随。
+- 渲染：`#ffffff` 填充 + 1px `#333333` 描边，无圆角，绑定与否外观相同、不随主题。
+  世界矩形 = 数据矩形 + 预览偏移（首帧渲染前与拖拽 / 缩放预览中都正确）。
+- 缩放：`constrainResize` 探针只保留高度变化（宽恒 10、x = 中心 − 半宽，下限 16）；
+  `resizeAxis() === 'v'` → 吸附 / 量化只取手柄方向的纵向分量，且不出左右两条边热区
+  （它们对锁宽件无作用，却会盖满 10px 宽的条身）。四角手柄与上下边热区照常。
+- 连线：不作连线目标（`isConnectionTarget()` false——拉线拾取穿过条取到下层生命线，
+  quick-add 不出连接点）、`isRouteObstacle()` false。
+- 工具：时序图二级菜单「激活条」——按下必须命中轴宿主且按下高度在轴段内，否则不建。
+  拖拽 x 归中、顶 = 按下高度、高度跟手（钳 ≥ 16，底不出轴底；向上拖钳到 16），松手
+  选中并回选择工具；单击从按下高度向下 80，工具保持。按下点距轴底不足 16 不建；创建
+  不量化网格。手势在 `activationService.ts`（`DragCreateServiceBase` 子类，基类留出
+  按下门禁 / 单击矩形 / 草稿矩形 / 落库后收尾四个钩子），`SequenceService` 持有并转发。
+- 微移：绑定中的条横向被归中抵消（← → 净位移为零，直到超出容差解绑）。
+- 不旋转；ActionBar 暂无样式项；老客户端按未知类型隔离。

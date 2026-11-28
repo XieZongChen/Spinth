@@ -342,7 +342,6 @@ SequenceService 唯一注册并按图元种类转发，种类记忆走工具默�
 E2E sequence.spec 8 例（Q-1/Q-2/Q-16/Q-18/Q-20…Q-23）；theme 双态 4 张基线随
 工具坞第 12 钮重生成。挂账：暗色 theme linux 基线 `--stability` 首轮出现一次
 ±1 抗锯齿抖动（复跑 11 张全等，根因未定位，specs §19.1）。
-±1 抗锯齿抖动（复跑 11 张全等，根因未定位，specs §19.1）。
 
 UML 时序图批次 2（轴锚定 + 消息）已落地（specs/sequence-diagram，实施记录与偏差
 见其 §19.2）：生命线实现 `getAxisAnchor` 探针并覆写 `getAnchorPoint`——连线落在
@@ -364,13 +363,35 @@ points }`，dy 钳到两端留在轴内），线选区拖拽会话恒纵向（`D
 锚点高度重写消息端口再急切重路由（加长保高度）。前置重构：旋转手势拆出
 `rectEditorRotate.ts`（rectEditorService 399 → 345 行，零行为）。E2E
 sequenceMessage.spec 10 例（Q-3…Q-9、Q-15、Q-19 悬停光标部分、轴上悬停点；五处
-关键门控做过变异验证）。批次 3–5（激活条 / 组合片段与打磨 / 视觉基线与收尾）待
-规划。贴上限待下沉：`lineVm.ts` 397、`lineHoverOverlay.ts` 395、
+关键门控做过变异验证）。贴上限待下沉：`lineVm.ts` 397、`lineHoverOverlay.ts` 395、
 `selectorService.ts` 398 行。
 
-当前实测基线：`pnpm verify` 通过；1715 单测（core 1589 + react 88 + app 38）；
-E2E 60 spec / 360 例（主配置 353 --list 实测，含 @visual 10；pwa 7 独立配置；
-全量实测 358 通过 + 2 跳过（旋转手柄暂跳 specs/rotate-hide），0 failed；时序图批次 2 E2E +10 例（sequenceMessage.spec）+ 单测 +91
+UML 时序图批次 3（激活条）已落地（specs/sequence-diagram，实施记录与偏差见其
+§19.3）：ACTIVATION 控件——贴在生命线轴上的恒宽 10 细条（白底 `#333333` 描边，绑定
+与否外观相同；缩放只改高度：`constrainResize` 锁宽 + 新探针 `resizeAxis` 只沿纵轴
+吸附且不出左右边热区——两条隐形热区会盖满条身使已选中的条拖不动；不作连线目标、
+避障豁免、不进容器）。工具坞「时序图」二级菜单图元组增「激活条」：轴上按下纵向拖
+（x 归中、顶 = 按下高度、高度钳 ≥ 16 且底不出轴底，松手选中回选择工具；单击向下 80、
+工具保持；按下须命中轴宿主且在轴段内，距轴底不足 16 不建），手势在
+`activationService.ts`——`DragCreateServiceBase` 留出按下门禁 / 单击矩形 / 草稿矩形 /
+落库后收尾四个零行为钩子，`SequenceService` 持有并转发。绑定：条中心线贴轴 ± 6 且与
+轴段有纵向重叠 → 绑定并归中（多条命中取 zOrder 最上）；拖放 / 微移 / 对齐在落库事务
+内判定，粘贴收尾另起事务，undo / redo 不重判；宿主轴由 `rectOf` + `head` 算术推导
+（事务内不读 vm）；解绑写 `lifelineId: undefined`（本仓库 Yjs 对 undefined 不删键，
+`groupId` / `parentId` 清除同款）。级联复合查找 `composeCascadeLookup` 把容器钩子与
+激活条随行钩子（`IActivationLookup`）合成同一个 `IFrameLookup`——selector / clipboard /
+layer 注入点零改动，命令宿主增内部成员 `cascade`（公开面 71 不变）：拖动 / 微移 /
+对齐分布 / 删除 / 复制剪切随生命线走。条边让位：消息锚点 x = 轴 + sign × (条半宽 −
+留隙)，箭尖停在条边；新建 / 拖动 / 缩放 / 微移 / 对齐 / 粘贴在各自命令事务内重路由
+宿主（宿主探针 `anchorFollowHosts` 读模型不读 vm 状态），删除复用连线既有的
+`onModelRemoved$ → respreadLines`，拖动与缩放条时消息预览跟随。剪贴板 `lifelineId`
+同批指向副本、批外删键并按落点重绑（粘贴入批序改层级排序：容器最先、生命线先于
+激活条）。批次 4–5（组合片段与打磨 / 视觉基线与收尾）待规划。
+
+当前实测基线：`pnpm verify` 通过；1793 单测（core 1666 + react 89 + app 38）；
+E2E 61 spec / 370 例（主配置 363 --list 实测，含 @visual 10；pwa 7 独立配置；
+全量实测 368 通过 + 2 跳过（旋转手柄暂跳 specs/rotate-hide），0 failed；时序图批次 3 E2E +10 例（sequenceActivation.spec）+ 单测 +78
+（specs/sequence-diagram §19.3）；时序图批次 2 E2E +10 例（sequenceMessage.spec）+ 单测 +91
 （specs/sequence-diagram §19.2）；时序图批次 1 E2E +8 例（sequence.spec）+ 单测 +97
 （specs/sequence-diagram §19.1）；符号控件 E2E +9（symbol S-1..S-9）+ 单测 +46；
 网络拓扑 +11 例 network.spec N-1..N-11 含避障豁免回归/同边
@@ -392,8 +413,8 @@ check 为 `gate`。
 下一阶段：常见图能力续批（docs/13 阶段 4，按 跨职能 / 泳道 → UML 时序 →
 UML 类图 / ER → BPMN 顺序；标准流程图、树形图族、网络拓扑 4.3 已完成，
 Phase 4 可选增强见 specs/tree-diagrams §13；**UML 时序图（4.5）分批实施中——
-批次 1（地基 + 生命线）、批次 2（轴锚定 + 消息）已落地**，下一步规划批次 3
-（激活条：轴上按下纵向拖、绑定生命线、条边让位；`rectEditorService` 已腾出行数，
+批次 1（地基 + 生命线）、批次 2（轴锚定 + 消息）、批次 3（激活条）已落地**，下一步
+规划批次 4（组合片段 = FRAME 预设 + 分隔线；打磨：线上文字侧别、actor 头、ActionBar；
 动 lineVm / lineHoverOverlay / selectorService 前先下沉纯函数）——
 specs/sequence-diagram.md §12）→
 协同最后（docs/10，不进入默认启动路径）；

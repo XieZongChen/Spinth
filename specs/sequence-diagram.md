@@ -412,10 +412,11 @@ export function resolveActivationHost(
   `constrainLifelineResize(start, next)` 是纯函数。
 - **激活条**：只保留高度变化。整形函数 `constrainActivationResize(start, next, dir)`
   是纯函数：`width` 恒为 `ACTIVATION_WIDTH`，`x = 中心 − 半宽`，被拖的上下边跟手、
-  高度下限 `ACTIVATION_MIN_HEIGHT`。四角与左右边手柄外观照常（per-type 手柄集不
-  存在，§14 登记），拖它们编辑框与条一起不动。吸附只沿纵轴（探针 `resizeAxis()`，
-  §4.1）：条的东西沿距生命线中心参考线恰为一个 `LINE_END_GAP`，横向参与吸附会
-  常亮一条竖参考线却吸不上。
+  高度下限 `ACTIVATION_MIN_HEIGHT`。四角手柄照常（拖它们编辑框与条一起不动）；
+  左右两条边热区对 `resizeAxis` 件隐藏——热区不渲染像素、外观不变，但它们对锁宽件
+  无作用，却会盖满恒宽 10 的条身，使已选中的条按哪里抓到的都是缩放、拖不动。
+  吸附只沿纵轴（探针 `resizeAxis()`，§4.1）：条的东西沿距生命线中心参考线恰为一个
+  `LINE_END_GAP`，横向参与吸附会常亮一条竖参考线却吸不上。
 
 ### 3.6 绘制
 
@@ -459,7 +460,8 @@ getAxisAnchor?(geom?: IHostGeom): IAxisAnchor | null;
 /** false = 不作连线目标：hitWidget 跳过它继续取下层（ActivationVm 实现，批次 3） */
 isConnectionTarget?(): boolean;
 /** 本件移动 / 缩放 / 新建 / 删除后需要重路由的锚定宿主；缺省 = [自身 id]
- *  （ActivationVm 返回 [lifelineId]，未绑定返回 []——批次 3） */
+ *  （ActivationVm 返回 [lifelineId]，未绑定返回 []；**读模型不读 vm.state**——
+ *  state 是微任务合批的投影，拖入绑定的事务刚写完就会被问到） */
 anchorFollowHosts?(): string[];
 /** 两端都锚在生命线轴上的直线，可沿轴平移（LineVm 实现） */
 isAxisMessage?(): boolean;
@@ -636,6 +638,10 @@ join 归一的理由：箭头让位方向由 join 决定（§3.2），而 `axisJ
 对激活条 A 与生命线 L（L ≠ A）：`|A.cx − L.axis.x| ≤ ACTIVATION_BIND_TOL` ∧
 A 与 `[L.axis.top, L.axis.bottom]` 有纵向重叠 → 绑定 L（多条命中取 zOrder 最上者）；
 否则不绑定。绑定成立时同事务把 `A.x` 归中（`L.axis.x − ACTIVATION_WIDTH / 2`）。
+判定在事务内只读 `rectOf` 与模型：宿主轴 = `lifelineAxis(rectOf(宿主 id), head)`——
+生命线与它的条同选同拖时 vm 几何还是拖拽前的旧值。解绑写
+`update({ lifelineId: undefined })`（Yjs 对 undefined 不删键，`groupId` / `parentId`
+清除同款，读取按值判）。
 
 ### 5.2 写入时机
 
@@ -683,8 +689,9 @@ export function composeCascadeLookup(
 
 ### 5.4 复制 / 剪切 / 粘贴
 
-- **复制 / 剪切**：`expandForCascade` 已含「生命线 → 其激活条」，快照自动带上；
-  展开序把生命线排在它的条之前，粘贴后层级天然正确。
+- **复制 / 剪切**：`expandForCascade` 已含「生命线 → 其激活条」，快照自动带上。
+- **粘贴入批序**：层级排序（稳定）——容器最先，其后生命线先于激活条，其余保持
+  快照序；选区序可能条在前，白底条必须压在生命线的虚线轴之上。
 - **粘贴**：`pasteSnapshots` 增一个分支（LINE 端点同款）——`lifelineId` 同批 → 新
   生命线 id；批外 → 删键。随后 `adoptByLanding`（复合）给无绑定的副本做落点绑定。
 - 消息不在级联内：只复制生命线时，锚定其上的消息不随行，与「复制形状不复制
@@ -972,7 +979,9 @@ export function rewirePortsAfterResize(
 - `Tokens.SequenceLookup` 在 `SequenceService` 构造后注册；Vm 工厂在锚点求值时
   才 `resolve`（此时已注册），`axisOf` 对未注册返回 null。
 - `onDragCommitted` / `onResizeCommitted` 里对每个 id 调 `anchorFollowHosts()`，
-  对返回的每个宿主重路由（缺省探针 = 自身，既有行为不变）。
+  对返回的每个宿主重路由（缺省探针 = 自身，既有行为不变）。同款取宿主的还有三处：
+  几何观察者（`boardAssemblyCore` 的 vm diff 订阅——批量路径与 undo·redo 恢复）、
+  对齐分布的急刻重路由、键盘微移；都夹在各自的 `stopCapturing` 之前。
 - `onActivate`（`boardAssemblyInteraction.ts`）增分支：`type === 'LIFELINE'` 且 `world`
   落在头框内 → 进标签编辑。`boardCommands.ts` 只加 `setDefaultToolOption` 的
   `'sequence'` 分支。
@@ -1242,8 +1251,11 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
       `routeSelfLoop` 与落定重排）。
 - [x] 轴宿主端口 4 位小数；普通件端口仍是 2 位（`lineAxisAnchor.test`、`lineEndpointDragAxis.test`、
       E2E Q-3 的端口还原高度）。
-- [ ] 绑定写与移动同事务；粘贴收尾另起事务；undo / redo 不重判。
-- [ ] 对齐 / 分布带上了随行激活条；FRAME 仍被剔除。
+- [x] 绑定写与移动同事务；粘贴收尾另起事务；undo / redo 不重判。（批次 3：`sequenceBinding.test`
+      真 Yjs + 真引擎——拖入 / 拖出 / 微移 / 多宿主与位移同一事务、一步 undo 位置与绑定一起回；
+      粘贴收尾的重绑在第二个事务里；删条后 undo 复活绑定仍在、redo 可用。E2E Q-10 / Q-14。）
+- [x] 对齐 / 分布带上了随行激活条；FRAME 仍被剔除。（批次 3：`alignCommand.test`——随行条按宿主
+      delta 同事务位移、rectOf 全算术；既有「容器剔除参与集」用例不改一字全绿。补上了 spec G-11。）
 - [x] 加长保高度在缩放同一撤销项内，且 port 不变时零写入（E2E Q-8：加长后一步 undo 同时
       回到旧高度与旧端口、重做一起回来；顶边拖回后端口回到原值；`rewiredPorts` 纯函数零写入分支）。
 - [x] `lineService.ts`、`selectorService.ts`、`boardActionBar.ts`、`rectEditorService.ts`、
@@ -1262,6 +1274,15 @@ pre-push 钩子跑完整 `pnpm verify`，所以**每笔提交都必须自洽全�
 - [x] 既有 11 张视觉基线逐字节不变（工具坞入镜的除外）——仅 theme 双态 × darwin/linux 4 张重生成，其余 9 张 linux 基线容器内重生成后逐字节相同。
 - [x] 公开面 71 成员不变；`BoardInternalMember` 的新增项（`sequence`、`lifeline`）分类正确（分类编译锁与 debugSurface 全绿）。
 - [x] docs/04、08、05、06 与实现一致（批次 1 范围）；docs/13 §4.5 状态已改写。
+- [x] 批次 3：宿主 / 纵轴判定没有落到 selector、rectEditor、连线的 type 分支（`anchorFollowHosts` /
+      `resizeAxis` / `isConnectionTarget` 探针；全量 grep 的命中只有剪贴板的 `lifelineId` 重映射
+      分支与入批序——前者是 LINE 端点同款的数据分支——和 `frameService.reconcileOne` 的排除行）；
+      Q-10、Q-11、Q-13、Q-14 与 Q-9 激活条部分绿；拖拽松手探针、绑定判定、剪贴板重映射、
+      随行展开、创建后重路由五处变异后对应用例转红（容器排除的变异在 E2E 层不可见——
+      schema 不带 `parentId` 是结构性防线，由 `frameOps.test` / `frameService.test` 锁定）；
+      `lineService.ts` / `selectorService.ts` / `lineVm.ts` / `lineHoverOverlay.ts` 零改动；
+      本批动过的文件最大 `lineAnchorFollow.ts` 373、`rectEditorService.ts` 372，新增文件最大
+      `sequenceService.ts` 220；公开面 71 不变，`cascade` 归内部成员。
 
 ## 19. 实施记录（实施 agent 填写）
 
@@ -1374,3 +1395,52 @@ linux 视觉以 `main` 的 required check `gate` 与 dispatch 的 ci 为准。�
 | §7.1 未写：按下点距轴底不足 16                                  | 单击与拖拽都不建                                                                            | 「钳 ≥ 16」与「底不出轴底」不可同时满足                                               |
 | §7.1 未写：创建是否量化网格                                     | 不量化                                                                                      | 恒宽条的网格量化无意义                                                                |
 | §3.5 未写：缩放吸附                                             | 只沿纵轴（新增探针 `resizeAxis()`）                                                         | 条的东西沿距生命线中心参考线恰一个 `LINE_END_GAP`，横向参与吸附会常亮竖参考线却吸不上 |
+
+**实施偏差与实施发现（相对本 spec 正文；正文已同步改写，这里记原因）**
+
+| 事项                                                        | 实际做法                                                                                                                   | 原因                                                                                                                                                              |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §5.1「否则不绑定」、§5.4「批外 → 删键」                     | 拖放 / 微移解绑写 `update({ lifelineId: undefined })`；只有粘贴的快照对象上是真删键                                        | 本仓库的 Yjs（13.6.33）对 `set(key, undefined)` 不删键、键以 undefined 值留存——取消编组写 `groupId: undefined`、脱离容器写 `parentId: undefined` 同款，读取按值判 |
+| §5.3「`reconcileActivations` 只在事务内调」的宿主轴来源     | 轴 = `lifelineAxis(rectOf(宿主 id), 模型 head)`，不读生命线 vm                                                             | 生命线与它的条同选同拖时 vm 几何是拖拽前的旧值（条会被误判解绑）；粘贴收尾时新生命线 vm 还没渲染                                                                  |
+| §4.1 / §9.4 `anchorFollowHosts` 的读取来源                  | 探针读模型（`yData.get('lifelineId')`），不读 `vm.state`；`barsOf` / `expandActivations` 都经它取绑定                      | state 是微任务合批的投影：拖入绑定的事务刚写完，`onDragCommitted` 立刻问探针，读状态会漏掉刚绑上的宿主                                                            |
+| §5.5 删条后的端点让位复位                                   | 零新代码：复用连线既有的 `onModelRemoved$ → unbindFrom → respreadLines`（vmEngine 先订阅，条 vm 已销毁时 `barsOf` 不含它） | 每条变更路径都在自己的命令事务 / 捕获窗内急切重路由后，undo·redo 还原后的重算恒等、零写入（不清重做栈）；E2E Q-11 验 redo 可用                                    |
+| §3.5「四角与左右边手柄外观照常」                            | 左右两条边热区对 `resizeAxis` 件隐藏（热区不渲染像素，外观不变）；四角手柄与上下边热区照常                                 | E2E 实测：两条隐形热区沿整条边各宽 10 屏幕 px，盖满恒宽 10 的条身——已选中的条按哪里抓到的都是缩放、拖不动                                                         |
+| §9.5 宿主探针的调用点                                       | 除 `onDragCommitted` / `onResizeCommitted` 外，几何观察者（`boardAssemblyCore`）、对齐分布的急切重路由、微移也取探针宿主   | 批量路径（粘贴 / undo·redo 恢复）与命令路径（对齐 / 微移）同样需要让位；都夹在各自的 `stopCapturing` 之前                                                         |
+| §5.4「展开序把生命线排在它的条之前」                        | 粘贴入批序改为层级排序：容器最先、生命线先于激活条、其余保持快照序（稳定排序）                                             | 选区序可能条在前；白底条必须压在生命线的虚线轴之上                                                                                                                |
+| §4.1 探针清单                                               | 新增 `IBaseWidgetVm.resizeAxis?(): 'v' \| null`                                                                            | 见开工前订正表；同时是边热区的开关                                                                                                                                |
+| §11.1「`sequenceService.test`：激活条创建带 `lifelineId`…」 | 手势单测在 `activationService.test.ts`（10 例）；`sequenceService.test` 只测转发                                           | 手势在协作者文件                                                                                                                                                  |
+| §11.1 `lineAnchorFollow.test`（扩）                         | +3：拖条端点视觉跟随、未实现探针的件不扩宿主集、删条后让位复位                                                             | —                                                                                                                                                                 |
+| Q-13                                                        | 用现有容器验证；片段预设属批次 4                                                                                           | —                                                                                                                                                                 |
+| §11.1 变异验证口径                                          | 容器排除的变异在 E2E 层不可见（schema 不带 `parentId`，数据上写不进去），由 `frameOps.test` / `frameService.test` 锁定     | 结构性防线先于判定                                                                                                                                                |
+
+**提交**（每笔 pre-push `pnpm verify` 全绿后推送）
+
+| #   | 提交      | 内容                                                                                                                               | 实测                                                                                                                         |
+| --- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 0   | `e4f0ac1` | docs(spec)：开工前订正，打开 §19.3                                                                                                 | —                                                                                                                            |
+| 1   | `4b8e454` | refactor：拖拽创建基类留出四个零行为钩子（按下门禁 / 单击矩形 / 草稿矩形可返回 null / 落库后收尾）                                 | `dragCreateBase.test` 既有 6 例不改一字全绿 + 新 5 例先红后绿                                                                |
+| 2   | `d558c75` | feat：ACTIVATION 三件套（`sequenceOps` / `activationModel` / `activationVm`）、注册表第十二类、`resizeAxis` 探针、容器归属双重排除 | +24 单测（sequenceOps 13 / activationVm 8 / widgetRegistry +1 / shapeContrast +1 / frameService +1）                         |
+| 3   | `066b783` | feat：激活条创建手势（`activationService`）、SequenceService 持有并转发、工具坞图元组增「激活条」                                  | +13 单测（activationService 10 / sequenceService +2 / react toolbarSequence +1）                                             |
+| 4   | `d1851a1` | feat：级联复合查找（`composeCascadeLookup`）、`IActivationLookup`、命令宿主 `cascade`、三处注入点换对象                            | +4 单测（sequenceCascade）；`clipboardFrame.test` / `alignCommand.test` 不改全绿                                             |
+| 5   | `2539a17` | feat：绑定实现（拖放 / 微移同事务判定、粘贴收尾落点重绑、随行展开与 `barsOf` 实装）                                                | +14 单测（sequenceBinding 10，真 Y.Doc + 真引擎 + 真 VM / sequenceOps +4 `activationBind`）；变异：绑定判定 no-op → 4 例转红 |
+| 6   | `548abdc` | feat：剪贴板重映射 `lifelineId`，粘贴入批序改层级排序                                                                              | +5 单测（clipboardSequence）                                                                                                 |
+| 7   | `b185e9c` | feat：条边让位——探针接入拖拽 / 缩放松手与几何观察者、拖动与缩放条时消息预览跟随、草稿终点经宿主锚点                                | +4 单测（lineAnchorFollow +3 / lineDrawPolicy +1）；连线与时序图 E2E 37/37                                                   |
+| 8   | `03f677d` | feat：对齐分布与微移的随行件（补 G-11）                                                                                            | +5 单测（alignCommand）                                                                                                      |
+| 9   | `7b4e93e` | fix：激活条缩放只沿纵轴吸附（`resizeSnapsOnAxis`）                                                                                 | +3 单测（rectEditorAxis）                                                                                                    |
+| 9b  | `8b46af0` | fix：只沿纵轴缩放的件不出左右边热区（已选中的条抓不住）                                                                            | +1 单测；缩放类 E2E 24 通过 + 2 跳过                                                                                         |
+| 10  | `99b0f57` | test：时序图激活条 E2E（`sequenceActivation.spec.ts` 10 例）                                                                       | 变异五处转红，见 §18 批次 3 行                                                                                               |
+| 11  | 见 git    | docs：文档同步（docs/00 / 02 / 04 / 05 / 06 / 08 / 09 / 12 / 13 / 15、本 spec、AGENTS.md）                                         | 见 docs/15                                                                                                                   |
+
+**批次收尾实测**：单测 1793（core 1666 + react 89 + app 38，+78）。全量 E2E 主配置 363 例
+（`--retries=0`）361 通过 + 2 跳过（旋转手柄用例暂跳，specs/rotate-hide），0 failed，
+darwin `@visual` 10 例基线未变；pwa 7 例独立配置——紧接主配置连跑时 P6（多标签更新流程）
+一次 150s 超时，单独复跑 7/7（一次性抖动，与本批改动无关，留观）。回归面：连线 6 个
+spec + `sequence` / `sequenceMessage` 37/37（提交 7 后）、缩放类 5 个 spec + `sequence`
+24 通过 + 2 跳过（提交 9b 后）。挂账（已报人类）：
+
+- 已选中的激活条可抓的区域在上下边热区之间——16px 高的最矮条只剩中段约 8px 可抓
+  （四角手柄各 8 屏幕 px）；per-type 手柄集仍未做（§14）。
+- ActionBar 对激活条是空栏（与生命线现状相同；样式项属批次 4）。
+- 不钳层级：把条「置于底层」后它仍在生命线之上可见（生命线轴区无填充）。
+- `nudgeSelected` 对普通件仍无急切重路由（锚定线在微任务相才重算，未验证是否裂撤销项）；
+  本批只对带探针的件与轴消息补了急切重算。

@@ -35,6 +35,11 @@
   = 一步 undo），带父副本与画笔 / 连线副本不参与。右键菜单「移出容器」= 选中集清
   parentId（经 `updateSelectedStyle({parentId: undefined})` 通用通道分流
   FrameService.detachSelection，I5 唯一写入口）。
+- 激活条随生命线复制（specs/sequence-diagram §5.4）：复制 / 剪切经同一个级联复合
+  查找展开（生命线并入其绑定的激活条）；粘贴时 `lifelineId` 同批生命线 → 指向副本、
+  批外 → 删键，随后在落点归属那一步按落点重绑（无绑定的条落在轴上即绑定并归中，
+  同一事务重路由宿主消息）。粘贴入批序是层级排序：容器最先，其后生命线先于激活条，
+  其余保持快照序。消息不在级联内——只复制生命线时锚定其上的消息不随行。
 - 落点超出视口 → `zoomFromClipboard` 平移找回。
 - 通道：
   - 快捷键：document 原生 copy/paste/cut 事件（可读 Files）；

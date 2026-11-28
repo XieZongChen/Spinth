@@ -50,6 +50,10 @@ const LineSchema = z.object({
   vm root 尚未应用新帧，读 vm 会滞后一拍产生幻影撤销项。
 - 轴宿主（`getAxisAnchor` 探针，生命线实现）的锚点在轴上：四个 join 的 t 都是轴上
   高度比例，x 让出一个 `LINE_END_GAP`（`lineAxisAnchor.axisAnchorWithInset`）。
+  **条边让位**：该高度上有绑定在这条生命线上的激活条时，让出量 = 条半宽（锚点
+  x = 轴，箭尖停在条边；无条 = 轴 ± 一个留隙，箭尖停在轴上）——半宽经
+  `ISequenceLookup.barsOf` 现查、预览敏感；条的新建 / 拖动 / 缩放 / 删除都会重路由
+  宿主上的消息（docs/04 §8.7）。消息草稿的终点走同一锚点单源。
   落点单源 `resolveAnchorPick`：轴宿主 = 指针在轴的哪一侧选边 + 端口 = 轴上比例
   （4 位小数——两位在长轴上量化到 5…10px，重写端口时消息会可见地跳）；其他宿主 =
   `nearestJoin`、无端口，与此前逐字节一致。创建数据只在端口有值时才写
@@ -63,6 +67,7 @@ const LineSchema = z.object({
   删节点余线均触发全量重排，samePoints 守卫保证零位移线零写入。
 - 连线拾取 `hitWidget`：`isConnectionTarget() === false` 的件跳过继续取下层；容差环
   对轴宿主按到**轴段**的距离算（包围盒 120 宽，贴包围盒外沿按下不该起消息）。
+  激活条不作连线目标——指针落在条上时取到下层的生命线。
 - quick-add 资格单源 `lineHitTest.canQuickAdd`：轴宿主与不可作连线目标的件不出四向
   连接点、点击不触发 quick-add；连线工具悬停轴宿主时在轴上指针高度出单点。
 - 悬停 widget：连接点判定取四向外移点最近侧（外移 24px 屏幕恒定）；锚点
@@ -90,7 +95,8 @@ routeElbow(start, startJoin, end, endJoin, startNode?, endNode?, obstacles?):
 
 - **全局避障**：`collectRouteObstacles`（lineRoute.ts 单源）取两端点外扩
   `OBSTACLE_PAD=120` 包围盒内候选 → 排除 LINE/PEN 与两端节点 →
-  **无填充 SHAPE / 生命线豁免**（`fill:'none'` 标注/区域框与 LIFELINE 不入障碍，
+  **无填充 SHAPE / 时序图件豁免**（`fill:'none'` 标注/区域框、LIFELINE 与 ACTIVATION
+  不入障碍，
   线从上穿过是预期——`IObstacleVmSource.isRouteObstacle?()` 可选探针，缺省视为
   障碍；specs/network-diagram §5.2、specs/sequence-diagram §3.6）→ 旋转件保守
   外接（rotatedRectBounds）→

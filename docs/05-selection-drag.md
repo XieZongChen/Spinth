@@ -92,7 +92,9 @@ dragMove:  选区位置 = 当前鼠标世界坐标 - offset
   `engine.transact` = 一次撤销。
 - **必须用拖拽状态里最后一帧吸附修正后的位移**（`lastDx/lastDy`），
   禁止从指针原始差值重算，否则「拖拽中对齐、松手跳回」（docs/14 规则 5）。
-- 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。
+- 落库后经 `onDragCommitted` 钩子急切重路由锚定线，并入同一撤销项。要重路由的宿主
+  取 `anchorFollowHosts()` 探针（缺省 = 自身；激活条 = 绑定的生命线——条边让位，
+  docs/04 §8.7）。
 - 纯线选区只在含**轴消息**时才建会话，且恒为纵向（`DragState.axis = 'v'`：dx 置 0、
   参考线与网格只作用纵向、选区框只动 y）——轴消息上下移动，普通线原地不动；
   没有任何可平移件的线选区不建（空会话只带来 ActionBar 停隐副作用）。
@@ -127,7 +129,12 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   在 `resizeMath.planResize` 末位应用一次——预览、编辑框、选区框、落库拿到同一个
   矩形。整形须保持被拖边的位置（吸附落点，挪了命中线就对不上）；θ ≠ 0 的旋转态
   不调用（需要整形的控件都不可旋转）。当前实现：LIFELINE 按被拖边到轴的距离定宽
-  （宽度以轴对称、下限 60×120，docs/04 §8.5）。
+  （宽度以轴对称、下限 60×120，docs/04 §8.5）；ACTIVATION 只保留高度变化（宽恒 10、
+  x = 中心 − 半宽、下限 16，docs/04 §8.7）。
+- **纵轴缩放探针** `IBaseWidgetVm.resizeAxis?()`：返回 `'v'` 的件（ACTIVATION）缩放
+  吸附 / 量化只取手柄方向的纵向分量（`se → s`、`e → 空`），并且缩放编辑框不出
+  左右两条边热区——恒定的那一轴参与吸附只会亮一条吸不上的参考线，边热区还会盖住
+  10px 宽的条身使它拖不动。四角手柄与上下边热区照常。
 - **LINE 例外**：线不可整体拖动/缩放，四个覆写为空操作；线只随锚定节点移动或拖端点重锚定。
   自由线在对齐/分布命令中经 points 平移参与，不冲突。
 - 例外之例外——**轴消息**（两端锚在生命线轴上的直线或自环，`LineVm.isAxisMessage()`
@@ -190,6 +197,11 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 - 创建即归属与粘贴收尾共用落点归属：只处理工具在事务外新建 / 粘贴出的无父件，
   undo·redo 恢复不重判；画笔与连线不参与（模型矩形是占位值）——画笔拖入才归属，
   连线不随拖拽 / 微移平移、不参与任何落点判定（docs/02 容器归属不变量）。
+- 级联查找是**复合查找**（`composeCascadeLookup`）：容器钩子与激活条随行钩子
+  （`IActivationLookup`，实现在 `SequenceService`）合成同一个 `IFrameLookup`，
+  selector / clipboard / layer 的调用点不认具体类型——展开 = 两者并集去重保序，
+  归属判定 = 两者依次调用，其余直通容器。激活条因此随生命线拖动 / 微移 / 删除 /
+  复制（松手时在落库事务内判定绑定：贴轴即绑并归中，离轴解绑，docs/04 §8.7）。
 
 ## 5. 高频合并策略
 
@@ -202,7 +214,8 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
 ## 6. 键盘微移与删除
 
 - 方向键：1px 微移（Shift = 10px）；支持八向组合；选中容器时级联展开带子
-  （同事务归属判定，specs/container-frame §4.5）。
+  （同事务归属判定，specs/container-frame §4.5）；选中生命线时带其绑定的激活条。
+  绑定中的激活条横向微移被归中抵消（净位移为零，超出容差才解绑）。
 - Delete/Backspace：删除选中；脑图走焦点删除规则；容器连子删（单事务一步 undo）。
 - Esc：清空选中 / 退出编辑态 / 取消工具。
 
@@ -220,6 +233,8 @@ selector/rectEditor 禁止直接改 root 或 `updateRect`。
   处理。
 - 落库：一个 `engine.transact` 完成全部位移；随后对每个移动过的宿主急切 reattach；
   `stopCapturing()` = 一次撤销。
+- 生命线参与时，它绑定的激活条按宿主的 delta 在同一事务内随行（经级联查找展开；
+  否则「分布水平」一次就把全部条留在原地）；参与对齐的激活条同时重判绑定。
 - 算法：`alignOps.ts` 的纯函数 `computeAlignDeltas` /
   `computeDistributeDeltas`；测试见 `alignOps.test.ts` + `e2e/align.spec.ts`。
 
