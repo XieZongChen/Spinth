@@ -34,6 +34,7 @@ import {
   Moon,
   MousePointer2,
   Pencil,
+  PersonStanding,
   Plus,
   Redo2,
   Scan,
@@ -88,6 +89,7 @@ export type IconName =
   | 'sequence-message-return' // 返回消息（虚线 + 开放箭头）
   | 'sequence-activation' // 激活条（虚线轴 + 贴轴窄条）
   | 'sequence-divider' // 分隔线（横向虚线，两端自由）
+  | 'sequence-actor' // 时序图 actor 头（小人）
   | 'undo'
   | 'redo'
   | 'trash'
@@ -283,6 +285,8 @@ const ICONS: Record<IconName, LucideIcon | SvgIconCmp> = {
       <line x1="2.5" y1="12" x2="21.5" y2="12" strokeDasharray="3 2.4" />
     </>,
   ),
+  // 时序图 actor 头（specs/sequence-diagram §8.2「头部样式」的小人选项）
+  'sequence-actor': PersonStanding,
   orgchart: Network,
   undo: Undo2,
   redo: Redo2,

@@ -5,6 +5,7 @@
  * 自带 editable 判断（与命令层 assertEditable 语义同源，独立守卫）。
  */
 import type { IBoardCommandHost } from './boardHost';
+import type { LifelineData } from './types';
 
 /** ActionBar 样式写入：一个事务覆盖全部选中（schema 字段经 zod strip 防越权） */
 export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string, unknown>): void {
@@ -66,13 +67,21 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
   // 会覆盖恢复出来的历史路由（含 pinned）并清空重做栈。线型实际有变才触发
   // （重复点选当前项幂等）；rerouteLine 自带非线/自由线早退
   const toElbowed = patch2.lineType === 'ELBOWED';
+  // 头部样式切换（specs/sequence-diagram §7.2）：轴顶随头区高移动，锚定消息要在同一
+  // 事务内按新轴重算——同切回折线：不交给 vm diff（微任务相晚于本事务的
+  // stopCapturing，写入会裂成独立撤销项）。头部样式实际有变才触发
+  const headTo = patch2.head === 'box' || patch2.head === 'actor' ? patch2.head : undefined;
   ctx.engine!.transact(() => {
     for (const id of ids) {
       const model = ctx.engine?.getModelById(id);
-      const wasElbowed =
-        toElbowed && (model?.toJSON() as { lineType?: string } | undefined)?.lineType === 'ELBOWED';
+      const prev = model?.toJSON() as
+        { lineType?: string; head?: LifelineData['head'] } | undefined;
+      const wasElbowed = toElbowed && prev?.lineType === 'ELBOWED';
       model?.update(patch2 as never);
       if (toElbowed && !wasElbowed) ctx.lineService?.rerouteLine(id);
+      if (headTo !== undefined && prev && prev.head !== headTo) {
+        ctx.sequence?.onHeadChanged(id, prev.head);
+      }
     }
   });
   if (

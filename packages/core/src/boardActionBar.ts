@@ -24,6 +24,7 @@ import {
 import { darkenHex, numToHex } from './common/color';
 import { frameActionBarItems } from './widgets/frame/frameActionBar';
 import { lineActionBarItems } from './widgets/line/lineActionBar';
+import { lifelineActionBarItems } from './widgets/sequence/lifelineActionBar';
 
 /**
  * ActionBar schema v2（docs/12 §4/§5，2026-10-03 参考视频对齐）：单选按
@@ -205,6 +206,10 @@ export function buildActionBarSchema(
       // 容器样式五项（specs/container-frame §5.2）——items 拆至
       // widgets/frame/frameActionBar（审查返工 400 行拆分）
       return { type: vm.type, items: frameActionBarItems(data) };
+    case 'LIFELINE':
+      // 生命线：头部样式一项（specs/sequence-diagram §8.2）——items 在
+      // widgets/sequence/lifelineActionBar
+      return { type: vm.type, items: lifelineActionBarItems(data) };
     case 'LINE':
       // 连线样式项——items 拆至 widgets/line/lineActionBar（时序图批次 4：
       // boardActionBar 已 382 行，文字位置项与生命线头部样式项同批加入）

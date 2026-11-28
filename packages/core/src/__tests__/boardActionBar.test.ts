@@ -248,6 +248,39 @@ describe('buildActionBarSchema 单选分支', () => {
     expect(below?.items.find((i) => i.id === 'textSide')?.value).toBe('below');
   });
 
+  it('LIFELINE：「头部样式」一项（矩形 / 小人），缺省值 box、当前值如实；ACTIVATION 仍是空栏', () => {
+    const s = buildActionBarSchema(
+      makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'LIFELINE' }, data: { label: '用户' } }),
+      () => 0,
+    );
+    expect(s?.type).toBe('LIFELINE');
+    expect(s?.items).toHaveLength(1);
+    expect(s?.items[0]).toMatchObject({
+      id: 'head',
+      kind: 'popover',
+      label: '头部样式',
+      value: 'box',
+    });
+    expect(s?.items[0]?.options?.map((o) => [o.id, o.label])).toEqual([
+      ['box', '矩形'],
+      ['actor', '小人'],
+    ]);
+    const actor = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'LIFELINE' },
+        data: { head: 'actor' },
+      }),
+      () => 0,
+    );
+    expect(actor?.items[0]?.value).toBe('actor');
+    const bar = buildActionBarSchema(
+      makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'ACTIVATION' } }),
+      () => 0,
+    );
+    expect(bar?.items).toEqual([]);
+  });
+
   it('PEN：笔宽 + 颜色两项；STICKY：便签色 + 全套排版；TEXT：仅排版四项', () => {
     const pen = buildActionBarSchema(
       makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'PEN' }, data: {} }),

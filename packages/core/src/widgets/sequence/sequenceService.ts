@@ -17,6 +17,8 @@ import type {
   LifelineData,
 } from '../../types';
 import { isAxisHost } from '../line/lineAxisAnchor';
+import { rewiredPorts } from '../line/lineAxisResize';
+import { collectLineDatas } from '../line/lineSelfLoopSpan';
 import type { FrameService } from '../frame/frameService';
 import type { LifelineService } from './lifelineService';
 import { ActivationService } from './activationService';
@@ -195,6 +197,32 @@ export class SequenceService extends Disposable implements IActivationLookup, IS
       model.updateRect({ x: hit.axis.x - ACTIVATION_WIDTH / 2 });
       this.line?.reattach(hit.id, { rect: modelRectOf(hit.id), rotation: 0 });
     }
+  }
+
+  /** 头部样式切换后的锚定消息重算（specs/sequence-diagram §7.2）——只在
+   *  updateSelectedStyle 的事务内、写入 head 之后调用：头区高变了轴顶就移（36 ↔ 72），
+   *  先按「旧轴上同高度」重写锚定在这条生命线上的端口（加长保高度同款，§4.7），再
+   *  急刻重路由。不交给几何观察者：它的 diff 键不含 head，等它来算消息会停在旧位置。
+   *  oldHead = 写入前的值；任一侧无轴（退化件）零写入 */
+  onHeadChanged(id: string, oldHead: LifelineData['head']): void {
+    const engine = this.engine;
+    const vm = this.vmEngine.getVmById(id);
+    const data = engine?.getModelById(id)?.toJSON() as Partial<LifelineData & IRect> | undefined;
+    if (!engine || !vm || !isAxisHost(vm) || !data) return;
+    const rect = {
+      x: data.x ?? 0,
+      y: data.y ?? 0,
+      width: data.width ?? 0,
+      height: data.height ?? 0,
+    };
+    const oldAxis = lifelineAxis(rect, oldHead);
+    const newAxis = lifelineAxis(rect, data.head);
+    if (!oldAxis || !newAxis) return;
+    const lines = collectLineDatas(engine, this.vmEngine);
+    for (const { id: lineId, ...patch } of rewiredPorts(id, oldAxis, newAxis, lines)) {
+      engine.getModelById(lineId)?.update(patch as never);
+    }
+    this.line?.reattach(id, { rect, rotation: 0 });
   }
 
   /** 轴宿主清单（zOrder 降序 = 多条命中取最上）。轴由 rectOf + 模型 head 算术推导：

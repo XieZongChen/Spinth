@@ -89,3 +89,65 @@ describe('updateSelectedStyle：文字位置的「线上」转写（specs/sequen
     expect(b.model.update.mock.calls[0]![0]).toEqual({ color: '#2563eb', fill: 'solid' });
   });
 });
+
+describe('updateSelectedStyle：头部样式切换的事务内重算（specs/sequence-diagram §7.2）', () => {
+  /** 两个选中件（按 id 取模型）的最小桩：记录 update 与 onHeadChanged 的事务深度 */
+  function makeHeadHost(heads: Record<string, string | undefined>) {
+    const calls: string[] = [];
+    let depth = 0;
+    const models = new Map(
+      Object.entries(heads).map(([id, head]) => [
+        id,
+        {
+          toJSON: () => ({ head }),
+          update: vi.fn(() => {
+            calls.push(`update:${id}@${depth}`);
+          }),
+        },
+      ]),
+    );
+    const host = {
+      selector: { selected$: { value: Object.keys(heads) } },
+      viewport: { editable$: { value: true } },
+      engine: {
+        transact: (fn: () => void) => {
+          depth++;
+          try {
+            fn();
+          } finally {
+            depth--;
+          }
+        },
+        getModelById: (id: string) => models.get(id),
+      },
+      history: { stopCapturing: vi.fn() },
+      sequence: {
+        onHeadChanged: vi.fn((id: string, old: string | undefined) => {
+          calls.push(`head:${id}:${old}@${depth}`);
+        }),
+      },
+    } as unknown as IBoardCommandHost;
+    return { host, calls };
+  }
+
+  it('box → actor：写入 head 的同一事务内、写入之后，带写入前的旧值调 onHeadChanged', () => {
+    const { host, calls } = makeHeadHost({ L1: undefined });
+    updateSelectedStyle(host, { head: 'actor' });
+    expect(calls).toEqual(['update:L1@1', 'head:L1:undefined@1']);
+  });
+
+  it('同值（重复点选当前项）不触发；不含 head 的 patch 不触发', () => {
+    const same = makeHeadHost({ L1: 'actor' });
+    updateSelectedStyle(same.host, { head: 'actor' });
+    expect(same.calls).toEqual(['update:L1@1']);
+    const other = makeHeadHost({ L1: undefined });
+    updateSelectedStyle(other.host, { label: 'x' });
+    expect(other.calls).toEqual(['update:L1@1']);
+  });
+
+  it('多选：只有头部样式真变的件触发，各带自己的旧值', () => {
+    const { host, calls } = makeHeadHost({ L1: undefined, L2: 'actor' });
+    updateSelectedStyle(host, { head: 'actor' });
+    expect(calls).toEqual(['update:L1@1', 'head:L1:undefined@1', 'update:L2@1']);
+  });
+});
