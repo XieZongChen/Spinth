@@ -264,3 +264,81 @@ export async function waitSaved(page: Page): Promise<void> {
 export function rectOf(s: { x: number; y: number; width: number; height: number }): number[] {
   return [s.x, s.y, s.width, s.height];
 }
+
+/** 激活条快照（批次 3）：lifelineId 缺省 = 未绑定；可选键缺省 = 数据里没有这个键 */
+export interface ActivationSnap {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lifelineId?: string;
+  parentId?: string;
+  zOrder?: string;
+}
+
+export async function activationsOf(page: Page): Promise<ActivationSnap[]> {
+  return (await vmStates(page)).filter((s) => s.type === 'ACTIVATION') as ActivationSnap[];
+}
+
+/** 激活条文档真值（绑定断言读它——拖拽 / 粘贴批量路径后 vm.state 可能滞后） */
+export async function activationDoc(page: Page, id: string): Promise<ActivationSnap | null> {
+  return docOf(page, id) as unknown as ActivationSnap | null;
+}
+
+/** 时序图激活条工具：Q 进工具 + 二级菜单选「激活条」 */
+export async function pressActivationTool(page: Page): Promise<void> {
+  await pressSequenceTool(page);
+  await setSequenceKind(page, '激活条');
+}
+
+/** 撤销 / 重做可用性（公开输出流 canUndo$ / canRedo$ 的当前值） */
+export async function canUndoOf(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    (
+      window as unknown as { __spinth: { canUndo$: { getValue(): boolean } } }
+    ).__spinth.canUndo$.getValue(),
+  );
+}
+
+export async function canRedoOf(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    (
+      window as unknown as { __spinth: { canRedo$: { getValue(): boolean } } }
+    ).__spinth.canRedo$.getValue(),
+  );
+}
+
+/** 粘贴到指定世界点（公开命令 pasteAt：快照左上角落点），等一拍让新件建好 */
+export async function pasteAtWorld(page: Page, x: number, y: number): Promise<void> {
+  await page.evaluate(
+    (target) => {
+      (
+        window as unknown as { __spinth: { pasteAt(t: { x: number; y: number }): void } }
+      ).__spinth.pasteAt(target);
+    },
+    { x, y },
+  );
+  await page.waitForTimeout(300);
+}
+
+/** 已选中控件的手柄 / 条身从世界 (x1,y1) 按住拖到 (x2,y2)；按住期间回调 onDrag
+ *  （读拖拽预览），最后才松手 */
+export async function holdDrag(
+  page: Page,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  onDrag?: () => Promise<void>,
+): Promise<void> {
+  const a = await toPage(page, x1, y1);
+  const b = await toPage(page, x2, y2);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await onDrag?.();
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
