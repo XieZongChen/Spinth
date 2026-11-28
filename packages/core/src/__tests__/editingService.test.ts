@@ -194,4 +194,53 @@ describe('EditingService 统一编辑会话（docs/17）', () => {
     expect(history.stopCapturing).not.toHaveBeenCalled();
     svc.dispose();
   });
+
+  it('首帧量到框高后重取 getRect：位置变了才重定位（LINE 侧别文字的编辑框不压线）', () => {
+    // jsdom 无布局：编辑框 offsetHeight 恒 0，mock 成 40 让 layoutSize 有值
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(40);
+    const { svc, desc } = makeHarness();
+    let frameH = 0;
+    const ys: number[] = [];
+    svc.begin(
+      desc({
+        // 侧别文字的 getRect 依赖编辑器框高（框离线 = 框高 / 2 + 留隙）
+        getRect: () => {
+          const y = -(frameH / 2 + 4);
+          ys.push(y);
+          return { x: 0, y, width: 0, height: 0 };
+        },
+        onFrameChange: (f) => {
+          frameH = f?.height ?? 0;
+        },
+      }),
+    );
+    // 首次 getRect 时框高未知（贴线上方 4px）；量到框高后重取一次并重定位
+    expect(ys).toEqual([-4, -24]);
+    const dom = document.querySelector<HTMLElement>('#spinth-text-layer > div');
+    expect(dom?.style.top).toBe('-24px');
+    svc.exitActive();
+    svc.dispose();
+    vi.restoreAllMocks();
+  });
+
+  it('矩形没变不重定位：普通描述符只多读一次 getRect，DOM 落位不变', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(40);
+    const { svc, desc } = makeHarness();
+    let reads = 0;
+    svc.begin(
+      desc({
+        getRect: () => {
+          reads++;
+          return { x: 10, y: 20, width: 100, height: 40 };
+        },
+      }),
+    );
+    expect(reads).toBe(2);
+    const dom = document.querySelector<HTMLElement>('#spinth-text-layer > div');
+    expect(dom?.style.left).toBe('10px');
+    expect(dom?.style.top).toBe('20px');
+    svc.exitActive();
+    svc.dispose();
+    vi.restoreAllMocks();
+  });
 });

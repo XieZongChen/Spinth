@@ -107,6 +107,9 @@ export class EditingService extends Disposable implements IEditingService {
       );
       // attach 同步完成后 DOM 已布局——立即量框（LINE 空文字首帧即断线，不等节流）
       descriptor.onFrameChange?.(editor.layoutSize);
+      // getRect 可以依赖框尺寸（LINE 侧别文字：编辑框离线 = 框高 / 2 + 留隙）——量到
+      // 框后重取一次；矩形没变 editor.move 不动，其余描述符零行为变化
+      editor.move(descriptor.getRect());
     } else {
       this.ensurePlainKernel().begin(descriptor);
     }
@@ -199,6 +202,7 @@ export class EditingService extends Disposable implements IEditingService {
         s.style as IEditorAttachStyle,
       );
       s.onFrameChange?.(this.richEditor.layoutSize);
+      this.richEditor.move(s.getRect()); // 框高随内容变（同 begin：量到框后重取）
     }
   }
 

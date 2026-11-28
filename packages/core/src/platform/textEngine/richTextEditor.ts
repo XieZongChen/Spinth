@@ -242,6 +242,28 @@ export class RichTextEditor extends Disposable {
     this.attach(worldRect, html, mode, style);
   }
 
+  /**
+   * 编辑中重定位：描述符的 getRect 可以依赖编辑器框尺寸（LINE 侧别文字——编辑框
+   * 离线 = 框高 / 2 + 留隙，首帧量到框高后锚点才定），所以量到框后要重取一次。
+   * 只重放几何 / 样式、不回灌内容；矩形没变不动（其余描述符零行为变化）。
+   */
+  move(worldRect: { x: number; y: number; width: number; height: number }): void {
+    const last = this.lastRect;
+    if (!last || !this.lastMode) return;
+    if (
+      last.x === worldRect.x &&
+      last.y === worldRect.y &&
+      last.width === worldRect.width &&
+      last.height === worldRect.height
+    ) {
+      return;
+    }
+    this.lastRect = worldRect;
+    this.attach(worldRect, this.lastHtml, this.lastMode, this.lastStyle, {
+      contentReplay: false,
+    });
+  }
+
   private syncTransform(): void {
     if (this.lastRect && this.lastMode) {
       // P0-2（2026-10-17 外部审查）：视口变化只重放几何/样式——**不回灌内容**。

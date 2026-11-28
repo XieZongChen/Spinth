@@ -141,6 +141,9 @@ export const LineSchema = z.object({
   text: z.string().default(''),
   /** 文字在路径上的位置比例 0~1（docs/08 §6） */
   textRatio: z.number().min(0).max(1).default(0.5),
+  /** 线上文字侧别（specs/sequence-diagram §4.9）：缺省 = 骑线镂空（旧文档逐字节
+   *  不变）；above / below = 线上方 / 线下方，不切线 */
+  textSide: z.enum(['above', 'below']).optional(),
   /** 锚点沿边参数（docs/08 §3）：optional 无 default——缺失 = 边中点
    *  （同边多线默认同点引出，允许重叠）；显式写入 = 用户手工固定该端，
    *  用于把同边多条线分开。端点重锚定时由投影计算写入 */

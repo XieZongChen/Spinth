@@ -153,14 +153,13 @@ export class LineVm extends BaseWidgetVm<LineData & IRect> {
     // padding/border 比文字 bbox 大一圈——按 bbox 切线会从框边缘穿过
     //（2026-10-02 用户实测揪出）
     const textNode = this.ensureTextNode();
-    const { knockout, textAnchor, hasText } = computeLineTextKnockout(pts, style, {
+    const { knockout, textBox, textAnchor, hasText } = computeLineTextKnockout(pts, style, {
       textEditing: this._textEditing,
       editorFrame: this._editorFrame,
       textNode,
     });
-    this._lastKnockout = knockout
-      ? { x: knockout.x, y: knockout.y, width: knockout.width, height: knockout.height }
-      : null;
+    // 文字盒：骑线 = 镂空矩形；侧别文字不切线但盒仍在（胶囊手柄与 lineKnockout 探针的参照）
+    this._lastKnockout = textBox;
     // 编辑期间文字只留 DOM 一份；Text 隐藏但尺寸已实测（镂空断线保持——
     // border 框内透明底露画布，参考同款）
     textNode.visible = hasText && !this._textEditing;

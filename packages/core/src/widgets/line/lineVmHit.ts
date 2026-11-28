@@ -1,6 +1,6 @@
 import { Container, Point, Text } from 'pixi.js';
-import { effectivePath, polylineHit, pointAtRatio } from './lineMath';
-import { KNOCKOUT_PADDING } from './lineVmText';
+import { effectivePath, polylineHit } from './lineMath';
+import { KNOCKOUT_PADDING, lineTextIsOffLine, textAnchorOf } from './lineVmText';
 import type { LineData } from '../../types';
 
 /** 连线命中域：点命中（线身）与线上文字 bbox 命中。接收 root/state/textSprite
@@ -26,7 +26,8 @@ export function hitTestLinePoint(p: Point, root: Container, state: LineData): bo
 }
 
 /** 线上文字 bbox 命中（世界坐标；文字滑移手势抓取判定，docs/08 §6 批次 3）。
- *  bbox 与渲染镂空同源：Text 实测尺寸 + KNOCKOUT_PADDING 外扩 */
+ *  bbox 与渲染文字盒同源（computeLineTextKnockout）：锚点走 textAnchorOf（侧别随
+ *  偏移）；骑线 = Text 实测 + KNOCKOUT_PADDING 外扩，侧别 = 字形盒不外扩 */
 export function hitTestLineText(
   p: Point,
   root: Container,
@@ -40,10 +41,9 @@ export function hitTestLineText(
     state.points.map((q) => ({ x: q[0], y: q[1] })),
     state.lineType,
   );
-  const { point } = pointAtRatio(pts, state.textRatio);
-  const w = textSprite.width + KNOCKOUT_PADDING * 2;
-  const h = textSprite.height + KNOCKOUT_PADDING * 2;
-  return (
-    lx >= point.x - w / 2 && lx <= point.x + w / 2 && ly >= point.y - h / 2 && ly <= point.y + h / 2
-  );
+  const c = textAnchorOf(pts, state, textSprite.height);
+  const pad = lineTextIsOffLine(state) ? 0 : KNOCKOUT_PADDING;
+  const w = textSprite.width + pad * 2;
+  const h = textSprite.height + pad * 2;
+  return lx >= c.x - w / 2 && lx <= c.x + w / 2 && ly >= c.y - h / 2 && ly <= c.y + h / 2;
 }

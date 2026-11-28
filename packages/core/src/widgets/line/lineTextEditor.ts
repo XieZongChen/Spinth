@@ -2,8 +2,9 @@ import { Disposable } from '../../base/disposable';
 import { markRender } from '../../common/render';
 import type { IDataEngineService, IEditingService, IVmEngineService } from '../../types';
 import { htmlToPlainText } from '../../platform/textEngine/plainText';
-import { pointAtRatio, ratioAtPoint } from './lineMath';
+import { ratioAtPoint } from './lineMath';
 import { LINE_TEXT_FONT_SIZE, LINE_TEXT_LINE_HEIGHT, type LineVm } from './lineVm';
+import { textAnchorOf } from './lineVmText';
 import { defaultLineTextColor } from '../../platform/textEngine/theme';
 
 /**
@@ -57,12 +58,16 @@ export class LineTextEditor extends Disposable {
       textRatio: number;
       fontSize?: number;
       textColor?: string;
+      textSide?: 'above' | 'below';
     };
     const pts = data.points.map((p) => ({ x: p[0], y: p[1] }));
     const plain = htmlToPlainText(data.text || '');
     // 会话局部状态（闭包隔离：begin 抢占旧会话的 onExit 不波及本次）
     let ratio = data.textRatio;
     let pendingRatio: number | null = null;
+    // 编辑器框实测高（onFrameChange 喂入）：侧别文字的编辑框离线 = 框高 / 2 + 留隙，
+    // 与 pixi 渲染同一锚点单源——用文字高会让编辑框（比文字 bbox 高一圈）压线
+    let frameHeight = 0;
     if (!plain.trim() && world) {
       // 新文字：锚定到点击位置（延迟与首次内容写入合并落库）
       ratio = ratioAtPoint(pts, world);
@@ -73,10 +78,13 @@ export class LineTextEditor extends Disposable {
       kernel: 'html',
       // 编辑态选框（参考复刻，2026-10 用户拍板透明底）：透明底 + 功能蓝描边
       // 圆角框，中心对准文字锚点（与 pixi Text anchor 0.5 同心，垂直零偏差），
-      // 宽度随内容自适应；pixi 侧文字隐藏（镂空断线保持）——文字只留 DOM 一份
+      // 宽度随内容自适应；pixi 侧文字隐藏（镂空断线保持）——文字只留 DOM 一份。
+      // 锚点走 textAnchorOf（侧别文字在线上 / 下方；EditingService 量到首帧框高后
+      // 重取 getRect 重定位）
       getRect: () => {
-        const { point } = pointAtRatio(pts, ratio);
-        return { x: point.x, y: point.y, width: 0, height: 0 };
+        // ratio 取会话局部值：新建文字锚定到双击位置（与首次内容写入合并落库）
+        const c = textAnchorOf(pts, { ...data, textRatio: ratio }, frameHeight);
+        return { x: c.x, y: c.y, width: 0, height: 0 };
       },
       getContent: () => (plain.trim() ? data.text : '<p></p>'),
       style: {
@@ -125,6 +133,7 @@ export class LineTextEditor extends Disposable {
       /** 打字变宽不等 34ms 节流落库——同步量框即时跟随镂空（diff 守卫零冗余重绘）；
        *  begin 的 attach 后也即触发一次（空文字首帧即断线） */
       onFrameChange: (frame) => {
+        frameHeight = frame?.height ?? 0;
         const v = this.vmEngine.getVmById(id);
         if (v && v.type === 'LINE') {
           (v as LineVm).setEditorFrame(frame);
