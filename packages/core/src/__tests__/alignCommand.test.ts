@@ -356,3 +356,125 @@ describe('nudgeSelected 容器级联与事务内归属（specs/container-frame �
     expect(commitDrag).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('随行件与条边让位（specs/sequence-diagram §1.2 G-11 / §9.6 陷阱 9，批次 3）', () => {
+  type H = ReturnType<typeof harness>;
+  const inject = (h: H): Record<string, unknown> => h.sdk as unknown as Record<string, unknown>;
+  const vmOf = (h: H, id: string): Record<string, unknown> =>
+    (inject(h).vmEngine as { getVmById(id: string): Record<string, unknown> }).getVmById(id);
+
+  it('对齐：生命线参与时，随行激活条按宿主 delta 同事务位移；绑定判定对参与体重跑，rectOf 全算术', () => {
+    const h = harness(['L1', 'S']);
+    const lifeline = { x: 300, y: 100, width: 120, height: 600 };
+    const bar = { x: 355, y: 300, width: 10, height: 80 };
+    const base = { x: 100, y: 100, width: 50, height: 50 };
+    h.addShape('L1', lifeline);
+    h.addShape('S', base); // 对齐基准（左沿最小，零 delta）
+    h.addShape('B1', bar); // 未选中的随行条
+    const w = inject(h);
+    w.cascade = {
+      expandForCascade: (ids: string[]) => ids.flatMap((i) => [i, ...(i === 'L1' ? ['B1'] : [])]),
+    };
+    const reconcileActivations = vi.fn(() => h.order.push('reconcileSeq'));
+    w.sequence = { reconcileActivations };
+
+    h.sdk.alignSelection('left'); // L1 左沿 300 → 100
+
+    expect(h.commitDrag.get('L1')).toHaveBeenCalledWith(lifeline, -200, 0);
+    expect(h.commitDrag.get('B1')).toHaveBeenCalledWith(bar, -200, 0); // 随宿主同 delta
+    expect(reconcileActivations).toHaveBeenCalledTimes(1);
+    const [ids, rectOf] = reconcileActivations.mock.calls[0]! as unknown as [
+      string[],
+      (id: string) => Rect,
+    ];
+    expect(ids).toEqual(['L1']); // 只判有位移的参与体（展开前选区；随行件不判）
+    expect(rectOf('L1')).toEqual({ x: 100, y: 100, width: 120, height: 600 }); // 初值 + delta
+    expect(rectOf('B1')).toEqual({ x: 155, y: 300, width: 10, height: 80 }); // 随行件同款算术
+    expect(rectOf('S')).toEqual(base); // 零 delta 参与体 = 当前矩形
+    // 随行位移与绑定判定都在事务内；重路由与关窗在外
+    expect(h.order).toEqual([
+      'transact:enter',
+      'commitDrag:L1',
+      'commitDrag:B1',
+      'reconcileSeq',
+      'transact:exit',
+      'reattach:L1',
+      'stopCapturing',
+    ]);
+  });
+
+  it('激活条自身参与对齐：急刻重路由打到它绑定的生命线（宿主未动，几何取宿主自己的）', () => {
+    const h = harness(['B1', 'S']);
+    const bar = { x: 155, y: 300, width: 10, height: 80 };
+    h.addShape('B1', bar);
+    h.addShape('S', { x: 300, y: 100, width: 50, height: 50 });
+    h.addShape('L1', { x: 100, y: 100, width: 120, height: 600 }); // 未选中的宿主
+    const hostGeom = { rect: { x: 100, y: 100, width: 120, height: 600 }, rotation: 0 };
+    vmOf(h, 'L1').getHostGeom = () => hostGeom;
+    vmOf(h, 'B1').anchorFollowHosts = () => ['L1'];
+    const w = inject(h);
+    w.cascade = { expandForCascade: (ids: string[]) => ids };
+    w.sequence = { reconcileActivations: vi.fn() };
+    const reattach = (w.lineService as { reattach: ReturnType<typeof vi.fn> }).reattach;
+
+    h.sdk.alignSelection('top'); // B1 顶 300 → 100
+    expect(h.commitDrag.get('B1')).toHaveBeenCalledWith(bar, 0, -200);
+    expect(reattach).toHaveBeenCalledWith('L1', hostGeom);
+  });
+
+  it('无 cascade / sequence（老桩）：对齐行为零漂移——只动参与体', () => {
+    const h = harness(['A', 'B']);
+    h.addShape('A', { x: 100, y: 100, width: 50, height: 50 });
+    h.addShape('B', { x: 200, y: 80, width: 50, height: 50 });
+    h.sdk.alignSelection('left');
+    expect(h.commitDrag.get('B')).toHaveBeenCalledTimes(1);
+    expect(h.order).toEqual([
+      'transact:enter',
+      'commitDrag:B',
+      'transact:exit',
+      'reattach:B',
+      'stopCapturing',
+    ]);
+  });
+
+  it('微移：带宿主探针的件重路由其宿主、轴消息按锚点重算——都在 stopCapturing 之前', () => {
+    const h = harness(['B1', 'M']);
+    const bar = { x: 155, y: 300, width: 10, height: 80 };
+    h.addShape('B1', bar);
+    h.addLine('M', {
+      anchoredTo: 'L1',
+      points: [
+        [130, 340],
+        [400, 340],
+      ],
+    });
+    h.addShape('L1', { x: 100, y: 100, width: 120, height: 600 });
+    const hostGeom = { rect: { x: 100, y: 100, width: 120, height: 600 }, rotation: 0 };
+    vmOf(h, 'L1').getHostGeom = () => hostGeom;
+    vmOf(h, 'B1').anchorFollowHosts = () => ['L1'];
+    vmOf(h, 'M').isAxisMessage = () => true;
+    vmOf(h, 'M').commitDrag = vi.fn(); // 真实 LineVm 有 commitDrag（dy = 0 时零写）
+    const w = inject(h);
+    const refreshLine = vi.fn((id: string) => h.order.push(`refresh:${id}`));
+    (w.lineService as Record<string, unknown>).refreshLine = refreshLine;
+
+    nudgeSelected(h.sdk as never, 0, 10, false);
+
+    expect(h.commitDrag.get('B1')).toHaveBeenCalledWith(bar, 0, 10);
+    expect(h.order).toEqual([
+      'transact:enter',
+      'commitDrag:B1',
+      'transact:exit',
+      'reattach:L1',
+      'refresh:M',
+      'stopCapturing',
+    ]);
+  });
+
+  it('微移：不带探针的普通件不触发急切重路由（既有行为不变）', () => {
+    const h = harness(['A']);
+    h.addShape('A', { x: 100, y: 100, width: 50, height: 50 });
+    nudgeSelected(h.sdk as never, 1, 0, false);
+    expect(h.reattach).not.toHaveBeenCalled();
+  });
+});

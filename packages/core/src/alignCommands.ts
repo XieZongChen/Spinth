@@ -5,7 +5,7 @@
  * 零变化（alignCommand.test 的时序断言是护栏）。
  */
 import type { IBoardCommandHost } from './boardHost';
-import type { IRect } from './common/geometry';
+import type { IHostGeom, IRect } from './common/geometry';
 import { translatePoints } from './common/geometry';
 import {
   computeAlignDeltas,
@@ -21,7 +21,14 @@ import { collapseGroupParticipants, type ICollapsedPart } from './platform/selec
  *  输入语义（docs/05 §8）——bounds 仍世界 AABB（对齐数学基准） */
 export interface IAlignParticipant {
   id: string;
-  vm: { id: string; commitDrag(init: IRect, dx: number, dy: number): void; getLocalRect(): IRect };
+  vm: {
+    id: string;
+    commitDrag(init: IRect, dx: number, dy: number): void;
+    getLocalRect(): IRect;
+    /** 条边让位的宿主探针（specs/sequence-diagram §4.1；缺省 = 无）与宿主几何 */
+    anchorFollowHosts?(): string[];
+    getHostGeom?(): IHostGeom;
+  };
   bounds: IRect;
   localRect: IRect;
   rotation: number;
@@ -68,7 +75,19 @@ export function nudgeSelected(
     }
   });
   // 撤销项切分（Batch 1 · 1.11①）：按住方向键 key-repeat（几十 ms 间隔）在
-  // 500ms captureTimeout 窗口内全部并项——一次 undo 弹回整段位移
+  // 500ms captureTimeout 窗口内全部并项——一次 undo 弹回整段位移。
+  // 关窗之前先把随条变的东西重算掉（并入本次微移）：带宿主探针的件（激活条 → 其
+  // 生命线的条边让位）与纵向挪过激活条上下沿的轴消息；普通件的锚定线仍由微任务相
+  // 重算（既有行为）
+  for (const id of ids) {
+    const vm = ctx.vmEngine?.getVmById(id);
+    if (!vm) continue;
+    if (vm.isAxisMessage?.()) ctx.lineService?.refreshLine(id);
+    for (const host of vm.anchorFollowHosts?.() ?? []) {
+      const hostVm = ctx.vmEngine?.getVmById(host);
+      if (hostVm) ctx.lineService?.reattach(host, hostVm.getHostGeom());
+    }
+  }
   ctx.history?.stopCapturing();
 }
 
@@ -180,11 +199,14 @@ function applyGeometryDeltas(
   entries: ICollapsedPart<IAlignParticipant>[],
   deltas: IDelta[],
 ): void {
+  // 位移表（参与体 + 随行件 → 初值矩形与 delta）：绑定判定的 rectOf 全走算术
+  const moved = new Map<string, { rect: IRect; dx: number; dy: number }>();
   ctx.engine!.transact(() => {
     entries.forEach((entry, i) => {
       const d = deltas[i];
       if (!d || (d.dx === 0 && d.dy === 0)) return; // 已在目标位，省一次写（组参与体整块省）
       for (const p of entry.members) {
+        moved.set(p.id, { rect: p.localRect, dx: d.dx, dy: d.dy });
         if (p.linePoints) {
           // 自由线：points 平移（粘贴同款通道，updateSelectedStyle 的 as never 先例）
           ctx.engine
@@ -194,6 +216,28 @@ function applyGeometryDeltas(
           p.vm.commitDrag(p.localRect, d.dx, d.dy);
         }
       }
+    });
+    // 随行件（specs/sequence-diagram §1.2 G-11 / §9.6 陷阱 9）：参与体经级联查找
+    // 展开带出的件（生命线 → 绑定的激活条）按各自宿主的 delta 同事务位移——否则
+    // 「分布水平」一次就把全部激活条留在原地
+    const participants = [...moved.keys()];
+    for (const hostId of participants) {
+      const host = moved.get(hostId)!;
+      for (const fid of ctx.cascade?.expandForCascade([hostId]) ?? []) {
+        if (moved.has(fid) || participants.includes(fid)) continue;
+        const vm = ctx.vmEngine?.getVmById(fid);
+        if (!vm) continue;
+        const rect = vm.getLocalRect();
+        moved.set(fid, { rect, dx: host.dx, dy: host.dy });
+        vm.commitDrag(rect, host.dx, host.dy);
+      }
+    }
+    // 参与体里的激活条：绑定重判（归中 / 解绑），与位移同一事务（S7）
+    ctx.sequence?.reconcileActivations(participants, (id) => {
+      const m = moved.get(id);
+      const r = m?.rect ??
+        ctx.vmEngine?.getVmById(id)?.getLocalRect() ?? { x: 0, y: 0, width: 0, height: 0 };
+      return m ? { x: r.x + m.dx, y: r.y + m.dy, width: r.width, height: r.height } : r;
     });
   });
   // 移动过的非线参与者：带动锚定线重路由（reattach 内部对无锚定线的形状 no-op）。
@@ -213,6 +257,12 @@ function applyGeometryDeltas(
         },
         rotation: p.rotation,
       });
+      // 探针给出的其他宿主（激活条 → 未动的生命线）：条的位置变了，消息让位随之变
+      for (const host of p.vm.anchorFollowHosts?.() ?? []) {
+        const hostVm = host === p.id ? p.vm : ctx.vmEngine?.getVmById(host);
+        const geom = hostVm?.getHostGeom?.();
+        if (geom && host !== p.id) ctx.lineService?.reattach(host, geom);
+      }
     }
   }
   ctx.history?.stopCapturing();
