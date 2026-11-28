@@ -5,6 +5,9 @@ import {
   axisJoinFor,
   axisPortFor,
   isAxisHost,
+  MESSAGE_ASYNC_POLICY,
+  MESSAGE_RETURN_POLICY,
+  MESSAGE_SYNC_POLICY,
   resolveAnchorPick,
 } from '../widgets/line/lineAxisAnchor';
 import { LINE_END_GAP } from '../widgets/line/linePath';
@@ -17,6 +20,39 @@ import { LINE_END_GAP } from '../widgets/line/linePath';
 
 const AXIS = { x: 260, top: 136, bottom: 620 };
 const GEOM = { rect: { x: 200, y: 100, width: 120, height: 520 }, rotation: 0 };
+
+describe('拉线策略预设（§4.3）', () => {
+  const ON_AXIS = {
+    horizontal: true,
+    requireAxisTargets: true,
+    freeEnds: false,
+    selfMessage: true,
+  };
+
+  it('同步消息：ELBOWED 草稿、实心箭头、标签在线上方、两端必须落轴', () => {
+    expect(MESSAGE_SYNC_POLICY).toEqual({
+      style: {
+        lineType: 'ELBOWED',
+        startArrow: 'none',
+        endArrow: 'solid',
+        dashed: false,
+        textSide: 'above',
+      },
+      ...ON_AXIS,
+    });
+  });
+
+  it('异步 = 同步换开放箭头；返回 = 异步加虚线；行为位与标签侧别同同步', () => {
+    expect(MESSAGE_ASYNC_POLICY).toEqual({
+      ...MESSAGE_SYNC_POLICY,
+      style: { ...MESSAGE_SYNC_POLICY.style, endArrow: 'arrow' },
+    });
+    expect(MESSAGE_RETURN_POLICY).toEqual({
+      ...MESSAGE_ASYNC_POLICY,
+      style: { ...MESSAGE_ASYNC_POLICY.style, dashed: true },
+    });
+  });
+});
 
 describe('轴上几何（§3.2）', () => {
   it('axisAnchorPoint：t 沿轴段插值（两端 = 轴段端点）', () => {

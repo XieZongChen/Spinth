@@ -306,9 +306,10 @@ test('ActionBar v2：多级 popover + 中文 tooltip + bar 收窄（参考视频
   const bar = page.locator('[data-spinth-action-bar]');
   await expect(bar).toBeVisible();
 
-  // 1) 一级 9 个按钮位（线型/线宽笔宽批增的线宽/虚线/起箭头/终箭头/颜色 +
-  //    排版打磨批 B 增的字号/文字颜色，再/删除）——原 11 个文字平铺位收进二级
-  //    面板（v2 定案）；LINE 排版项无对齐（恒 center 与锚点绑定，docs/17 §4）
+  // 1) 一级 10 个按钮位（线型/线宽笔宽批增的线宽/虚线/起箭头/终箭头/颜色 +
+  //    排版打磨批 B 增的字号/文字颜色 + 时序图批次 4 增的文字位置，再/删除）
+  //    ——原 11 个文字平铺位收进二级面板（v2 定案）；LINE 排版项无对齐（恒 center
+  //    与锚点绑定，docs/17 §4）
   const labels = await bar
     .locator('button[aria-label]')
     .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
@@ -321,14 +322,15 @@ test('ActionBar v2：多级 popover + 中文 tooltip + bar 收窄（参考视频
     '颜色',
     '字号',
     '文字颜色',
+    '文字位置',
     '导出 PNG',
     '删除',
   ]);
   // 2) bar 收窄护栏（原 LINE 全套文字样式 ~400px+；排版批 B +2 位实测 ~337、
-  //    线宽批 +1 图标位 ~371、导出批 +1 公共动作位 ~405——阈值 430。35 轮 🟡
-  //    「再抬时重审」注：导出为一次性动作钮非样式项（不属「收纳稀释」），且
-  //    相对原始 400+ 平铺仍显著收窄；下次样式项再挤入时应转次级 popover）
-  expect(await bar.evaluate((el) => el.offsetWidth)).toBeLessThan(430);
+  //    线宽批 +1 图标位 ~371、导出批 +1 公共动作位 ~405——阈值 430；时序图批次 4
+  //    +1 文字位置 ~451，阈值 480。35 轮「再抬时重审」注：导出为一次性动作钮非样式项；
+  //    下一项按 specs/sequence-diagram §19.4 人类确认落为一级项，窄屏靠 flex-wrap）
+  expect(await bar.evaluate((el) => el.offsetWidth)).toBeLessThan(480);
 
   // 3) 点「线型」→ 二级面板现身、触发钮 expanded、当前值描边圈（aria-checked）
   await bar.locator('button[aria-label="线型"]').click();

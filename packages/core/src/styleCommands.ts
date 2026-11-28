@@ -56,6 +56,10 @@ export function updateSelectedStyle(ctx: IBoardCommandHost, patch: Record<string
   } else if (typeof patch.color === 'string' && patch.color.startsWith('#')) {
     patch2.fill = 'solid';
   }
+  // 线上文字位置（specs/sequence-diagram §4.9）：「线上」的选项 id `on` 不是合法枚举
+  // 值——转写为 textSide: undefined。Yjs 对 undefined 不删键：键以 undefined 值留存，
+  // 读回即缺省（groupId / parentId / lifelineId 清除同款）
+  if (patch.textSide === 'on') patch2.textSide = undefined;
   // 切回折线 = 自动路由接管：重路由并入本事务（切型 + 重路由一步撤销）。不交给
   // vm 的 lineType diff——那是微任务相，本事务已关、stopCapturing 已过，写入会
   // 裂成独立撤销项；undo·redo 落回 ELBOWED 同样带 lineType diff，在那里重路由

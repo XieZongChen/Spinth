@@ -263,6 +263,8 @@ describe('有策略：按下、草稿与落定', () => {
       startArrow: 'none',
       endArrow: 'solid',
       dashed: false,
+      // 消息标签在线上方（§4.3 / §4.9）：预设随草稿写入，落定时透传到终线
+      textSide: 'above',
     });
     expect(h.undo.undoStack.length).toBe(0);
   });
@@ -335,6 +337,7 @@ describe('有策略：按下、草稿与落定', () => {
       lineType: 'STRAIGHT',
       startArrow: 'none',
       endArrow: 'solid',
+      textSide: 'above',
       points: [
         [255, 299.98],
         [665, 299.98],
@@ -355,13 +358,21 @@ describe('有策略：按下、草稿与落定', () => {
     ]);
   });
 
-  it('返回 / 异步预设落库：虚线 + 开放箭头', () => {
+  it('返回 / 异步预设落库：虚线 + 开放箭头 + 标签在线上方', () => {
     const ret = makeHarness(MESSAGE_RETURN_POLICY);
     ret.draw([262, 300], [662, 350]);
-    expect(ret.engine.add.mock.calls[1]![0]).toMatchObject({ dashed: true, endArrow: 'arrow' });
+    expect(ret.engine.add.mock.calls[1]![0]).toMatchObject({
+      dashed: true,
+      endArrow: 'arrow',
+      textSide: 'above',
+    });
     const async = makeHarness(MESSAGE_ASYNC_POLICY);
     async.draw([262, 300], [662, 350]);
-    expect(async.engine.add.mock.calls[1]![0]).toMatchObject({ dashed: false, endArrow: 'arrow' });
+    expect(async.engine.add.mock.calls[1]![0]).toMatchObject({
+      dashed: false,
+      endArrow: 'arrow',
+      textSide: 'above',
+    });
   });
 
   it('一步撤销 = 建出这条消息；撤销后草稿不复活，重做恢复', () => {

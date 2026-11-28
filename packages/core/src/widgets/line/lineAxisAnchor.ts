@@ -97,8 +97,8 @@ export function resolveAnchorPick(
  * 既有连线路径。时序图工具按图元种类选用预设（SequenceService 注入）。
  */
 export interface ILineDrawPolicy {
-  /** 建线样式预设（字段优先于会话默认）。线上文字侧别随批次 4 接入 */
-  style: Partial<Pick<LineData, 'lineType' | 'startArrow' | 'endArrow' | 'dashed'>>;
+  /** 建线样式预设（字段优先于会话默认）：线型 / 箭头 / 虚线 / 线上文字侧别 */
+  style: Partial<Pick<LineData, 'lineType' | 'startArrow' | 'endArrow' | 'dashed' | 'textSide'>>;
   /** 终点高度锁定为起点高度（钳到目标轴范围） */
   horizontal: boolean;
   /** 两端必须落在轴宿主上：起点不是 → 不建线；终点不是 → 松手取消草稿 */
@@ -116,9 +116,16 @@ const MESSAGE_POLICY_BASE = {
   selfMessage: true,
 } as const;
 
-/** 同步消息：草稿按 ELBOWED 建（自消息需要自环路由），跨轴落定时改 STRAIGHT；实心箭头 */
+/** 同步消息：草稿按 ELBOWED 建（自消息需要自环路由），跨轴落定时改 STRAIGHT；实心
+ *  箭头；标签在线上方（消息的线上文字不骑线镂空，§4.9） */
 export const MESSAGE_SYNC_POLICY: ILineDrawPolicy = {
-  style: { lineType: 'ELBOWED', startArrow: 'none', endArrow: 'solid', dashed: false },
+  style: {
+    lineType: 'ELBOWED',
+    startArrow: 'none',
+    endArrow: 'solid',
+    dashed: false,
+    textSide: 'above',
+  },
   ...MESSAGE_POLICY_BASE,
 };
 /** 异步消息：开放箭头 */

@@ -520,8 +520,8 @@ export interface ILineDrawPolicy {
 ```
 
 `ILineDrawHost` 增 `getDrawPolicy?(): ILineDrawPolicy | undefined`。缺省 undefined =
-既有行为。`style` 的类型只含 schema 已有的四个字段——`textSide` 随批次 4 加进
-`LineSchema` 时再并入（§19.2）。`LineService` 把自己的「line 模式处理器对象」提为只读属性 `drawHandlers`
+既有行为。`style` 含线型 / 箭头 / 虚线 / 线上文字侧别五个字段（`textSide` 随批次 4
+并入，§19.4）。`LineService` 把自己的「line 模式处理器对象」提为只读属性 `drawHandlers`
 （注册与被转发共用同一对象），`SequenceService` 直接转发（§7.1）。
 
 | 预设     | lineType | startArrow | endArrow | dashed | textSide | horizontal | requireAxisTargets | selfMessage |

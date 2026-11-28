@@ -5,9 +5,16 @@
  * LINE_WIDTH_OPTIONS 单源）。
  */
 
-import type { IActionBarItem } from '../../types';
+import type { IActionBarItem, IActionBarOption } from '../../types';
 import { ARROW_BAR_OPTIONS, LINE_PALETTE, swatches, typoItems } from '../../actionBarOptions';
 import { LINE_TYPE_OPTIONS, LINE_WIDTH_OPTIONS } from './lineService';
+
+/** 线上文字位置三态：线上（骑线镂空，缺省）/ 上方 / 下方 */
+export const LINE_TEXT_SIDE_OPTIONS: IActionBarOption[] = [
+  { id: 'on', label: '线上', icon: 'obj-align-vcenter' },
+  { id: 'above', label: '上方', icon: 'obj-align-top' },
+  { id: 'below', label: '下方', icon: 'obj-align-bottom' },
+];
 
 export function lineActionBarItems(data: Record<string, unknown>): IActionBarItem[] {
   return [
@@ -54,5 +61,14 @@ export function lineActionBarItems(data: Record<string, unknown>): IActionBarIte
       options: swatches(LINE_PALETTE),
     },
     ...typoItems(data, { fontSize: 12, align: 'left', lineHeight: 1.4 }, false, false),
+    {
+      // 线上文字位置（specs/sequence-diagram §4.9）：「线上」的选项 id `on` 不是合法
+      // 枚举值——styleCommands 转写为 textSide: undefined（读回即缺省）
+      id: 'textSide',
+      kind: 'popover',
+      label: '文字位置',
+      value: data.textSide === 'above' || data.textSide === 'below' ? data.textSide : 'on',
+      options: LINE_TEXT_SIDE_OPTIONS,
+    },
   ];
 }

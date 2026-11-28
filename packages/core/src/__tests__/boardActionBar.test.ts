@@ -212,7 +212,7 @@ describe('buildActionBarSchema 单选分支', () => {
     expect(byId6.textColor?.displaySwatch).toBeUndefined(); // 非 SHAPE 不注入
   });
 
-  it('LINE：8 项顺序固定（线型/线宽/虚线/双箭头/颜色 + 字号/文字色）', () => {
+  it('LINE：9 项顺序固定（线型/线宽/虚线/双箭头/颜色 + 字号/文字色/文字位置）', () => {
     const s = buildActionBarSchema(
       makeHost({ selected: ['w1'], vm: { id: 'w1', type: 'LINE' }, data: {} }),
       () => 0,
@@ -226,9 +226,26 @@ describe('buildActionBarSchema 单选分支', () => {
       'color',
       'fontSize',
       'textColor',
+      'textSide',
     ]);
     expect(s?.items[0]?.value).toBe('STRAIGHT');
     expect(s?.items.find((i) => i.id === 'dashed')?.kind).toBe('toggle');
+    // 文字位置（specs/sequence-diagram §4.9）：缺省 = 线上（选项 id on，经 styleCommands
+    // 转写为 textSide: undefined）；当前值如实反映文档；三项顺序 线上 / 上方 / 下方
+    const side = s?.items.find((i) => i.id === 'textSide');
+    expect(side?.kind).toBe('popover');
+    expect(side?.label).toBe('文字位置');
+    expect(side?.value).toBe('on');
+    expect(side?.options?.map((o) => o.id)).toEqual(['on', 'above', 'below']);
+    const below = buildActionBarSchema(
+      makeHost({
+        selected: ['w1'],
+        vm: { id: 'w1', type: 'LINE' },
+        data: { textSide: 'below' },
+      }),
+      () => 0,
+    );
+    expect(below?.items.find((i) => i.id === 'textSide')?.value).toBe('below');
   });
 
   it('PEN：笔宽 + 颜色两项；STICKY：便签色 + 全套排版；TEXT：仅排版四项', () => {
