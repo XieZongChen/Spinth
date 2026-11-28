@@ -10,7 +10,7 @@ import type {
   IVmEngineService,
 } from '../../types';
 import { RectEditorVm } from './rectEditorVm';
-import { createResizeSnaps, planResize, type HandleDir } from './resizeMath';
+import { createResizeSnaps, planResize, resizeSnapsOnAxis, type HandleDir } from './resizeMath';
 import { inverseRotatePoint } from './rotateMath';
 import { RectEditorRotate, type IRectEditorRotateHost } from './rectEditorRotate';
 import type { RefLineService } from '../refLine/refLineService';
@@ -269,14 +269,16 @@ export class RectEditorService extends Disposable {
     // （视觉状态每帧被本函数改写，作为基准会产生复合漂移）。数学在 resizeMath
     // （旋转态对侧锚定 / 吸附 / 比例锁 / 控件自述的整形），这里只接线；lastNext 即
     // 落库值（预览与落库同源）
-    // 比例锁每帧只看当前 Shift（docs/05 §4.4）：手势中途按下 / 松开即时切换
+    // 比例锁每帧只看当前 Shift（docs/05 §4.4）：手势中途按下 / 松开即时切换。
+    // 只沿纵轴缩放的件（resizeAxis 探针）吸附只取手柄方向的纵向分量
+    const axis = vm.resizeAxis?.();
     const next = planResize(
       this.resize.start,
       this.resize.dir,
       world,
       th,
       e.shiftKey ? this.resize.ratio : undefined,
-      this.snaps,
+      axis ? resizeSnapsOnAxis(this.snaps, axis) : this.snaps,
       vm.constrainResize?.bind(vm),
     );
     this.resize.lastNext = next;

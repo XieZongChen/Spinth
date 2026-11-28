@@ -191,6 +191,17 @@ export function createResizeSnaps(
   };
 }
 
+/** 只沿纵轴缩放的件（`IBaseWidgetVm.resizeAxis` 探针，specs/sequence-diagram
+ *  §3.5）：吸附 / 量化只取手柄方向的纵向分量——se → s、e → 空。恒定的那一轴不
+ *  参与：激活条的东西沿距生命线中心参考线恰一个线端留隙，横向参与吸附会常亮一条
+ *  吸不上的参考线（整形探针随后会把宽度拉回） */
+export function resizeSnapsOnAxis(snaps: IResizeSnaps, axis: 'v'): IResizeSnaps {
+  return {
+    apply: (start, rect, dir) =>
+      snaps.apply(start, rect, (axis === 'v' ? dir.replace(/[ew]/g, '') : dir) as HandleDir),
+  };
+}
+
 /** 整形探针（`IBaseWidgetVm.constrainResize`，以方法形式传入）：返回整形后的目标
  *  矩形。数学层不认识控件类型——生命线宽度以轴对称等约束由控件自述 */
 export type IResizeConstrain = (start: IRect, next: IRect, dir: HandleDir) => IRect;
