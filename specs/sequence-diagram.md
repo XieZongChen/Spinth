@@ -290,7 +290,7 @@ ACTIVATION: {
 | S3   | 轴宿主上的端口在创建时即写入显式值，保留 4 位小数；缺省仍按 0.5 解读                                                                | 拉线策略落库 + 单测                                    |
 | S4   | 激活条至多绑定一个存活 LIFELINE；孤儿 `lifelineId` 读取侧按未绑定处理、不改写数据                                                   | 读取侧过滤（group「消解不清理」同款，undo 后绑定复活） |
 | S5   | 时序图件不进容器：两类 schema 不带 `parentId`，自动归属与拖放判定双重拒绝                                                           | `isAutoAdoptableType` + `reconcileOne`                 |
-| S6   | 激活条宽度恒为 `ACTIVATION_WIDTH`，任何缩放路径落库不变                                                                             | `ActivationVm.commitResize` / `applyResizePreview`     |
+| S6   | 激活条宽度恒为 `ACTIVATION_WIDTH`，任何缩放路径落库不变                                                                             | `ActivationVm.constrainResize` 探针（整形单源）        |
 | S7   | 绑定写入与触发操作同一事务（拖放 / 微移）或同一撤销捕获窗（创建 / 粘贴收尾）                                                        | `reconcileActivations` 只在事务内调；粘贴收尾另起事务  |
 | S8   | 策略缺省时拉线行为逐字节不变；旧文档（无新类型、无 `textSide`）渲染逐字节不变                                                       | 单测锁创建数据 + 视觉基线全量不变                      |
 
@@ -402,7 +402,7 @@ export function resolveActivationHost(
 ### 3.5 缩放语义
 
 整形走缩放服务的可选探针，不在 VM 的预览 / 落库方法里各做一遍：
-`IBaseWidgetVm.constrainResize?(start, next)` 返回整形后的目标矩形，
+`IBaseWidgetVm.constrainResize?(start, next, dir)` 返回整形后的目标矩形，
 `rectEditorService.onWindowMove` 在 `resizeMath.planResize` 末位应用——预览、编辑框、
 选区框、落库拿到的是同一个矩形，拖拽中框与图形始终贴合（VM 层各自整形会让编辑框按
 未整形的矩形画）。θ ≠ 0 的旋转态不调用整形：需要整形的控件都不可旋转。
@@ -410,9 +410,12 @@ export function resolveActivationHost(
 - **生命线**：宽度变化以轴为对称轴（`x = axisX − width / 2`，轴的 x 永不因缩放移动，
   绑定的激活条因此不需要跟随）；高度钳到 `LIFELINE_MIN_HEIGHT` 以上。整形函数
   `constrainLifelineResize(start, next)` 是纯函数。
-- **激活条**：只保留高度变化；`width` 恒写 `ACTIVATION_WIDTH`，`x = 中心 − 半宽`。
-  四角与左右边手柄外观照常（per-type 手柄集不存在，§14 登记），拖它们编辑框与条
-  一起不动。
+- **激活条**：只保留高度变化。整形函数 `constrainActivationResize(start, next, dir)`
+  是纯函数：`width` 恒为 `ACTIVATION_WIDTH`，`x = 中心 − 半宽`，被拖的上下边跟手、
+  高度下限 `ACTIVATION_MIN_HEIGHT`。四角与左右边手柄外观照常（per-type 手柄集不
+  存在，§14 登记），拖它们编辑框与条一起不动。吸附只沿纵轴（探针 `resizeAxis()`，
+  §4.1）：条的东西沿距生命线中心参考线恰为一个 `LINE_END_GAP`，横向参与吸附会
+  常亮一条竖参考线却吸不上。
 
 ### 3.6 绘制
 
@@ -462,6 +465,9 @@ anchorFollowHosts?(): string[];
 isAxisMessage?(): boolean;
 /** 缩放整形（§3.5；批次 1 已落地）：吸附后末位应用，θ ≠ 0 不调用 */
 constrainResize?(start: IRect, next: IRect, dir: ResizeDir): IRect;
+/** 只沿纵轴缩放的件（ActivationVm 实现，批次 3）：缩放吸附只取手柄方向的纵向
+ *  分量（se → s），横向不参与参考线吸附与网格量化 */
+resizeAxis?(): 'v' | null;
 ```
 
 探针都是可选成员、以方法形式调用（`this` = vm）；服务层不按 type 分支（docs/14
@@ -731,7 +737,7 @@ export function composeCascadeLookup(
 | kind id                                             | 名称   | 手势                       | 转发到                            | 落库                                  |
 | --------------------------------------------------- | ------ | -------------------------- | --------------------------------- | ------------------------------------- |
 | `lifeline`                                          | 生命线 | 单击 / 拖拽画图            | `LifelineService.handlers`        | LIFELINE                              |
-| `activation`                                        | 激活条 | 轴上按下，纵向拖           | `SequenceService` 自实现          | ACTIVATION（创建数据带 `lifelineId`） |
+| `activation`                                        | 激活条 | 轴上按下，纵向拖           | `ActivationService.handlers`      | ACTIVATION（创建数据带 `lifelineId`） |
 | `message-sync` / `message-async` / `message-return` | 消息   | 轴上按下，拖到另一条轴松手 | `lineService.drawHandlers` + 策略 | LINE                                  |
 | `divider`                                           | 分隔线 | 空白处按下拖出             | `lineService.drawHandlers` + 策略 | LINE（两端自由）                      |
 | `fragment-alt` / `-opt` / `-loop` / `-par`          | 片段   | 单击 / 拖拽画框            | `sdk.frame.handlers` + 预设       | FRAME                                 |
@@ -753,10 +759,17 @@ export function composeCascadeLookup(
 
 - **生命线**：同形状工具——单击默认尺寸、按下点居中、工具保持可连击；拖拽画图
   松手选中并回选择工具；滑移 < 10 屏幕 px 仍按单击。
-- **激活条**：按下必须命中轴宿主，否则不建。拖拽：x 归中、y = 按下高度、高度跟手
-  （钳 ≥ 16，底不出轴底），松手选中并回选择工具。单击：从按下高度向下 80，
-  工具保持。
+- **激活条**：按下必须命中轴宿主且按下高度在轴段内（点头框、轴旁空白、压在轴上
+  的普通件都不建），否则不建。拖拽：x 归中、y = 按下高度、高度跟手（钳 ≥ 16，底
+  不出轴底；向上拖钳到 16），松手选中并回选择工具。单击：从按下高度向下 80，
+  工具保持。按下点距轴底不足 16 时单击与拖拽都不建（两条钳制不可同时满足）；创建
+  不量化网格（恒宽条的网格量化无意义）。
 - **消息 / 分隔线**：§4.4；落定后选中该线、工具保持激活。
+
+激活条手势在 `activationService.ts`（`DragCreateServiceBase` 子类）：基类留出四个
+零行为钩子——按下门禁（子类不调 super = 本次手势不建）、单击矩形、草稿矩形、
+落库后收尾（在 `stopCapturing` 之前）。`SequenceService` 持有该服务并按种类转发，
+它同 `LifelineService` 一样不注册指针（`initialize()` 抛错）。
 
 ### 7.2 交互矩阵（实施者按此逐行自检）
 
@@ -864,12 +877,13 @@ export function composeCascadeLookup(
 | 20  | `widgets/line/lineAxisResize.ts`                                                                         | `rewirePortsAfterResize`；`previewFollow` 的宿主扩展                                                                                                              | 2 / 3     |
 | 21  | `platform/rectEditor/rectEditorService.ts` + `rectEditorRotate.ts`                                       | 整形探针接线（批次 1）；旋转手势拆出协作者（前置重构，零行为）；`onResizeCommitted` 传 `start`（公开字段，无接口类型）                                            | 1 / 2     |
 | 22  | `widgets/line/lineVmText.ts` / `lineTextEditor.ts` / `lineVmHit.ts`                                      | `textAnchorOf` 单源（§4.9）                                                                                                                                       | 4         |
-| 23  | `widgets/sequence/activationModel.ts` / `activationVm.ts`                                                | 激活条控件；锁宽缩放；两个探针                                                                                                                                    | 3         |
-| 24  | `widgets/sequence/sequenceCascade.ts`                                                                    | `IActivationLookup` 实现 + `composeCascadeLookup`                                                                                                                 | 3         |
+| 23  | `widgets/sequence/activationModel.ts` / `activationVm.ts`                                                | 激活条控件；锁宽缩放；三个探针（`isConnectionTarget` / `anchorFollowHosts` / `resizeAxis`）                                                                       | 3         |
+| 23a | `widgets/sequence/activationService.ts`                                                                  | 轴上按下纵向拖的创建手势（`DragCreateServiceBase` 子类；`SequenceService` 持有并转发）                                                                            | 3         |
+| 24  | `widgets/sequence/sequenceCascade.ts`                                                                    | `composeCascadeLookup`（`IActivationLookup` 的实现在 `SequenceService`）                                                                                          | 3         |
 | 25  | `platform/clipboard/clipboardService.ts`                                                                 | `lifelineId` 桶映射                                                                                                                                               | 3         |
 | 26  | `alignCommands.ts`、`boardHost.ts`、`boardPublicApi.ts`                                                  | `cascade` 成员；随行件按宿主位移                                                                                                                                  | 3         |
-| 27  | `widgets/frame/frameOps.ts` / `frameService.ts`                                                          | 归属排除两类（批次 1 先排除 LIFELINE）；`createPreset`（批次 4）                                                                                                  | 1 / 4     |
-| 28  | `widgets/sequence/sequenceService.ts`、`sequenceOptions.ts`                                              | 工具注册与转发、种类记忆；激活条手势与绑定实现随后续批次追加                                                                                                      | 1 起      |
+| 27  | `widgets/frame/frameOps.ts` / `frameService.ts`                                                          | 归属排除两类（批次 1 排除 LIFELINE、批次 3 排除 ACTIVATION）；`createPreset`（批次 4）                                                                            | 1 / 3 / 4 |
+| 28  | `widgets/sequence/sequenceService.ts`、`sequenceOptions.ts`                                              | 工具注册与转发、种类记忆；激活条绑定实现（`IActivationLookup` / `barsOf`，批次 3）                                                                                | 1 起      |
 | 29  | `widgets/sequence/lifelineActionBar.ts`、`boardActionBar.ts`                                             | ActionBar 两项                                                                                                                                                    | 4         |
 | 30  | `app.ts`、`boardAssemblyInteraction.ts`、`boardAssemblyTools.ts`、`boardCommands.ts`、`boardTeardown.ts` | 装配、`onActivate` 分支（在 `boardAssemblyInteraction.ts`）、`setDefaultToolOption` 分支（在 `boardCommands.ts`）、销毁；`cascade` 组合与 Token 注册随后续批次    | 1 起      |
 | 31  | `platform/keyboard/shortcuts.ts` / `keyboardService.ts`、`platform/viewport/viewportService.ts`          | 快捷键 Q、光标                                                                                                                                                    | 1         |
@@ -892,7 +906,7 @@ endPort / textSide` 自动可断言，零新增探针。
 ### 9.4 接口签名（实施按此落地，签名不得漂移）
 
 ```ts
-// ---- types/services.ts ----
+// ---- types/base.ts（与 ISequenceLookup 同域；§19.3） ----
 export interface IActivationLookup {
   expandActivations(ids: string[]): string[];
   reconcileActivations(ids: string[], rectOf: (id: string) => IRect): void;
@@ -1346,3 +1360,17 @@ linux 视觉以 `main` 的 required check `gate` 与 dispatch 的 ci 为准。�
 - `packages/react/src/components/Icon.tsx` 510 行（批次 2 前已 481 行，图标注册表），无自动行数门禁。
 - 批次 2 做完后消息的线上文字仍骑线镂空（文字侧别属批次 4，届时只对新建消息生效）。
 - 通用连线工具在生命线上的行为随轴锚定改变：按下按指针侧选边并写 4 位小数端口（spec §4.2 的既定设计，用户可见）。
+
+### 19.3 批次 3：激活条
+
+**开工前的订正（2026-11-28；正文已同步改写）**
+
+| 原文 / 事项                                                     | 实际做法                                                                                    | 理由                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| §3.5 / S6：激活条整形写在 `commitResize` / `applyResizePreview` | 走 `constrainResize` 探针（纯函数 `constrainActivationResize`）                             | 批次 1 已定：预览 / 编辑框 / 选区框 / 落库同源，VM 不各自整形                         |
+| §9.4：`IActivationLookup` 在 `types/services.ts`                | `types/base.ts`（与 `ISequenceLookup` 同域）                                                | `services.ts` 已 390 行                                                               |
+| §7.1 / §9.2 #28：手势「SequenceService 自实现」                 | 协作者 `activationService.ts`（`DragCreateServiceBase` 子类），`SequenceService` 持有并转发 | 单文件单职责；复用滑移阈值 / 取消复位 / 工具切换                                      |
+| §9.2 #27：批次列 `1 / 4`                                        | `1 / 3 / 4`                                                                                 | ACTIVATION 的归属排除是本批                                                           |
+| §7.1 未写：按下点距轴底不足 16                                  | 单击与拖拽都不建                                                                            | 「钳 ≥ 16」与「底不出轴底」不可同时满足                                               |
+| §7.1 未写：创建是否量化网格                                     | 不量化                                                                                      | 恒宽条的网格量化无意义                                                                |
+| §3.5 未写：缩放吸附                                             | 只沿纵轴（新增探针 `resizeAxis()`）                                                         | 条的东西沿距生命线中心参考线恰一个 `LINE_END_GAP`，横向参与吸附会常亮竖参考线却吸不上 |
