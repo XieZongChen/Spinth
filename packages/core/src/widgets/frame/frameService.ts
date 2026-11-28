@@ -2,6 +2,7 @@ import { DragCreateServiceBase } from '../base/dragCreateServiceBase';
 import { genId } from '../../utils/id';
 import { isTreeWidgetType } from '../../types';
 import type {
+  FrameData,
   IDataEngineService,
   IEditingService,
   IFrameLookup,
@@ -70,6 +71,12 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
     this.inBatchTransaction = false;
   };
 
+  /** 创建预设（specs/sequence-diagram §6.1）：每次 createWidget 合并它的返回值（键
+   *  覆盖缺省）。缺省 null = 容器工具行为不变。时序图的组合片段经 SequenceService
+   *  注入——本服务的 handlers 与容器工具共用同一对象，注入方负责逐事件刷新、离开
+   *  片段种类 / 离开时序图工具时清空 */
+  createPreset: (() => Partial<FrameData>) | null = null;
+
   /** 基类构造是 protected（模板基类不直接实例化）——子类显式公开（SymbolService 同款） */
   constructor(
     viewport: IViewportService,
@@ -106,7 +113,7 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
   override createWidget(x: number, y: number, width: number, height: number): string {
     const id = genId();
     // 样式缺省走 schema parse（title ''/borderStyle solid/color 缺省白——老文档
-    // 零迁移口径），只写类型/层级/几何/显式底色
+    // 零迁移口径），只写类型/层级/几何/显式底色；预设（片段等）的键覆盖其上
     this.engine.add({
       id,
       type: 'FRAME',
@@ -116,6 +123,7 @@ export class FrameService extends DragCreateServiceBase implements IFrameLookup 
       y,
       width,
       height,
+      ...this.createPreset?.(),
     } as never);
     return id;
   }

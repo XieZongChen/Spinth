@@ -129,6 +129,52 @@ describe('FrameService 创建工具（§4.1）', () => {
     expect('title' in added[0]!).toBe(false);
     expect(FRAME_DEFAULT_SIZE).toEqual({ width: 320, height: 220 });
   });
+
+  it('createPreset：有预设时合并进创建数据（键覆盖缺省）；置回 null 后缺省不变', () => {
+    // 组合片段 = FRAME 预设（specs/sequence-diagram §6.1）：{ title: 关键字, fill: 'none' }
+    const added: Array<Record<string, unknown>> = [];
+    const engine = {
+      add: (w: Record<string, unknown>) => {
+        added.push(w);
+        return { id: String(w.id) };
+      },
+      genInitialOrder: () => 'a0',
+    };
+    const svc = new FrameService(
+      {} as never,
+      engine as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      null,
+    );
+    const create = (x: number, y: number, w: number, h: number): string =>
+      (
+        svc as unknown as { createWidget: (a: number, b: number, c: number, d: number) => string }
+      ).createWidget(x, y, w, h);
+    svc.createPreset = () => ({ title: 'alt', fill: 'none' });
+    create(100, 50, 320, 220);
+    expect(added[0]).toMatchObject({
+      type: 'FRAME',
+      zOrder: 'a0',
+      color: '#ffffff',
+      x: 100,
+      y: 50,
+      width: 320,
+      height: 220,
+      title: 'alt',
+      fill: 'none',
+    });
+    // 每次创建都重新求值（预设可随种类切换）
+    svc.createPreset = () => ({ title: 'loop', fill: 'none' });
+    create(0, 0, 200, 200);
+    expect(added[1]).toMatchObject({ title: 'loop', fill: 'none', x: 0, width: 200 });
+    // 预设清空 = 容器工具行为不变
+    svc.createPreset = null;
+    create(10, 10, 320, 220);
+    expect('title' in added[2]!).toBe(false);
+    expect('fill' in added[2]!).toBe(false);
+  });
 });
 
 describe('isFrame / childIds / expandForCascade（§6.4）', () => {
